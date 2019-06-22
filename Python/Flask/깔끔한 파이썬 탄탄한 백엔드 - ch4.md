@@ -63,7 +63,7 @@ HOST : google.com
   - 해당 요청이 받을 수 있는 응답(response) body 데이터 타입을 알려주는 헤더
   - MIME(Multipurpose Internet Mail Extensions) type이 value로 지정된다.
   - JSON 데이터 타입을 요쳥하는 경우는 application/json MIME type을 value로 지정
-  - 모든 데이터 타입을 다 허용해주는 경우는 *&#47*
+  - 모든 데이터 타입을 다 허용해주는 경우는 * / *
 - Connection
   - 해당 요청이 끝난 후에 서버가 계속해서 네트워크 연결을 유지할 것인지 말 것인지를 알려주는 헤더
   - keep-alive
@@ -221,5 +221,8 @@ POST /graphql
 }
 ```
 
+-------
 
+- Reference [깔끔한 파이썬 탄탄한 백엔드](http://www.yes24.com/Product/goods/68713424)
+- 모든 코드는 [저자의 깃허브에](https://github.com/rampart81/python-backend-book) 공개되어 있습니다
 

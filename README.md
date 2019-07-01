@@ -2,6 +2,7 @@
 
 ## Folder Structure
 ```
+├── Algorithm
 ├── python
 
 ```

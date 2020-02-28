@@ -25,7 +25,7 @@ $ top
     
     
 - TIME+
-    - CPU 시가느올 실제로 CPU를 사용한 시간을 나타낸다 
+    - CPU 시간으로 실제로 CPU를 사용한 시간을 나타낸다 
     - 분:초 또는 시:분:초 형식으로 나온다
     
     
@@ -58,3 +58,6 @@ $ sudo kill "PID" "PID" "PID" "PID"
 - load average >= CPU 코어수 : 과부하 상태
 - CPU 사용률과 CPU 시간 양쪽이 큰 프로세스는 과부하 원인의 가능성이 높다
 - 과부하 원인인 프로세스는 Kill 명령어로 종료한다
+
+### Reference
+    - [만화로 배우는 리눅스 시스템 관리](http://www.yes24.com/Product/Goods/32402055?Acode=101)

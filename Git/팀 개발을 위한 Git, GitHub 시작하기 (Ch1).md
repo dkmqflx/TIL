@@ -68,3 +68,6 @@ $ git pull origin master
 - Add .gitignore
     - 작업할 때 굳이 Github에 올릴 필요가 없는 파일들이 있다
     - 이 옵션에서 선택한 항목에 따라 Github에 올리지 않기를 바라는 파일이 자동으로 목록에 추가 된다
+
+## Refernece
+- [팀 개발을 위한 Git, GitHub 시작하기](http://www.hanbit.co.kr/store/books/look.php?p_code=B5159933380)

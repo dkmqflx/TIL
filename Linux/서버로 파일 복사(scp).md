@@ -39,3 +39,11 @@ scp /home/me/ex1.txt aaa@123.456.789:/home/aaa/
 $ scp one@server1:/data/file two@server2:/data2/file2
 # 복사 원본 서버명과 서버 경로       복사 대상 서버명과 서버 경로
 ```
+
+- scp는 복사 원본이나 복사 대상에 다른 컴퓨터 파일을 지정하는 것 이외에는 cp와 다르지 않다
+```
+$ cp ./file.txt /tmp/
+
+```
+### Reference
+  - [만화로 배우는 리눅스 시스템 관리](http://www.yes24.com/Product/Goods/32402055?Acode=101)

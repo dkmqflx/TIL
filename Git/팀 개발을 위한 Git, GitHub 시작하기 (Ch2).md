@@ -28,3 +28,6 @@ $ git remote add origin "원격 저장소 주소" # origin이라는 이름으로
     4. 수정됨(modified) : 커밋된 파일을 수정한 경우 modified로 파일 상태가 변한다 
     - 파일 상태가 '수정 없음'인 파일은 변경사항이 없기 때문에 스테이지로 올릴 수 없다
     - 하지만 untracked 또는 modified 파일을 스테이지에 올리면 수정 없음 파일은 add 하지 않았지만 변경사항이 없기 때문에 같이 스테이지에 올라가게 된다
+    
+## Refernece
+- [팀 개발을 위한 Git, GitHub 시작하기](http://www.hanbit.co.kr/store/books/look.php?p_code=B5159933380)

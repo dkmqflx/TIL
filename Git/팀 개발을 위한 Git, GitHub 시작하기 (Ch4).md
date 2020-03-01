@@ -39,7 +39,7 @@
 
 - 포크한 원격저장소에서 원본 저장소로 풀 리퀘스트를 보내서 코드를 합칠 수 있다
     - New pull request
-
+    ![pull_request](https://user-images.githubusercontent.com/42763164/75621960-58dd8000-5bde-11ea-9d4f-00ae20fc1b8d.JPG)
 
 - A라는 사용자가 B라는 사용자의 원격저장소를 포크한 다음 풀 리퀘스트를 보낸다
     - 그러면 B 사용자는 원본 저장소의 insight tab에서 누가 풀 리퀘스트 요청을 보냈는지 확인할 수 있다
@@ -50,6 +50,7 @@
             - Comment : 그냥 댓글 달기
             - Approve : 댓글 달고 바로 병합해도 될 것 같을 때
             - Request changes : 수정 요청하고 싶을 때
+            ![file_changed](https://user-images.githubusercontent.com/42763164/75621953-42372900-5bde-11ea-9cdc-81909eae5221.JPG)
     - Review 후에 풀 리퀘스트 하단에 댓글처럼 보여진다
     - 그 다음 Merge pull request 버튼을 눌러 풀 리퀘스트를 병합한다. 이는 원본 저장소 주인만 할 수 있다 .
     - 작업이 끝난 후 Code 탭에서 변경사항을 확인할 수 있다

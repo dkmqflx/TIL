@@ -1,11 +1,12 @@
 
 ## Ch18. 같은 내용의 줄을 세어보는 방법(Sort, uniq)
 
-- 적절하지 않은 줄을 제외하고 필요한 줄만 집계 대상으로 삼음
-- 로그 각 줄에서 접속한 페이지 경로를 추출
-- 경로 등장 횟수를 카운트
-- 등장 횟수로 경로를 재정렬
-- 상위와 하위 항목을 추출
+- 아래와 같은 순서로 진행하는 명령어를 실행하고 싶을 때 
+    - 적절하지 않은 줄을 제외하고 필요한 줄만 집계 대상으로 삼음
+    - 로그 각 줄에서 접속한 페이지 경로를 추출
+    - 경로 등장 횟수를 카운트
+    - 등장 횟수로 경로를 재정렬
+    - 상위와 하위 항목을 추출
 
 - 파일 내용 출력
     - cat /var/log/apache2/access.log 
@@ -16,13 +17,15 @@
 
 
 ```
+#  적절하지 않은 줄을 제외하고 필요한 줄만 집계 대상으로 삼음
+
 $ cat /var/log/apache2/access.log | grep -v "/live" | cut -d " " -f 7
 ```
 
 <hr>
 
 - sort
-    - 입력된 내용을 아파벳 순서로 재정렬하는 명령어
+    - 입력된 내용을 알파벳 순서로 재정렬하는 명령어
     - 보통 오름차순으로 정렬되지만 --reverse(-r) 옵션을 사용하면 내림차순 정렬이 된다 
  
 - uniq
@@ -49,6 +52,11 @@ log =/var/log/apache2/access.log
 count = 10
 
 echo="접속자 수가 많은 ${count}개 페이지"
-$ cat /var/log/apache2/access.log | grep -v "/live" | cut -d " " -f 7 |sort | uniq -c | sort -r | head -n $count
+$ cat $log | grep -v "/live" | cut -d " " -f 7 |sort | uniq -c | sort -r | head -n $count
 
 ```
+
+
+### Reference
+
+  - [만화로 배우는 리눅스 시스템 관리](http://www.yes24.com/Product/Goods/32402055?Acode=101)

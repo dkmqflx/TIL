@@ -20,6 +20,8 @@
     - 공용으로 사용하는 브랜치에서 강제 푸시를 하면 다른 사람의 커밋 히스토리가 엉망으로 꼬일 수 있다
     - 이미 커밋을 원격 저장소에 푸시한 다음 다시 마지맛 커밋 정정을 하면 로컬저장소의 커밋은 변경되지만 원격 저장소는 변경 사항이 반영되지 않기 때문에 master와 origin master가 각각 다른 브랜치로 존재한다
     - 이 때 강제 푸시를 하게 되면 master와 origin master가 같은 브랜치로 존재하게 된다
+    - ![ch5_ammend](https://user-images.githubusercontent.com/42763164/75671803-c367ec00-5cc2-11ea-827b-40856ee4f973.jpg)
+
 
 
 
@@ -29,9 +31,12 @@
     - 다른 브랜치의 커밋 하나만 내 브랜치에 반영하는 방법
         - feat/a의 두번째 커밋을 가져와 feat/b의 브랜치에 반영하고 싶을 때
         - feat/a 브랜치와 병합하면 첫번째 커밋과 세번째 커밋까지 브랜치에 반영이 되므로 이 상황을 피하고 싶을 때 체리픽을 사용한다
+        - ![cherrypick1](https://user-images.githubusercontent.com/42763164/75671592-59e7dd80-5cc2-11ea-95b3-45fb27326ea9.JPG)
+        
+        
         - 체리픽이 성공하고 난 후에 feat/b의 두번째 커밋과 feat/a의 두번째 커밋은 커밋 ID가 서로 다르다는 것을 확인할 수 있다
         - 이를 통해서 변경사항을 복사해 왔지만 서로 같은 커밋은 아니라는 것을 알 수 있다
-
+        - ![cherrypick2](https://user-images.githubusercontent.com/42763164/75671597-5bb1a100-5cc2-11ea-89cb-c99d05ff4d18.JPG)
 
 
 
@@ -40,7 +45,8 @@
 - reset
     - 옛날 커밋으로 브랜치를 되돌리는 방법
     - 소스트리 기준 되돌리고 싶은 커밋 - [오른쪽 버튼 - 이 커밋까지 현재 브랜치를 초기화] 한다 
-    - [Mixed]모드 
+    - [Mixed]모드
+        - ![reset1](https://user-images.githubusercontent.com/42763164/75671610-5fddbe80-5cc2-11ea-96ff-a447666dbe94.JPG)
         - 작업 상태는 그대로 주지만 인덱스는 리셋
         - 두번째 커밋 - 체리픽에서 추가했던 [cherrypick.md]변경 사항이 스테이지 아래로 튕겨 나온 것을 확인
         - 변경사항을 스테이지 아래로 두어서 다시 무엇을 스테이지 위로 Add할지 고민할 수 있다
@@ -50,9 +56,13 @@
         - [mixed]모드와 달리 [soft]모드는 변경 사항을 스테이지 위로 둬서 변경사항을 스테이지 위로 둬서 다시 당장커밋할 수 있다
         
     - [Hard]모드 
+    -   
         -  모든 작업 상태 내 변경 사항을 버림. 지금 작업 공간에 상관없이, 예를들어 몇개의 커밋을 추가했던지 간에 상관없이 깔끔하게 히스토리를 되돌린다
         - 두번째 커밋 까지 hard 모드로 reset
+        - ![reset15](https://user-images.githubusercontent.com/42763164/75672061-45f0ab80-5cc3-11ea-91fd-50ba81e51ae1.jpg)
+        
         - feat/b 기능 추가 커밋 까지 hard 모드로 reset
+        - ![reset2](https://user-images.githubusercontent.com/42763164/75671613-61a78200-5cc2-11ea-8ec9-7f175367c975.JPG)
 
 - feat/b 브랜치는 과거로 돌아간 것을 확인할 수 있지만 아직 원격 브랜치인 origin/feat/b 에는 두번째 커밋이 남아 있다
 - reset한 다음 원격 브랜치에도 반영하기 위해서는 푸시해야 한다
@@ -66,10 +76,12 @@
     - 이 커밋의 변경사항을 되돌리는 새로운 커밋을 만든다
     - reset은 커밋을 마치 없었던 것 처럼 되돌리는 방법이다.
     - 하지만 모두가 함께 쓰는 브랜치이기 때문에 이력관리가 중요하다면 변경사항을 되돌리는 새로운 커밋을 만드는 것이 더 좋다
-    
+    - ![revert1](https://user-images.githubusercontent.com/42763164/75671617-62d8af00-5cc2-11ea-9feb-70d9234e3e84.JPG)
     - 되돌리고 싶은 커밋 - [마우스 오른쪽 버튼 - 커밋 되돌리기]
     - 이 Revert 커밋은 방금한 커밋만이 아니라 이전에 한 커밋도 얼마든지 되돌릴 수 있다
     - '사이트 제목 삭제'를 명시적으로 되돌리는 커밋인 'Revert "사이트 제목 삭제"' 커밋이 만들어 졌다
+    - ![revert2](https://user-images.githubusercontent.com/42763164/75671621-64a27280-5cc2-11ea-810b-81bb96bc9f55.JPG)
+
 
 <hr>
 

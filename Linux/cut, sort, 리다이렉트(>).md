@@ -9,7 +9,8 @@
     - 결과를 파일로 출력하기
 
 
-- cut은 일부 열만 추출하는 것 뿐만아니라 일부 열을 제거하는 것도 가능하다 
+- cut은 일부 열만 추출하는 것 뿐만아니라 일부 열을 제거하는 것도 가능하다
+- csv 파일은 구분자 콤마를 써서 줄의 내용을 필드 단위로 나눈 텍스트 파일
 
 ```
 $ itmes.csv cut -d "," -f 3
@@ -30,7 +31,7 @@ $ items.csv cut -d "," -f 1-3
 - sort  -t               ","  -k   3
 
 ```
-# sort는 단순정렬한다. 예를 들어 아래와 같은 경우 첫 글지로 재배치 한 다음 두번째 글자로 재배치 한다 
+# sort는 단순정렬한다. 예를 들어 아래와 같은 경우 첫 글자로 재배치 한 다음 두번째 글자로 재배치 한다 
 1, ubuntu
 2, Debian
 11, Fedora
@@ -42,7 +43,8 @@ $ items.csv cut -d "," -f 1-3
 11, Fedora
 2, Debian
 
-# 따라서 --number(-n) 옵션 사용한다 
+# 따라서 --number(-n) 옵션 사용한다
+# -n 옵션을 사용하면 숫자로 해석해서 값의 크기로 재정렬한다 
 
 $ cat items.csv |cut -d "," -f 1-3"| sort -t "," -k 3 -n |less
 
@@ -90,3 +92,6 @@ $ echo "12345" >> ./items-sorted.csv
 
 
 ```
+
+### Reference
+  - [만화로 배우는 리눅스 시스템 관리](http://www.yes24.com/Product/Goods/32402055?Acode=101)

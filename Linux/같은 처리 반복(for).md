@@ -16,6 +16,7 @@ for filename in redmine.log \
                 download.log
 do
     ./create-report.sh $filename
+done
 ```
 
 - for 반복문 안에서 명령어 치환을 사용할 수 있다
@@ -31,4 +32,11 @@ for filename in cd /var/log; ls *.log | grep -v error.log
 
 ```
 for file in data log script; do echo $file; done
+do
+    ./create-report.sh $filename
+done
 ```
+
+## Reference
+
+  - [만화로 배우는 리눅스 시스템 관리](http://www.yes24.com/Product/Goods/32402055?Acode=101)

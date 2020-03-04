@@ -44,6 +44,7 @@ $ crontab -e
 
 # cronjob 설정을 편집할 수 있다
 # cronjob은 사용자마다 저장되므로 crontab은 명령어를 실행한 사용자의 cronjob만 처리한다 
+# 특별한 권한이 필요한 처리가 아니라면 안전하게 root 권한이 없는 일반 사용자 cronjob을 쓰는게 원칙이다 
 
 $ 45 11 * * 1 /home/usr/scripts/analyze.sh > /tmp/result_$(date +%y-%m-%d).txt # 실행 결과 파일로 출력 
 # 셸 스크립트를 실행할 때는 홈 디렉터리에서의 상대 경로나 절대경로를 사용해야 한다 
@@ -56,7 +57,7 @@ $ 22 12 * * 1 /home/usr/scripts/analyze.sh > /tmp/result_$(date +%y-%m-%d).txt
 ```
 
 ```
-# 실행 결과를 자신의 메일 주소로 봰는 방법
+# 실행 결과를 자신의 메일 주소로 받는 방법
 # cronjob의 실행결과를 자신의 메일 주소로 보낼 수 있다 
 # 이 경우 MTA를 설정해 두어야 한다 
 
@@ -65,3 +66,6 @@ $ 45 11 * * 1 /home/usr/scripts/analyze.sh > /tmp/result_$(date +%y-%m-%d).txt #
 
 
 ```
+
+### Reference
+  - [만화로 배우는 리눅스 시스템 관리](http://www.yes24.com/Product/Goods/32402055?Acode=101)

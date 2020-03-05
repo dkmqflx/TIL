@@ -175,6 +175,8 @@ $ git merge feature1 # 빨리감기 병합
     - 단점 : 여러번 충돌이 발생할 수 있음
 
 <HR>
+![rebase](https://user-images.githubusercontent.com/42763164/75947543-0bb22480-5ee4-11ea-83d3-7d2eafc8e324.JPG)
+
 
 - 위 사진처럼 master 브랜치만 사용했는데도 뻗어나오는 가지가 생기는 경우가 있다
 - 보통 이런 상황은 두 대의 PC에서 한 브랜치에 작업을 하는 경우 생긴다

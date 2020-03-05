@@ -175,6 +175,8 @@ $ git merge feature1 # 빨리감기 병합
     - 단점 : 여러번 충돌이 발생할 수 있음
 
 <HR>
+ 
+ 
 ![rebase](https://user-images.githubusercontent.com/42763164/75947543-0bb22480-5ee4-11ea-83d3-7d2eafc8e324.JPG)
 
 

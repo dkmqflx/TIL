@@ -45,8 +45,8 @@ lst = [5,3,31,1,2,4,10,29,40,23,11]
 
 
 ```python
-for i in range(len(lst)-1):
-    for j in range((len(lst)-1)-i):
+for i in range(len(lst)-1): # n개 원소 있으면 최대 비교 횟수는 n-1번, index 위치 때문에 len(lst)-1 해준다 
+    for j in range((len(lst)-1)-i): # 반복할 때 마다 각 원소의 위치가 정해지기 때문에 비교횟수는 점점 더 작아진다 
         if lst[j] > lst[j+1]:
             temp = lst[j+1]
             lst[j+1] = lst[j]

@@ -3,6 +3,7 @@
 ## Folder Structure
 ```
 ├── Algorithm
+├── Git
 ├── Linux
 ├── python
 

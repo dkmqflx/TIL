@@ -7,4 +7,5 @@
 - [웹팩 핸드북](https://joshua1988.github.io/webpack-guide/guide.html)
 - [웹팩(Webpack) 최소설정으로 프론트엔드 개발 환경 만들기](https://www.youtube.com/watch?v=rbmUFHZt3sg)
 - [웹팩 실전 강좌](https://www.youtube.com/watch?v=KHGYK0XxZY4)
+- [webpack 프론트엔드 필수 개발환경 셋팅 - HTML + CSS + JS + 이미지](https://www.youtube.com/watch?v=zal9HVgrMaQ&list=PLGk6-UFPJT2WxdDWP6O5bq-ceXufBpXxP&index=7)
 

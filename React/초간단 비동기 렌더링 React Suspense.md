@@ -287,3 +287,5 @@ function ProfilePage() {
 - [Suspense for Data Fetching (Experimental)](https://17.reactjs.org/docs/concurrent-mode-suspense.html)
 - [React 18을 준비하세요.](https://medium.com/naver-place-dev/react-18%EC%9D%84-%EC%A4%80%EB%B9%84%ED%95%98%EC%84%B8%EC%9A%94-8603c36ddb25)
 - [React의 setState를 async 함수 안에서 사용하면 일어나는 일](https://dkmqflx.github.io/frontend/2021/04/28/react-async-setState/)
+- [사용자 경험 개선 1편 - react suspense](https://tecoble.techcourse.co.kr/post/2021-07-11-suspense/)
+- [React Suspense 이해하기](https://developer-alle.tistory.com/428)

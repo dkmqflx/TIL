@@ -9,6 +9,7 @@
 - [웹팩 실전 강좌](https://www.youtube.com/watch?v=KHGYK0XxZY4)
 - [webpack 프론트엔드 필수 개발환경 셋팅 - HTML + CSS + JS + 이미지](https://www.youtube.com/watch?v=zal9HVgrMaQ&list=PLGk6-UFPJT2WxdDWP6O5bq-ceXufBpXxP&index=7)
 - [react-withou-cra-zerocho](https://github.com/dkmqflx/react-without-cra-zerocho)
+- [React TypeScript Webpack - Setup From Scratch](https://github.com/dkmqflx/react-typescript-webpack-codevolution)
 
 ### Babel
 - [자바스크립트 Babel 튜토리얼](https://github.com/dkmqflx/babel-onemin-coding-tutorial)

@@ -19,6 +19,7 @@
 - [React Router v5 → v6 빠르게 훑어보기](https://github.com/dkmqflx/TIL/blob/master/React/React%20Router%20v5%20%E2%86%92%20v6%20%EB%B9%A0%EB%A5%B4%EA%B2%8C%20%ED%9B%91%EC%96%B4%EB%B3%B4%EA%B8%B0.md)
 
 ### React Query
+- [React Query Tutorial - codevolution](https://github.com/dkmqflx/react-query-codevolution)
 - [React Query와 상태관리 :: 2월 우아한테크세미나](https://github.com/dkmqflx/react-query-wooahan-tech)
 
 ### Recoil

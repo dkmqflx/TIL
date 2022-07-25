@@ -39,3 +39,6 @@
 
 - [타입스크립트 + 객체지향 프로그래밍 마스터 과정](https://github.com/dkmqflx/typescript-dreamcoding)
 - [Typescript로 블록체인 만들기](https://github.com/dkmqflx/typescript-blockchain-nomadcoder)
+
+### Next.js
+- [Next.js Tutorial for Beginners](https://github.com/dkmqflx/nextjs-tutorial-codevolution)

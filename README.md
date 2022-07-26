@@ -43,6 +43,9 @@
 ### Next.js
 - [Next.js Tutorial for Beginners](https://github.com/dkmqflx/nextjs-tutorial-codevolution)
 
+### Gatsby.js
+- [React 기반 Gatsby로 기술 블로그 개발하기](https://github.com/dkmqflx/gatsby-blog-practice)
+
 ### CS
 - [동적타입언어와 정적타입언어의 차이점](https://github.com/dkmqflx/TIL/blob/master/CS/%EB%8F%99%EC%A0%81%ED%83%80%EC%9E%85%EC%96%B8%EC%96%B4%EC%99%80%20%EC%A0%95%EC%A0%81%ED%83%80%EC%9E%85%EC%96%B8%EC%96%B4%EC%9D%98%20%EC%B0%A8%EC%9D%B4%EC%A0%90.md)
 

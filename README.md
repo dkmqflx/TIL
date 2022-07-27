@@ -40,6 +40,9 @@
 - [타입스크립트 + 객체지향 프로그래밍 마스터 과정](https://github.com/dkmqflx/typescript-dreamcoding)
 - [Typescript로 블록체인 만들기](https://github.com/dkmqflx/typescript-blockchain-nomadcoder)
 
+### JavaScript
+- [JavaScript immutability - 생활코딩](https://github.com/dkmqflx/TIL/blob/master/JavaScript/JavaScript%20immutability%20-%20%EC%83%9D%ED%99%9C%EC%BD%94%EB%94%A9.md)
+
 ### Next.js
 - [Next.js Tutorial for Beginners](https://github.com/dkmqflx/nextjs-tutorial-codevolution)
 
@@ -48,5 +51,8 @@
 
 ### CS
 - [동적타입언어와 정적타입언어의 차이점](https://github.com/dkmqflx/TIL/blob/master/CS/%EB%8F%99%EC%A0%81%ED%83%80%EC%9E%85%EC%96%B8%EC%96%B4%EC%99%80%20%EC%A0%95%EC%A0%81%ED%83%80%EC%9E%85%EC%96%B8%EC%96%B4%EC%9D%98%20%EC%B0%A8%EC%9D%B4%EC%A0%90.md)
+
+### Debugging
+- [콘솔 로그 제대로 쓰고 있을까?](https://github.com/dkmqflx/TIL/blob/master/Debugging/%EC%BD%98%EC%86%94%20%EB%A1%9C%EA%B7%B8%20%EC%A0%9C%EB%8C%80%EB%A1%9C%20%EC%93%B0%EA%B3%A0%20%EC%9E%88%EC%9D%84%EA%B9%8C%3F.md)
 
 

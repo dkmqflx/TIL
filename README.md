@@ -29,7 +29,7 @@
 ### React Query
 
 - [React Query Tutorial - codevolution](https://github.com/dkmqflx/react-query-codevolution)
-- [React Query와 상태관리 :: 2월 우아한테크세미나](https://github.com/dkmqflx/react-query-wooahan-tech)
+- [React Query와 상태관리 :: 2월 우아한테크세미나](https://github.com/dkmqflx/TIL/tree/master/React/React%20Query%EC%99%80%20%EC%83%81%ED%83%9C%EA%B4%80%EB%A6%AC%20::%202%EC%9B%94%20%EC%9A%B0%EC%95%84%ED%95%9C%ED%85%8C%ED%81%AC%EC%84%B8%EB%AF%B8%EB%82%98)
 
 ### Recoil
 

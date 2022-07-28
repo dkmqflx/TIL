@@ -55,4 +55,5 @@
 ### Debugging
 - [콘솔 로그 제대로 쓰고 있을까?](https://github.com/dkmqflx/TIL/blob/master/Debugging/%EC%BD%98%EC%86%94%20%EB%A1%9C%EA%B7%B8%20%EC%A0%9C%EB%8C%80%EB%A1%9C%20%EC%93%B0%EA%B3%A0%20%EC%9E%88%EC%9D%84%EA%B9%8C%3F.md)
 
-
+### Etc
+- [CD 5분 개념 정리 (현업에서 쓰는 개발 프로세스)](https://github.com/dkmqflx/TIL/blob/master/Etc/CD%205%EB%B6%84%20%EA%B0%9C%EB%85%90%20%EC%A0%95%EB%A6%AC%20(%ED%98%84%EC%97%85%EC%97%90%EC%84%9C%20%EC%93%B0%EB%8A%94%20%EA%B0%9C%EB%B0%9C%20%ED%94%84%EB%A1%9C%EC%84%B8%EC%8A%A4).md)

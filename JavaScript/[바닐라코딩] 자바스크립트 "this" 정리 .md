@@ -1,12 +1,3 @@
----
-layout: post
-title: 'Javascript의 this'
-subtitle: 'javascript this'
-categories: frontend
-tags: javascript
-comments: true
----
-
 - Javascript의 함수 호출에 따라 결정되는 this에 대해서 정리한 글입니다.
 
 ---

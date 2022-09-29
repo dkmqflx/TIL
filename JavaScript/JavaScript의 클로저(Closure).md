@@ -1,12 +1,3 @@
----
-layout: post
-title: 'JavaScript의 클로저(Closure)'
-subtitle: 'closure'
-categories: frontend
-tags: javascript
-comments: true
----
-
 - 자바스크립트의 클로저(Closure)에 대해서 정리한 글 입니다.
 
 ---

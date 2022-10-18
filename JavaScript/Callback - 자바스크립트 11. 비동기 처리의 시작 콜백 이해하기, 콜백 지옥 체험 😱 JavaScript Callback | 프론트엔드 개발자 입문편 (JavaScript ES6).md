@@ -1,16 +1,3 @@
----
-layout: post
-title: 'Javascript의 콜백(Callback) 함수 '
-subtitle: 'javascript callback'
-categories: frontend
-tags: javascript
-comments: true
----
-
-- Javascript의 콜백 함수(Callback Function)에 대해서 정리한 글입니다
-
----
-
 - 자바스크립트는 싱글 스레드(Single Thread) 프로그래밍 언어이기 때문에 하나의 콜 스택(Call Stack)을 가집니다. 하나의 콜 스택을 가진다는 말은 한번에 하나의 작업만 수행할 수 있으므로 동기적(Synchronous)으로 코드가 실행된다는 뜻입니다.
 
 - 동기적으로 코드가 실행될 때는 다음과 같은 단점이 있습니다.

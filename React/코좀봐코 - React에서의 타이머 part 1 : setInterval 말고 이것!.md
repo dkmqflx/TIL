@@ -90,8 +90,8 @@ import { useState, useEffect, useRef } from 'react';
 function Counter() {
   const [count, setCount] = useState(0);
 
-  useEffect(() => {
-    useInterval(count + 1);
+  useInterval(() => {
+    setCount(count + 1);
   }, 1000);
 
   return <h1>{count}</h1>;

@@ -131,3 +131,4 @@ export function useInterval(callback, delay) {
 - [코좀봐코 - React에서의 타이머 part 1 : setInterval 말고 이것!](https://www.youtube.com/watch?v=2tUdyY5uBSw&t=28)
 - [React에서 카운트 다운 타이머 구현](https://class.codejong.kr/t/react/371)
 - [Making setInterval Declarative with React Hooks](https://overreacted.io/making-setinterval-declarative-with-react-hooks/)
+- [React 에서 useEffect의 return 호출 조건이 이해가 안됩니다!](https://jsdev.kr/t/react-useeffect-return/5676)

@@ -1,16 +1,3 @@
----
-layout: post
-title: 'JavaScript에서 정렬 순서를 정의하는 함수를 sort 함수의 parameter로 전달해서 정렬하는 방법'
-subtitle: 'javascript sort paramter'
-categories: frontend
-tags: javascript
-comments: true
----
-
-- JavaScript에서 정렬 순서를 정의하는 함수를 sort 함수의 parameter로 전달해서 정렬하는 방법에 대해 정리한 글입니다.
-
----
-
 - 다음과 같이 배열 안의 객체가 있을 때, 각각의 객체의 값을 기준으로 정렬할 수 있다
 
 ```javascript

@@ -1,16 +1,3 @@
----
-layout: post
-title: 'Javascript의 AJAX와 JSON '
-subtitle: 'javascript json'
-categories: frontend
-tags: javascript
-comments: true
----
-
-- Javascript의 AJAX와 JSON에 대해서 정리한 글입니다
-
----
-
 ### [HTTP (Hypertext Transfer Protocol)](https://developer.mozilla.org/en-US/docs/Web/HTTP)
 
 - HTTP는 클라이언트가 어떻게 서버와 통신할 수 있는지를 정의한 통신규약입니다

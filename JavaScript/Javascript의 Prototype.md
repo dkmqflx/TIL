@@ -183,7 +183,7 @@ console.log(person.married); // undefined
      function Person() {} //  생성자 함수
      ```
 
-     <img src="https://github.com/ibtg/ibtg.github.io/blob/master/assets/img/post_img/2021-01-18-prototype1.png.png?raw=true">
+     <img src="./images/2021-01-18-prototype1.png">
 
      - 그리고 생성된 함수는 `prototype`이라는 속성을 통해 프로토타입 객체에 접근할 수 있다.
 
@@ -278,7 +278,7 @@ console.dir(foo); // prototype 프로퍼티가 없고 __proto__ 만 있다.
 
 - Person 생성자 함수 Person 프로토타입 객체, 그리고 Person 생성자 함수로 만들어진 객체의 관계를 다음과 같이 나타낼 수 있다
 
-  <img src="https://github.com/ibtg/ibtg.github.io/blob/master/assets/img/post_img/2021-01-18-prototype2.png.png?raw=true">
+  <img src="./images/2021-01-18-prototype2.png">
 
 - Person 생성자 함수로 만들어진 kim객체가 eyes를 직접 가지고 있지 않기 때문에 eyes 속성을 찾을 때 까지 프로토타입 링크를 통해서 상위 프로토타입을 탐색한다.
 
@@ -288,7 +288,7 @@ console.dir(foo); // prototype 프로퍼티가 없고 __proto__ 만 있다.
 
 - 이러한 프로토타입 체인 구조 때문에 모든 객체는 Object의 자식이라고 불리고, Object 프로토타입 객체에 있는 모든 속성을 사용할 수 있다.
 
-  <img src="https://github.com/ibtg/ibtg.github.io/blob/master/assets/img/post_img/2021-01-18-prototype3.png.png?raw=true">
+  <img src="./images/2021-01-18-prototype3.png">
 
 - 예를 들어 다음과 같은 코드에서 보면 student 객체에는 hasOwnProperty라는 메소드가 정의되어 있지만 student객체의 프로토타입 링크를 통해 참조할 수 있는 Object 프로토타입 객체에는 hasOwnProperty 함수가 있기 때문에 다음과 같이 정상적으로 작동하는 것이다
 

@@ -267,6 +267,15 @@ const obj2 = {
     console.log(this.name);
   },
 };
+
+const obj3 = {
+  name: 'n3',
+  method:()=> {
+    console.log(this.name);
+  },
+};
+
+
 ```
 
 - 기존 방식 obj1과 메서드 축약형을 쓴 obj2를 가지고 한 번 비교를 해보면.
@@ -282,6 +291,7 @@ const obj2 = {
 ```javascript
 obj1.method();
 obj2.method();
+obj3.method(); // undefined, 화살표 함수의 경우, 렉시컬 스코프에 따라 상위 스코프에서 this를 찾는데, 외부에 name이라는 값이 없기 때문에  undefined가 출력된다
 ```
 
 - 그러면 둘 다 n1, n2 잘 나오고 있는게 확인이 된다.

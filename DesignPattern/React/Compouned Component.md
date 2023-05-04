@@ -1,13 +1,19 @@
 ## Compound Component Pattern
 
 - 컴파운드 컴포넌트는 컴포넌트를 만드는 패턴 중 하나로,
-- 이 패턴을 사용하면 불필요한?프롭 드릴링(prop drilling)?없이?**표현적(expressive)이고 선언적인(declarative) 컴포넌트**
-  를 만들 수 있다.
+
+- 서브(자식) 컴포넌트들이 메인(부모) 컴포넌트 내부의 상태를 공유하면서 비지니스 로직과 사용자 인터페이스와 관련된 부분을 구분하는 React 패턴이다. 
+
+- 다시 말해, 합성 컴포넌트 패턴은 여러 개의 작은 컴포넌트들이 각각의 역할을 분담하도록 하고 이를 조립하여 하나의 큰 컴포넌트를 만드는 것이라고 할 수 있다.
+
+- 이 패턴을 사용하면 불필요한 Props drilling 없이 **표현적(expressive)이고 선언적인(declarative) 컴포넌트** 를 만들 수 있다.
+
 - 그리고 자식 컴포넌트가 느슨하게 결합되어 있기 때문에 형제 컴포넌트에 영향을 주지 않는다
 
 ### 사용예제
 
 - 우선 아래처럼 메인이 되는 Counter 컴포넌트를 정의해주고, 해당 컴포넌트 안에서 사용할 수 있는 서브 컴포넌트인 Count, Label등을 import 해준다
+
 - 그리고 Counter Provider로 감싸주고 외부에서 서브 컴포넌트를 불러와서 사용할 수 있도록 `Counter.Count = Count` 와 같이 정의해준다
 
 ```jsx
@@ -102,7 +108,9 @@ export { Count };
 ### 장점
 
 - **API?복잡성 감소**
+
   - 하나의 부모 컴포넌트에 모든 props를 집어넣고 하위 UI 컴포넌트로 향해 내려가는 대신
+
   - 각 prop는 가장 적합한 SubComponent 연결되어 있다
 
 ```jsx
@@ -129,7 +137,9 @@ return (
 ```
 
 - **유연한 마크업 구조**
+
   - 컴포넌트의 UI가 뛰어난 유연성을 가지고 있고, 하나의 컴포넌트로부터 다양한 케이스를 생성할 수 있다.
+
   - 예를 들어, 사용자는 SubComponent의 순서를 변경하거나 이 중에서 무엇을 표시할지 정할 수 있다.
 
 ```jsx
@@ -155,7 +165,9 @@ return (
 ```
 
 - **관심사의 분리**
-  - 대부분의 로직은 기본?Counter?컴포넌트에 포함되며,?React.Context는 모든 자식 컴포넌트의?states와?handlers를 공유하는 데 사용된다. 따라서 책임 소재를 명확히 분리할 수 있다.
+
+  - 대부분의 로직은 기본 Counter 컴포넌트에 포함되며, React.Context는 모든 자식 컴포넌트의 states와 handlers를 공유하는 데 사용된다. 따라서 책임 소재를 명확히 분리할 수 있다.
+  
   - 즉, Counter에서 Provider로 감싸주고 value로 비즈니스 로직을 작성해서 전달해주고, 서브 컴포넌트에서는 해당 값들을 사용한다
 
 ```jsx
@@ -202,7 +214,9 @@ Counter.Decrement = Decrement;
 
 - **과도한 UI 유연성**
   - 유연성이 높다는 것은 예기치 않은 동작을 유발할 가능성이 크다는 것을 의미한다.
+
   - 예를 들어, 불필요한 자식 컴포넌트가?존재하거나, 필요한 자식 컴포넌트가 없을 수도 있고,?자식 컴포넌트의 순서가 잘못되어 있을 수 있다.
+
   - 또한, 개발자는 사용자가 컴포넌트를 어떻게 사용하기를 원하는지에 따라, 유연성에 어느 정도 제한을 두고 싶을수도 있다.
 
 ---
@@ -214,3 +228,5 @@ Counter.Decrement = Decrement;
 - [리액트 디자인 패턴 : 컴파운드 컴포넌트 패턴 [Compound Component Pattern] 2](https://itchallenger.tistory.com/710)
 - [alexis-regnaud/**advanced-react-patterns**](https://github.com/alexis-regnaud/advanced-react-patterns/tree/main/src)
 - [합성 컴포넌트로 재사용성 극대화하기](https://fe-developers.kakaoent.com/2022/220731-composition-component/)
+- [이제부터 이 컴포넌트는 제 겁니다](https://fe-developers.kakaoent.com/2022/221110-ioc-pattern/)
+- [디자인 시스템에 Compound Component Pattern 적용해보기](https://iyu88.github.io//react/2023/03/25/react-compound-component-pattern.html)

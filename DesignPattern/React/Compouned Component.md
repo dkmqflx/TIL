@@ -213,3 +213,4 @@ Counter.Decrement = Decrement;
 - [리액트 디자인패턴?: Compound Components (컴파운드 컴포넌트 패턴)](https://itchallenger.tistory.com/266)
 - [리액트 디자인 패턴 : 컴파운드 컴포넌트 패턴 [Compound Component Pattern] 2](https://itchallenger.tistory.com/710)
 - [alexis-regnaud/**advanced-react-patterns**](https://github.com/alexis-regnaud/advanced-react-patterns/tree/main/src)
+- [합성 컴포넌트로 재사용성 극대화하기](https://fe-developers.kakaoent.com/2022/220731-composition-component/)

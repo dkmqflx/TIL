@@ -1,5 +1,21 @@
 ## Observer Pattern
 
+- Observer는 관찰자라는 뜻으로 어떤 상태가 변경되었을 때이 상태의 변경에 관심이 있는 관찰자들에게 알려주는 패턴이다
+
+- 그림에서 보면 것처럼 어떤 상태가 있고, 상태의 변화에 관심을 갖고 있는 4개의 관찰자가 있다
+
+- 상태가 변화되면 각 관찰자에게이 상태가 직접 자신이 변경되었음을 알리는데 필요에 따라서는 변경된 상태에 각도 관찰자에게 전달한다
+
+<img src='./images/observer08.png'>
+
+- 옵저버 패턴은 어떤 상태의 변화에 대한 처리를 위해서 사용된다
+
+- 그리고 상태 변화가 발생하면 상태 변화에 관심을 가지고 있는 객체들
+
+- 즉, 옵저버들에게 상태 변화를 알리고 필요하다면 변경된 상태값도 함께 전달한다
+
+<br/>
+
 - 상태(State)와 상태 관찰하는 관찰자(Observer)라는 개념을 통해
 
 - **상태 변화가 있을 때 각 관찰자가 인지**하도록 하는 디자인 패턴으로 아래 그림과 같이 나타낼 수 있다
@@ -134,6 +150,232 @@ sub.notifyAll();
 // `C: notified from Subject class!`
 ```
 
+### 클래스 다이어그램
+
+- 아래는 옵저버 패턴에 대한 클래스 다이어그램에 한 가지 예시이다
+
+<img src='./images/observer09.png'>
+
+- DiceGame 클래스는 주사위 게임을 나타내는 추상 클래스이다
+
+- DiceGame 클래스는 주사위 게임에 참가하는 Player 클래스 객체를 여러개 추가할 수 있는데
+
+- addPlayer 메서드를 통해서 추가할 수 있다
+
+- DiceGame과 Player 사이의 선을 보면 `*`을 확인할 수 있는데
+
+- 이것을 통해 여러 개의 Player 객체를 DiceGame 객체가 가질 수 있음을 나타낸다
+
+- DiceGame은 주사위를 던지면 즉, play 메서드를 호출하면 주사위의 번호를 게임에 참가한 Player 객체들에게 알린다
+
+- 주사위를 던져서 나온 수가 바로 형태 변화에 대한 값이다
+
+- DiceGame은 추상 클래스인데 파일을 던져서 나온 수를 결정하는 방법을 다양하게 구현하기 위해서 이렇게 추상 클래스로 정의했다
+
+- FairDiceGame 은 DiceGame 클래스를 상속 받는데, FairDiceGame은 주사위를 1부터 6까지 공평하게 나오도록 구현한다
+
+- 그리고 이 UnfairDiceGame 클래스는 공평하게 주사위 번호가 결정되지 않고 특정한 번호가 더 많이 나오는 불공정한 주사위 게임으로 할 수 있다
+
+  - 다만 UnfairDiceGame 클래스는 구현하지 않는다
+
+- Player 클래스 역시 추상 클래스인데 던져서 나온 주사위의 수에 따라서 처리하는 코드를 다양하게 구현하기 위해서 추상 클래스로 정의했다
+
+- Player 클래스를 상속받는 클래스는 OddBettingPlayer, EvenBettingPlayer, NBettingPlayer 클래스이다
+
+- OddBettingPlayer 클래스는 주사위의 수가 홀수가 나왔을 때 반응을 하고
+
+- EvenBettingPlayer 클래스는 주사위의 수가 짝수가 나왔을 때 반응을 하고
+
+- NBettingPlayer 클래스는 지정된 수에 반응을 한다
+
+### 클래스 다이어그램 구현
+
+- 먼저 Player 추상 클래스를 추가한다
+
+```ts
+// Player.ts
+
+export default abstract class Player {
+  // Player를 구현하는 자식 클래스에서 접근할 수 있도록 protected로 설정
+  protected _winning: boolean = false;
+  // 주사위를 던진 수를 플레이어가 맞추었을 때 true, 틀렸을 때 false가 된다
+
+  // player의 이름에 대한 필드를 가진다
+  constructor(private _name: string) {}
+
+  // 이름을 얻기 위한 프로퍼티
+  get name() {
+    return this._name;
+  }
+
+  // _winning 값을 얻기 위한 프로퍼티
+  get winning() {
+    return this._winning;
+  }
+
+  // 주사위의 값, 즉, 상태 변화에 대해서 플레이어가 어떻게 처리할지에 대한 추상 메소드
+  // diceNumber : 던져서 나온 주사위의 수
+  abstract update(diceNumber: number): void;
+}
+```
+
+- 다음은 DiceGame 추상 클래스이다
+
+```js
+// DiceGame.ts
+
+import Player from './Player'
+
+export default abstract class DiceGame{
+  // 게임이 참가하는 플레이어들을 저장할 수 있는 필드
+  // protected 접근자로 지정해서 자식 클래스에서도 해당 필드에 접근할 수 있도록 했다
+  protected players = new Array<Player>()
+
+  // 플레이어를 추가할 수 있는 메소드
+  addPlayer(player:Player):void{
+    this.players.push(player)
+  }
+
+  // 주사위를 던지는 추상 메서드
+  abstract play():number
+}
+
+```
+
+- 다음은 DiceGame 을 상속받는 FairDiceGame 클래스이다
+
+```js
+// FairDiceGame.ts
+
+import DiceGame from './DiceGame';
+
+export default class FairDiceGame extends DiceGame {
+  // 부모 클래스 정의되어 있는 할 추상 메서드를 구현
+  play(): number {
+    const n = Math.floor(Math.random() * 6) + 1; // 1부터 6까지 변수 얻는다
+
+    // players 필드에 추가된 플레이어 객체들을 하나씩 순회하면서 player의 update 메서드를 호출해주는데
+    // 던져서 나온 주사위의 수 n을 update 메서드의 인자로 넘기고 있다
+
+    this.players.forEach((player) => {
+      player.update(n);
+    });
+
+    // 그리고 마지막으로 주사위의 수를 반환한다
+
+    return n;
+  }
+}
+```
+
+- 이제 Player 추상클래스를 상속받는 OddBettingPlyer 클래스를 추가한다
+
+```ts
+// OddBettingPlayer.ts
+
+import Player from './Player';
+
+export default class OddBettingPlayer extends Player {
+  constructor(name: string) {
+    super(name);
+  }
+  // 부모 클래스에 추상 메서드인인 update 메서드를 추가한다
+  // 홀수 일 때 자신이 이겼으므로 _winning 값을 업데이트 한다
+  update(diceNumber: number): void {
+    this._winning = dicenumber % 2 === 1;
+  }
+}
+```
+
+- 그리고 다음은 EvenettingPlyer 클래스를 추가한다
+
+```ts
+// EvenBettingPlayer.ts
+
+import Player from './Player';
+
+export default class EvenBettingPlayer extends Player {
+  constructor(name: string) {
+    super(name);
+  }
+  // 부모 클래스에 추상 메서드인인 update 메서드를 추가한다
+  // 짝수 일 때 자신이 이겼으므로 _winning 값을 업데이트 한다
+  update(diceNumber: number): void {
+    this._winning = dicenumber % 2 === 0;
+  }
+}
+```
+
+- 다음은 NBettingPlayer 클래스이다
+
+```ts
+// NBettingPlayer.ts
+
+import Player from './Player';
+
+export default class NBettingPlayer extends Player {
+  // ns는 플레이어가 맞출 주사위 번호들
+  constructor(name: string, private ns: Array<number>) {
+    super(name);
+  }
+  // 부모 클래스에 추상 메서드인인 update 메서드를 추가한다
+  // 주사위의 수인 diceNumber가 포함되면 _winning을 true로 한다
+  update(diceNumber: number): void {
+    this._winning = this.ns.includes(diceNumber);
+  }
+}
+```
+
+- 지금까지 작성된 코드를 아래와 같이 사용할 수 있다
+
+```js
+import FairDiceGame from './FairDiceGame';
+import OddBettingPlayer from './OddBettingPlayer';
+import EvenBettingPlayer from './EvenBettingPlayer';
+import NBettingPlayer from './NBettingPlayer';
+
+const diceGame = new FairDiceGame(); // 게임 생성
+
+// 세명의 플레이어 객체 생성
+
+const players = [
+  new OddBettingPlayer('홀수'),
+  new EvenBettingPlayer('짝수'),
+  new NBettingPlayer('직접', [2, 3, 5]),
+];
+
+// 세 플레이어를 diceGame의 참여 플레이어로 추가한다
+players.forEach((player) => diceGame.addPlayer(player));
+
+// 게임이 참여한 플레이어를이 화면에 표시하는 함수
+const updateBoard = () => {
+  const domPlayers = document.querySelector('.players');
+  domPlayers.innerHTML = '';
+
+  players.forEach((player) => {
+    const domPlayer = document.createElement('div');
+    domPlayer.innerText = player.name;
+
+    if (player.winning) domPlayer.classList.add('win');
+
+    domPlayer.append(domPlayer);
+  });
+};
+
+updateBoard(); // 함수 호출해준다
+
+// 주사위 굴리는 이벤트 추가
+
+document.querySelector('button').addEventListener('click', () => {
+  const diceNumber = diceGame.play(); // 주사위 굴린 결과에 해당 하는 수
+
+  const domDice = document.querySelector('.dice') as HTMLElement
+  domDice.innerText = diceNumber.toString()
+
+  updateBoard(); // 화면 업데이트
+});
+```
+
 ### Pub/Sub 모델
 
 - 옵저버 패턴을 이야기할 때 빠지지 않고 등장하는 것으로 발행/구독 (**Pub**lish/**Sub**Scribe) 모델이 있다
@@ -195,5 +437,6 @@ sub.notifyAll();
 - [프론트엔드에 디자인패턴 끼얹기2 - 관찰자 패턴, 발행 구독(observer pattern, pub sub)](https://www.youtube.com/watch?v=aH4U6bfi_Ds&t=20)
 - [디자인패턴, Observer Pattern, 옵저버 패턴](https://www.youtube.com/watch?v=1dwx3REUo34&t=30)
 - [개발자가 알아야할 디자인패턴 | ep3. Observer Pattern | 자바스크립트 옵저버 패턴](https://www.youtube.com/watch?v=1UxRkggQwbs&t=29)
+- [TypeScript로 보는 GoF의 디자인 패턴: 13. Observer](https://www.youtube.com/watch?v=aAA2t9VT-A0&list=PLe6NQuuFBu7H3sFnErshsfgNPE9dOZZrx&index=13)
 - [Observer 패턴](https://patterns-dev-kr.github.io/design-patterns/observer-pattern/)
 - [Observer 패턴 알아보기 (hooks와 observables)](https://www.howdy-mj.me/javascript/observer-pattern)

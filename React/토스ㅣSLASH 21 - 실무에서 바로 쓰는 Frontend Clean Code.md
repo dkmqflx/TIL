@@ -1,17 +1,20 @@
 - 클린 코드 라고 하면 '명확한 이름'과 '중복 줄이기'를 먼저 말하고는 한다
 
-- 실무에서는 외에도 조금 더 섬세하게 코드를 정리하는 스킬이 필요하다
+- 실무에서는 이외에도 조금 더 섬세하게 코드를 정리하는 스킬이 필요하다
 
 1. 실무에서 클린 코드의 의의
+
 2. 안일한 코드 추가의 함정
+
 3. 로직을 빠르게 찾을 수 있는 코드
+
 4. 액션 아이템
 
 ---
 
-### 1. 실무에서 클린 코드의 의의
+## 1. 실무에서 클린 코드의 의의
 
-- 개발자의 자기만족 이상으로 회사 실무에서 클링 코드가 의미 있는 이유는 다음과 같다
+- 개발자의 자기만족 이상으로 회사 실무에서 클린 코드가 의미 있는 이유는 다음과 같다
 
 - 흐름 파악이 어렵고 도메인 맥락에 표현이 안되며 동료에게 물어 봐야 알 수 있는 코드, 즉 지뢰코드가 있다면 이런 코드는 개발할 때 병목이 되고 유지 보수할 때 시간이 오래 걸린다
 
@@ -23,24 +26,23 @@
 
 - 동료 혹은 과거에 내가 짠 코드를 빠르게 이해할 수 있다면 유지 보수할 때 드는 개발 시간이 짧아진다
 
-- 좋은, 깔끔한 코드는 코드 리뷰의 시간과 버그가 났을 때 디버깅 시간도 단축시킬 수 있다
+- 좋고 깔끔한 코드는 코드 리뷰의 시간과 버그가 났을 때 디버깅 시간도 단축시킬 수 있다
 
 - 시간은 자원이며 자원은 곧 돈이다.
 
-- 고치는데 하루 걸리는 코드와 3일 걸리는 코드가 있다면 후자는 개발자가
-  3배 더 필요하다
+- 고치는데 하루 걸리는 코드와 3일 걸리는 코드가 있다면 후자는 개발자가 3배 더 필요하다
 
 - 혹은 우리가 3배 더 일해야한다
 
 - 사실 코드를 처음 설계 하고 새로운 파일에서 짤 때는 깨끗하지만 기존 코드에 기능을 추가하는 상황이라면 조금 달라지는데 긴장의 끈을 놓치면 코드가 들쑥날쑥해진다.
 
-- 회사에서 우리 일에 90% 가 기존 코드에 기능을 축하하는 일
+- 회사에서 우리 일에 90% 가 기존 코드에 기능을 추가하는 일이다.
 
 - 남이 짠 코드 혹은 내가 지난주에 짠 코드의 기능을 붙이는 일을 주로하게 된다.
 
----
+<br/>
 
-### 2. 안일한 코드 추가의 함정
+## 2. 안일한 코드 추가의 함정
 
 - 코드를 알일하게 추가 한다면 다음과 같은 함정에 빠질 수 있다
 
@@ -48,43 +50,55 @@
 
 - 보험에 대한 질문을 입력하는 페이지가 있는데 설계사가 있는 경우에는 설계에서 사진이 들어간 팝업을 먼저 띄어 달라는 그런 기능 추가 요청이 들어왔다.
 
-<image1>
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/01.png">
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image1.png?raw=true">
+<br/>
 
 - 기존 코드는 다음과 같다.
 
-- 질문하기 버튼을 클릭하면
+- 질문하기 버튼을 클릭하면 유저의 약관 동의 여부를 검사하고 필요시 팝업을 띄운다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image2.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/02.png">
 
-- 유저의 약관 동의 여부를 검사하고 필요시 팝업을 띄운다
+<br/>
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image3.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/03.png">
+
+<br/>
 
 - 후에 질문에 전송하고 성공했다는 alert을 띄운다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image4.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/04.png">
+
+<br/>
 
 - 이 코드의 새 기능을 어떻게 추가하는 경우에는 기존에 있는 클릭 함수에서 연결 중인 전문가가 있는지 확인하는 코드를 넣고 있으면 팝업을 띄우면 된다
 
 - 그리고 팝업 컴포넌트도 추가해서 버튼 컴포넌트 아래에 넣고 처음엔 숨겨 두고 필요할 때 보여줄 수 있도록 한다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image5.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/05.png">
+
+<br/>
 
 - 이를 구현하면 다음과 같다.
 
 - 팝업이 열려 있는지 상태를 추가하고 기존에 있던 클릭 감소에 연결 중인 전문가를 검사하는 조건문을 추가했다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image6.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/06.png">
+
+<br/>
 
 - 팝업에서 확인 눌렀을 때 부를 새로운 클릭 함수도 만들고 팝업 컴포넌트도 깔끔하게 추가했다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image7.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/07.png">
+
+<br/>
 
 - 이는 타당하고 자연스러운 코드 추가 처럼 보이지만 나쁜 코드가 되었다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image8.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/08.png">
+
+<br/>
 
 - 일단 하나의 목적인 코드가 흩뿌려져 있다.
 
@@ -92,19 +106,23 @@
 
 - 이들이 뚝뚝 떨어져 있어서 나중에 기능을 추가 할 때 스크롤을 위 아래로 이동하면서 미로 찾기를 해야한다.
 
-- 그리고 하나의 함수가 여러 가지 일을 하고 있다.
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/09.png">
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image9.png?raw=true">
+<br/>
+
+- 그리고 아래 그림에서 확인할 수 있듯이 하나의 함수가 여러 가지 일을 하고 있다.
+
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/10.png">
+
+<br/>
 
 - 기존에 있던 함수가 이제 총 3가지 일을 하고 있는데 세부 구현을 모두 읽어야지 함수에 역할을 알 수 있게 된다.
 
-- 코드 추가 및 삭제도 시간이 더 걸리게 됩니다
+- 코드 추가 및 삭제도 시간이 더 걸리게 된다.
 
 - 마지막으로 함수에 세부 구현 한 단계가 제각각이라는 문제가 있다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image10.png?raw=true">
-
-- 파란색 함수와 노란색 함수는 둘다 이벤트 핸들링 관련 함수
+- 파란색 함수와 노란색 함수는 둘다 이벤트 핸들링 관련 함수인데
 
 - 이름이 handleQuestionSubmit 그리고 handleMyExpoertQuestionSubmit으로 비슷하다
 
@@ -112,13 +130,15 @@
 
 - 그때는 맞고 지금은 틀리다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image11.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/11.png">
+
+<br/>
 
 - 깔끔했던 코드가 작은 기능 하나를 추가했던 이 어지러운 코드가 되었었다.
 
 - 여기서 함정은 Rull Request에서의 변경 사항만 보면 이게 어지러운 코드라는 것을 파악하기 어렵다는 것.
 
-- 왜냐하면 변경 점 자체는 틀린점이 없기 때문
+- 왜냐하면 변경 점 자체는 틀린점이 없기 때문이다.
 
 - 하지만 전체 그림으로 보면 엉망이다.
 
@@ -126,7 +146,7 @@
 
 - 큰 그림을 보면서 코드를 다음과 같이 리팩토링 할 수 있다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image12.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/12.png">
 
 - 먼저 함수의 세부구현 단계를 통일한다.
 
@@ -136,7 +156,7 @@
 
 - 그리고 팝업 관련 코드를 하나로 뭉쳐주었다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image13.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/13.png">
 
 - 기존에는 팝업을 여는 버튼과 팝업코드가 동 떨어져 있었는데 이를 모아서 PopupTriggerButton 이라는 컴포넌트를 만들었다
 
@@ -144,7 +164,9 @@
 
 - 마지막으로 함수 하나에서 하나의 일만 하도록 쪼갰다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image14.png?raw=true">
+<br/>
+
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/14.png">
 
 - 약관 동의 관련 함수를 쪽에서 필요한 시점에 부르도록 바꾸었다.
 
@@ -152,30 +174,39 @@
 
 - 클린 코드 != 짧은 코드 == **원하는 로직을 빠르게 찾을 수 있는 코드**
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image15.png?raw=true">
-
 - 이렇게 원하는 로직을 빠르게 찾으려면 하나의 목적을 가진 코드가 흩뿌려져 있을 때 응집도를 높여서 뭉쳐두어야 하고 함수가 여러 가지 일을 하고 있을 때 단일 책임 원칙 에 의거하여 쪼개 줘야 한다
 
 - 그리고 함수에 세부 구현 관계가 제각각인 경우에는 추상화 단계를 조정해서 핵심 개념을 필요한 만큼만 노출 해야 한다
 
----
+- 하나의 목적을 가진 코드가 흩뿌려져 있다
 
-### 3. 로직을 빠르게 찾을 수 있는 코드
+  - -> 응집도
 
-1. 응집도
+- 함수가 여러가지 일을 하고 있다
+
+  - -> 단일 책임
+
+- 함수의 세부구현 단계가 제각각이다
+
+  - -> 추상화
+
+## 3. 로직을 빠르게 찾을 수 있는 코드
+
+### 1. 응집도
 
 - 같은 목적인 코드는 뭉쳐두자는 뜻
 
 - 아래는 앞에서 봤던 코드
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image16.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/18.png">
 
 - 팝업을 조작하는 코드가 노란색 3군데로 뚝뚝 떨어져 있다.
-- 파악도 한번에 안되고 버그 발생 위험도 높은 코드
+
+- 파악도 한번에 안되고 버그 발생 위험도 높은 코드이다.
 
 - 커스텀 훅을 사용해서 한군데로 뭉칠 수 있다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image17.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/19.png">
 
 - 이제 openPopup 함수만 호출하면 커스텀 팝업을 열 수 있게 되었다.
 
@@ -185,12 +216,12 @@
 
 - 커스텀 훅의 대표적인 안티 패턴으로 보기 더러울 때 일단 뭉쳐두는 것이다.
 
-- 그럼 무엇을 뭉쳐야 할까? 뭉쳐야할 것은 바로 당장 몰라도 되는 디테일이다.
+- 그럼 무엇을 뭉쳐야 할까? 뭉쳐야할 것은 바로 **당장 몰라도 되는 디테일**이다.
 
 - 이를 숨겨둔 다면 짧은 코드만 보고도 빠르게 코드의 목적의 파악하는게
   쉬워진다.
 
-- 오히려 뭉치면 답답해지는 요소는 코드 파악에 필수적인 핵심 정보이다.
+- 오히려 뭉치면 답답해지는 요소는 **코드 파악에 필수적인 핵심 정보**이다.
 
 - 이를 분리해 놓으면 여러 모듈을 넘나들며 흐름에 따라 가야 하는 참사가 일어난다.
 
@@ -200,7 +231,7 @@
 
 - 읽기 좋게 응집할 수 있는 방법은 다음과 같다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image18.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/20.png">
 
 - 먼저 남겨야 할 핵심 데이터와 숨겨도 된 세부 구현을 나눠본다
 
@@ -208,11 +239,11 @@
 
 - 그리고 세부 구현은 팝업을 열고 닫을 때 사용하는 상태와 컴포넌트의 세부 마크업 그리고 팝업의 버튼 클릭시 특성 함수를 호출해야 한다는 바인딩이다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image19.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/21.png">
 
 - 여기서 핵심 데이터만 남기고 세부 구현을 숨기면 파악하기 쉬운 코드가 된다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image20.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/22.png">
 
 - openPopUp 이라는 커스텀 훅 안에 모든 코드를 다 숨기는 게 아니라 세부 구현만 숨겨놓고 핵심 데이터인 팝업 제목 이랑 내용, 액션은 바깥에서 넘겨준다.
 
@@ -222,45 +253,62 @@
 
 - 이 것을 바로 선언적 프로그래밍이라고 한다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image21.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/23.png">
 
 - 특징은 무엇을 하는 함수 인지 빠르게 이해가 가능하다는 것
 
 - 세부 구현은 안쪽에 뭉쳐 두어서 신경 쓸 필요가 없다는 것 그리고 '무엇'만 바꿔서 쉽게 재사용할 수 있다는 점이 있다
 
-- 선형으로 뭉쳐 주지 않고 하나하나 세부 구현을 작성한 방식은 명령형
+```js
+<Popup onSubmit={회원가입} onSuccess={프로필로이동} />
+```
+
+- 선언형으로 뭉쳐 주지 않고 하나하나 세부 구현을 작성한 방식은 명령형
   프로그래밍 이라고 한다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image22.png?raw=true">
+```js
+<Popup>
+  <button
+    onClick={async () => {
+      const res = await 회원가입();
+      if (res.success) {
+        프로필로이동();
+      }
+    }}
+  >
+    전송
+  </button>
+</Popup>
+```
 
-- 선언적 프로그래밍 도내 부를까 보면 이렇게 명령 형으로 작성되어 있다
+- 선언적 프로그래밍 도 내부를 까보면 이렇게 명령형으로 작성되어 있다
 
 - 세부 구현이 모두 노출되어 있어서 이를 커스텀 하기 쉽지만 읽는데 오래 걸리고 재사용하기 어렵다는 단점이 있다.
 
-- 선언적 프로그램이 명령형 프로그래밍 보다 최신트랜드 니까 더 좋은건가
+- 선언적 프로그램이 명령형 프로그래밍보다 최신트랜 니까 더 좋은건가
   라고 헷갈릴 수도 있지만 그런 것은 아니다.
 
 - 두 방법 모두 의미가 있으며 유동적으로 사용하면 된다
 
-- 리액트 jsx 문법을 사용하면 HTML 에도 선언적 프로그래밍을 할 수 있다는 장점이 있지만 prop 로 어떻게 해야 하는지 이런 것들을 세부적으로 넘겨야 하는 경우에는 명령형 설계도 필요하다
+- 리액트 jsx 문법을 사용하면 HTML에도 선언적 프로그래밍을 할 수 있다는 장점이 있지만 prop으로 어떻게 해야 하는지 이런 것들을 세부적으로 넘겨야 하는 경우에는 명령형 설계도 필요하다
 
-2. 단일책임
+### 2. 단일책임
 
 - 단익책임은 하나의 일을 하는 뚜렷한 이름의 함수를 만들자는 뜻
 
 - 아래 이벤트 핸들러 함수 이름을 짓는 경우를 생각해보자
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image23.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/25.png">
 
 - 폼에서 질문 제출 버튼을 클릭했을때 불리는 함수이다.
 
 - 약관 동의 여부를 체크하고 질문을 제출한다
 
-- 질문을 제출하는 게 핵심 이니까 handle질문제출이라고 지으면 어떨까 ?
+- 질문을 제출하는 게 핵심 이니까 `handle질문제출`이라고 지으면 어떨까 ?
+
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/26.png">
 
 - 이는 좋지 않다. 함수 이름은 질문 제출인데 내용에는 '약관 체크'와 '질문 제출'이 섞여 있기 때문이다.
-
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image24.png?raw=true">
 
 - 이렇게 중요 포인트가 모두 담겨있지 않은 함수명은 읽는 이가 예상한대로 코드가 동작하지 않으며 이는 코드에 대한 신뢰 하락으로 이어진다
 
@@ -268,99 +316,101 @@
 
 - 여기서 기능 추가 들어간다면 어떻게 될까
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image25.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/27.png">
 
-- 더 뚱뚱해지고 handle질문제출이라는 함수 이름에 질문 제출을 제외한 두 가지 일을 더 하게 된다
+- 더 뚱뚱해지고 `handle질문제출`이라는 함수 이름에 질문 제출을 제외한 두 가지 일을 더 하게 된다
 
 - 이렇게 이미 있는 함수에 기능을 추가만 하는 것은 좋지 않다
 
 - 한가지 일만 하는 명확한 이름의 함수가 되도록 다음과 같이 리팩토링 할 수 있다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image26.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/28.png">
 
 - 이렇게 쪼개준 다음에 이를 필요한 상황에서 따로따로 함수를 불러서 사용하면 된다
 
 - 이렇게 함수로 분리하는 것 이외에도, 리액트 컴포넌트로 기능을 불리할 수 있다
 
-- 아래 버튼을 클릭하면 서버 에 로그를 찍는 코드에서 아쉬운 점은 버튼 클릭 함수에 로그 찍는 함수와 API 콜이 섞여있다는 것이다
+- 아래 버튼을 클릭하면 서버에 로그를 찍는 코드에서 아쉬운 점은 버튼 클릭 함수에 로그 찍는 함수와 API 콜이 섞여있다는 것이다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image27.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/29.png">
 
-이는 LogClick 라는 컴포넌트를 만들어 버튼을 감싸게 하고 버튼을 클릭하면 자동으로 클릭 로그가 전송되도록 리팩토링 하면 된다
+- 이는 LogClick 라는 컴포넌트를 만들어 버튼을 감싸게 하고 버튼을 클릭하면 자동으로 클릭 로그가 전송되도록 리팩토링 하면 된다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image28.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/30.png">
 
-- 이렇게 하면 버튼 클릭 함수에서는 API 콜만 신경 쓸 수 있습니다
+- 이렇게 하면 버튼 클릭 함수에서는 API 콜만 신경 쓸 수 있다
 
 - 다음은 요소 2개가 겹쳐 있는지 판별하는 IntersectionObserver 코드이다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image29.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/31.png">
 
 - 이 코드는 이 옵저버 코드 세부 구현과 API 콜을 하는 코드가 섞여 있는게 좀 아쉽다.
 
 - 이는 IntersectionArea 라는 상위 컴포넌트를 만들어서 인터섹션 세부 코드와 API 콜 영역은 분리할 수 있다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image30.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/32.png">
 
 - 마지막으로 이름 짓기가 복잡하다면 한글 변수명을 써보는 것도 유용하다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image31.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/33.png">
 
 - '실시간 상담 완료'나, '연결 고객 5명 미만' 등 도메인이 복잡해서 영어 이름을 길게 짓는 게 오히려 복잡도를 높일 때, 또는 상수를 직관적으로 보고 싶을 때, 그리고 복잡한 조건 문이 많아질 때 매우 유용하다.
 
 - 마치 주석을 달아 눈꽃과 같은 효과도 낼 수 있다.
 
-3. 추상화
+<br/>
+
+### 3. 추상화
 
 - 추상화는 로직에서 핵심 개념을 뽑아 내는 것
 
 - 아래 코드의 왼쪽은 팝업 컴포넌트 코드를 제로부터 디테일하게 구현한 것이고 오른쪽은 이 팝업 코드를 제출 액션과 성공 액션이라는 중요한 개념 만 남기고 나머지를 추상화 한 것이다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image32.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/34.png">
 
-- 다음은 함수로 추상화한 에시이다.
+- 다음은 함수에서 추상화한 에시이다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image33.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/35.png">
 
-- 왼쪽은 전문가 정보를 받아서 응답 값에 따라 다른 라벨을 보여 주는 코드이고 오른쪽은 이 세부 구현을 getPlannerLabel이라는 함수명 안에 모두 추상화 시킨 코드이다
+- 왼쪽은 전문가 정보를 받아서 응답 값에 따라 다른 라벨을 보여 주는 코드이고 오른쪽은 이 세부 구현을 `getPlannerLabel`이라는 함수명 안에 모두 추상화 시킨 코드이다
 
-- 구체적인 코드를 조금 추상적이게 혹은 더욱 추상적이게 리팩토링 할 수 있다 .
+- 구체적인 코드를 조금 추상적이게 혹은 더욱 추상적이게 리팩토링 할 수 있다.
 
 - 아래는 버튼을 클릭하면 컴펌 창을 띄우고 여기서 컨펌 버튼을 클릭하면 특장 메세지를 띄우는 구체적인 코드이다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image34.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/36.png">
 
 - 이 코드를 아래처럼 버튼 눌렀을때 컴펌 창을 띄우는 기능을 ConfirmButton 이라는 컴포넌트로 추상화할 수 있다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image35.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/37.png">
 
 - onConfirm을 통해 내가 원하는 액션을 넘길 수 있다
 
 - 이 코드를 다음과 같이 message라는 prop만 넘겨서 컨펌 창에 원하는 메시지를 보여주도록 더 간단하게 초상화 시킬 수도 있다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image36.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/38.png">
 
 - 그리고 더 나아가 모든 기능을 모두 ConfirmButton 이라는 이름 아래 추상화 시킬 수도 있다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image37.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/39.png">
 
 - 정답은 없으며 상황에 따라 필요한 만큼만 추상화 하면 된다.
 
 - 아래 예시는 실무에서의 추상화 관련 코드 리뷰이다
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image38.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/40.png">
 
 - 리뷰어처럼 추상화를 제안하기도 하고 아래 처럼 본인이 일부러 추상화를 깬 이유를 설명하기도 한다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image39.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/41.png">
 
 - 추상화에서 유념하면 좋은 점은 추상화 수준이 섞여 있다면 잇다면 코드 파악이 어렵다는 점이다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image40.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/42.png">
 
 - 위 코드에서 초록색 컴퍼넌트 는 상대적으로 높은 추상화로 빨간색과 노란색 컴포넌트는 상대적으로 낮은 추상화로 구현되어 있다
 
-- 이렇게 한 레벨을 코드 안에 추상화 수준이 섞여 있으면 코드 파악이 어려워진다
+- 이렇게 한 레벨의 코드 안에 추상화 수준이 섞여 있으면 코드 파악이 어려워진다
 
 - 구체적으로 작성되어 있는 노란색 컴포넌트를 보고 초록색 컴포넌트도 충분히 구체적으로 작성되어 있다고 짐작하게 된다.
 
@@ -372,30 +422,27 @@
 
 - 전체적인 코드가 어느 수준으로 구체적으로 개설된 지 파악할 수 없기 때문이다.
 
-<img src="https://github.com/dkmqflx/dkmqflx.github.io/blob/master/assets/img/post_img/2021-07-18-refactoring-toss-cleancode/image41.png?raw=true">
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/43.png">
 
 - 초상화 단계를 비슷하게 정리해주면 물 흐르듯이 파악할 수 있습니다
 
 - 위 코드에서는 높은 추상화 단계로 정리했지만 상황에 따라서 낮은 추상화 단계로 정리 해도 무방하다
 
----
-
-### 4, 액션아이템
+## 4, 액션아이템
 
 - 클린 코드를 작성하기 위한 액션 아이템
 
-1. 담대하게 기존 코드 수정하기
+### 1. 담대하게 기존 코드 수정하기
 
 - 두려워하지 말고 기존 코드를 씹고 뜯고 맛보고 즐기자
 
 - 구조 듣기를 두려워하면 클린한 실무 코드를 유지할 수 없다.
 
-- Pull Request에 File Changes가 많아진다는 명목하에 기존 코드를 건드리지 않고 추가만 하기 쉬운데,
-  두려워하지 말고 기존 코드를 쉽고 뜯고 맛보고 즐길 것
+- Pull Request에 File Changes가 많아진다는 명목하에 기존 코드를 건드리지 않고 추가만 하기 쉬운데, 두려워하지 말고 기존 코드를 쉽고 뜯고 맛보고 즐길 것
 
 - Pull Request에 File Changes수를 줄이고 싶다면 Mother Branch를 따서 리팩토링한 PR을 추가로 만드는 방법을 사용하면 좋다
 
-2. 큰 그림 보는 연습하기
+### 2. 큰 그림 보는 연습하기
 
 - 그때는 맞고 지금은 틀리다.
 
@@ -405,38 +452,40 @@
 
 - 그리고 기능 추가 자체는 클린해도 큰 그림으로 는 어지러운 코드 일 수 있음을 유념할 것
 
-3. 팀과 함께 공감대 형성하기
+### 3. 팀과 함께 공감대 형성하기
 
 - 코드에 정답은 없다.
+
 - 명시적으로 이야기를 하는 시간이 필요하다
 
-- 코드의 정답은 없습니다 그렇기 때문에 코드 리뷰에서 클린 코드 관련 댓글을 달아도 될지 고민하게 됩니다
+- 코드의 정답은 없습니다 그렇기 때문에 코드 리뷰에서 클린 코드 관련 댓글을 달아도 될지 고민하게 된다
 
 - 당장은 사소한 이슈 이기 때문.
 
 - 하지만 이렇게 사소하지만 일관성을 깨는 코드가 쌓이게 되면 유지보수 하기 힘든 코드가 된다.
 
 - 그리고 공감 때는 자동으로 만들어지지 않기 때문에 명시적으로 이야기를 하는 시간이 필요하다.
+
 - 함께 만들어온 코드에서 고치고 싶은 포인트를 서로 말해보고 각자 문제라고 생각하는 지점을 공유해 집단지성을 모은다.
 
 - 그리고 어떻게 개선할 것인지 고민 하면 된다.
 
 - 이는 바로 나오지 않아도 되고 서로 문제점만 공연 뒤에 시간을 가지고 해결해도 된다.
 
-4. 문서로 적어보기
+### 4. 문서로 적어보기
 
 - 글로 적어야 명확해진다
+
 - 향후 어떤 점에서 위험할 수 있는지
+
 - 어떻게 개선할 수 있는지
 
-- 클린 코드란 모호한 개념
+- 클린 코드란 모호한 개념으로 글로 적어야 명확해진다.
 
-- 글로 적어야 명확해진다. 이 코드가 어떤 점에서 향후 위험 할 수 있는지, 어떻게 개선할 수 있는지
-
-- 나만의 원칙을 적어보는 것이 좋다.
+- 이 코드가 어떤 점에서 향후 위험 할 수 있는지, 어떻게 개선할 수 있는지 나만의 원칙을 적어보는 것이 좋다.
 
 ---
 
-## Reference
+### Reference
 
 - [토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code](https://www.youtube.com/watch?v=edWbHp_k_9Y)

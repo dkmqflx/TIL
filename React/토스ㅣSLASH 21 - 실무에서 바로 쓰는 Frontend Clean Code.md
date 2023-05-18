@@ -98,35 +98,31 @@
 
 <img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/08.png">
 
-<br/>
-
 - 일단 하나의 목적인 코드가 흩뿌려져 있다.
 
 - 초록색으로 강조한 코드가 모두 연결 중인 전문가 팝업 관련 코드이다.
 
 - 이들이 뚝뚝 떨어져 있어서 나중에 기능을 추가 할 때 스크롤을 위 아래로 이동하면서 미로 찾기를 해야한다.
 
-<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/09.png">
-
-<br/>
-
 - 그리고 아래 그림에서 확인할 수 있듯이 하나의 함수가 여러 가지 일을 하고 있다.
 
-<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/10.png">
-
-<br/>
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/09.png">
 
 - 기존에 있던 함수가 이제 총 3가지 일을 하고 있는데 세부 구현을 모두 읽어야지 함수에 역할을 알 수 있게 된다.
 
 - 코드 추가 및 삭제도 시간이 더 걸리게 된다.
 
-- 마지막으로 함수에 세부 구현 한 단계가 제각각이라는 문제가 있다
+- 마지막으로 함수에 세부 구현 단계가 제각각이라는 문제가 있다
 
 - 파란색 함수와 노란색 함수는 둘다 이벤트 핸들링 관련 함수인데
 
 - 이름이 handleQuestionSubmit 그리고 handleMyExpoertQuestionSubmit으로 비슷하다
 
 - 그런데 파란색은 질문 전송 외에도 여러 가지 일을 하고 있어서 읽을 때 어지러워 코드를 이상하게 지레 짐작하게 된다
+
+<img src="./images/토스ㅣSLASH 21 - 실무에서 바로 쓰는 Frontend Clean Code/10.png">
+
+<br/>
 
 - 그때는 맞고 지금은 틀리다.
 

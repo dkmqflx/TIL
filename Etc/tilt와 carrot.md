@@ -17,9 +17,12 @@
 - PATCH 버전은 하위호환성을 지키는 범위내에서 버그가 수정된 것을 의미한다.
 
 ### 틸트
+
 - 틸트(~) 는 마이너 버전이 명시되어 있으면 패치버전만 변경한다. 
 
 - 예를 들어 `~1.2.3` 표기는 `1.2.3` 부터 `1.3.0` 미만 까지를 포함한다. 
+
+  - 즉, ^1.2.3은 1.x.x 까지 지원한다는 뜻이다
 
 - 마이너 버전이 없으면 마이너 버전을 갱신한다. `~0` 표기는 `0.0.0` 부터 `1.0.0` 미만 까지를 포함한다.
 
@@ -29,6 +32,35 @@
   - `~0.1.1`?:?`>=0.1.1 <0.2.0`
   - `~0.1`?:?`>=0.1.0 <0.2.0`
   - `~0`?:?`>=0.0 <1.0`
+
+- 아래와 같은 package.json 파일에서 react 버전이 틸트로 ` "react": "~0"`처럼 명시되어 있는 경우
+
+```js
+// package.json
+
+{
+  "name": "frontend-env",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "~0"
+  }
+}
+
+```
+
+- `npm install` 명령어를 통해 설치 후 `node_modules/react/pacakge.json` 파일을 보면
+
+- 버전이 `"version": "0.14.10"` 으로, 마이너 버전이 없기 때문에 마이너 버전이 갱신된 것을 확인할 수 
+
+- 하지만 `^0.0`인 경우 0.0.3으로 패치 버전만 변경된 것을 확인할 수 있다.
+
 
 ### 캐럿
   
@@ -73,6 +105,33 @@
 - **`^0.0.3`**
 
   - 왼쪽에서 맨 처음 0이 아닌 요소가 patch이기 때문에 업데이트를 허용하지 않음
+
+- 아래와 같은 package.json 파일에서 react 버전이 캐럿으로 ` "react": "^0"`처럼 명시되어 있는 경우
+
+```js
+// package.json
+
+{
+  "name": "frontend-env",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "react": "^0"
+  }
+}
+
+```
+
+- `npm install` 명령어를 통해 설치 후 `node_modules/react/pacakge.json` 파일을 보면 버전이 `"version": "0.14.10"` 인 것을 확인할 수 있다.
+
+- 하지만 `^0.0`인 경우 0.0.3으로 패치 버전만 변경된 것을 확인할 수 있다.
+
 
 ---
 

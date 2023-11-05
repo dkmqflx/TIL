@@ -12,9 +12,9 @@ export default function Home() {
 
   return (
     <>
-      <input type='text' onChange={(e) => handleChange(e, 1)} />
-      <input type='text' onChange={(e) => handleChange(e, 2)} />
-      <input type='text' onChange={(e) => handleChange(e, 3)} />
+      <input type="text" onChange={(e) => handleChange(e, 1)} />
+      <input type="text" onChange={(e) => handleChange(e, 2)} />
+      <input type="text" onChange={(e) => handleChange(e, 3)} />
     </>
   );
 }
@@ -41,9 +41,9 @@ export default function Home() {
   // 아래서 handleChange(1)을 실행함으로써 value는 1로 고정이 되어 있다.
   return (
     <>
-      <input type='text' onChange={handleChange(1)} />
-      <input type='text' onChange={handleChange(2)} />
-      <input type='text' onChange={handleChange(3)} />
+      <input type="text" onChange={handleChange(1)} />
+      <input type="text" onChange={handleChange(2)} />
+      <input type="text" onChange={handleChange(3)} />
     </>
   );
 }

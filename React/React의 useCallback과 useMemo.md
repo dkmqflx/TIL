@@ -1,4 +1,4 @@
-### useCallback
+## useCallback
 
 - 다음과 작성된 코드를 보면 memo로 Navbar 컴포넌트를 감싸주었지만 `app.js` 의 button이 클릭 될 때 마다 `navbar.js`의 `"this is navbar"`와 `"navNum: "`도 출력되는 것을 확인할 수 있다
 
@@ -9,11 +9,11 @@
 ```jsx
 //app.js
 
-import { useState } from 'react';
-import Navbar from './components/navbar';
+import { useState } from "react";
+import Navbar from "./components/navbar";
 
 function App() {
-  console.log('this is App');
+  console.log("this is App");
   const [num, setNum] = useState(0);
   const [navNum, setNavNum] = useState(0);
 
@@ -22,7 +22,7 @@ function App() {
   };
 
   const handleNavbar = () => {
-    console.log('handle Navbar ');
+    console.log("handle Navbar ");
   };
 
   return (
@@ -40,11 +40,11 @@ export default App;
 ```
 
 ```jsx
-import React, { memo } from 'react';
+import React, { memo } from "react";
 
 const Navbar = memo(({ navNum, handleNavbar }) => {
-  console.log('this is havbar');
-  console.log('navNum: ', navNum);
+  console.log("this is havbar");
+  console.log("navNum: ", navNum);
 
   return (
     <div>
@@ -75,11 +75,11 @@ const memoizedCallback = useCallback(() => {
 ```jsx
 // app.js
 
-import { useCallback, useState } from 'react';
-import Navbar from './components/navbar';
+import { useCallback, useState } from "react";
+import Navbar from "./components/navbar";
 
 function App() {
-  console.log('this is App');
+  console.log("this is App");
   const [num, setNum] = useState(0);
   const [navNum, setNavNum] = useState(0);
 
@@ -88,7 +88,7 @@ function App() {
   };
 
   const handleNavbar = useCallback(() => {
-    console.log('handle Navbar ');
+    console.log("handle Navbar ");
   }, []);
 
   return (
@@ -109,9 +109,7 @@ export default App;
 
 - 즉 `useCallback`은 optimized childe component, 예를 들어 React.memo로 wrapping된 컴포넌트에 전달될 때 유용하다는 것이다
 
----
-
-### useMemo
+## useMemo
 
 - 아래 코드의 app 컴포넌트에는 `+` 버튼을 누르면 addNum을 +1씩 증가시키고, `-` 버튼을 누르면 subNum을 -1씩 감소시키는 함수가 구현되어 있다
 
@@ -124,12 +122,12 @@ export default App;
 ```jsx
 // App.js
 
-import { useState } from 'react';
-import './App.css';
-import Navbar from './components/navbar';
+import { useState } from "react";
+import "./App.css";
+import Navbar from "./components/navbar";
 
 function App() {
-  console.log('this is App');
+  console.log("this is App");
   const [addNum, setAddNum] = useState(0);
   const [subNum, setSubNum] = useState(0);
 
@@ -159,16 +157,16 @@ export default App;
 ```jsx
 //navbar.js
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo } from "react";
 
 const Navbar = memo(({ addNum, subNum }) => {
   const multiplyAddNum = (num) => {
-    console.log('multiplyAddNum');
+    console.log("multiplyAddNum");
     return num * 10;
   };
 
   const multiplySubNum = (num) => {
-    console.log('multiplySubNum');
+    console.log("multiplySubNum");
     return num * 10;
   };
 
@@ -201,16 +199,16 @@ export default Navbar;
 ```jsx
 // navbar.js
 
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo } from "react";
 
 const Navbar = memo(({ addNum, subNum }) => {
   const multiplyAddNum = (num) => {
-    console.log('multiplyAddNum');
+    console.log("multiplyAddNum");
     return num * 10;
   };
 
   const multiplySubNum = (num) => {
-    console.log('multiplySubNum');
+    console.log("multiplySubNum");
     return num * 10;
   };
 

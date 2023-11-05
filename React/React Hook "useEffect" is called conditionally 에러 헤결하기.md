@@ -1,16 +1,16 @@
-- 아래는 useEffect와 useRef를 사용한 커스텀 hook으로 유저가 정의한 함수를 event listenr에 등록해주는 코드이다
+- 아래는 useEffect와 useRef를 사용한 커스텀 hook으로 유저가 정의한 함수를 event listener에 등록해주는 코드이다
 
 ```jsx
 //app.js
 
-import useClick from './useClick/useClick';
+import useClick from "./useClick/useClick";
 
 function App() {
-  const sayHello = () => console.log('say Hello');
+  const sayHello = () => console.log("say Hello");
   const elmentRef = useClick(sayHello);
 
   return (
-    <div className='App'>
+    <div className="App">
       <h1 ref={elmentRef}>title</h1>
     </div>
   );
@@ -22,21 +22,21 @@ export default App;
 ```jsx
 // useClick
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 const useClick = (onClick) => {
-  if (typeof onClick !== 'function') {
+  if (typeof onClick !== "function") {
     return;
   }
 
   const element = useRef();
   useEffect(() => {
     if (element.current) {
-      element.current.addEventListener('click', onClick);
+      element.current.addEventListener("click", onClick);
     }
     return () => {
       if (element.current) {
-        element.current.removeEventListener('click', onClick);
+        element.current.removeEventListener("click", onClick);
       }
     };
     // 새로운 함수 사용하면 새로 해당 ref에 함수 등록
@@ -67,22 +67,22 @@ export default useClick;
 - 따라서 다음과 같이 코드를 수정해서 문제를 해결할 수 있다
 
 ```jsx
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 const useClick = (onClick) => {
   const element = useRef();
   useEffect(() => {
     if (element.current) {
-      element.current.addEventListener('click', onClick);
+      element.current.addEventListener("click", onClick);
     }
     return () => {
       if (element.current) {
-        element.current.removeEventListener('click', onClick);
+        element.current.removeEventListener("click", onClick);
       }
     };
   }, [onClick]);
 
-  if (typeof onClick !== 'function') {
+  if (typeof onClick !== "function") {
     return;
   }
 

@@ -16,9 +16,9 @@
 //props getter for 'Counter'
 const getCounterProps = ({ ...otherProps } = {}) => ({
   value: count,
-  'aria-valuemax': max,
-  'aria-valuemin': 0,
-  'aria-valuenow': count,
+  "aria-valuemax": max,
+  "aria-valuemin": 0,
+  "aria-valuenow": count,
   ...otherProps,
 });
 ```
@@ -35,16 +35,16 @@ function Usage() {
     });
 
   const handleBtn1Clicked = () => {
-    console.log('btn 1 clicked');
+    console.log("btn 1 clicked");
   };
 
   return (
     <>
       <Counter {...getCounterProps()}>
-        <Counter.Decrement icon={'minus'} {...getDecrementProps()} />
+        <Counter.Decrement icon={"minus"} {...getDecrementProps()} />
         <Counter.Label>Counter</Counter.Label>
         <Counter.Count />
-        <Counter.Increment icon={'plus'} {...getIncrementProps()} />
+        <Counter.Increment icon={"plus"} {...getIncrementProps()} />
       </Counter>
       <StyledContainer>
         <button {...getIncrementProps({ onClick: handleBtn1Clicked })}>

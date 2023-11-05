@@ -15,7 +15,7 @@ function Usage() {
   // 사용자가 정의한 reducer
   const reducer = (state, action) => {
     switch (action.type) {
-      case 'decrement':
+      case "decrement":
         return {
           count: Math.max(0, state.count - 2), //The decrement delta was changed for 2 (Default is 1)
         };
@@ -32,10 +32,10 @@ function Usage() {
   return (
     <>
       <Counter value={count}>
-        <Counter.Decrement icon={'minus'} onClick={handleDecrement} />
+        <Counter.Decrement icon={"minus"} onClick={handleDecrement} />
         <Counter.Label>Counter</Counter.Label>
         <Counter.Count />
-        <Counter.Increment icon={'plus'} onClick={handleIncrement} />
+        <Counter.Increment icon={"plus"} onClick={handleIncrement} />
       </Counter>
       <StyledContainer>
         <button onClick={handleIncrement} disabled={count === MAX_COUNT}>
@@ -52,16 +52,16 @@ function Usage() {
 ```js
 // useCounter.js
 
-import { useReducer } from 'react';
+import { useReducer } from "react";
 
 // default reducer
 const internalReducer = ({ count }, { type, payload }) => {
   switch (type) {
-    case 'increment':
+    case "increment":
       return {
         count: Math.min(count + 1, payload.max),
       };
-    case 'decrement':
+    case "decrement":
       return {
         count: Math.max(0, count - 1),
       };
@@ -74,11 +74,11 @@ function useCounter({ initial, max }, reducer = internalReducer) {
   const [{ count }, dispatch] = useReducer(reducer, { count: initial });
 
   const handleIncrement = () => {
-    dispatch({ type: 'increment', payload: { max } });
+    dispatch({ type: "increment", payload: { max } });
   };
 
   const handleDecrement = () => {
-    dispatch({ type: 'decrement' });
+    dispatch({ type: "decrement" });
   };
 
   return {
@@ -90,8 +90,8 @@ function useCounter({ initial, max }, reducer = internalReducer) {
 
 useCounter.reducer = internalReducer; // 기본적으로는 default Reducer를 사용한다
 useCounter.types = {
-  increment: 'increment',
-  decrement: 'decrement',
+  increment: "increment",
+  decrement: "decrement",
 };
 
 export { useCounter };

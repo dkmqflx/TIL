@@ -58,7 +58,7 @@ function IOCCalculator(a, b, callback) {
   title="안내"
   description="이것은 멋진 내용을 담고 있는 안내입니다."
   button={{
-    label: '확인',
+    label: "확인",
     onClick: doSomething,
   }}
 />
@@ -68,11 +68,11 @@ function IOCCalculator(a, b, callback) {
 
 - 이렇게 props가 많아짐으로써 생기는 문제점은 다음과 같다
 
-    - 각 props가 어떤 역할을 하는지 파악하기 어려워진다
+  - 각 props가 어떤 역할을 하는지 파악하기 어려워진다
 
-    - 파악하기 어려운 props를 설명하기 위한 주석이나 문서 작성 및 관리가 필요하다
+  - 파악하기 어려운 props를 설명하기 위한 주석이나 문서 작성 및 관리가 필요하다
 
-    - 요구사항이 복잡할수록 props 이름을 작성하는 것도 어려워지고, 한눈에 파악하기 힘든 props 이름이 만들어질 수 있다
+  - 요구사항이 복잡할수록 props 이름을 작성하는 것도 어려워지고, 한눈에 파악하기 힘든 props 이름이 만들어질 수 있다
 
 - 결과적으로 Dialog 컴포넌트는 재사용성은 갖추었지만 유연성은 갖추지 못하였다
 
@@ -147,7 +147,7 @@ function Page() {
 
 ---
 
-### Reference
+## Reference
 
 - [제어의 역전(Inversion of Control)](https://velog.io/@ja960508/%EC%A0%9C%EC%96%B4%EC%9D%98-%EC%97%AD%EC%A0%84Inversion-of-Control)
 - [단단한 컴포넌트 부수기(feat. 조합, IoC)](https://brunch.co.kr/@finda/556)

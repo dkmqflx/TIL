@@ -2,7 +2,7 @@
 
 - 컴파운드 컴포넌트는 컴포넌트를 만드는 패턴 중 하나로,
 
-- 서브(자식) 컴포넌트들이 메인(부모) 컴포넌트 내부의 상태를 공유하면서 비지니스 로직과 사용자 인터페이스와 관련된 부분을 구분하는 React 패턴이다. 
+- 서브(자식) 컴포넌트들이 메인(부모) 컴포넌트 내부의 상태를 공유하면서 비지니스 로직과 사용자 인터페이스와 관련된 부분을 구분하는 React 패턴이다.
 
 - 다시 말해, 합성 컴포넌트 패턴은 여러 개의 작은 컴포넌트들이 각각의 역할을 분담하도록 하고 이를 조립하여 하나의 큰 컴포넌트를 만드는 것이라고 할 수 있다.
 
@@ -19,7 +19,7 @@
 ```jsx
 // Counter
 
-import { Count, Label, Decrement, Increment } from './components';
+import { Count, Label, Decrement, Increment } from "./components";
 
 function Counter({ children, onChange, initialValue = 0 }) {
   const [count, setCount] = useState(initialValue);
@@ -58,20 +58,20 @@ Counter.Decrement = Decrement;
 - ㅇ이렇게 하면 아래처럼 Counter 내부에 있는 서브 컴포넌트들을 가져와서 사용할 수 있고
 
 ```jsx
-import React from 'react';
-import { Counter } from './Counter';
+import React from "react";
+import { Counter } from "./Counter";
 
 function Usage() {
   const handleChangeCounter = (count) => {
-    console.log('count', count);
+    console.log("count", count);
   };
 
   return (
     <Counter onChange={handleChangeCounter}>
-      <Counter.Decrement icon='minus' />
+      <Counter.Decrement icon="minus" />
       <Counter.Label>Counter</Counter.Label>
       <Counter.Count max={10} />
-      <Counter.Increment icon='plus' />
+      <Counter.Increment icon="plus" />
     </Counter>
   );
 }
@@ -82,9 +82,9 @@ export { Usage };
 - 위에서 Counter를 Provider로 감싸주었기 때문에 useContext를 사용해서 필요한 value를 가져와서 사용할 수 있다.
 
 ```jsx
-import React from 'react';
-import styled from 'styled-components';
-import { useCounterContext } from '../useCounterContext';
+import React from "react";
+import styled from "styled-components";
+import { useCounterContext } from "../useCounterContext";
 
 function Count({ max }) {
   const { count } = useCounterContext(); // context hook을 사용해서
@@ -95,7 +95,7 @@ function Count({ max }) {
 }
 
 const StyledCount = styled.div`
-  background-color: ${({ hasError }) => (hasError ? '#bd2130' : '#17a2b8')};
+  background-color: ${({ hasError }) => (hasError ? "#bd2130" : "#17a2b8")};
   color: white;
   padding: 5px 7px;
 `;
@@ -117,10 +117,10 @@ export { Count };
 // Bad
 return (
   <Counter
-    label='label'
+    label="label"
     max={10}
-    iconDecrement='minus'
-    iconIncrement='plus'
+    iconDecrement="minus"
+    iconIncrement="plus"
     onChange={handleChangeCounter}
   />
 );
@@ -128,10 +128,10 @@ return (
 // Good
 return (
   <Counter onChange={handleChangeCounter}>
-    <Counter.Decrement icon={'minus'} />
+    <Counter.Decrement icon={"minus"} />
     <Counter.Label>Counter</Counter.Label>
     <Counter.Count max={10} />
-    <Counter.Increment icon={'plus'} />
+    <Counter.Increment icon={"plus"} />
   </Counter>
 );
 ```
@@ -146,20 +146,20 @@ return (
 // Before
 return (
   <Counter onChange={handleChangeCounter}>
-    <Counter.Decrement icon={'minus'} />
+    <Counter.Decrement icon={"minus"} />
     <Counter.Label>Counter</Counter.Label>
     <Counter.Count max={10} />
-    <Counter.Increment icon={'plus'} />
+    <Counter.Increment icon={"plus"} />
   </Counter>
 );
 
 // After, Count와 Label 순서 변경
 return (
   <Counter onChange={handleChangeCounter}>
-    <Counter.Decrement icon={'minus'} />
+    <Counter.Decrement icon={"minus"} />
     <Counter.Count max={10} />
     <Counter.Label>Counter</Counter.Label>
-    <Counter.Increment icon={'plus'} />
+    <Counter.Increment icon={"plus"} />
   </Counter>
 );
 ```
@@ -167,11 +167,11 @@ return (
 - **관심사의 분리**
 
   - 대부분의 로직은 기본 Counter 컴포넌트에 포함되며, React.Context는 모든 자식 컴포넌트의 states와 handlers를 공유하는 데 사용된다. 따라서 책임 소재를 명확히 분리할 수 있다.
-  
+
   - 즉, Counter에서 Provider로 감싸주고 value로 비즈니스 로직을 작성해서 전달해주고, 서브 컴포넌트에서는 해당 값들을 사용한다
 
 ```jsx
-import { Count, Label, Decrement, Increment } from './components';
+import { Count, Label, Decrement, Increment } from "./components";
 // Counter
 
 function Counter({ children, onChange, initialValue = 0 }) {
@@ -213,6 +213,7 @@ Counter.Decrement = Decrement;
 ### 단점
 
 - **과도한 UI 유연성**
+
   - 유연성이 높다는 것은 예기치 않은 동작을 유발할 가능성이 크다는 것을 의미한다.
 
   - 예를 들어, 불필요한 자식 컴포넌트가?존재하거나, 필요한 자식 컴포넌트가 없을 수도 있고,?자식 컴포넌트의 순서가 잘못되어 있을 수 있다.

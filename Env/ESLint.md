@@ -1,10 +1,10 @@
-## ESLint
+# ESLint
 
 - [ESLint](http://eslint.org/)는 코딩 컨벤션에 위배되는 코드나 안티 패턴을 자동 검출하는 도구다.
 
 - ESLint는 처음부터 유용하게 사용할 수 있는 스타일 가이드(built-in rule)을 제공하지만 개발자가 자신의 스타일 가이드를 작성할 수도 있다.
 
-### 플러그인 (plugin) / eslint-plugin-\*
+## 플러그인 (plugin) / eslint-plugin-\*
 
 - 플러그인에 정의된 프리셋 규칙을 즉시 적용하고 싶다면: `extends`
 
@@ -38,7 +38,7 @@
 
 - 만약 룰을 사용하고 싶다면 아래와 같이 **rules**에서 정의해야 한다.
 
-### 규칙 (Rules)
+## 규칙 (Rules)
 
 - ESLint에는 프로젝트에서 사용하는 규칙을 수정할 수 있다.
 
@@ -87,7 +87,7 @@
 
 - 즉, **plugins**와 **rules** 대신 **extends**에 바로 필요한 설정들을 하는 것이다
 
-### eslint-config-\*
+## eslint-config-\*
 
 - 이러한 `eslint-plugin-*` 패키지들이나 룰들을 모아서 설정으로 만든 것이 `eslint-config-*` 패키지다.
 
@@ -119,7 +119,7 @@
 
 - 플러그인 패키지를 `plugins`에 단축어로 쓰던 것과 동일하다.
 
-### parser
+## parser
 
 - 말 그대로 코드를 분석하기 위한 파싱툴인데, 기본값은 `espree`이다.
 
@@ -133,7 +133,7 @@
 }
 ```
 
-### parserOptions
+## parserOptions
 
 - `parserOptions`은 ESLint 사용을 위해 지원하려는 Javascript 언어 옵션을 지정할 수 있다.
 
@@ -163,7 +163,7 @@
 }
 ```
 
-### env
+## env
 
 - linter가 파일을 분석하려 시도할 때 알아야 하는, 미리 정의된 전역 변수에 무엇이 있는지 명시하는 속성
 
@@ -198,7 +198,7 @@
 
 ---
 
-### Reference
+## Reference
 
 - [ESLint 설정 뜯어보기 (feat. React, TypeScript)](https://datalater.github.io/posts/eslint/)
 

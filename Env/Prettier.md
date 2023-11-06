@@ -1,4 +1,4 @@
-## Prettier
+# Prettier
 
 - Prettier와 ESLint의 설명을 요약해보자면 다음과 같다.
 
@@ -12,7 +12,7 @@
 
 - 따라서 **Prettier**와 **ESLint**를 같이 쓰면 코드 품질을 바로 잡은 뒤 코드를 정해진 코딩 스타일에 맞게 바꿀 수 있다.
 
-### 설치하기
+## 설치하기
 
 - 아래 명령어를 사용해서 prettier를 설치한다
 
@@ -26,7 +26,7 @@ $ npm install prettier --save-dev --save-exact
 
 - **버전이 달라지면서 생길 스타일 변화를 막을 수 있기 때문**에 Prettier에서는 이 옵션을 붙이는 것을 추천한다
 
-### 필요한 추가 모듈
+## 필요한 추가 모듈
 
 - 이 둘을 함께 쓰려면 추가로 여러 모듈을 설치해야 한다.
 
@@ -67,7 +67,7 @@ $ npm install eslint-plugin-prettier eslint-config-prettier --save-dev
 }
 ```
 
-### Prettier 설정 파일
+## Prettier 설정 파일
 
 - Prettier 규칙은 `.prettierrc.json` 파일을  `.eslintrc.json`과 같은 위치에 만들고 [Prettier의 옵션 문서](https://prettier.io/docs/en/options.html)에서 필요한 설정을 골라 안에 채워 넣으면 된다
 
@@ -82,6 +82,6 @@ $ npm install eslint-plugin-prettier eslint-config-prettier --save-dev
 
 ---
 
-### Reference
+## Reference
 
 - [Prettier & ESLint, Airbnb Style Guide로 코드 컨벤션 설정하기](https://overcome-the-limits.tistory.com/4)

@@ -36,10 +36,10 @@
   console.log(typeof Obj); // object
 
   var person = {
-    name: 'Kim',
-    gender: 'male',
+    name: "Kim",
+    gender: "male",
     sayHello: function () {
-      console.log('Hi! My name is ' + this.name);
+      console.log("Hi! My name is " + this.name);
     },
   };
 
@@ -60,10 +60,10 @@
   var person = new Object();
 
   // 프로퍼티 추가
-  person.name = 'Kim';
-  person.gender = 'male';
+  person.name = "Kim";
+  person.gender = "male";
   person.sayHello = function () {
-    console.log('Hi! My name is ' + this.name);
+    console.log("Hi! My name is " + this.name);
   };
 
   console.log(typeof person); // object
@@ -84,18 +84,18 @@
 
   ```jsx
   var person1 = {
-    name: 'Kim',
-    gender: 'male',
+    name: "Kim",
+    gender: "male",
     sayHello: function () {
-      console.log('Hi! My name is ' + this.name);
+      console.log("Hi! My name is " + this.name);
     },
   };
 
   var person2 = {
-    name: 'Kim',
-    gender: 'female',
+    name: "Kim",
+    gender: "female",
     sayHello: function () {
-      console.log('Hi! My name is ' + this.name);
+      console.log("Hi! My name is " + this.name);
     },
   };
   ```
@@ -108,18 +108,18 @@
     this.name = name;
     this.gender = gender;
     this.sayHello = function () {
-      console.log('Hi! My name is ' + this.name);
+      console.log("Hi! My name is " + this.name);
     };
   }
 
   // 인스턴스의 생성
-  var person1 = new Person('Lee', 'male');
-  var person2 = new Person('Kim', 'female');
+  var person1 = new Person("Lee", "male");
+  var person2 = new Person("Kim", "female");
 
-  console.log('person1: ', typeof person1); // object
-  console.log('person2: ', typeof person2); // object
-  console.log('person1: ', person1); // {name: "Lee", gender: "male", sayHello: ƒ}
-  console.log('person2: ', person2); // {name: "Kim", gender: "male", sayHello: ƒ}
+  console.log("person1: ", typeof person1); // object
+  console.log("person2: ", typeof person2); // object
+  console.log("person1: ", person1); // {name: "Lee", gender: "male", sayHello: ƒ}
+  console.log("person2: ", person2); // {name: "Kim", gender: "male", sayHello: ƒ}
 
   person1.sayHello(); // Hi! My name is Lee
   person2.sayHello(); // Hi! My name is Kim
@@ -140,11 +140,11 @@ function Person(name, gender) {
   this.gender = gender; // public
   this.sayHello = function () {
     // public
-    console.log('Hi! My name is ' + this.name);
+    console.log("Hi! My name is " + this.name);
   };
 }
 
-var person = new Person('Lee', 'male');
+var person = new Person("Lee", "male");
 
 console.log(typeof person); // object
 console.log(person); // Person { name: 'Lee', gender: 'male', sayHello: [Function] }
@@ -183,7 +183,7 @@ console.log(person.married); // undefined
      function Person() {} //  생성자 함수
      ```
 
-     <img src="./images/2021-01-18-prototype1.png">
+     <img src="./images/Javascript의 Prototype/2021-01-18-prototype1.png">
 
      - 그리고 생성된 함수는 `prototype`이라는 속성을 통해 프로토타입 객체에 접근할 수 있다.
 
@@ -278,7 +278,7 @@ console.dir(foo); // prototype 프로퍼티가 없고 __proto__ 만 있다.
 
 - Person 생성자 함수 Person 프로토타입 객체, 그리고 Person 생성자 함수로 만들어진 객체의 관계를 다음과 같이 나타낼 수 있다
 
-  <img src="./images/2021-01-18-prototype2.png">
+  <img src="./images/Javascript의 Prototype/2021-01-18-prototype2.png">
 
 - Person 생성자 함수로 만들어진 kim객체가 eyes를 직접 가지고 있지 않기 때문에 eyes 속성을 찾을 때 까지 프로토타입 링크를 통해서 상위 프로토타입을 탐색한다.
 
@@ -288,18 +288,18 @@ console.dir(foo); // prototype 프로퍼티가 없고 __proto__ 만 있다.
 
 - 이러한 프로토타입 체인 구조 때문에 모든 객체는 Object의 자식이라고 불리고, Object 프로토타입 객체에 있는 모든 속성을 사용할 수 있다.
 
-  <img src="./images/2021-01-18-prototype3.png">
+  <img src="./images/Javascript의 Prototype/2021-01-18-prototype3.png">
 
 - 예를 들어 다음과 같은 코드에서 보면 student 객체에는 hasOwnProperty라는 메소드가 정의되어 있지만 student객체의 프로토타입 링크를 통해 참조할 수 있는 Object 프로토타입 객체에는 hasOwnProperty 함수가 있기 때문에 다음과 같이 정상적으로 작동하는 것이다
 
 ```jsx
 var student = {
-  name: 'Lee',
+  name: "Lee",
   score: 90,
 };
 
 // student에는 hasOwnProperty 메소드가 없지만 아래 구문은 동작한다.
-console.log(student.hasOwnProperty('name')); // true
+console.log(student.hasOwnProperty("name")); // true
 
 console.dir(student);
 ```

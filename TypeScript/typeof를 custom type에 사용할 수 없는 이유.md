@@ -23,9 +23,6 @@ const predicateFn = <T,>(key: any, value: any): key is T => {
   }
   return false;
 };
-
-console.log(predicateFn<LNMT>(query.loan, ["LNMT001"])); // true
-console.log(predicateFn<LNMT>(query.loan, ["RAAC001"])); // false
 ```
 
 ---

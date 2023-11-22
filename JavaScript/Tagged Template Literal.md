@@ -1,117 +1,86 @@
+## Template Literal
+
+- Template literals are literals delimited with backtick (`) characters, allowing for multi-line strings, string interpolation with embedded expressions, and special constructs called tagged templates.
+
+### Syntax
+
+```js
+`string text ${expression} string text`;
+```
+
 ## Tagged Template Literal
 
-- Tagged Template Literals´Â Template Literals¸¦ ÀÌ¿ëÇÏ¿© ÇÔ¼öÀÇ ÀÎÀÚ¸¦ ÆÄ½ÌÇÏ¿© ³Ñ°ÜÁÖ´Â °Í
+- A more advanced form of template literals are tagged templates.
 
-- ¾Æ·¡ ÄÚµå¸¦ ½ÇÇàÇØº¸¸é ´ÙÀ½°ú °°Àº °á°ú°¡ ³ª¿Â´Ù
+- Tags allow you to parse template literals with a function. The first argument of a tag function contains an array of string values. The remaining arguments are related to the expressions.
 
-  - string?_['before ', ' before ', '', raw: Array(3)]_
-    - **0**: "before "
-    - **1**: " before "
-    - **2**: ""
-    - **length**: 3
-    - **raw**: (3)?['before ',?' before ',?'']
-  - first first
+- The tag function can then perform whatever operations on these arguments you wish, and return the manipulated string. (Alternatively, it can return something completely different, as described in one of the following examples.)
 
-  - second second
+- The name of the function used for the tag can be whatever you want.
 
-```jsx
-const first = "first";
-const second = "second";
+- Tagged Template Literal ë¬¸ë²•ì—ì„œëŠ” `function()`ì´ ì•„ë‹Œ ` function`` `ê³¼ ê°™ì€ ë°©ì‹ìœ¼ë¡œ í•¨ìˆ˜ë¥¼ í˜¸ì¶œí•˜ê³ 
 
-const taggedFunc = (string, first, second) => {
-  console.log("string", string);
-  console.log("first", first);
-  console.log("second", second);
+- ë‚´ë¶€ì˜ ê° `${í‘œí˜„ì‹}`ì„ êµ¬ë¶„ìë¡œ í•˜ì—¬ stringì´ split ëœë‹¤.
 
-  console.log(`${string}, ${first} ${second}}`);
-};
+### Syntax
 
-console.log(taggedFunc`before ${first} before ${second}`);
+```js
+const userName = "Mike";
+const age = 28;
+
+// ì²«ë²ˆì§¸ ì¸ìì—ëŠ” ``ì•ˆì— ìˆëŠ” stringì´ ë°°ì—´ë¡œ ì „ë‹¬ë˜ê³ 
+// ë‚˜ë¨¸ì§€ ë‘ë²ˆì§¸ ë¶€í„°ëŠ” ë³€ìˆ˜ë“¤ì´ ë“¤ì–´ì˜¨ë‹¤
+function transform(staticData, ...dynamicData) {
+  console.log(staticData); // ["Hi, ", " and I am ", ".", raw: ['Hi, ', ' and I am ', '.']]
+  console.log(dynamicData); // ["Mike", 28]
+}
+
+transform`Hi, ${userName} and I am ${age}.`;
+// Hi, Mike and I am 28
 ```
 
-- Áï, tagged templateÀº ÀÎ¼ö¸¦ ¹è¿­ ¸Å°³º¯¼ö·Î ¹Ş´Â °Í
+## Tagged Template Literal With Styled Component
 
-- function f(strings, ¡¦args) ¿¡¼­ ¹®ÀÚ¿­Àº strings¹è¿­·Î µé¾î°¡°í, º¯¼öµéÀº args¹è¿­·Î °£´Ù
+- styled-componentì—ì„œ tagged template literal ë¬¸ë²•ì´ë‹¤
 
-- ÀÌ ¶§ strings´Â ¸¶Áö¸· ºÎºĞ¿¡ ºó¹®ÀÚ(empty character)°¡ µé¾î°£´Ù
+- ì•„ë˜ì™€ ê°™ì´ `` ë‚´ë¶€ì— stringê³¼ ë³€ìˆ˜ê°€ ì „ë‹¬ë˜ë©´,
 
-- ¾Æ·¡Ã³·³ string ÀÌ¿ÜÀÇ ÆÄ¶ó¹ÌÅÍ ºÎºĞÀ» rest ÆÄ¶ó¹ÌÅÍ·Î Ã³¸®ÇÒ ¼ö µµ ÀÖ´Ù
+- ë‚´ë¶€ì ìœ¼ë¡œ ê°’ì„ í• ë‹¹í•´ ì£¼ëŠ” ë°©ì‹ìœ¼ë¡œ ì‘ë™í•œë‹¤
 
-```jsx
-const taggedFunc = (string, ...str) => {
-  console.log("string", string);
-  console.log("str", str); // ['first', 'second']
-
-  console.log(`${string}, ${str[0]} ${str[1]}}`);
-};
-
-console.log(taggedFunc`before ${first} before ${second}`);
+```js
+const Button = styled.button`
+  font-size: ${(props) => (props.primary ? "2em" : "1em")};
+`;
 ```
 
-## È°¿ë¹æ¹ı
+- ëŒ€ëµì ì¸ ë™ì‘ ê³¼ì •ì„ ì½”ë“œë¡œ ë‚˜íƒ€ë‚´ë©´ ë‹¤ìŒê³¼ ê°™ë‹¤
 
-- tagged literalÀ» »ç¿ëÇÏ¸é º¹ÀâÇÑ ¹®ÀÚ¿­À» ½±°Ô Ã³¸®ÇÒ ¼ö ÀÖ´Ù
+```js
+function styled(css, ...variables) {
+  const computedCss = css
+    .map((chunk, index) => `${chunk}${variables[index] || ""}`)
+    .join("");
+  return computedCss;
+}
 
-- ´ÙÀ½Àº console.log¿Í °°Àº ±â´ÉÀ» ÇÏ´Â ÇÔ¼öÀÌ´Ù.
-
-- ¾Æ·¡Ã³·³ ÇÔ¼ö¸¦ Á¤ÀÇÇØ¼­ È£ÃâÇÏ¸é console.log¿Í µ¿ÀÏÇÑ °á°ú¸¦ Ãâ·ÂÇØÁÖ¸ç
-
-- console.log ºÎºĞ¿¡¼­ Ãß°¡ÀûÀÎ ·ÎÁ÷À» ÅëÇØ¼­ ¹®ÀÚ¿­À» º¯Çü½ÃÅ³ ¼ö ÀÖ´Ù
-
-```jsx
-const first = "first";
-const second = "second";
-
-const consoleLog = (strs, ...vars) => {
-  const string = strs.reduce(
-    (prev, cur, i) => prev + strs[i] + (vars[i] || ""),
-    ""
-  );
-  console.log("string", string); // ¿©±â¿¡ ¹®ÀÚ¿­À» Ãß°¡ÇÏ°Å³ª º¯Çü½ÃÅ°´Â µîÀÇ ¶Ç ´Ù¸¥ ·ÎÁ÷À» Ã³¸®ÇÒ ¼ö ÀÖ´Ù
-  return string;
-};
-
-consoleLog`before f ${first} before s ${second}`;
-·¡;
-```
-
-- ¹®ÀÚ¿­À» º¯ÇüÇÏ´Â °ÍÀ» ¾Æ·¡ ¿¹½Ã¸¦ ÅëÇØ¼­ È®ÀÎÇÒ ¼ö ÀÖ´Ù.
-- Á¡¼ö¸¦ ÀÔ·ÂÇÏ°í, Á¡¼ö¿¡ µû¸¥ µî±ŞÀ» Ãâ·ÂÇÏ´Â ÇÔ¼ö·Î, ÀÌ·¸°Ô tagged literalÀ» »ç¿ëÇÏ¸é
-
-```jsx
-const score = 100;
-const name = "Kim";
-
-const tagScore = (strings, ...params) => {
-  const score = params[0];
-  console.log(strings);
-  console.log(params);
-  let grade;
-
-  if (score > 90) {
-    grade = "A";
-  } else if (score > 80) {
-    grade = "B";
-  } else if (score > 70) {
-    grade = "C";
-  } else if (score > 60) {
-    grade = "D";
-  } else {
-    grade = "F";
+const Button = styled`
+  background: ${theme.colors.secondary};
+  margin-bottom: ${theme.spacing.min};
+  span {
+    padding: 0.25em 1em;
+    color: ${theme.colors.primary};
   }
-  return strings[0] + grade + strings[1] + params[1];
-};
-
-console.log(tagScore`your grade: ${score} your name: ${name}`);
+`;
 ```
-
-- ¤·ÀÌ·¸°Ô tagged literalÀ» »ç¿ëÇÏÁö ¾Ê°í score¸¦ grade·Î º¯È¯ÇØÁÖ´Â ÇÔ¼ö¸¦ »ç¿ëÇß´Ù¸é, ÇÊ¿äÇÒ ¶§ ¸¶´Ù ¹®ÀÚ¿­À» ÀÔ·ÂÇÏ°í ÇÔ¼ö¸¦ import ÇØ¿Í¾ß ÇÏÁö¸¸
-- ÀÌ·¸°Ô ¹®ÀÚ¿­ ÀüÃ¼¸¦ Ã³¸®ÇÏ´Â ÇÔ¼ö¸¦ Á¤ÀÇÇÑ ´ÙÀ½ tagged literalÀ» »ç¿ëÇÏ¸é ÇÑ ¹®ÀåÀ» ÅëÇØ¼­ ¸ğµÎ Ã³¸®ÇÒ ¼ö ÀÖ´Ù.
 
 ---
 
 ## Reference
 
-- [(JavaScript) Tagged Template Literals¶õ?](https://medium.com/@su_bak/javascript-tagged-template-literals%EB%9E%80-d7dca9461a45)
-- [ÅÂ±×µå ÅÛÇÃ¸´ ¸®ÅÍ·²(Tagged Template Literals) ? ÀÚ¹Ù½ºÅ©¸³Æ® °¡ÀÌµå 4](https://smoothiecoding.kr/%ED%83%9C%EA%B7%B8%EB%93%9C-%ED%85%9C%ED%94%8C%EB%A6%BF-%EB%A6%AC%ED%84%B0%EB%9F%B4-%EC%9E%90%EB%B0%94%EC%8A%A4%ED%81%AC%EB%A6%BD%ED%8A%B8/)
-- [ES2015 Tagged Template Literal](https://www.zerocho.com/category/ECMAScript/post/5aa7ecc772adcb001b2ed6f3)
+- [MDN - Template literals (Template strings)](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates)
+
+- [Tagged Template Literals ë¬¸ë²•](https://mygumi.tistory.com/395)
+
+- [The magic behind ğŸ’… styled-components](https://mxstbr.blog/2016/11/styled-components-magic-explained/)
+
+- [Styled Component Syntax ì´í•´í•˜ê¸°](https://kschoi.github.io/cs/styled-component-syntax/)

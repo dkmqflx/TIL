@@ -1,3 +1,8 @@
+
+- 아래 이미지를 통해서 useEffect와 useLayoutEffect의 실행 시점의 차이를 알 수 있다.
+
+<img src='https://raw.githubusercontent.com/donavon/hook-flow/master/hook-flow.png'>
+
 ## useEffect
 
 - useEffect 는 컴포넌트들이 render 와 paint 된 후 실행된다
@@ -16,13 +21,15 @@
 
 > If your Effect must block the browser from [painting the screen,](https://react.dev/learn/render-and-commit#epilogue-browser-paint) replace `useEffect` with `useLayoutEffect`. Note that **this shouldn’t be needed for the vast majority of Effects.** You’ll only need this if it’s crucial to run your Effect before the browser paint: for example, to measure and position a tooltip before the user sees it.
 
+<br/>
+
 ## useLayoutEffect
 
 - `useLayoutEffect` is a version of `useEffect` that fires before the browser repaints the screen.
 
-- 다른점은, 브라우저가 화면을 DOM에 그리기(paint) 전에 `useLayoutEffect`를 실행한다는 것이다.
+- 다른점은, 브라우저가 화면을 DOM에 그리기(paint) 전에 `useLayoutEffect`를 실행하기 때문에 useEffect를 사용할 때의 깜빡거림 현상이 나타나지 않는다.
 
-- 따라서 **렌더(render) -> `useLayoutEffect` -> 페인트(paint)** 순으로 실행된다
+- 즉, **렌더(render) -> `useLayoutEffect` -> 페인트(paint)** 순으로 실행된다
 
 ```tsx
 useEffect(() => {

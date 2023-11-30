@@ -32,11 +32,11 @@ export class AxiosError<T = unknown, D = any> extends Error {
 const initData = async () => {
       try {
         const { data } = await getData();
+	   setData(data);
 
-				setData(data);
       } catch (error) {
-				// 에러 발생 - 'error' is of type 'unknown'
-				handleError(error.response);
+	  // 에러 발생 - 'error' is of type 'unknown'
+	  handleError(error.response);
 
         }
       }
@@ -168,10 +168,10 @@ const handleAxios = () => {
       const { message } = (error.response as AxiosResponse<{ message: string }>)
         .data;
       /*
-					 (property) AxiosResponse<{ message: string; }, any>.data: {
-					    message: string;
-						}
-				*/
+        (property) AxiosResponse<{ message: string; }, any>.data: {
+	message: string;
+        }
+      */
     }
   }
 };
@@ -213,11 +213,11 @@ const handleAxios = () => {
 
       if (isAxiosError<{ message: string }>(error)) {
         console.log('axios error', error.response?.data.message);
-				/*
-					 (property) AxiosResponse<{ message: string; }, any>.data: {
-				     message: string;
-						}
-				*/
+	/*
+	  (property) AxiosResponse<{ message: string; }, any>.data: {
+	  message: string;
+          }
+	*/
       }
 
 

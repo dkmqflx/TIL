@@ -20,7 +20,6 @@ export default function Form() {
     ref.current.focus();
     // This won't work because the DOM node isn't exposed:
     // ref.current.style.opacity = 0.5;
-    // 즉, 자식 컴포넌트에서 useImperativeHandle를 사용해 ref의 current를 focus로 두었기 때문에 에러가 발생한다
   }
   console.log("render App");
 

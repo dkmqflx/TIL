@@ -1,27 +1,36 @@
 ## SyntheticEvent
 
-- 리액트에서는 브라우저의 native event를 직접 사용하는 것이 아니라 래핑된 이벤트 객체를 사용한다
-
-- 공식문서에서 이를 확인할 수 있다
+- In React, instead of directly using the browser's native event, a wrapped event object is used.
 
 ### React event object
 
-Your event handlers will receive a _React event object._ It is also sometimes known as a “synthetic event”.
+Your event handlers will receive a [React event object](https://ko.legacy.reactjs.org/docs/events.html) It is also sometimes known as a “synthetic event”.
 
-```html
-<button onClick={e => { console.log(e); // React event object }} />
+```jsx
+<button onClick={e => { console.log(e);
+  // React event object
+  }} />
+버튼
+</button>
 ```
 
-<blockquote>
-It conforms to the same standard as the underlying DOM events, but fixes some browser inconsistencies.
+- Your event handlers will be passed instances of SyntheticEvent, a cross-browser wrapper around the browser’s native event.
+
+- It has the same interface as the browser’s native event, including stopPropagation() and preventDefault(), except the events work identically across all browsers.
+
+- It conforms to the same standard as the underlying DOM events, but fixes some browser inconsistencies.
+
+- If you find that you need the underlying browser event for some reason, simply use the **nativeEvent** attribute to get it.
+
+- The synthetic events are different from, and do not map directly to, the browser’s native events.
+
+- For example in onMouseLeave event.nativeEvent will point to a mouseout event.
+
+- The specific mapping is not part of the public API and may change at any time.
 
 <br/>
 
-Some React events do not map directly to the browser’s native events. For example in `onMouseLeave`, `e.nativeEvent` will point to a `mouseout` event. The specific mapping is not part of the public API and may change in the future. If you need the underlying browser event for some reason, read it from `e.nativeEvent`.
-
-</bloquote>
-
-타입 정의를 아래처럼 확인할 수 있다.
+- The type definition can be verified as follows:
 
 ```tsx
 interface BaseSyntheticEvent<E = object, C = any, T = any> {
@@ -46,7 +55,7 @@ interface SyntheticEvent<T = Element, E = Event>
   extends BaseSyntheticEvent<E, EventTarget & T, EventTarget> {}
 ```
 
-그리고 이벤트 핸들러에 대한 타입을 확인해보면 SyntheticEvent가 아래처럼 사용되고 있는 것을 확인할 수 있다.
+- Also, when checking the type for the event handler, you can see that SyntheticEvent is being used as shown below.
 
 ```tsx
 // Event Handler Types
@@ -59,10 +68,53 @@ type EventHandler<E extends SyntheticEvent<any>> = {
 type ReactEventHandler<T = Element> = EventHandler<SyntheticEvent<T>>;
 ```
 
+<br/>
+
+- In React, there are cases where type inference may not work correctly when trying to use nativeEvent.
+
+- In the example below, the event object is received, but since the type of the event object is `Event`, an error occurs when trying to access properties present in the `InputEvent` object.
+
+```tsx
+const onChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+  const inputEvent = event.nativeEvent;
+
+  if (inputEvent.inputType === "deleteContentBackward") {
+    // Property 'inputType' does not exist on type 'Event'.ts(2339)
+  }
+};
+```
+
+- 이To resolve this, you can either perform type casting,
+
+```tsx
+const onChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+  const inputEvent = event.nativeEvent as InputEvent;
+
+  if (inputEvent.inputType === "deleteContentBackward") {
+    //
+  }
+};
+```
+
+- Or use the instanceof operator to implement type guards.
+
+```tsx
+const onChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+  const inputEvent = event.nativeEvent;
+
+  if (
+    inputEvent instanceof InputEvent &&
+    inputEvent.inputType === "deleteContentBackward"
+  ) {
+    //
+  }
+};
+```
+
 ---
 
 ## Reference
 
-- [React event object](https://react.dev/reference/react-사dom/components/common#react-event-object)
+- [React- SyntheticEvent](https://legacy.reactjs.org/docs/events.html)
 
 - [React 이벤트 처리 방식과 SyntheticEvent](https://handhand.tistory.com/287)

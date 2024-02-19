@@ -12,7 +12,7 @@
 
 - By default, many semantic elements in HTML have a role; for example, `<input type="radio">` has the "radio" role. Non-semantic elements in HTML do not have a role; `<div>` and `<span>` without added semantics return null. The role attribute can provide semantics.
 
-  - 즉, input 태그의 경우 type을 radio로 지정해주면 radio 라는 role이라는 role이 추가되지만, div나 span 태그의 경우에는 `type="radio"`를 추가한다고 해서 role이 추가되지 않는다.
+  - In other words, when specifying the type as radio for an input tag, the role "radio" is added. However, for div or span tags, adding `type="radio" does not result in the addition of a role.
 
 - ARIA roles are added to HTML elements using role="role type", where role type is the name of a role in the ARIA specification. Some roles require the inclusion of associated ARIA states or properties; others are only valid in association with other roles.
 
@@ -77,15 +77,32 @@
 
 - Now the error message is announced when the input is in focus.
 
+### Using ARIA in React
+
+- Note that all `aria-*` HTML attributes are fully supported in JSX.
+
+- Whereas most DOM properties and attributes in React are camelCased, these attributes should be hyphen-cased (also known as kebab-case, lisp-case, etc) as they are in plain HTM
+
+```jsx
+<input
+  type="text"
+  aria-label={labelText}
+  aria-required="true"
+  onChange={onchangeHandler}
+  value={inputValue}
+  name="name"
+/>
+```
+
 <br/>
 
 ## Try to avoid using ARIA to fix unsemantic HTML
 
-- ARIA로 시맨틱 태그를 대체하기 위해서는 rol과 많은 attributes에 대한 작업을 해야한다.
+- To replace semantic tags with ARIA, you need to work on roles and numerous attributes.
 
-- 그렇기 때문에 ARIA로 시맨틱 태그를 대체하기 보다는 시맨틱 태그로 시작을 하는 것이 좋다
+- Therefore, instead of replacing semantic tags with ARIA, it is better to start with semantic tags.
 
-- 즉, 시맨틱 태그를 먼저 사용하고 의미를 부가적으로 설명해주고자 할 때 WAI-ARIA의 role 또는 attributes를 추가해준다
+- In other words, begin by using semantic tags, and if additional clarification of meaning is needed, then add WAI-ARIA roles or attributes.
 
   - [Try to avoid using ARIA to fix unsemantic HTML](https://css-tricks.com/why-how-and-when-to-use-semantic-html-and-aria/#aa-when-aria-makes-things-better)
 
@@ -104,3 +121,5 @@
 - [MDN - ARIA states and properties](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes)
 
 - [Why, How, and When to Use Semantic HTML and ARIA](https://css-tricks.com/why-how-and-when-to-use-semantic-html-and-aria/)
+
+- [React - WAI-ARIA](https://legacy.reactjs.org/docs/accessibility.html#wai-aria)

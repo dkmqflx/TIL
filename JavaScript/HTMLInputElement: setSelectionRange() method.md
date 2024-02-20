@@ -10,9 +10,9 @@
 
 - selectionStart
 
-- The 0-based index of the first selected character. An index greater than the length of the element's value is treated as pointing to the end of the value.
+  - The 0-based index of the first selected character. An index greater than the length of the element's value is treated as pointing to the end of the value.
 
-- selectionEnd : 끝 위치
+- selectionEnd 
 
   - The 0-based index of the character after the last selected character. An index greater than the length of the element's value is treated as pointing to the end of the value.
 

@@ -120,3 +120,9 @@ type ReturnType<T extends (...args: any) => any> = T extends (
 
 // Parameters와 달리 return 부분에서 infer를 사용해서 return type을 추론하고 있다.
 ```
+
+---
+
+## Reference
+
+- [Inferring types in a conditional type](https://learntypescript.dev/09/l2-conditional-infer)

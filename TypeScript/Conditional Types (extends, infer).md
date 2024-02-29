@@ -44,6 +44,25 @@ let c = createLabel(Math.random() ? "hello" : 42);
 // NameLabel | IdLabel;
 ```
 
+- 아래처럼 리터럴 타입과 함께 사용할수 있다.
+
+```ts
+export const useGetData = <T extends "type1" | "type2">(params: T) => {
+  return useQuery({
+    queryKey: ["key"],
+    async queryFn() {
+      const { data } = await restApi.get<T extends "type1" ? Type1 : Type2>(
+        "url"
+      );
+
+      return data;
+    },
+  });
+};
+
+const { data } = useGetData("type1"); // Type1
+```
+
 <br/>
 
 ## infer

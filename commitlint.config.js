@@ -17,6 +17,7 @@ module.exports = {
         "react",
         "ts",
         "bundler",
+        "cicd",
       ],
     ],
     "scope-empty": [2, "never"],

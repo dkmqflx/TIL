@@ -1,0 +1,1 @@
+- [프론트엔드 상태관리 실전 편 with React Query & Zustand #우아콘2023 #우아한형제들](https://www.youtube.com/watch?v=nkXIpGjVxWU)

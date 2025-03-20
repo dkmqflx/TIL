@@ -28,5 +28,6 @@
 ├── Next
 ├── React
 └── TypeScript
+├── Supabase
 
 ```

@@ -1,1 +1,1 @@
-- [Codevolution - Expo Router Tutorial](https://www.youtube.com/watch?v=fOWjYOCopbc&list=PLC3y8-rFHvwgVmqbtQkPDxkvDf6w5_eGA)
+- [Codevolution - Expo Router Tutorial](https://www.youtube.com/watch?v=fOWjYOCopbc&list=PLC3y8-rFHvwgVmqbtQkPDxkvDf6w5_eGA) ([🔗 link](https://github.com/dkmqflx/expo-router-study))

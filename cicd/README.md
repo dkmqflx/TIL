@@ -6,6 +6,6 @@
 
 - [제발 깃허브 액션🔥 모르는 개발자 없게해 주세요 🙏](https://www.youtube.com/watch?v=iLqGzEkusIw&t=1s)
 
-- [달레의 GitHub](https://www.youtube.com/playlist?list=PLapoeRAdKitfFgEjASv9-NdP-QB_Vq7Ji)
+- [달레의 GitHub - GitHubActions](https://www.daleseo.com/?tag=GitHubActions)
 
-- [GitHubActions](https://www.daleseo.com/?tag=GitHubActions)
+- [GitHub Actions로 개발 주기 자동화](https://www.youtube.com/playlist?list=PLDZRZwFT9Wkt19Ox35Ir2A7CyNIWG96Nm)

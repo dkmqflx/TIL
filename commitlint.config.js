@@ -20,6 +20,7 @@ module.exports = {
         "cicd",
         "seo",
         "opt",
+        "rn",
       ],
     ],
     "scope-empty": [2, "never"],

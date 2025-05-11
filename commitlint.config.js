@@ -21,6 +21,7 @@ module.exports = {
         "seo",
         "opt",
         "rn",
+        "supabase",
       ],
     ],
     "scope-empty": [2, "never"],

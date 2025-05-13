@@ -22,6 +22,8 @@ module.exports = {
         "opt",
         "rn",
         "supabase",
+        "a11y",
+        "i18n",
       ],
     ],
     "scope-empty": [2, "never"],

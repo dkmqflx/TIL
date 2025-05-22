@@ -24,6 +24,7 @@ module.exports = {
         "supabase",
         "a11y",
         "i18n",
+        "bundling",
       ],
     ],
     "scope-empty": [2, "never"],

@@ -25,6 +25,7 @@ module.exports = {
         "a11y",
         "i18n",
         "bundling",
+        "aws",
       ],
     ],
     "scope-empty": [2, "never"],

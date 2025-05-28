@@ -26,6 +26,7 @@ module.exports = {
         "i18n",
         "bundling",
         "aws",
+        "network",
       ],
     ],
     "scope-empty": [2, "never"],

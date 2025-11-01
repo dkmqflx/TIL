@@ -6,6 +6,8 @@ module.exports = {
       2,
       "always",
       [
+        "pe",
+        "test",
         "cs",
         "css",
         "dp",

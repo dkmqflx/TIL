@@ -29,6 +29,7 @@ module.exports = {
         "bundling",
         "aws",
         "network",
+        "clean-code",
       ],
     ],
     "scope-empty": [2, "never"],

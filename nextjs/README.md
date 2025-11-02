@@ -1,14 +1,16 @@
-### Tutorials
+## Lectures
+
+- [Next.js Tutorial for Beginners](https://www.youtube.com/playlist?list=PLC3y8-rFHvwgC9mj0qv972IO5DmD-H0ZH)([🔗 link](https://github.com/dkmqflx/nextjs-tutorial-study))
 
 - [Next.js Tutorial - Beginner to Advanced](https://www.youtube.com/playlist?list=PLC3y8-rFHvwjOKd6gdf4QtV1uYNiQnruI)([🔗 link](https://github.com/dkmqflx/nextjs-14-study))
 
-- [Next.js 개념정리 · 클론코딩](https://academy.dream-coding.com/courses/next)
-
-### Advanced
+- [Next.js 개념정리 · 클론코딩](https://academy.dream-coding.com/courses/next)([🔗 link](https://github.com/dkmqflx/nextjs-study))
 
 - [Next.js 까보기](https://www.youtube.com/watch?v=EwY6hbAxdV8&list=PLpq56DBY9U2AyFtF0ajuFZX3IGgDIXgcb&index=1)
 
   - [https://www.inflearn.com/course/nextjs-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-%EC%9B%B9%EA%B0%9C%EB%B0%9C-%EC%8B%AC%ED%99%94#curriculum](https://www.inflearn.com/course/nextjs-%ED%94%84%EB%A1%A0%ED%8A%B8%EC%97%94%EB%93%9C-%EC%9B%B9%EA%B0%9C%EB%B0%9C-%EC%8B%AC%ED%99%94#curriculum)
+
+## Articles
 
 ### Server Component
 

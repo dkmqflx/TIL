@@ -30,6 +30,7 @@ module.exports = {
         "aws",
         "network",
         "clean-code",
+        "ai",
       ],
     ],
     "scope-empty": [2, "never"],

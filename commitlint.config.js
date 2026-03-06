@@ -31,6 +31,7 @@ module.exports = {
         "network",
         "clean-code",
         "ai",
+        "nestjs",
       ],
     ],
     "scope-empty": [2, "never"],

@@ -4,4 +4,4 @@
 
 ## LangChain
 
-- [랭체인 Ver.1 무료 강의 - 이 영상 하나면 당신도 AI Agent 개발자가 됩니다🚀](https://www.youtube.com/watch?v=rb3ZYR_Q1po) ([🔗 link](https://github.com/dkmqflx/langchain-for-ai-agent-study))
+- [AI 에이전트 개발, 이 영상 하나로 끝냅니다. (LangChain + LangGraph)](https://www.youtube.com/watch?v=3My9sphTxtk&t=182s) ([🔗 wikidocs](https://wikidocs.net/book/19240)) ([🔗 link](https://github.com/dkmqflx/langchain-for-ai-agent-study))

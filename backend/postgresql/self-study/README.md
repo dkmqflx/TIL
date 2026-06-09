@@ -116,7 +116,7 @@ backend/postgresql/self-study/
 ## ✅ 진행 체크리스트
 
 - [x] Week 1 — 큰 그림 · 환경 · 데이터 타입
-- [ ] Week 2 — 스키마 설계 · 쓰기 측 강력 기능
+- [x] Week 2 — 스키마 설계 · 쓰기 측 강력 기능
 - [ ] Week 3 — JSONB & 반정형 데이터 · 검색
 - [ ] Week 4 — 인덱스 · 쿼리 성능 · 분석 SQL
 - [ ] Week 5 — 트랜잭션 · 동시성 · MVCC

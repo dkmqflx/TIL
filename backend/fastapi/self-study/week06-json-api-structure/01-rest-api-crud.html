@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 6·01 — REST API 명세 &amp; CRUD 구현</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · JSON API 구축 &amp; 구조화</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 6 — Lesson 01</span>
+  <h1>REST API 명세 &amp; CRUD<br>스키마 · 모델 · 라우터를 묶다</h1>
+  <p class="subtitle">Week 3의 <strong>Pydantic</strong>, Week 5의 <strong>SQLAlchemy 모델</strong>, 그리고 라우터 — 흩어져 있던 부품을 하나로 합쳐 <strong>진짜로 DB에 저장되는 ToDo REST API</strong>를 완성합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>REST API는 <b>"자원(resource)을 URL로, 행동을 HTTP 메서드로"</b> 표현하는 약속이다. <code>GET /todos</code>(조회), <code>POST /todos</code>(생성), <code>PATCH /todos/{id}</code>(부분 수정), <code>DELETE /todos/{id}</code>(삭제). 여기에 Pydantic·SQLAlchemy를 끼우면 검증된 데이터가 DB까지 흐른다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>ToDo 자원을 REST 규칙에 맞게 메서드·경로·상태코드로 설계한다</li>
+    <li>요청/응답용 Pydantic 스키마(Create/Update/Public)를 나눠 쓴다</li>
+    <li>DB 세션으로 조회·생성·수정·삭제(CRUD)를 구현한다</li>
+    <li>ORM 객체를 response_model로 자동 직렬화한다(from_attributes)</li>
+    <li>없는 자원에 404를 일관되게 응답한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>REST API 명세 — 먼저 표로 그린다</h2>
+  <p>코드를 짜기 전에 "어떤 요청에 어떻게 응답할지"를 표로 정리합니다. 이게 곧 API의 <strong>계약서</strong>입니다. NestJS에서 컨트롤러 메서드를 설계하던 것과 같은 단계죠.</p>
+
+  <table class="tbl">
+    <thead><tr><th>메서드</th><th>경로</th><th>설명</th><th>성공 상태코드</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET</code></td><td><code>/todos</code></td><td>할 일 전체 목록 조회</td><td><code>200 OK</code></td></tr>
+      <tr><td><code>GET</code></td><td><code>/todos/{id}</code></td><td>할 일 단건 조회</td><td><code>200 OK</code> (없으면 <code>404</code>)</td></tr>
+      <tr><td><code>POST</code></td><td><code>/todos</code></td><td>새 할 일 생성</td><td><code>201 Created</code></td></tr>
+      <tr><td><code>PATCH</code></td><td><code>/todos/{id}</code></td><td>일부 필드만 수정</td><td><code>200 OK</code> (없으면 <code>404</code>)</td></tr>
+      <tr><td><code>DELETE</code></td><td><code>/todos/{id}</code></td><td>할 일 삭제</td><td><code>204 No Content</code> (없으면 <code>404</code>)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box analogy">
+    <span class="ic">🍽️</span>
+    <span class="label">비유 — 식당의 주문 규칙</span>
+    <p>REST는 손님과 주방 사이의 <strong>주문 규칙</strong>입니다. "메뉴(자원)는 메뉴판 번호(URL)로 가리키고, 하고 싶은 행동(조회·추가·변경·취소)은 정해진 손짓(HTTP 메서드)으로 한다." 손님이 규칙대로만 주문하면, 어떤 주방이든 같은 방식으로 알아듣습니다. 상태코드는 주방이 돌려주는 <strong>"됐어요(201)/없어요(404)"</strong> 같은 표준 답변이고요.</p>
+  </div>
+
+  <h2><span class="num">2</span>스키마 3종 — 입력과 출력을 분리한다</h2>
+  <p>"받을 때 필요한 필드"와 "돌려줄 때 보여줄 필드"는 다릅니다. 그래서 Pydantic 모델을 용도별로 나눕니다. NestJS에서 <code>CreateDto</code>, <code>UpdateDto</code>, <code>ResponseDto</code>를 나누던 것과 똑같습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>스키마</th><th>용도</th><th>특징</th></tr></thead>
+    <tbody>
+      <tr><td><code>TodoCreate</code></td><td>POST 요청 본문</td><td>title 필수, id는 받지 않음</td></tr>
+      <tr><td><code>TodoUpdate</code></td><td>PATCH 요청 본문</td><td>모든 필드 <code>Optional</code> (보낸 것만 수정)</td></tr>
+      <tr><td><code>TodoPublic</code></td><td>응답(response_model)</td><td>id·created_at 포함, ORM에서 직렬화</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">schemas.py</span></div><pre><span class="k">from</span> datetime <span class="k">import</span> datetime
+<span class="k">from</span> pydantic <span class="k">import</span> BaseModel, ConfigDict, Field
+
+<span class="k">class</span> <span class="t">TodoCreate</span>(<span class="t">BaseModel</span>):
+    title: <span class="t">str</span> = <span class="t">Field</span>(min_length=<span class="n">1</span>, max_length=<span class="n">100</span>)
+    done: <span class="t">bool</span> = <span class="k">False</span>
+
+<span class="k">class</span> <span class="t">TodoUpdate</span>(<span class="t">BaseModel</span>):     <span class="c"># PATCH: 보낸 필드만 수정</span>
+    title: <span class="t">str</span> | <span class="k">None</span> = <span class="t">Field</span>(default=<span class="k">None</span>, min_length=<span class="n">1</span>, max_length=<span class="n">100</span>)
+    done: <span class="t">bool</span> | <span class="k">None</span> = <span class="k">None</span>
+
+<span class="k">class</span> <span class="t">TodoPublic</span>(<span class="t">BaseModel</span>):
+    model_config = <span class="t">ConfigDict</span>(from_attributes=<span class="k">True</span>)   <span class="c"># ← 핵심!</span>
+    id: <span class="t">int</span>
+    title: <span class="t">str</span>
+    done: <span class="t">bool</span>
+    created_at: <span class="t">datetime</span></pre></div>
+
+  <h2><span class="num">3</span>from_attributes — ORM 객체를 그대로 직렬화</h2>
+  <p>DB에서 꺼낸 건 dict가 아니라 <strong>SQLAlchemy 객체</strong>(<code>todo.id</code>, <code>todo.title</code>처럼 속성으로 접근)입니다. 기본 Pydantic은 dict만 읽으려 하기 때문에, "속성으로도 읽어라"고 켜 주는 스위치가 <code>ConfigDict(from_attributes=True)</code>입니다.</p>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">v1의 orm_mode가 이름만 바뀐 것</span>
+    <p>Pydantic v1에서 <code>class Config: orm_mode = True</code>로 쓰던 그 기능입니다. v2에서는 <code>model_config = ConfigDict(from_attributes=True)</code>로 이름이 바뀌었습니다. 이게 켜져 있으면 라우터에서 ORM 객체를 그대로 <code>return</code>해도 FastAPI가 <code>TodoPublic</code> 모양의 JSON으로 변환합니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 150" role="img" aria-label="ORM 객체에서 응답 JSON으로의 직렬화">
+      <rect x="20" y="38" width="180" height="74" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="110" y="64" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#6fd6c7">Todo (ORM 객체)</text>
+      <text x="110" y="84" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece6d6">todo.id · todo.title</text>
+      <text x="110" y="100" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9a9382">속성 접근</text>
+      <line x1="205" y1="75" x2="305" y2="75" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#ar1)"/>
+      <text x="255" y="65" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0d6e64">from_attributes</text>
+      <rect x="310" y="34" width="150" height="44" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="385" y="61" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#1c1a16">TodoPublic 모델</text>
+      <line x1="463" y1="56" x2="540" y2="56" stroke="#e0552f" stroke-width="2.5" marker-end="url(#ar2)"/>
+      <rect x="468" y="90" width="152" height="44" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="544" y="117" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#1c1a16">응답 JSON</text>
+      <line x1="385" y1="80" x2="510" y2="88" stroke="#e0552f" stroke-width="2.5" marker-end="url(#ar2)"/>
+      <defs>
+        <marker id="ar1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>from_attributes 덕분에 DB 객체 → TodoPublic → JSON 변환이 자동으로 이뤄진다.</figcaption>
+  </figure>
+
+  <h2><span class="num">4</span>SQLAlchemy 모델과 DB 세션 (Week 5 복습)</h2>
+  <p>Week 5에서 만든 <code>Todo</code> 테이블 모델과, 요청마다 세션을 열고 닫는 <code>get_db</code>입니다. 다음 레슨에서 이 <code>get_db</code>를 <strong>의존성으로 주입</strong>하게 됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">models.py</span></div><pre><span class="k">from</span> datetime <span class="k">import</span> datetime
+<span class="k">from</span> sqlalchemy <span class="k">import</span> func
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> DeclarativeBase, Mapped, mapped_column
+
+<span class="k">class</span> <span class="t">Base</span>(<span class="t">DeclarativeBase</span>): ...
+
+<span class="k">class</span> <span class="t">Todo</span>(<span class="t">Base</span>):
+    __tablename__ = <span class="s">"todos"</span>
+    id: <span class="t">Mapped</span>[<span class="t">int</span>] = <span class="t">mapped_column</span>(primary_key=<span class="k">True</span>)
+    title: <span class="t">Mapped</span>[<span class="t">str</span>] = <span class="t">mapped_column</span>(index=<span class="k">True</span>)
+    done: <span class="t">Mapped</span>[<span class="t">bool</span>] = <span class="t">mapped_column</span>(default=<span class="k">False</span>)
+    created_at: <span class="t">Mapped</span>[<span class="t">datetime</span>] = <span class="t">mapped_column</span>(server_default=func.<span class="f">now</span>())</pre></div>
+
+  <h2><span class="num">5</span>CRUD 라우터 — 5개 엔드포인트</h2>
+  <p>이제 명세표의 5줄을 실제 코드로 옮깁니다. (DB 접근은 다음 레슨에서 서비스 계층으로 빼지만, 여기서는 흐름을 한눈에 보기 위해 라우터에 직접 적습니다.)</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/todos.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> APIRouter, Depends, HTTPException, status
+<span class="k">from</span> sqlalchemy <span class="k">import</span> select
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session
+<span class="k">from</span> database <span class="k">import</span> get_db
+<span class="k">from</span> models <span class="k">import</span> Todo
+<span class="k">from</span> schemas <span class="k">import</span> TodoCreate, TodoUpdate, TodoPublic
+
+router = <span class="t">APIRouter</span>(prefix=<span class="s">"/todos"</span>, tags=[<span class="s">"todos"</span>])
+
+<span class="d">@router.get</span>(<span class="s">""</span>, response_model=<span class="t">list</span>[<span class="t">TodoPublic</span>])
+<span class="k">def</span> <span class="f">list_todos</span>(db: <span class="t">Session</span> = <span class="t">Depends</span>(get_db)):
+    <span class="k">return</span> db.<span class="f">scalars</span>(<span class="f">select</span>(Todo).<span class="f">order_by</span>(Todo.id)).<span class="f">all</span>()
+
+<span class="d">@router.get</span>(<span class="s">"/{todo_id}"</span>, response_model=<span class="t">TodoPublic</span>)
+<span class="k">def</span> <span class="f">get_todo</span>(todo_id: <span class="t">int</span>, db: <span class="t">Session</span> = <span class="t">Depends</span>(get_db)):
+    todo = db.<span class="f">get</span>(Todo, todo_id)
+    <span class="k">if</span> todo <span class="k">is</span> <span class="k">None</span>:
+        <span class="k">raise</span> <span class="t">HTTPException</span>(status.<span class="t">HTTP_404_NOT_FOUND</span>, <span class="s">"Todo not found"</span>)
+    <span class="k">return</span> todo                       <span class="c"># ORM 객체를 그대로 반환 → 직렬화</span></pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/todos.py (이어서)</span></div><pre><span class="d">@router.post</span>(<span class="s">""</span>, response_model=<span class="t">TodoPublic</span>,
+             status_code=status.<span class="t">HTTP_201_CREATED</span>)   <span class="c"># 생성 → 201</span>
+<span class="k">def</span> <span class="f">create_todo</span>(payload: <span class="t">TodoCreate</span>, db: <span class="t">Session</span> = <span class="t">Depends</span>(get_db)):
+    todo = <span class="t">Todo</span>(title=payload.title, done=payload.done)
+    db.<span class="f">add</span>(todo)
+    db.<span class="f">commit</span>()
+    db.<span class="f">refresh</span>(todo)              <span class="c"># DB가 채운 id·created_at 다시 읽기</span>
+    <span class="k">return</span> todo
+
+<span class="d">@router.patch</span>(<span class="s">"/{todo_id}"</span>, response_model=<span class="t">TodoPublic</span>)
+<span class="k">def</span> <span class="f">update_todo</span>(todo_id: <span class="t">int</span>, payload: <span class="t">TodoUpdate</span>,
+                db: <span class="t">Session</span> = <span class="t">Depends</span>(get_db)):
+    todo = db.<span class="f">get</span>(Todo, todo_id)
+    <span class="k">if</span> todo <span class="k">is</span> <span class="k">None</span>:
+        <span class="k">raise</span> <span class="t">HTTPException</span>(status.<span class="t">HTTP_404_NOT_FOUND</span>, <span class="s">"Todo not found"</span>)
+    <span class="c"># exclude_unset=True → 요청에 실제로 보낸 필드만 수정</span>
+    <span class="k">for</span> field, value <span class="k">in</span> payload.<span class="f">model_dump</span>(exclude_unset=<span class="k">True</span>).<span class="f">items</span>():
+        <span class="f">setattr</span>(todo, field, value)
+    db.<span class="f">commit</span>(); db.<span class="f">refresh</span>(todo)
+    <span class="k">return</span> todo
+
+<span class="d">@router.delete</span>(<span class="s">"/{todo_id}"</span>,
+              status_code=status.<span class="t">HTTP_204_NO_CONTENT</span>)   <span class="c"># 삭제 → 204</span>
+<span class="k">def</span> <span class="f">delete_todo</span>(todo_id: <span class="t">int</span>, db: <span class="t">Session</span> = <span class="t">Depends</span>(get_db)):
+    todo = db.<span class="f">get</span>(Todo, todo_id)
+    <span class="k">if</span> todo <span class="k">is</span> <span class="k">None</span>:
+        <span class="k">raise</span> <span class="t">HTTPException</span>(status.<span class="t">HTTP_404_NOT_FOUND</span>, <span class="s">"Todo not found"</span>)
+    db.<span class="f">delete</span>(todo); db.<span class="f">commit</span>()       <span class="c"># 본문 없이 204 응답</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">PATCH와 PUT은 다르다</span>
+    <p><code>PUT</code>은 자원 <strong>전체를 통째로 교체</strong>(모든 필드 필수)하고, <code>PATCH</code>는 <strong>일부만 수정</strong>합니다. 그래서 <code>TodoUpdate</code>의 필드를 전부 <code>Optional</code>로 두고, <code>model_dump(exclude_unset=True)</code>로 "실제로 보낸 필드만" 골라 덮어씁니다. <code>done</code>만 보내면 <code>title</code>은 건드리지 않죠.</p>
+  </div>
+
+  <h2><span class="num">6</span>전체 흐름 — 요청부터 응답까지</h2>
+  <p>하나의 요청이 라우터를 거쳐 DB를 만나고 다시 JSON으로 돌아오는 길입니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 230" role="img" aria-label="요청 → 라우터 → DB → 응답 흐름">
+      <!-- client -->
+      <rect x="20" y="92" width="120" height="46" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="80" y="113" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#ece6d6">클라이언트</text>
+      <text x="80" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#9ad9a0">POST /todos</text>
+      <!-- router -->
+      <rect x="190" y="80" width="140" height="70" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="260" y="104" text-anchor="middle" font-family="Pretendard" font-size="12.5" fill="#1c1a16" font-weight="700">라우터</text>
+      <text x="260" y="123" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">Pydantic 검증</text>
+      <text x="260" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">Depends(get_db)</text>
+      <!-- db -->
+      <rect x="385" y="80" width="140" height="70" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="455" y="108" text-anchor="middle" font-family="Pretendard" font-size="12.5" fill="#1c1a16" font-weight="700">DB 세션</text>
+      <text x="455" y="127" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9a6a05">add · commit</text>
+      <!-- response -->
+      <rect x="565" y="92" width="80" height="46" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="605" y="110" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#1c1a16">201 +</text>
+      <text x="605" y="126" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#1c1a16">JSON</text>
+      <!-- arrows -->
+      <line x1="142" y1="115" x2="186" y2="115" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#fa)"/>
+      <line x1="332" y1="115" x2="381" y2="115" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#fa)"/>
+      <line x1="527" y1="115" x2="561" y2="115" stroke="#e0552f" stroke-width="2.5" marker-end="url(#fc)"/>
+      <!-- response_model note -->
+      <text x="455" y="178" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">ORM 객체 → response_model(TodoPublic) → 직렬화</text>
+      <line x1="455" y1="152" x2="455" y2="166" stroke="#807a6c" stroke-width="1.5" stroke-dasharray="3 3"/>
+      <defs>
+        <marker id="fa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="fc" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>요청 → 라우터(검증·세션) → DB(커밋) → response_model 직렬화 → JSON 응답.</figcaption>
+  </figure>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">commit 뒤엔 refresh를 잊지 말 것</span>
+    <p><code>id</code>와 <code>created_at</code>은 INSERT 시점에 <strong>DB가 채워 주는 값</strong>입니다. <code>db.commit()</code>만 하고 바로 객체를 반환하면 이 값들이 비어 있거나(만료 상태) 추가 쿼리가 필요할 수 있습니다. <code>db.refresh(todo)</code>로 DB가 채운 최신 값을 다시 읽어 와야 응답에 제대로 담깁니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">7</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 스키마를 Create/Update/Public 셋으로 나누는 이유는?</summary>
+    <div class="answer"><p>입력과 출력의 필드가 다르기 때문입니다. 생성 때는 <code>id</code>를 받지 않고, 수정 때는 모든 필드가 선택적이며, 응답에는 <code>id</code>·<code>created_at</code>이 들어갑니다. 하나의 모델로 다 처리하려 하면 "선택적이어야 할 곳이 필수가 되는" 모순이 생깁니다. NestJS의 Create/Update/Response DTO 분리와 같은 발상입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 라우터에서 SQLAlchemy 객체를 그냥 <code>return</code>해도 되는 까닭은?</summary>
+    <div class="answer"><p><code>response_model=TodoPublic</code>을 지정했고, <code>TodoPublic</code>에 <code>ConfigDict(from_attributes=True)</code>를 켜 뒀기 때문입니다. FastAPI가 ORM 객체의 속성을 읽어 <code>TodoPublic</code> 모양의 JSON으로 변환합니다. 직접 dict로 변환할 필요가 없습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> PATCH에서 <code>model_dump(exclude_unset=True)</code>를 쓰는 이유는?</summary>
+    <div class="answer"><p>요청 본문에 <strong>실제로 보낸 필드만</strong> 추려 수정하기 위해서입니다. <code>exclude_unset</code> 없이 dump하면 보내지 않은 필드도 기본값(예: <code>None</code>)으로 들어와 멀쩡한 값을 덮어써 버립니다. 부분 수정(PATCH)의 핵심 옵션입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week05-postgres-sqlalchemy/03-connection-pool-session.html"><span class="dir">← 이전</span><span class="ttl">Week 5 · Connection Pool &amp; Session</span></a>
+    <a class="next" href="02-dependency-injection-mvc.html"><span class="dir">다음 →</span><span class="ttl">Dependency Injection &amp; 서비스 계층</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 6 · Lesson 01 · REST API &amp; CRUD</footer>
+</body>
+</html>

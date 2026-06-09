@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 6·02 — Dependency Injection &amp; 서비스 계층</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · JSON API 구축 &amp; 구조화</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 6 — Lesson 02</span>
+  <h1>Dependency Injection<br>서비스 계층으로 리팩터링</h1>
+  <p class="subtitle">FastAPI의 <strong>Depends</strong>는 NestJS의 DI 컨테이너에 대응합니다. 공통 의존성(DB 세션)을 주입받고, 라우터에 뭉쳐 있던 로직을 <strong>서비스 계층(MVC)</strong>으로 분리합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>DI는 <b>"필요한 걸 직접 만들지 말고 받아 쓰라"</b>는 원칙이다. FastAPI에서는 함수 인자에 <code>Depends(get_db)</code>를 적기만 하면 세션이 자동으로 주입된다. 그리고 라우터(컨트롤러)는 요청/응답만, 서비스는 비즈니스 로직만 — 이렇게 <b>계층을 나누면</b> 테스트와 유지보수가 쉬워진다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>Depends로 공통 의존성(DB 세션)을 함수에 주입한다</li>
+    <li>yield 의존성으로 세션을 열고 닫는 생명주기를 관리한다</li>
+    <li>Annotated[Session, Depends(get_db)] 스타일을 익힌다</li>
+    <li>라우터·서비스·리포지토리로 계층을 분리한다(MVC)</li>
+    <li>라우터에 뭉친 코드를 서비스 함수로 리팩터링한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>Depends — 의존성을 주입받기</h2>
+  <p>지난 레슨에서 모든 라우트가 <code>db: Session = Depends(get_db)</code>를 적었죠. 이게 바로 <strong>의존성 주입</strong>입니다. 함수가 세션을 직접 만들지 않고, "세션 주세요"라고 선언만 하면 FastAPI가 <code>get_db</code>를 호출해 결과를 넣어 줍니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">👨‍🍳</span>
+    <span class="label">비유 — 재료를 받아 쓰는 요리사</span>
+    <p>요리사(라우트 함수)가 요리할 때마다 직접 장을 보러 간다면? 시간도 낭비되고, 테스트하려면 매번 진짜 마트가 필요합니다. 대신 <strong>준비된 재료(DB 세션)를 받아</strong> 쓰면, 요리사는 요리에만 집중하고 — 테스트할 땐 <strong>가짜 재료(목 세션)</strong>를 건네 똑같이 검증할 수 있습니다. DI는 "재료 조달"과 "요리"를 떼어 놓아 <strong>결합도를 낮추고 테스트를 쉽게</strong> 만듭니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>yield 의존성 — 열고, 쓰고, 닫기</h2>
+  <p><code>get_db</code>는 단순 함수가 아니라 <code>yield</code>를 쓰는 <strong>생성기 의존성</strong>입니다. <code>yield</code> 위쪽은 요청 처리 <strong>전(셋업)</strong>, 아래쪽은 응답 후 <strong>정리(teardown)</strong>로 실행됩니다. 세션을 열고 → 라우트에 넘기고 → 끝나면 반드시 닫는 패턴이죠.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">database.py</span></div><pre><span class="k">from</span> collections.abc <span class="k">import</span> Generator
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session
+
+<span class="k">def</span> <span class="f">get_db</span>() -> <span class="t">Generator</span>[<span class="t">Session</span>, <span class="k">None</span>, <span class="k">None</span>]:
+    db = <span class="f">SessionLocal</span>()
+    <span class="k">try</span>:
+        <span class="k">yield</span> db          <span class="c"># ← 여기서 라우트가 db를 받아 사용</span>
+    <span class="k">finally</span>:
+        db.<span class="f">close</span>()        <span class="c"># 응답이 끝나면 항상 닫힘(예외가 나도)</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">try/finally가 핵심</span>
+    <p><code>finally</code> 안에서 <code>close()</code>를 하므로, 라우트에서 예외가 터져도 세션은 누수 없이 닫힙니다. 커넥션 풀(Week 5)로 세션을 빌려 쓰고 꼬박꼬박 반납하는 셈입니다. NestJS에서 요청 스코프 프로바이더가 요청 끝에 정리되는 것과 같은 생명주기입니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>Annotated 스타일 — 재사용 가능한 의존성</h2>
+  <p>모든 라우트마다 <code>db: Session = Depends(get_db)</code>를 반복하면 지저분합니다. <code>Annotated</code>로 <strong>별칭 타입</strong>을 하나 만들어 두면 깔끔하게 재사용할 수 있습니다 — FastAPI가 권장하는 최신 스타일입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/todos.py</span></div><pre><span class="k">from</span> typing <span class="k">import</span> Annotated
+<span class="k">from</span> fastapi <span class="k">import</span> APIRouter, Depends
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session
+<span class="k">from</span> database <span class="k">import</span> get_db
+
+<span class="c"># 의존성 별칭 — 한 번 정의하고 모든 라우트에서 재사용</span>
+DbSession = <span class="t">Annotated</span>[<span class="t">Session</span>, <span class="t">Depends</span>(get_db)]
+
+router = <span class="t">APIRouter</span>(prefix=<span class="s">"/todos"</span>, tags=[<span class="s">"todos"</span>])
+
+<span class="d">@router.get</span>(<span class="s">"/{todo_id}"</span>)
+<span class="k">def</span> <span class="f">get_todo</span>(todo_id: <span class="t">int</span>, db: <span class="t">DbSession</span>):   <span class="c"># ← 깔끔!</span>
+    <span class="k">return</span> services.<span class="f">get_todo</span>(db, todo_id)</pre></div>
+
+  <h2><span class="num">4</span>NestJS Provider/DI와 나란히</h2>
+  <p>두 프레임워크 모두 "의존성을 컨테이너가 주입"한다는 발상은 같습니다. 표현 방식만 다릅니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — @Injectable + 생성자 주입</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todos.controller.ts</span></div><pre><span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">TodosService</span> { ... }
+
+<span class="d">@Controller</span>(<span class="s">'todos'</span>)
+<span class="k">export class</span> <span class="t">TodosController</span> {
+  <span class="c">// 생성자에서 주입받음</span>
+  <span class="k">constructor</span>(
+    <span class="k">private</span> todos: <span class="t">TodosService</span>,
+  ) {}
+}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — Depends</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/todos.py</span></div><pre><span class="c"># 함수 인자에서 주입받음</span>
+<span class="d">@router.get</span>(<span class="s">"/{id}"</span>)
+<span class="k">def</span> <span class="f">get_todo</span>(
+    id: <span class="t">int</span>,
+    db: <span class="t">DbSession</span>,   <span class="c"># = Depends(get_db)</span>
+):
+    <span class="k">return</span> services.<span class="f">get_todo</span>(db, id)</pre></div>
+      <p>생성자 주입 ↔ 함수 인자 주입. 클래스 없이 <strong>함수 단위</strong>로 더 가볍게.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">5</span>계층 분리(MVC) — 왜 나누나</h2>
+  <p>지난 레슨의 라우터는 "요청 받기 + 비즈니스 판단 + DB 쿼리"를 한 함수에 다 했습니다. 작을 땐 괜찮지만, 로직이 커지면 라우터가 비대해지고 재사용·테스트가 어려워집니다. 그래서 책임을 계층으로 나눕니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>계층</th><th>역할</th><th>NestJS 대응</th></tr></thead>
+    <tbody>
+      <tr><td>라우터(컨트롤러)</td><td>요청 받기 · 응답 보내기 · 검증</td><td>Controller</td></tr>
+      <tr><td>서비스</td><td>비즈니스 로직 (무엇을·어떻게)</td><td>Service</td></tr>
+      <tr><td>리포지토리/모델</td><td>DB 접근 (쿼리·저장)</td><td>Repository / Entity</td></tr>
+    </tbody>
+  </table>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 200" role="img" aria-label="라우터-서비스-리포지토리-DB 계층 구조">
+      <!-- Router -->
+      <rect x="30" y="80" width="130" height="58" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="95" y="105" text-anchor="middle" font-family="Pretendard" font-size="13" fill="#1c1a16" font-weight="700">Router</text>
+      <text x="95" y="123" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#0a4f48">요청 / 응답</text>
+      <!-- Service -->
+      <rect x="200" y="80" width="130" height="58" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="265" y="105" text-anchor="middle" font-family="Pretendard" font-size="13" fill="#1c1a16" font-weight="700">Service</text>
+      <text x="265" y="123" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#a8401f">비즈니스 로직</text>
+      <!-- Repository/Model -->
+      <rect x="370" y="80" width="140" height="58" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="440" y="105" text-anchor="middle" font-family="Pretendard" font-size="12.5" fill="#1c1a16" font-weight="700">Repository / Model</text>
+      <text x="440" y="123" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#9a6a05">DB 접근</text>
+      <!-- DB -->
+      <rect x="550" y="80" width="90" height="58" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="595" y="114" text-anchor="middle" font-family="Pretendard" font-size="13" fill="#ece6d6">DB</text>
+      <!-- arrows -->
+      <line x1="162" y1="109" x2="196" y2="109" stroke="#807a6c" stroke-width="2.5" marker-end="url(#la)"/>
+      <line x1="332" y1="109" x2="366" y2="109" stroke="#807a6c" stroke-width="2.5" marker-end="url(#la)"/>
+      <line x1="512" y1="109" x2="546" y2="109" stroke="#807a6c" stroke-width="2.5" marker-end="url(#la)"/>
+      <text x="330" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#807a6c">각 계층은 바로 아래 계층만 호출 → 단방향 의존</text>
+      <defs>
+        <marker id="la" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Router → Service → Repository/Model → DB. 책임이 한 방향으로 흐른다.</figcaption>
+  </figure>
+
+  <h2><span class="num">6</span>리팩터링 — 라우터의 로직을 서비스로</h2>
+  <p>이제 라우터에 박혀 있던 DB 코드를 <code>services.py</code>로 옮깁니다. 라우터는 "받아서 서비스에 넘기고 결과를 돌려주는" 얇은 껍데기가 됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">services.py</span></div><pre><span class="k">from</span> sqlalchemy <span class="k">import</span> select
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session
+<span class="k">from</span> models <span class="k">import</span> Todo
+<span class="k">from</span> schemas <span class="k">import</span> TodoCreate, TodoUpdate
+<span class="k">from</span> exceptions <span class="k">import</span> TodoNotFoundError   <span class="c"># 도메인 예외(HTTP 모름)</span>
+
+<span class="k">def</span> <span class="f">get_todo</span>(db: <span class="t">Session</span>, todo_id: <span class="t">int</span>) -> <span class="t">Todo</span>:
+    todo = db.<span class="f">get</span>(Todo, todo_id)
+    <span class="k">if</span> todo <span class="k">is</span> <span class="k">None</span>:
+        <span class="k">raise</span> <span class="t">TodoNotFoundError</span>(todo_id)   <span class="c"># HTTPException 아님!</span>
+    <span class="k">return</span> todo
+
+<span class="k">def</span> <span class="f">create_todo</span>(db: <span class="t">Session</span>, data: <span class="t">TodoCreate</span>) -> <span class="t">Todo</span>:
+    todo = <span class="t">Todo</span>(title=data.title, done=data.done)
+    db.<span class="f">add</span>(todo); db.<span class="f">commit</span>(); db.<span class="f">refresh</span>(todo)
+    <span class="k">return</span> todo
+
+<span class="k">def</span> <span class="f">update_todo</span>(db: <span class="t">Session</span>, todo_id: <span class="t">int</span>, data: <span class="t">TodoUpdate</span>) -> <span class="t">Todo</span>:
+    todo = <span class="f">get_todo</span>(db, todo_id)            <span class="c"># 없으면 예외 재사용</span>
+    <span class="k">for</span> field, value <span class="k">in</span> data.<span class="f">model_dump</span>(exclude_unset=<span class="k">True</span>).<span class="f">items</span>():
+        <span class="f">setattr</span>(todo, field, value)
+    db.<span class="f">commit</span>(); db.<span class="f">refresh</span>(todo)
+    <span class="k">return</span> todo</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/todos.py (얇아진 라우터)</span></div><pre><span class="k">import</span> services
+<span class="k">from</span> fastapi <span class="k">import</span> APIRouter, status
+<span class="k">from</span> schemas <span class="k">import</span> TodoCreate, TodoUpdate, TodoPublic
+
+router = <span class="t">APIRouter</span>(prefix=<span class="s">"/todos"</span>, tags=[<span class="s">"todos"</span>])
+
+<span class="d">@router.get</span>(<span class="s">"/{todo_id}"</span>, response_model=<span class="t">TodoPublic</span>)
+<span class="k">def</span> <span class="f">get_todo</span>(todo_id: <span class="t">int</span>, db: <span class="t">DbSession</span>):
+    <span class="k">return</span> services.<span class="f">get_todo</span>(db, todo_id)   <span class="c"># 위임만 한다</span>
+
+<span class="d">@router.post</span>(<span class="s">""</span>, response_model=<span class="t">TodoPublic</span>,
+             status_code=status.<span class="t">HTTP_201_CREATED</span>)
+<span class="k">def</span> <span class="f">create_todo</span>(payload: <span class="t">TodoCreate</span>, db: <span class="t">DbSession</span>):
+    <span class="k">return</span> services.<span class="f">create_todo</span>(db, payload)</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">서비스는 HTTP를 몰라야 한다</span>
+    <p>서비스 계층에서 <code>HTTPException</code>(상태코드, 헤더)을 던지면, 그 로직은 "웹 요청 안에서만" 쓸 수 있게 묶여 버립니다. 대신 <code>TodoNotFoundError</code> 같은 <strong>도메인 예외</strong>를 던지고, HTTP 변환은 다음 레슨의 <strong>전역 예외 핸들러</strong>에 맡기세요. 그래야 서비스를 배치 작업·CLI·테스트 어디서든 재사용할 수 있습니다.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">commit을 누가 책임지나</span>
+    <p>이 예제는 단순함을 위해 서비스 함수 안에서 <code>commit()</code>합니다. 트랜잭션이 여러 서비스 호출에 걸치는 복잡한 경우엔, 의존성/미들웨어에서 "요청 끝에 한 번 커밋"하도록 경계를 한 곳으로 모으는 패턴이 더 안전합니다. 일단은 "한 요청 = 한 작업 = 한 커밋"으로 익히면 됩니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">7</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> FastAPI의 <code>Depends</code>는 NestJS의 무엇에 대응하나요?</summary>
+    <div class="answer"><p>NestJS의 DI(의존성 주입)에 대응합니다. NestJS가 <code>@Injectable</code> 프로바이더를 생성자로 주입한다면, FastAPI는 <code>Depends(...)</code>로 함수 인자에 주입합니다. 둘 다 "필요한 의존성을 직접 만들지 않고 컨테이너가 넣어 준다"는 원리는 같고, FastAPI는 클래스 없이 함수 단위로 더 가볍습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>get_db</code>가 일반 <code>return</code>이 아니라 <code>yield</code>를 쓰는 이유는?</summary>
+    <div class="answer"><p>요청 처리가 끝난 뒤 <strong>정리(세션 닫기)</strong>를 보장하기 위해서입니다. <code>yield</code> 위쪽에서 세션을 열고, 라우트에 넘긴 뒤, 응답이 끝나면 <code>yield</code> 아래쪽(<code>finally: db.close()</code>)이 실행됩니다. 예외가 나도 세션이 누수되지 않습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 라우터의 로직을 서비스로 빼면 뭐가 좋아지나요?</summary>
+    <div class="answer"><p>책임이 분리됩니다. 라우터는 요청/응답만 담당하고, 비즈니스 로직은 서비스에 모입니다. 그 결과 ① 같은 로직을 여러 라우트나 배치 작업에서 재사용할 수 있고, ② 서비스 함수를 HTTP 없이 단위 테스트할 수 있으며, ③ 라우터가 얇아져 읽기 쉬워집니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-rest-api-crud.html"><span class="dir">← 이전</span><span class="ttl">REST API 명세 &amp; CRUD</span></a>
+    <a class="next" href="03-exception-handler-pytest.html"><span class="dir">다음 →</span><span class="ttl">전역 예외 핸들러 · 설정 · pytest</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 6 · Lesson 02 · DI &amp; 서비스 계층</footer>
+</body>
+</html>

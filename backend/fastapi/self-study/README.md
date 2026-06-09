@@ -140,7 +140,7 @@ backend/fastapi/self-study/
 - [x] Week 3 — Pydantic & 응답 설계
 - [x] Week 4 — 비동기 원리 & 내부 동작
 - [x] Week 5 — PostgreSQL & SQLAlchemy
-- [ ] Week 6 — JSON API 구축 & 구조화
+- [x] Week 6 — JSON API 구축 & 구조화
 - [ ] Week 7 — 비동기 DB & 외부 통신
 - [ ] Week 8 — 인증 / 인가
 - [ ] Week 9 — 실시간 & 이벤트 & 성능

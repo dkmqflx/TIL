@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 6·03 — 전역 예외 핸들러 · 설정 · pytest</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · JSON API 구축 &amp; 구조화</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 6 — Lesson 03</span>
+  <h1>전역 예외 핸들러<br>설정 관리 &amp; pytest 입문</h1>
+  <p class="subtitle">앱 전역에서 <strong>일관된 에러 JSON</strong>을 내려 주고, 비밀값은 <strong>.env</strong>로 안전하게 관리하고, <strong>pytest</strong>로 첫 자동 테스트를 작성합니다. Week 6의 마무리입니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>좋은 API는 <b>에러도 일관된 모양</b>으로 돌려준다. <code>@app.exception_handler</code>로 도메인 예외를 한 곳에서 HTTP 응답으로 바꾸고, 설정은 <b>pydantic-settings + .env</b>로 코드 밖에 두며, <b>pytest + TestClient</b>로 "정말 동작하는가"를 자동으로 검증한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>@app.exception_handler로 전역 예외 핸들러를 등록한다</li>
+    <li>커스텀 예외를 일관된 에러 JSON으로 변환한다</li>
+    <li>pydantic-settings + .env로 환경변수를 안전하게 로드한다</li>
+    <li>TestClient로 첫 API 테스트(200·201)를 작성한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>전역 예외 핸들러 — 에러를 한 곳에서</h2>
+  <p>지난 레슨에서 서비스는 <code>TodoNotFoundError</code> 같은 <strong>도메인 예외</strong>를 던졌습니다. 이걸 받아 HTTP 응답으로 바꾸는 일을 라우트마다 반복하면 지저분하죠. <code>@app.exception_handler</code>로 <strong>앱 전체에서 한 번만</strong> 등록합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🚑</span>
+    <span class="label">비유 — 건물의 중앙 비상 대응실</span>
+    <p>층마다 사고가 날 때 각 사무실이 따로 119에 전화하면 대응이 제각각입니다. 대신 <strong>중앙 비상실</strong>을 두면, 어느 층에서 무슨 사고가 나든 <strong>같은 절차로 일관되게</strong> 처리됩니다. 전역 예외 핸들러가 바로 그 중앙 비상실 — 앱 어디서 어떤 예외가 올라오든 같은 모양의 에러 JSON으로 응답합니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">exceptions.py</span></div><pre><span class="k">class</span> <span class="t">TodoNotFoundError</span>(<span class="t">Exception</span>):
+    <span class="k">def</span> <span class="f">__init__</span>(self, todo_id: <span class="t">int</span>) -> <span class="k">None</span>:
+        self.todo_id = todo_id
+        <span class="f">super</span>().<span class="f">__init__</span>(<span class="s">f"Todo {todo_id} not found"</span>)</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> FastAPI, Request, status
+<span class="k">from</span> fastapi.responses <span class="k">import</span> JSONResponse
+<span class="k">from</span> exceptions <span class="k">import</span> TodoNotFoundError
+
+app = <span class="t">FastAPI</span>()
+
+<span class="d">@app.exception_handler</span>(<span class="t">TodoNotFoundError</span>)
+<span class="k">async def</span> <span class="f">todo_not_found_handler</span>(request: <span class="t">Request</span>, exc: <span class="t">TodoNotFoundError</span>):
+    <span class="k">return</span> <span class="t">JSONResponse</span>(
+        status_code=status.<span class="t">HTTP_404_NOT_FOUND</span>,
+        content={
+            <span class="s">"error"</span>: <span class="s">"todo_not_found"</span>,
+            <span class="s">"message"</span>: <span class="s">f"id={exc.todo_id} 인 할 일을 찾을 수 없습니다."</span>,
+        },
+    )</pre></div>
+
+  <h2><span class="num">2</span>NestJS ExceptionFilter와 나란히</h2>
+  <p>발상이 거의 같습니다. "예외 타입 → 응답 변환"을 한 곳에 모아 두는 것이죠.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — ExceptionFilter</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todo.filter.ts</span></div><pre><span class="d">@Catch</span>(<span class="t">TodoNotFoundError</span>)
+<span class="k">export class</span> <span class="t">TodoFilter</span>
+  <span class="k">implements</span> <span class="t">ExceptionFilter</span> {
+  <span class="f">catch</span>(e, host) {
+    <span class="k">const</span> res = host
+      .<span class="f">switchToHttp</span>()
+      .<span class="f">getResponse</span>();
+    res.<span class="f">status</span>(<span class="n">404</span>).<span class="f">json</span>({ ... });
+  }
+}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — exception_handler</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.exception_handler</span>(
+    <span class="t">TodoNotFoundError</span>
+)
+<span class="k">async def</span> <span class="f">handler</span>(req, exc):
+    <span class="k">return</span> <span class="t">JSONResponse</span>(
+        status_code=<span class="n">404</span>,
+        content={ ... },
+    )</pre></div>
+      <p><code>@Catch(Type)</code> ↔ <code>@app.exception_handler(Type)</code>. 데코레이터 하나로 등록.</p>
+    </div>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 160" role="img" aria-label="서비스 예외가 전역 핸들러를 거쳐 에러 JSON이 되는 흐름">
+      <rect x="20" y="56" width="130" height="50" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="85" y="78" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#1c1a16" font-weight="700">Service</text>
+      <text x="85" y="95" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#a8401f">raise 도메인예외</text>
+      <rect x="210" y="50" width="160" height="62" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="290" y="76" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#ece6d6" font-weight="700">전역 예외 핸들러</text>
+      <text x="290" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#9ad9a0">@app.exception_handler</text>
+      <rect x="430" y="56" width="160" height="50" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="510" y="78" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#1c1a16" font-weight="700">일관된 에러 JSON</text>
+      <text x="510" y="95" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#0a4f48">404 + {error, message}</text>
+      <line x1="152" y1="81" x2="206" y2="81" stroke="#807a6c" stroke-width="2.5" marker-end="url(#ea)"/>
+      <line x1="372" y1="81" x2="426" y2="81" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#eb)"/>
+      <text x="179" y="40" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#807a6c">올라옴</text>
+      <text x="399" y="40" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#0d6e64">변환</text>
+      <defs>
+        <marker id="ea" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="eb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>서비스가 던진 도메인 예외 → 전역 핸들러 → 어디서든 똑같은 모양의 에러 JSON.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>설정 관리 — pydantic-settings + .env</h2>
+  <p><code>DATABASE_URL</code> 같은 값을 코드에 박아 두면 환경(로컬·운영)마다 코드를 고쳐야 하고, 비밀값이 노출됩니다. <strong>pydantic-settings</strong>의 <code>BaseSettings</code>는 환경변수와 <code>.env</code> 파일을 읽어 타입 검증까지 해 줍니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">settings.py</span></div><pre><span class="k">from</span> pydantic_settings <span class="k">import</span> BaseSettings, SettingsConfigDict
+
+<span class="k">class</span> <span class="t">Settings</span>(<span class="t">BaseSettings</span>):
+    database_url: <span class="t">str</span> = <span class="s">"sqlite:///./test.db"</span>   <span class="c"># 기본값</span>
+    app_name: <span class="t">str</span> = <span class="s">"Todo API"</span>
+
+    model_config = <span class="t">SettingsConfigDict</span>(env_file=<span class="s">".env"</span>)
+
+settings = <span class="t">Settings</span>()   <span class="c"># 어디서든 import 해서 settings.database_url</span></pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">.env</span></div><pre><span class="c"># 환경별 값은 여기에. 코드에는 절대 하드코딩하지 않는다.</span>
+DATABASE_URL=postgresql+psycopg://user:secret@localhost:5432/app
+APP_NAME=Todo API</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">비밀값을 코드/깃에 넣지 말 것</span>
+    <p><code>.env</code>는 반드시 <code>.gitignore</code>에 등록하세요. <strong>DB 비밀번호·API 키·토큰</strong>이 깃 히스토리에 한 번이라도 올라가면 사실상 영구히 노출된 것으로 봐야 합니다. 저장소에는 값이 빠진 <code>.env.example</code>만 커밋해 "어떤 키가 필요한지"만 알려 주세요.</p>
+  </div>
+
+  <h2><span class="num">4</span>pytest 입문 — 첫 자동 테스트</h2>
+  <p>"브라우저로 직접 눌러 확인"은 매번 반복되고 실수도 잦습니다. <strong>pytest</strong>와 FastAPI의 <strong>TestClient</strong>로 "GET이 200을, POST가 201을 주는가"를 코드로 못 박아 둡니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># 개발 의존성으로 pytest 추가 (uv)</span>
+uv add --dev pytest httpx
+uv run pytest -v</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">test_todos.py</span></div><pre><span class="k">from</span> fastapi.testclient <span class="k">import</span> TestClient
+<span class="k">from</span> main <span class="k">import</span> app
+
+client = <span class="t">TestClient</span>(app)   <span class="c"># 서버를 띄우지 않고 앱을 직접 호출</span>
+
+<span class="k">def</span> <span class="f">test_list_todos_returns_200</span>():
+    res = client.<span class="f">get</span>(<span class="s">"/todos"</span>)
+    <span class="k">assert</span> res.status_code == <span class="n">200</span>
+    <span class="k">assert</span> <span class="f">isinstance</span>(res.<span class="f">json</span>(), <span class="t">list</span>)
+
+<span class="k">def</span> <span class="f">test_create_todo_returns_201</span>():
+    res = client.<span class="f">post</span>(<span class="s">"/todos"</span>, json={<span class="s">"title"</span>: <span class="s">"pytest 배우기"</span>})
+    <span class="k">assert</span> res.status_code == <span class="n">201</span>
+    body = res.<span class="f">json</span>()
+    <span class="k">assert</span> body[<span class="s">"title"</span>] == <span class="s">"pytest 배우기"</span>
+    <span class="k">assert</span> body[<span class="s">"done"</span>] <span class="k">is</span> <span class="k">False</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">TestClient는 진짜 서버가 필요 없다</span>
+    <p><code>TestClient</code>는 <code>uvicorn</code>으로 서버를 띄우지 않고, <strong>앱 객체를 메모리에서 직접 호출</strong>합니다. 그래서 빠르고, 포트 충돌도 없습니다. 내부적으로 <code>httpx</code>를 쓰기 때문에 <code>pytest</code>와 함께 <code>httpx</code>를 설치합니다. NestJS의 <code>supertest</code>로 e2e 테스트하던 경험과 비슷합니다.</p>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">conftest.py는 Week 10에서 심화</span>
+    <p>여러 테스트가 공유하는 준비물(테스트 전용 DB, 깨끗한 세션, 인증된 클라이언트 등)은 <code>conftest.py</code>에 <strong>fixture</strong>로 모읍니다. 지금은 "이런 게 있다"만 알아 두세요. <strong>테스트 전용 DB 분리·픽스처·DI 오버라이드</strong>는 <strong>Week 10</strong>에서 본격적으로 다룹니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 전역 예외 핸들러를 쓰면 라우트마다 try/except를 쓰는 것보다 뭐가 낫나요?</summary>
+    <div class="answer"><p>에러 처리를 한 곳에 모아 <strong>일관성</strong>을 보장합니다. 서비스는 도메인 예외만 던지고, HTTP 변환(상태코드·JSON 모양)은 핸들러가 전담하므로 중복이 사라지고, 응답 포맷을 바꿀 때도 한 곳만 고치면 됩니다. NestJS의 ExceptionFilter와 같은 이점입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 설정을 <code>BaseSettings</code>로 관리하면 좋은 점은?</summary>
+    <div class="answer"><p>환경변수·<code>.env</code> 값을 읽어 <strong>타입 검증</strong>까지 해 주고, 코드 어디서든 <code>settings.database_url</code>로 일관되게 접근합니다. 비밀값을 코드 밖(<code>.env</code>)에 두어 노출을 막고, 환경(로컬/운영)마다 코드를 고치지 않고 값만 바꾸면 됩니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>TestClient</code>로 테스트할 때 서버를 따로 실행해야 하나요?</summary>
+    <div class="answer"><p>아니요. <code>TestClient(app)</code>는 ASGI 앱을 메모리에서 직접 호출하므로 <code>uvicorn</code> 실행이 필요 없습니다. 그래서 빠르고 포트 충돌도 없습니다. <code>uv run pytest</code>만으로 GET 200·POST 201 같은 동작을 자동 검증할 수 있습니다.</p></div>
+  </details>
+
+  <div class="box tip">
+    <span class="ic">🎯</span>
+    <span class="label">Week 6 마무리</span>
+    <p>REST 명세 → CRUD 구현 → DI/서비스 계층 → 전역 예외·설정·테스트까지, 이제 <strong>구조가 잡힌 실무형 JSON API</strong>를 만들 수 있습니다. 다음 주(Week 7)에서는 이 위에 한 단계 더 — 인증·미들웨어 등 <strong>요청 파이프라인</strong>으로 나아갑니다.</p>
+  </div>
+
+  <nav class="pager">
+    <a class="prev" href="02-dependency-injection-mvc.html"><span class="dir">← 이전</span><span class="ttl">DI &amp; 서비스 계층</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 · Week 7 준비</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 6 · Lesson 03 · 예외 핸들러 &amp; pytest</footer>
+</body>
+</html>

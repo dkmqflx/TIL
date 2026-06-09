@@ -31,6 +31,7 @@ til/
 │   ├── nodejs/
 │   ├── nestjs/
 │   ├── fastapi/
+│   ├── postgresql/
 │   └── supabase/
 ├── cs/                # Computer Science
 │   └── network/
@@ -61,7 +62,7 @@ This repository uses **commitlint** to enforce standardized commit messages. All
 
 **Scope:** Must be one of the following (category(subcategory) format):
 - Frontend: `fe(a11y)`, `fe(css)`, `fe(dp)`, `fe(env)`, `fe(html)`, `fe(i18n)`, `fe(interactive-web)`, `fe(js)`, `fe(next)`, `fe(opt)`, `fe(react)`, `fe(rn)`, `fe(test)`, `fe(ts)`
-- Backend: `be(nodejs)`, `be(nestjs)`, `be(fastapi)`, `be(supabase)`
+- Backend: `be(nodejs)`, `be(nestjs)`, `be(fastapi)`, `be(postgresql)`, `be(supabase)`
 - Computer Science: `cs(network)`
 - Infrastructure: `infra(aws)`, `infra(cicd)`, `infra(docker)`, `infra(git)`, `infra(linux)`
 - Independent categories: `ai`, `clean-code`, `seo`

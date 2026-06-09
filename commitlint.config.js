@@ -11,6 +11,7 @@ module.exports = {
         "be(nestjs)",
         "be(supabase)",
         "be(fastapi)",
+        "be(postgresql)",
         "clean-code",
         "cs(network)",
         "fe(a11y)",

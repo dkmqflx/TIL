@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1·01 — 왜 Postgres인가 · 아키텍처 · 연결 비용</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 · 환경 · 데이터 타입</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 1 — Lesson 01</span>
+  <h1>왜 Postgres인가<br>그리고 "연결은 왜 비싼가"</h1>
+  <p class="subtitle">Postgres의 정체성은 <strong>"연결 하나 = 프로세스 하나"</strong>라는 한 문장에 담겨 있습니다. 이 한 가지 사실이 풀링·서버리스 설계를 전부 좌우합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>Postgres는 <b>연결 하나 = 프로세스 하나</b>다. 그래서 연결은 <b>비싸고</b>, 그 한 가지 사실이 <b>풀링·서버리스 설계</b>를 전부 좌우한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>MySQL과 다른 Postgres의 멀티프로세스 아키텍처를 이해한다</li>
+    <li>"연결이 비싸다"는 결과가 왜 중요한지(풀링 필요성) 안다</li>
+    <li>PG18 비동기 I/O가 무엇을 개선했는지 한 줄로 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 Postgres인가</h2>
+  <p>먼저 솔직하게 — <strong>MySQL도 훌륭한 DB</strong>입니다. 단순 CRUD·읽기 위주 웹 서비스에서는 어느 쪽을 골라도 큰 차이가 없습니다. 그럼에도 Postgres를 고르는 이유는 <strong>표준 SQL 준수</strong>, <strong>확장(extension) 생태계</strong>, <strong>JSONB·RLS 같은 고유 기능</strong>, 그리고 특정 기업에 종속되지 않은 <strong>강력한 오픈소스 거버넌스</strong> 때문입니다.</p>
+  <p>핵심은 "무난함"이 아니라 <strong>특정 영역에서 압도적으로 강하다</strong>는 점입니다. 아래 표는 Postgres가 특히 빛나는 자리를 정리한 것입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>영역</th><th>Postgres의 강점</th><th>한 줄 설명</th></tr></thead>
+    <tbody>
+      <tr><td>반정형 데이터</td><td><code>JSONB</code></td><td>JSON을 이진 형태로 저장·인덱싱. 스키마 유연성과 쿼리 성능을 모두 잡는다.</td></tr>
+      <tr><td>행 수준 보안</td><td>RLS (Row-Level Security)</td><td>"이 행은 이 사용자만" 같은 접근 제어를 DB 차원에서 강제한다.</td></tr>
+      <tr><td>확장성</td><td>extension (예: <code>pgvector</code>)</td><td>DB 자체를 플러그인으로 확장. 벡터 검색·지리정보 등을 모듈로 붙인다.</td></tr>
+      <tr><td>동시성</td><td>MVCC</td><td>읽기가 쓰기를 막지 않는다. 다중 사용자 환경에서 락 경합이 적다.</td></tr>
+      <tr><td>인덱스</td><td>B-tree·GIN·GiST·BRIN 등</td><td>데이터 모양에 맞춰 고를 수 있는 풍부한 인덱스 종류.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">"무조건 Postgres"가 아니다</span>
+    <p>도구 선택은 종교가 아닙니다. 위 영역(JSONB, RLS, 확장, 복잡한 동시성)이 필요 없다면 MySQL도 완벽히 합리적인 선택입니다. 이 코스가 Postgres를 다루는 건 <strong>이 강점들을 깊게 쓰는 법</strong>을 익히기 위해서지, MySQL이 틀려서가 아닙니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>아키텍처 — 연결 하나에 프로세스 하나</h2>
+  <p>Postgres를 이해하는 가장 빠른 길은 "연결을 어떻게 처리하는가"를 보는 것입니다. 그리고 여기서 MySQL과 결정적으로 갈립니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🏢</span>
+    <span class="label">비유 — 직원을 늘리는 회사 vs 사무실을 새로 짓는 회사</span>
+    <p><strong>MySQL</strong>은 <strong>한 사무실(프로세스) 안에 직원(스레드)을 늘리는 회사</strong>입니다. 손님이 오면 직원 한 명을 더 붙이면 되니 가볍습니다. 반면 <strong>Postgres</strong>는 연결이 올 때마다 <strong>독립된 사무실(프로세스) 한 채를 새로 짓는 회사</strong>입니다. 사무실은 튼튼하고 서로 완전히 격리되지만, <strong>짓는 비용이 커서 함부로 많이 못 짓습니다</strong>. 이 비유 한 장이 오늘 레슨의 전부입니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 320" role="img" aria-label="클라이언트들이 postmaster를 거쳐 각자의 backend 프로세스에 연결되는 구조">
+      <!-- clients -->
+      <rect x="20" y="30" width="120" height="40" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="80" y="55" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#0a4f48">클라이언트 A</text>
+      <rect x="20" y="140" width="120" height="40" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="80" y="165" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#0a4f48">클라이언트 B</text>
+      <rect x="20" y="250" width="120" height="40" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="80" y="275" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#0a4f48">클라이언트 C</text>
+
+      <!-- arrows client -> postmaster -->
+      <line x1="142" y1="50"  x2="252" y2="140" stroke="#807a6c" stroke-width="2" marker-end="url(#a1)"/>
+      <line x1="142" y1="160" x2="252" y2="160" stroke="#807a6c" stroke-width="2" marker-end="url(#a1)"/>
+      <line x1="142" y1="270" x2="252" y2="180" stroke="#807a6c" stroke-width="2" marker-end="url(#a1)"/>
+
+      <!-- postmaster -->
+      <rect x="254" y="125" width="150" height="70" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="329" y="155" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#ece6d6">postmaster</text>
+      <text x="329" y="175" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#9ad9a0">부모 프로세스</text>
+      <text x="329" y="215" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#807a6c">연결마다 자식을 fork</text>
+
+      <!-- arrows postmaster -> backends -->
+      <line x1="406" y1="150" x2="506" y2="55"  stroke="#e0552f" stroke-width="2.5" marker-end="url(#a2)"/>
+      <line x1="406" y1="160" x2="506" y2="160" stroke="#e0552f" stroke-width="2.5" marker-end="url(#a2)"/>
+      <line x1="406" y1="170" x2="506" y2="265" stroke="#e0552f" stroke-width="2.5" marker-end="url(#a2)"/>
+
+      <!-- backends -->
+      <rect x="508" y="30"  width="152" height="56" rx="9" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="584" y="52"  text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#c1421f">backend (연결 1개)</text>
+      <text x="584" y="71"  text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">자체 메모리</text>
+      <rect x="508" y="132" width="152" height="56" rx="9" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="584" y="154" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#c1421f">backend (연결 1개)</text>
+      <text x="584" y="173" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">자체 메모리</text>
+      <rect x="508" y="234" width="152" height="56" rx="9" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="584" y="256" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#c1421f">backend (연결 1개)</text>
+      <text x="584" y="275" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">자체 메모리</text>
+
+      <defs>
+        <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>클라이언트가 연결할 때마다 postmaster가 자식 backend 프로세스를 하나씩 띄운다. 연결 1개 = backend 프로세스 1개 = 독립 메모리.</figcaption>
+  </figure>
+
+  <p>그림처럼 부모인 <code>postmaster</code>가 새 연결을 받을 때마다 <strong>자식 backend 프로세스를 하나 fork</strong>합니다. 그 연결의 모든 쿼리는 전용 backend가 처리하고, 연결이 끊기면 그 프로세스도 사라집니다.</p>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">연결 처리 모델 <span class="tag">MySQL</span></div>
+      <p><strong>thread-per-connection</strong> — 하나의 서버 프로세스 안에서 연결마다 <strong>스레드</strong>를 띄웁니다. 스레드는 가볍고 메모리를 공유하므로 새 연결을 받는 비용이 작습니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">연결 처리 모델 <span class="tag">PostgreSQL</span></div>
+      <p><strong>process-per-connection</strong> — 연결마다 <strong>독립된 OS 프로세스</strong>(backend)를 띄웁니다. 각 backend는 <strong>자체 메모리</strong>(<code>work_mem</code> 등)를 가져 서로 완전히 격리되지만, 그만큼 생성 비용과 메모리 부담이 큽니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">3</span>그래서 — 연결은 비싸다 (실무 결과)</h2>
+  <p>아키텍처 이야기가 추상적으로 들렸다면, 여기서 현실로 내려옵니다. "프로세스 하나"라는 사실은 곧바로 <strong>"연결이 비싸다"</strong>는 실무 결과로 이어집니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">연결을 요청마다 새로 열면 안 된다</span>
+    <p><strong>프로세스 생성 비용</strong>과 <strong>연결당 메모리</strong>가 더해지면, 수백 개의 동시 연결만으로도 Postgres는 무릎을 꿇습니다. 그래서 <strong>연결 풀(PgBouncer)</strong>이 사실상 필수입니다 — 미리 열어둔 소수의 연결을 여러 요청이 돌려 씁니다. 특히 <strong>서버리스(AWS Lambda 등)</strong> 환경에선 트래픽이 몰리면 인스턴스가 폭증하고, 각 인스턴스가 제각기 연결을 열어 DB를 덮치는 <strong>"connection storm"</strong>이 대표적인 사고입니다. (자세한 풀링·서버리스 대응은 <strong>Week 6.03</strong>에서 다룹니다.)</p>
+  </div>
+
+  <p>"비싸다"를 구체적인 숫자로 느껴봅시다. Postgres의 기본 <code>max_connections</code>는 보통 <strong>100</strong> 안팎입니다 — 즉 동시에 열 수 있는 backend 프로세스가 그 정도라는 뜻입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">psql — 기본 연결 한도 확인</span></div><pre><span class="k">SHOW</span> max_connections;
+<span class="c">--  max_connections</span>
+<span class="c">-- -----------------</span>
+<span class="c">--  100            ← 기본값. 연결 100개 = backend 프로세스 100개</span></pre></div>
+
+  <p>숫자를 무작정 올리는 건 답이 아닙니다. <code>max_connections</code>를 키우면 그만큼 프로세스·메모리 부담이 커지기 때문입니다. 올바른 해법은 한도를 무리하게 늘리는 게 아니라, <strong>풀러로 적은 연결을 알뜰하게 공유</strong>하는 것입니다.</p>
+
+  <h2><span class="num">4</span>PG18 비동기 I/O — 한 스푼</h2>
+  <p>마지막으로 최신 소식 한 스푼. 2026년 기준 우리가 다루는 PostgreSQL 18은 <strong>I/O 처리 방식</strong>에 의미 있는 개선을 가져왔습니다.</p>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">PostgreSQL 18: 비동기 I/O 도입</span>
+    <p><span class="chip">PG18</span> PG18부터 <code>io_method</code> 설정으로 <strong>비동기 I/O(AIO)</strong>를 지원합니다. 읽기 요청을 하나씩 기다리지 않고 <strong>줄 세워 한꺼번에 처리</strong>해, 시퀀셜 스캔·<code>VACUUM</code> 같은 작업에서 최대 <strong>3배까지 빨라진</strong> 벤치마크 사례가 보고됐습니다. 지금 단계에서는 "<strong>Postgres가 디스크 읽기를 더 똑똑하게 한다</strong>" 정도만 기억하면 충분합니다. 내부 동작은 뒤 주차에서 다시 만납니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Postgres에서 연결이 '비싸다'고 하는 이유는?</summary>
+    <div class="answer"><p>연결 하나가 <strong>OS 프로세스 하나</strong>이기 때문입니다. 프로세스 생성 비용과 연결당 독립 메모리가 커서, 다수의 연결이 서버를 압박합니다. 그래서 미리 열어둔 연결을 돌려 쓰는 <strong>풀링</strong>이 필요합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> MySQL과 Postgres의 연결 처리 모델 차이는?</summary>
+    <div class="answer"><p>MySQL은 <strong>thread-per-connection</strong> — 한 프로세스 안에서 연결마다 스레드를 띄웁니다. Postgres는 <strong>process-per-connection</strong> — 연결마다 독립된 backend 프로세스를 띄웁니다. 후자는 격리가 강하지만 더 무겁습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 서버리스 환경에서 Postgres 연결이 문제되는 이유는?</summary>
+    <div class="answer"><p>인스턴스가 폭발적으로 늘면 각 인스턴스가 제각기 연결을 열어 <strong>connection storm</strong>이 발생하고, DB의 <code>max_connections</code> 한도를 넘겨 버립니다. <strong>PgBouncer</strong> 같은 풀러나 서버리스 전용 드라이버로 연결 수를 완화합니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul>
+    <li><a href="https://www.postgresql.org/about/news/postgresql-18-released-3142/" target="_blank" rel="noopener">PostgreSQL 18 Released</a> — 비동기 I/O 등 18 주요 변경점</li>
+    <li>PostgreSQL 공식 문서 — "Architecture" (서버 프로세스 구조 / postmaster · backend)</li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="../index.html"><span class="dir">← 이전</span><span class="ttl">커리큘럼 홈</span></a>
+    <a class="next" href="02-docker-psql-basics.html"><span class="dir">다음 →</span><span class="ttl">Docker로 띄우기 &amp; psql 기초</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 1 · Lesson 01 · 왜 Postgres &amp; 아키텍처</footer>
+</body>
+</html>

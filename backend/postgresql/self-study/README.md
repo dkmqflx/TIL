@@ -120,4 +120,4 @@ backend/postgresql/self-study/
 - [x] Week 3 — JSONB & 반정형 데이터 · 검색
 - [x] Week 4 — 인덱스 · 쿼리 성능 · 분석 SQL
 - [x] Week 5 — 트랜잭션 · 동시성 · MVCC
-- [ ] Week 6 — RLS · 권한 · 운영 · 확장
+- [x] Week 6 — RLS · 권한 · 운영 · 확장

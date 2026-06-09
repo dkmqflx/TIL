@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1·02 — Python 타입 힌트 (↔ TypeScript)</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 &amp; 타입힌트</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 1 — Lesson 02</span>
+  <h1>Python 타입 힌트<br><span style="color:var(--teal)">TypeScript를 안다면</span> 거의 다 안다</h1>
+  <p class="subtitle">FastAPI의 거의 모든 마법(검증·자동 문서·자동완성)은 <strong>타입 힌트</strong>에서 나옵니다. 다행히 당신은 이미 TypeScript로 타입을 써봤습니다. 그 직관을 그대로 옮겨봅시다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>TypeScript의 타입은 <b>컴파일 후 사라지는</b> 주석에 가깝다. 하지만 Python 타입 힌트는 <b>실행 중에도 살아남아</b> FastAPI가 그것을 읽고 요청을 검증하고 문서를 만든다. 같은 문법, 더 강력한 쓰임.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>기본 타입·컬렉션·Optional·Union·Literal을 TS와 1:1로 매핑한다</li>
+    <li>타입 힌트가 "왜 FastAPI에서 단순 주석이 아닌지" 이해한다</li>
+    <li>함수 시그니처에 타입을 달고, 클래스로 구조화된 타입을 만든다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 타입 힌트가 FastAPI의 심장인가</h2>
+  <p>NestJS에서 DTO 클래스와 <code>class-validator</code>로 요청 본문을 검증했던 걸 떠올려 보세요. FastAPI는 그 역할을 <strong>타입 힌트 + Pydantic</strong>이 통째로 합니다. 함수 매개변수에 타입만 적으면:</p>
+  <ul class="goals" style="margin-top:8px">
+    <li>들어온 요청 데이터를 그 타입으로 <strong>자동 검증·변환</strong></li>
+    <li>Swagger <strong>문서를 자동 생성</strong> (Week 1·03에서 직접 봅니다)</li>
+    <li>에디터 <strong>자동완성·타입 체크</strong>가 작동</li>
+  </ul>
+
+  <div class="box analogy">
+    <span class="ic">🏷️</span>
+    <span class="label">비유 — 택배 상자의 운송장</span>
+    <p>타입 힌트는 함수라는 택배 상자에 붙은 <strong>운송장</strong>입니다. "이 칸에는 정수(int)가 들어갑니다"라고 적어두면, FastAPI라는 택배 기사가 그 운송장을 <strong>읽고</strong> 내용물이 맞는지 검사합니다. TypeScript에서는 상자가 배송되기 전(컴파일) 운송장만 확인하고 떼버리지만, Python에서는 운송장이 <strong>배송 내내 붙어 있어</strong> 런타임에 검사가 가능합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>기본 타입 — TS와 나란히 보기</h2>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">TS</span> TypeScript</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">types.ts</span></div><pre><span class="k">let</span> name: <span class="t">string</span> = <span class="s">"todo"</span>;
+<span class="k">let</span> count: <span class="t">number</span> = <span class="n">42</span>;
+<span class="k">let</span> done: <span class="t">boolean</span> = <span class="k">true</span>;</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Py</span> Python</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">types.py</span></div><pre>name: <span class="t">str</span> = <span class="s">"todo"</span>
+count: <span class="t">int</span> = <span class="n">42</span>
+done: <span class="t">bool</span> = <span class="k">True</span></pre></div>
+    </div>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>TypeScript</th><th>Python</th><th>메모</th></tr></thead>
+    <tbody>
+      <tr><td><code>string</code></td><td><code>str</code></td><td></td></tr>
+      <tr><td><code>number</code></td><td><code>int</code> / <code>float</code></td><td>Python은 정수와 실수를 구분!</td></tr>
+      <tr><td><code>boolean</code></td><td><code>bool</code></td><td><code>True</code>/<code>False</code> 대문자</td></tr>
+      <tr><td><code>null</code> / <code>undefined</code></td><td><code>None</code></td><td>"값 없음"은 하나로 통일</td></tr>
+      <tr><td><code>any</code></td><td><code>Any</code></td><td><code>from typing import Any</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">number 하나가 int / float 둘로</span>
+    <p>TS의 <code>number</code>는 Python에서 <code>int</code>(정수)와 <code>float</code>(실수)로 나뉩니다. 가격·수량은 <code>int</code>, 평점·좌표는 <code>float</code>처럼 의미에 맞게 골라야 검증이 정확해집니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>컬렉션 — 배열과 객체</h2>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">TS</span> TypeScript</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">collections.ts</span></div><pre><span class="c">// 문자열 배열</span>
+<span class="k">let</span> tags: <span class="t">string</span>[];
+<span class="c">// 키:문자열, 값:숫자</span>
+<span class="k">let</span> scores: <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="t">number</span>&gt;;</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Py</span> Python 3.9+</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">collections.py</span></div><pre><span class="c"># 문자열 리스트</span>
+tags: <span class="t">list</span>[<span class="t">str</span>]
+<span class="c"># 키:문자열, 값:정수</span>
+scores: <span class="t">dict</span>[<span class="t">str</span>, <span class="t">int</span>]</pre></div>
+    </div>
+  </div>
+  <p>TS의 <code>T[]</code>가 Python에선 <code>list[T]</code>, <code>Record&lt;K,V&gt;</code>가 <code>dict[K, V]</code>입니다. 고정 길이 묶음은 <code>tuple[int, str]</code> (TS의 튜플 <code>[number, string]</code>과 동일).</p>
+
+  <h2><span class="num">4</span>Optional — "있을 수도, 없을 수도"</h2>
+  <p>TS에서 값이 없을 수 있음을 <code>string | null</code> 또는 <code>?</code>로 표현했죠. Python도 똑같이 합니다.</p>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">TS</span> TypeScript</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">optional.ts</span></div><pre><span class="k">let</span> memo: <span class="t">string</span> | <span class="k">null</span>;
+<span class="c">// 또는 선택적 프로퍼티</span>
+<span class="k">interface</span> <span class="t">Todo</span> {
+  memo?: <span class="t">string</span>;
+}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Py</span> Python</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">optional.py</span></div><pre><span class="c"># 3.10+ 권장 표기</span>
+memo: <span class="t">str</span> | <span class="t">None</span> = <span class="k">None</span>
+
+<span class="c"># 예전 표기 (동일 의미)</span>
+<span class="k">from</span> typing <span class="k">import</span> Optional
+memo: <span class="t">Optional</span>[<span class="t">str</span>] = <span class="k">None</span></pre></div>
+    </div>
+  </div>
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Optional은 "필수 아님"이 아니다</span>
+    <p>흔한 오해: <code>Optional[str]</code>은 "값이 <strong>None일 수 있다</strong>"는 뜻이지, "이 필드를 생략해도 된다"는 뜻이 아닙니다. 생략 가능 여부는 <strong>기본값(<code>= None</code>)</strong>이 결정합니다. Week 3 Pydantic에서 이 둘의 차이가 중요해집니다.</p>
+  </div>
+
+  <h2><span class="num">5</span>Union · Literal — 여러 타입, 정해진 값</h2>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">TS</span> TypeScript</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">union.ts</span></div><pre><span class="k">let</span> id: <span class="t">number</span> | <span class="t">string</span>;
+<span class="k">type</span> <span class="t">Status</span> =
+  <span class="s">"todo"</span> | <span class="s">"doing"</span> | <span class="s">"done"</span>;</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Py</span> Python</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">union.py</span></div><pre>id: <span class="t">int</span> | <span class="t">str</span>
+
+<span class="k">from</span> typing <span class="k">import</span> Literal
+Status = <span class="t">Literal</span>[<span class="s">"todo"</span>, <span class="s">"doing"</span>, <span class="s">"done"</span>]</pre></div>
+    </div>
+  </div>
+  <p>TS의 유니온 <code>A | B</code>는 Python에서도 <code>A | B</code>. TS의 문자열 리터럴 유니온은 Python의 <code>Literal[...]</code>로 대응됩니다 — 정해진 값만 허용하고 싶을 때 씁니다.</p>
+
+  <h2><span class="num">6</span>함수와 구조화된 타입</h2>
+  <p>함수 시그니처에 타입을 다는 법, 그리고 TS <code>interface</code>에 대응하는 구조화된 타입(미리보기)입니다.</p>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">TS</span> TypeScript</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">shape.ts</span></div><pre><span class="k">function</span> <span class="f">repeat</span>(
+  text: <span class="t">string</span>, n: <span class="t">number</span>
+): <span class="t">string</span> {
+  <span class="k">return</span> text.repeat(n);
+}
+
+<span class="k">interface</span> <span class="t">Todo</span> {
+  id: <span class="t">number</span>;
+  title: <span class="t">string</span>;
+  done: <span class="t">boolean</span>;
+}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Py</span> Python</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">shape.py</span></div><pre><span class="k">def</span> <span class="f">repeat</span>(
+    text: <span class="t">str</span>, n: <span class="t">int</span>
+) -> <span class="t">str</span>:
+    <span class="k">return</span> text * n
+
+<span class="k">from</span> pydantic <span class="k">import</span> BaseModel
+<span class="k">class</span> <span class="t">Todo</span>(<span class="t">BaseModel</span>):
+    id: <span class="t">int</span>
+    title: <span class="t">str</span>
+    done: <span class="t">bool</span></pre></div>
+    </div>
+  </div>
+  <p>반환 타입은 TS가 <code>): string</code>, Python은 <code>-&gt; str</code>로 적습니다. 그리고 TS의 <code>interface</code>는 FastAPI 세계에서 <strong>Pydantic <code>BaseModel</code></strong>로 진화합니다 — 단순 모양 정의를 넘어 <em>실제 검증까지</em> 해주는 강화판이죠. Week 3에서 본격적으로 다룹니다.</p>
+
+  <h2><span class="num">7</span>⚠️ 가장 중요한 함정 하나</h2>
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">순수 Python은 타입 힌트를 강제하지 않는다</span>
+    <p>이건 TS와 결정적으로 다른 점입니다. 아래 코드는 <strong>에러 없이 그냥 돌아갑니다.</strong></p>
+    <div class="code" style="margin-top:12px"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">gotcha.py</span></div><pre><span class="k">def</span> <span class="f">add</span>(a: <span class="t">int</span>, b: <span class="t">int</span>) -> <span class="t">int</span>:
+    <span class="k">return</span> a + b
+
+<span class="f">add</span>(<span class="s">"hello"</span>, <span class="s">"world"</span>)  <span class="c"># 💥 런타임 에러 안 남! → "helloworld"</span></pre></div>
+    <p>타입 힌트는 <strong>그 자체로는 검사하지 않습니다.</strong> 검사를 해주는 건 ① 정적 분석 도구(mypy·에디터)와 ② <strong>FastAPI/Pydantic</strong>입니다. FastAPI가 특별한 이유가 바로 이것 — 런타임에 힌트를 읽어 실제로 검증해 주기 때문입니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">8</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> TS 타입과 Python 타입 힌트의 가장 큰 차이는?</summary>
+    <div class="answer"><p>TS 타입은 컴파일 시점에만 존재하고 JS로 변환되며 사라집니다(타입 소거). Python 타입 힌트는 런타임에도 객체로 남아 있어 <code>typing.get_type_hints()</code> 등으로 읽을 수 있고, FastAPI/Pydantic이 이를 활용해 실제 검증을 수행합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>list[str]</code>와 <code>List[str]</code>는 뭐가 다른가요?</summary>
+    <div class="answer"><p>의미는 같습니다. <code>List</code>는 <code>typing</code>에서 import해야 하는 예전 표기이고, Python 3.9부터는 내장 <code>list[str]</code>를 바로 쓸 수 있습니다. 새 코드는 소문자 내장 표기를 권장합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>memo: str | None</code>과 <code>memo: str | None = None</code>의 차이는?</summary>
+    <div class="answer"><p>앞은 "None일 수 있는 필수 값", 뒤는 "기본값이 None이라 생략 가능한 값"입니다. 타입(None 허용 여부)과 필수성(기본값 존재 여부)은 별개입니다 — Pydantic 모델에서 자주 헷갈리는 지점입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-msa-client-server-rest.html"><span class="dir">← 이전</span><span class="ttl">큰 그림: 클라이언트–서버 · REST · MSA</span></a>
+    <a class="next" href="03-fastapi-flow-swagger-curl.html"><span class="dir">다음 →</span><span class="ttl">FastAPI 동작 흐름 · Swagger · cURL</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 1 · Lesson 02 · Python 타입 힌트</footer>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1·01 — 큰 그림: 클라이언트-서버 · API · REST · MSA</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 &amp; 타입힌트</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 1 — Lesson 01</span>
+  <h1>웹 백엔드의 큰 그림<br>클라이언트–서버 · API · REST · MSA</h1>
+  <p class="subtitle">코드를 짜기 전에, "내가 만들 서버가 전체 시스템의 어디에 서 있는지"를 먼저 그려봅니다. 면접에서 가장 먼저 물어보는 지도(map)입니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>백엔드는 <b>요청을 받아 → 데이터를 처리하고 → 응답을 돌려주는</b> 식당의 주방이다. REST API는 그 주방에 주문을 넣는 <b>표준화된 메뉴판</b>이고, MSA는 거대한 식당 하나를 <b>여러 전문 매장으로 쪼갠 푸드코트</b>다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>클라이언트–서버 모델을 한 문장으로 설명할 수 있다</li>
+    <li>API와 REST API가 무엇이고 왜 필요한지 안다</li>
+    <li>HTTP 메서드 · 상태 코드 · 자원(Resource)의 관계를 이해한다</li>
+    <li>모놀리식과 MSA의 차이, 그 속에서 FastAPI의 자리를 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>클라이언트와 서버 — 누가 무엇을 하나</h2>
+  <p class="lead">웹은 결국 <strong>요청(Request)</strong>과 <strong>응답(Response)</strong>의 끝없는 주고받음입니다. 요청하는 쪽이 <span class="chip">Client</span>, 응답하는 쪽이 <span class="chip">Server</span>입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍽️</span>
+    <span class="label">비유 — 레스토랑</span>
+    <p><strong>손님(클라이언트)</strong>은 직접 주방에 들어가 요리하지 않습니다. <strong>웨이터(API)</strong>에게 메뉴판의 이름으로 주문하고, <strong>주방(서버)</strong>이 요리해서 접시(응답)를 돌려받죠. 손님은 주방이 가스레인지를 쓰는지 인덕션을 쓰는지 몰라도 됩니다 — 그게 바로 <em>관심사의 분리</em>입니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 220" role="img" aria-label="클라이언트와 서버의 요청/응답 흐름">
+      <!-- client -->
+      <rect x="20" y="70" width="170" height="80" rx="12" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="105" y="100" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#0a4f48">CLIENT</text>
+      <text x="105" y="122" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="12" fill="#4a463d">브라우저 · 앱 · 프론트</text>
+      <!-- server -->
+      <rect x="490" y="70" width="170" height="80" rx="12" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="575" y="100" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#6fd6c7">SERVER</text>
+      <text x="575" y="122" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="12" fill="#ece6d6">FastAPI · DB · 로직</text>
+      <!-- request arrow -->
+      <line x1="195" y1="98" x2="485" y2="98" stroke="#e0552f" stroke-width="2.5" marker-end="url(#ar)"/>
+      <text x="340" y="88" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#e0552f" font-weight="700">Request  →  GET /todos</text>
+      <!-- response arrow -->
+      <line x1="485" y1="128" x2="195" y2="128" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#ar2)"/>
+      <text x="340" y="148" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#0d6e64" font-weight="700">Response  ←  200 OK + JSON</text>
+      <defs>
+        <marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="ar2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>요청은 코랄, 응답은 틸. 백엔드 개발자는 오른쪽 박스를 만든다.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span>API — 시스템 사이의 약속된 창구</h2>
+  <p><span class="chip">API</span> = <em>Application Programming Interface</em>. 풀어 쓰면 "프로그램끼리 대화하기 위해 <strong>미리 약속해 둔 창구</strong>"입니다. 손님이 "그 빨간 거 하나요"가 아니라 메뉴판의 정확한 이름으로 주문하듯, 클라이언트는 서버가 정해둔 규칙(URL, 메서드, 데이터 형식)대로 요청해야 합니다.</p>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">프론트 경험과 연결</span>
+    <p>이미 <code>fetch('/api/todos')</code> 같은 코드를 써봤다면, 당신은 평생 API의 <strong>소비자(consumer)</strong>였습니다. 백엔드 개발자가 된다는 건 이제 그 <strong>메뉴판을 직접 설계하고 주방을 만드는</strong> 쪽으로 넘어간다는 뜻입니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>REST API — 가장 널리 쓰이는 메뉴판 양식</h2>
+  <p>API를 설계하는 방식에는 여러 스타일이 있지만, 웹에서 사실상 표준은 <strong>REST</strong>(REpresentational State Transfer)입니다. 핵심 아이디어는 단 하나 —</p>
+  <p class="lead">세상의 모든 것을 <strong>자원(Resource)</strong>으로 보고, 각 자원에 <strong>주소(URL)</strong>를 주고, <strong>행동은 HTTP 메서드</strong>로 표현한다.</p>
+
+  <p>예를 들어 "할 일(todo)"이라는 자원을 다룬다면:</p>
+  <table class="tbl">
+    <thead><tr><th>하고 싶은 일</th><th>HTTP 메서드</th><th>URL(주소)</th><th>성공 상태코드</th></tr></thead>
+    <tbody>
+      <tr><td>할 일 전체 조회</td><td><code>GET</code></td><td><code>/todos</code></td><td>200 OK</td></tr>
+      <tr><td>특정 할 일 1건 조회</td><td><code>GET</code></td><td><code>/todos/42</code></td><td>200 OK</td></tr>
+      <tr><td>새 할 일 생성</td><td><code>POST</code></td><td><code>/todos</code></td><td>201 Created</td></tr>
+      <tr><td>할 일 수정</td><td><code>PATCH</code></td><td><code>/todos/42</code></td><td>200 OK</td></tr>
+      <tr><td>할 일 삭제</td><td><code>DELETE</code></td><td><code>/todos/42</code></td><td>204 No Content</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box analogy">
+    <span class="ic">📮</span>
+    <span class="label">비유 — 같은 주소, 다른 행동</span>
+    <p>주소 <code>/todos/42</code>는 "42번 할 일"이라는 <strong>집 주소</strong> 하나입니다. 그 집에 대해 <code>GET</code>은 "안을 들여다봐", <code>PATCH</code>는 "내용을 고쳐", <code>DELETE</code>는 "허물어"입니다. 주소(명사)와 행동(동사)을 분리하는 것이 REST의 우아함입니다.</p>
+  </div>
+
+  <p>상태 코드는 <strong>응답의 한 줄 요약</strong>입니다. 자세한 건 Week 2에서 다루지만, 큰 분류만 기억해 두세요:</p>
+  <table class="tbl">
+    <thead><tr><th>범위</th><th>뜻</th><th>대표 예시</th></tr></thead>
+    <tbody>
+      <tr><td><code>2xx</code></td><td>성공</td><td>200 OK · 201 Created · 204 No Content</td></tr>
+      <tr><td><code>4xx</code></td><td>클라이언트 잘못</td><td>400 Bad Request · 401 인증 안 됨 · 404 Not Found</td></tr>
+      <tr><td><code>5xx</code></td><td>서버 잘못</td><td>500 Internal Server Error</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider">아키텍처</div>
+
+  <h2><span class="num">4</span>모놀리식 vs MSA — 주방을 몇 개 둘 것인가</h2>
+  <p>서비스가 커지면 "서버 하나에 모든 기능을 다 넣을 것인가, 아니면 기능별로 쪼갤 것인가"라는 질문에 부딪힙니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🏬</span>
+    <span class="label">비유 — 만능 식당 vs 푸드코트</span>
+    <p><strong>모놀리식</strong>은 한식·중식·디저트를 한 주방에서 다 만드는 <strong>만능 식당</strong>입니다. 처음엔 단순하고 빠르지만, 디저트 담당이 실수로 불을 내면 식당 전체가 멈춥니다. <strong>MSA</strong>는 각 요리를 전문 매장으로 분리한 <strong>푸드코트</strong> — 중식당이 문을 닫아도 디저트 가게는 멀쩡히 장사합니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 250" role="img" aria-label="모놀리식과 마이크로서비스 비교">
+      <!-- monolith -->
+      <text x="160" y="28" text-anchor="middle" font-family="Fraunces, serif" font-size="17" font-weight="600" fill="#1c1a16">Monolithic</text>
+      <rect x="60" y="45" width="200" height="170" rx="12" fill="#f0eadd" stroke="#b8332e" stroke-width="2"/>
+      <rect x="80" y="65" width="160" height="34" rx="6" fill="#fff" stroke="#d8cfba"/><text x="160" y="87" text-anchor="middle" font-size="12" font-family="Pretendard">회원</text>
+      <rect x="80" y="108" width="160" height="34" rx="6" fill="#fff" stroke="#d8cfba"/><text x="160" y="130" text-anchor="middle" font-size="12" font-family="Pretendard">주문</text>
+      <rect x="80" y="151" width="160" height="34" rx="6" fill="#fff" stroke="#d8cfba"/><text x="160" y="173" text-anchor="middle" font-size="12" font-family="Pretendard">결제</text>
+      <text x="160" y="205" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="#b8332e">하나의 거대한 앱</text>
+      <!-- microservices -->
+      <text x="500" y="28" text-anchor="middle" font-family="Fraunces, serif" font-size="17" font-weight="600" fill="#1c1a16">Microservices</text>
+      <rect x="390" y="55" width="100" height="60" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/><text x="440" y="90" text-anchor="middle" font-size="12" font-family="Pretendard">회원 서비스</text>
+      <rect x="520" y="55" width="100" height="60" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/><text x="570" y="90" text-anchor="middle" font-size="12" font-family="Pretendard">주문 서비스</text>
+      <rect x="455" y="145" width="100" height="60" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/><text x="505" y="180" text-anchor="middle" font-size="12" font-family="Pretendard">결제 서비스</text>
+      <line x1="440" y1="115" x2="495" y2="145" stroke="#807a6c" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <line x1="570" y1="115" x2="515" y2="145" stroke="#807a6c" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="505" y="228" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="#0d6e64">독립적으로 배포·확장</text>
+    </svg>
+    <figcaption>FastAPI는 가볍고 빨라 푸드코트의 "매장 하나"를 만들기에 특히 잘 맞는다.</figcaption>
+  </figure>
+
+  <h3>그래서 FastAPI는 어디에 서 있나</h3>
+  <p>FastAPI는 <strong>가볍고(경량) · 빠르고(비동기) · 타입 기반으로 명세가 자동 생성</strong>되는 프레임워크라, MSA의 개별 서비스를 만들기에 이상적입니다. 머신러닝 모델 서빙 API로 인기가 많은 것도 같은 이유죠. 이 강의에서 당신은 결국 이 "매장 하나"를 처음부터 끝까지 만들게 됩니다.</p>
+
+  <div class="section-divider">NestJS ↔ FastAPI</div>
+
+  <h2><span class="num">5</span>NestJS를 알면 이미 절반은 안다</h2>
+  <p>당신은 이미 NestJS로 서버를 만들어 봤습니다. 그렇다면 "라우트 하나에 핸들러 함수를 연결한다"는 핵심 멘탈 모델을 이미 갖고 있는 겁니다. 표현만 다를 뿐입니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — 데코레이터 + 클래스</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todos.controller.ts</span></div><pre><span class="d">@Controller</span>(<span class="s">'todos'</span>)
+<span class="k">export class</span> <span class="t">TodosController</span> {
+  <span class="d">@Get</span>()
+  <span class="f">findAll</span>() {
+    <span class="k">return</span> <span class="k">this</span>.service.findAll();
+  }
+}</pre></div>
+      <p>클래스 + 메서드 데코레이터로 라우트를 선언.</p>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — 함수 + 데코레이터</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.get</span>(<span class="s">"/todos"</span>)
+<span class="k">def</span> <span class="f">find_all</span>():
+    <span class="k">return</span> service.find_all()</pre></div>
+      <p>함수 하나 + 경로 데코레이터면 끝. 더 적은 보일러플레이트.</p>
+    </div>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">핵심 대응표</span>
+    <p>Nest <code>@Controller</code> → FastAPI <code>APIRouter</code> (Week 3) · Nest <code>@Get/@Post</code> → <code>@app.get/@app.post</code> · Nest DTO + class-validator → <strong>Pydantic 모델</strong> (Week 3) · Nest Provider/DI → FastAPI <code>Depends</code> (Week 6). 이름표만 바꿔 끼우면 됩니다.</p>
+  </div>
+
+  <h2><span class="num">6</span>⚠️ 자주 빠지는 함정</h2>
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">동사를 URL에 넣지 말 것</span>
+    <p><code>POST /createTodo</code>, <code>GET /getTodoById</code>는 REST 위반입니다. <strong>URL은 명사(자원), 동작은 메서드</strong>가 원칙 — <code>POST /todos</code>, <code>GET /todos/42</code>처럼 쓰세요. RPC 스타일과 REST를 섞으면 면접관이 바로 알아챕니다.</p>
+  </div>
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">"MSA가 항상 정답"이라는 착각</span>
+    <p>MSA는 공짜가 아닙니다 — 네트워크 통신, 분산 트랜잭션, 운영 복잡도가 따라옵니다. 작은 서비스는 <strong>모놀리식으로 시작</strong>하는 게 보통 옳습니다. "왜 MSA를 쓰는가"만큼 "왜 안 쓰는가"도 말할 수 있어야 합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">7</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 클라이언트와 서버를 한 문장으로 설명해 보세요.</summary>
+    <div class="answer"><p>요청을 보내고 응답을 받는 쪽이 클라이언트, 요청을 받아 처리하고 응답을 돌려주는 쪽이 서버입니다. 둘은 약속된 규칙(API)으로만 소통하며, 서로의 내부 구현을 몰라도 됩니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> REST에서 <code>PUT</code>과 <code>PATCH</code>, <code>POST</code>의 차이는?</summary>
+    <div class="answer"><p><code>POST</code>는 새 자원 <strong>생성</strong>(주소를 서버가 정함), <code>PUT</code>은 자원 <strong>전체 교체</strong>, <code>PATCH</code>는 자원의 <strong>일부만 수정</strong>입니다. 이 강의의 ToDo API는 부분 수정을 위해 주로 <code>PATCH</code>를 씁니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 작은 스타트업에 MSA를 권하겠습니까?</summary>
+    <div class="answer"><p>대개는 아니요. 초기에는 모놀리식이 개발·배포·디버깅이 단순해 속도가 빠릅니다. 트래픽·팀 규모가 커지고 특정 기능만 독립적으로 확장/배포해야 할 필요가 생길 때 MSA로 분리하는 것이 일반적인 진화 경로입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev disabled" href="#"><span class="dir">← 이전</span><span class="ttl">시작 지점</span></a>
+    <a class="next" href="02-python-typehints.html"><span class="dir">다음 →</span><span class="ttl">Python 타입 힌트 (↔ TypeScript)</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 1 · Lesson 01 · 큰 그림</footer>
+</body>
+</html>

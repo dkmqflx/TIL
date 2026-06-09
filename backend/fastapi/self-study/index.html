@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FastAPI 백엔드 개발자 되기 — 10주 셀프 스터디</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  /* index 전용 보강 */
+  .hero {
+    position: relative; z-index: 1; max-width: var(--maxw); margin: 0 auto;
+    padding: 70px 24px 0; text-align: center;
+  }
+  .hero h1 { font-size: clamp(2.4rem, 7vw, 4.2rem); }
+  .hero .subtitle { margin: 18px auto 0; }
+  .stats { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 34px 0 0; }
+  .stat {
+    background: #fff; border: 1.5px solid var(--line); border-radius: var(--radius);
+    padding: 14px 22px; box-shadow: var(--shadow); min-width: 110px;
+  }
+  .stat b { display: block; font-family: var(--serif); font-size: 2rem; font-weight: 900; color: var(--teal-deep); line-height: 1; }
+  .stat span { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .week {
+    background: #fff; border: 1.5px solid var(--line); border-radius: var(--radius);
+    margin: 18px 0; box-shadow: var(--shadow); overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .week:hover { transform: translate(-2px,-2px); box-shadow: var(--shadow-lift); }
+  .week__head { display: flex; align-items: center; gap: 16px; padding: 18px 22px; }
+  .week__no {
+    font-family: var(--serif); font-weight: 900; font-size: 1.8rem; color: var(--paper);
+    background: var(--ink); width: 54px; height: 54px; border-radius: 12px;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .week.star .week__no { background: var(--coral); }
+  .week__title { font-weight: 700; font-size: 1.15rem; }
+  .week__title .tag {
+    font-family: var(--mono); font-size: 10px; background: var(--coral-tint);
+    color: var(--coral); padding: 2px 8px; border-radius: 5px; margin-left: 8px;
+    vertical-align: 2px; letter-spacing: 0.05em;
+  }
+  .week__sub { font-size: 0.9rem; color: var(--ink-faint); margin-top: 2px; }
+  .lessons { list-style: none; margin: 0; padding: 0 22px 16px 70px; }
+  .lessons li { padding: 7px 0; border-top: 1px dashed var(--line); }
+  .lessons a { color: var(--ink); text-decoration: none; display: flex; gap: 10px; align-items: baseline; }
+  .lessons a:hover { color: var(--teal-deep); }
+  .lessons a:hover .ln { text-decoration: underline; }
+  .lessons .idx { font-family: var(--mono); font-size: 12px; color: var(--coral); flex-shrink: 0; }
+  .lessons .soon { color: var(--ink-faint); cursor: default; }
+  .badge-ready { font-family: var(--mono); font-size: 10px; color: var(--teal); border: 1px solid var(--teal); border-radius: 5px; padding: 1px 6px; margin-left: auto; }
+  .badge-soon { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; margin-left: auto; }
+</style>
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><b>FastAPI 셀프 스터디</b></span>
+  <span>10 WEEKS · uv · PostgreSQL · Redis</span>
+</nav>
+
+<header class="hero">
+  <span class="kicker">◆ 프론트엔드 → 백엔드 전환 로드맵</span>
+  <h1>FastAPI 백엔드<br>개발자 되기</h1>
+  <p class="subtitle">React·NestJS 개발자가 <strong>실무에 필요한 지식을 갖춘 FastAPI 백엔드 개발자</strong>로 전환하기 위한 갭 중심 10주 커리큘럼. 4개 강의를 종합·재구성했습니다.</p>
+  <div class="stats">
+    <div class="stat"><b>10</b><span>Weeks</span></div>
+    <div class="stat"><b>30+</b><span>Lessons</span></div>
+    <div class="stat"><b>1</b><span>Capstone API</span></div>
+    <div class="stat"><b>↔</b><span>NestJS 비교</span></div>
+  </div>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>이미 아는 것은 <b>압축</b>하고, 부족한 핵심(<b>async 내부 · SQLAlchemy · 인증 · 실시간 · 테스트 · 배포</b>)에 집중한다. DB는 PostgreSQL, 캐시는 Redis, 패키지 관리는 uv. 모든 자료는 <b>비유 + 시각화</b>로.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <div class="section-divider">커리큘럼</div>
+
+  <!-- WEEK 1 -->
+  <section class="week">
+    <div class="week__head">
+      <div class="week__no">1</div>
+      <div>
+        <div class="week__title">큰 그림 &amp; 타입힌트</div>
+        <div class="week__sub">백엔드의 지도를 그리고, TypeScript 경험으로 타입 힌트를 정복</div>
+      </div>
+      <span class="badge-ready">● 작성 완료</span>
+    </div>
+    <ul class="lessons">
+      <li><a href="week01-overview-typehints/01-msa-client-server-rest.html"><span class="idx">01</span><span class="ln">큰 그림: 클라이언트–서버 · API · REST · MSA</span></a></li>
+      <li><a href="week01-overview-typehints/02-python-typehints.html"><span class="idx">02</span><span class="ln">Python 타입 힌트 (↔ TypeScript)</span></a></li>
+      <li><a href="week01-overview-typehints/03-fastapi-flow-swagger-curl.html"><span class="idx">03</span><span class="ln">첫 FastAPI 앱 · 동작 흐름 · Swagger · cURL</span></a></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 2 -->
+  <section class="week">
+    <div class="week__head">
+      <div class="week__no">2</div>
+      <div>
+        <div class="week__title">Request &amp; HTTP</div>
+        <div class="week__sub">요청의 모든 입구와 HTTP 메서드·상태 코드</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> Path · Query · Body · Header · Cookie · Form</span></li>
+      <li><span class="soon"><span class="idx">02</span> HTTP 메서드 &amp; 상태 코드 설계</span></li>
+      <li><span class="soon"><span class="idx">03</span> 예외 처리 기본 · HTTPException</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 3 -->
+  <section class="week">
+    <div class="week__head">
+      <div class="week__no">3</div>
+      <div>
+        <div class="week__title">Pydantic &amp; 응답 설계</div>
+        <div class="week__sub">검증의 핵심 Pydantic과 response_model</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> Pydantic 모델 · 중첩 · Field · validator (↔ class-validator)</span></li>
+      <li><span class="soon"><span class="idx">02</span> response_model &amp; Response 클래스 · 직렬화</span></li>
+      <li><span class="soon"><span class="idx">03</span> APIRouter 모듈 분할 (↔ Nest Module)</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 4 -->
+  <section class="week star">
+    <div class="week__head">
+      <div class="week__no">4</div>
+      <div>
+        <div class="week__title">비동기 원리 &amp; 내부 동작 <span class="tag">★ 핵심</span></div>
+        <div class="week__sub">"왜 async가 빠른가"를 원리로 설명할 수 있게</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> 동기/비동기 · 멀티태스킹 · asyncio · Event Loop</span></li>
+      <li><span class="soon"><span class="idx">02</span> async/await 처리 · ThreadPool 함정</span></li>
+      <li><span class="soon"><span class="idx">03</span> 멀티프로세스 · Uvicorn/Starlette/FastAPI 역할</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 5 -->
+  <section class="week">
+    <div class="week__head">
+      <div class="week__no">5</div>
+      <div>
+        <div class="week__title">PostgreSQL &amp; SQLAlchemy</div>
+        <div class="week__sub">Docker로 DB 띄우고 ORM으로 다루기</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> Docker Compose로 PostgreSQL · DB 연결</span></li>
+      <li><span class="soon"><span class="idx">02</span> SQLAlchemy 2.0 ORM 모델링 · DDL</span></li>
+      <li><span class="soon"><span class="idx">03</span> Connection Pool · Session · fetch · bind 변수</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 6 -->
+  <section class="week star">
+    <div class="week__head">
+      <div class="week__no">6</div>
+      <div>
+        <div class="week__title">JSON API 구축 &amp; 구조화 <span class="tag">★ 핵심</span></div>
+        <div class="week__sub">실제 ToDo/Blog API를 DI와 서비스 계층으로</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> REST API 명세 · CRUD 구현</span></li>
+      <li><span class="soon"><span class="idx">02</span> Dependency Injection (↔ Nest Provider) · MVC 리팩터링</span></li>
+      <li><span class="soon"><span class="idx">03</span> Exception Handler · dotenv · pytest 입문</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 7 -->
+  <section class="week">
+    <div class="week__head">
+      <div class="week__no">7</div>
+      <div>
+        <div class="week__title">비동기 DB &amp; 외부 통신</div>
+        <div class="week__sub">asyncpg와 httpx로 진짜 비동기 백엔드</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> 비동기 SQLAlchemy(asyncpg) · async Session · Lifespan</span></li>
+      <li><span class="soon"><span class="idx">02</span> 외부 API 요청 (httpx async client)</span></li>
+      <li><span class="soon"><span class="idx">03</span> CORS · 미들웨어</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 8 -->
+  <section class="week star">
+    <div class="week__head">
+      <div class="week__no">8</div>
+      <div>
+        <div class="week__title">인증 / 인가 <span class="tag">★ 핵심</span></div>
+        <div class="week__sub">JWT · OAuth2 · Redis 세션 · OTP</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> JWT · OAuth2PasswordBearer · 패스워드 해싱</span></li>
+      <li><span class="soon"><span class="idx">02</span> 의존성 기반 권한 (↔ Nest Guard) · Redis 세션/캐시</span></li>
+      <li><span class="soon"><span class="idx">03</span> OTP 생성·검증 · Background Tasks</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 9 -->
+  <section class="week star">
+    <div class="week__head">
+      <div class="week__no">9</div>
+      <div>
+        <div class="week__title">실시간 · 이벤트 · 성능 <span class="tag">★ 핵심</span></div>
+        <div class="week__sub">WebSocket · Pub/Sub · 성능 개선</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> WebSocket 실시간 통신</span></li>
+      <li><span class="soon"><span class="idx">02</span> 메시지 브로커 · Redis Pub/Sub</span></li>
+      <li><span class="soon"><span class="idx">03</span> 동기/비동기 성능 테스트 &amp; 개선</span></li>
+    </ul>
+  </section>
+
+  <!-- WEEK 10 -->
+  <section class="week">
+    <div class="week__head">
+      <div class="week__no">10</div>
+      <div>
+        <div class="week__title">테스트 심화 &amp; 배포</div>
+        <div class="week__sub">pytest · Alembic · Docker · CI</div>
+      </div>
+      <span class="badge-soon">준비 중</span>
+    </div>
+    <ul class="lessons">
+      <li><span class="soon"><span class="idx">01</span> pytest · Mocking · Fixture · TestClient</span></li>
+      <li><span class="soon"><span class="idx">02</span> Alembic 마이그레이션</span></li>
+      <li><span class="soon"><span class="idx">03</span> Docker 프로덕션 빌드 · GitHub Actions CI · 회고</span></li>
+    </ul>
+  </section>
+
+  <div class="box note" style="margin-top:40px">
+    <span class="ic">📂</span>
+    <span class="label">자료 구조 안내</span>
+    <p>각 주차 폴더 안에 토픽별 <code>.html</code> 강의와 실행 가능한 <code>code/</code> 예제가 있습니다. 텍스트 버전 계획표와 진행 체크리스트는 <a href="README.md">README.md</a>에서 볼 수 있습니다. HTML 자료는 <strong>브라우저로 직접 열어</strong> 학습하세요.</p>
+  </div>
+
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · 프론트엔드 개발자를 위한 백엔드 전환 로드맵 · made with 🍵</footer>
+</body>
+</html>

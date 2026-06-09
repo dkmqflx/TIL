@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1·03 — FastAPI 동작 흐름 · Swagger · cURL</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 &amp; 타입힌트</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 1 — Lesson 03</span>
+  <h1>첫 FastAPI 앱<br>동작 흐름 · Swagger · cURL</h1>
+  <p class="subtitle">이론을 손으로 옮길 차례입니다. <strong>uv</strong>로 환경을 만들고, 첫 엔드포인트를 띄우고, 타입 힌트가 어떻게 <strong>자동 문서</strong>로 바뀌는지 직접 봅니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>요청은 <b>Uvicorn(서버)</b> → <b>FastAPI(앱)</b> → <b>경로 함수</b> 순서로 흐르고, 반환값은 자동으로 <b>JSON</b>이 되어 되돌아온다. 그리고 타입 힌트는 공짜로 <b>Swagger 문서</b>가 된다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>uv로 FastAPI 프로젝트를 세팅하고 서버를 띄운다</li>
+    <li>요청이 Uvicorn → FastAPI → 경로 함수로 흐르는 과정을 그린다</li>
+    <li>자동 생성되는 Swagger UI / ReDoc를 활용한다</li>
+    <li>cURL로 터미널에서 API를 테스트한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>uv로 30초 환경 세팅</h2>
+  <p><span class="chip">uv</span>는 Rust로 만든 초고속 Python 패키지 매니저입니다. 프론트의 <code>npm</code>/<code>pnpm</code>과 거의 같은 멘탈 모델 — <code>pyproject.toml</code>(=package.json)과 락파일로 의존성을 관리합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># uv 설치 (macOS)</span>
+brew install uv
+
+<span class="c"># 프로젝트 생성 & 진입</span>
+uv init fastapi-hello && cd fastapi-hello
+
+<span class="c"># 의존성 추가 (npm install 과 동일한 감각)</span>
+uv add fastapi <span class="s">"uvicorn[standard]"</span></pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>npm / Node</th><th>uv / Python</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>npm init</code></td><td><code>uv init</code></td><td>프로젝트 생성</td></tr>
+      <tr><td><code>npm install express</code></td><td><code>uv add fastapi</code></td><td>의존성 추가</td></tr>
+      <tr><td><code>package.json</code></td><td><code>pyproject.toml</code></td><td>매니페스트</td></tr>
+      <tr><td><code>package-lock.json</code></td><td><code>uv.lock</code></td><td>락파일</td></tr>
+      <tr><td><code>npx &lt;cmd&gt;</code></td><td><code>uv run &lt;cmd&gt;</code></td><td>가상환경에서 실행</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">2</span>첫 엔드포인트</h2>
+  <p><code>main.py</code> 파일을 만들고 다음을 작성합니다. (전체 예제는 <code>code/main.py</code>에 있습니다.)</p>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> FastAPI
+
+app = <span class="t">FastAPI</span>()
+
+<span class="d">@app.get</span>(<span class="s">"/"</span>)
+<span class="k">def</span> <span class="f">read_root</span>():
+    <span class="k">return</span> {<span class="s">"message"</span>: <span class="s">"Hello, FastAPI"</span>}
+
+<span class="d">@app.get</span>(<span class="s">"/todos/{todo_id}"</span>)
+<span class="k">def</span> <span class="f">read_todo</span>(todo_id: <span class="t">int</span>, q: <span class="t">str</span> | <span class="t">None</span> = <span class="k">None</span>):
+    <span class="k">return</span> {<span class="s">"todo_id"</span>: todo_id, <span class="s">"q"</span>: q}</pre></div>
+
+  <p>서버를 띄웁니다:</p>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre>uv run uvicorn main:app --reload
+
+<span class="c"># main  → main.py 파일</span>
+<span class="c"># app   → 그 안의 FastAPI() 인스턴스 변수명</span>
+<span class="c"># --reload → 코드 바뀌면 자동 재시작 (개발용)</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">반환값이 알아서 JSON이 된다</span>
+    <p><code>return {"message": "..."}</code>처럼 dict를 반환하면 FastAPI가 자동으로 <code>Content-Type: application/json</code> 응답으로 직렬화합니다. Express에서 <code>res.json(...)</code>을 매번 호출하던 것과 달리, <strong>반환만 하면 끝</strong>입니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>요청은 어떤 길을 지나는가</h2>
+  <p>주소창에 <code>http://127.0.0.1:8000/todos/42</code>를 치면 내부에서 이런 일이 벌어집니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 250" role="img" aria-label="FastAPI 요청 처리 흐름">
+      <rect x="15" y="100" width="120" height="56" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="75" y="125" text-anchor="middle" font-size="12.5" font-weight="700" font-family="JetBrains Mono, monospace" fill="#0a4f48">Client</text>
+      <text x="75" y="143" text-anchor="middle" font-size="10.5" font-family="Pretendard" fill="#4a463d">브라우저</text>
+
+      <rect x="185" y="90" width="130" height="76" rx="10" fill="#fff" stroke="#c98a16" stroke-width="2"/>
+      <text x="250" y="116" text-anchor="middle" font-size="12.5" font-weight="700" font-family="JetBrains Mono, monospace" fill="#9a6a05">Uvicorn</text>
+      <text x="250" y="133" text-anchor="middle" font-size="10" font-family="Pretendard" fill="#4a463d">ASGI 서버</text>
+      <text x="250" y="148" text-anchor="middle" font-size="9.5" font-family="Pretendard" fill="#807a6c">HTTP 해석</text>
+
+      <rect x="365" y="90" width="130" height="76" rx="10" fill="#fff" stroke="#5b4b8a" stroke-width="2"/>
+      <text x="430" y="116" text-anchor="middle" font-size="12.5" font-weight="700" font-family="JetBrains Mono, monospace" fill="#5b4b8a">FastAPI</text>
+      <text x="430" y="133" text-anchor="middle" font-size="10" font-family="Pretendard" fill="#4a463d">라우팅·검증</text>
+      <text x="430" y="148" text-anchor="middle" font-size="9.5" font-family="Pretendard" fill="#807a6c">todo_id=42 (int)</text>
+
+      <rect x="545" y="100" width="140" height="56" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="615" y="125" text-anchor="middle" font-size="12.5" font-weight="700" font-family="JetBrains Mono, monospace" fill="#6fd6c7">read_todo()</text>
+      <text x="615" y="143" text-anchor="middle" font-size="10" font-family="Pretendard" fill="#ece6d6">경로 함수 실행</text>
+
+      <line x1="137" y1="120" x2="183" y2="120" stroke="#e0552f" stroke-width="2.2" marker-end="url(#a)"/>
+      <line x1="317" y1="120" x2="363" y2="120" stroke="#e0552f" stroke-width="2.2" marker-end="url(#a)"/>
+      <line x1="497" y1="120" x2="543" y2="120" stroke="#e0552f" stroke-width="2.2" marker-end="url(#a)"/>
+      <line x1="545" y1="172" x2="75" y2="172" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#b)"/>
+      <text x="310" y="190" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace" fill="#0d6e64">← JSON 응답: {"todo_id": 42, "q": null}</text>
+      <defs>
+        <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Uvicorn은 "전화 교환원", FastAPI는 "지배인", 경로 함수는 "실제 요리사".</figcaption>
+  </figure>
+
+  <div class="box analogy">
+    <span class="ic">📞</span>
+    <span class="label">비유 — 호텔 프런트</span>
+    <p><strong>Uvicorn</strong>은 외부 전화를 받아 말을 알아듣는 <strong>교환원(ASGI 서버)</strong>입니다. <strong>FastAPI</strong>는 "42번 방 담당이 누구지?"를 찾아 연결하는 <strong>지배인(라우팅)</strong>이고, <code>read_todo()</code>가 실제 일을 하는 <strong>직원</strong>입니다. Uvicorn / Starlette / FastAPI가 정확히 어떻게 역할을 나누는지는 <strong>Week 4</strong>에서 해부합니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>타입 힌트의 보상 — 자동 문서</h2>
+  <p>서버를 띄운 채로 브라우저에서 <code>/docs</code>를 열어보세요. <strong>아무 설정도 안 했는데</strong> 인터랙티브 API 문서가 떠 있습니다.</p>
+  <table class="tbl">
+    <thead><tr><th>주소</th><th>무엇</th><th>특징</th></tr></thead>
+    <tbody>
+      <tr><td><code>/docs</code></td><td><strong>Swagger UI</strong></td><td>브라우저에서 직접 요청을 쏴볼 수 있음 (Try it out)</td></tr>
+      <tr><td><code>/redoc</code></td><td><strong>ReDoc</strong></td><td>읽기 좋은 문서형 레이아웃</td></tr>
+      <tr><td><code>/openapi.json</code></td><td>OpenAPI 명세</td><td>위 문서들의 원천 데이터(JSON)</td></tr>
+    </tbody>
+  </table>
+  <p>앞에서 <code>todo_id: int</code>라고 적었기 때문에, 문서에는 "todo_id는 정수"라고 표시되고 <code>/todos/abc</code>처럼 잘못된 요청은 FastAPI가 자동으로 <strong>422 검증 에러</strong>로 막아줍니다. NestJS에서 Swagger 데코레이터(<code>@ApiProperty</code>)를 일일이 달던 수고가 <strong>타입 힌트만으로</strong> 사라집니다.</p>
+
+  <h2><span class="num">5</span>cURL — 터미널에서 API 두드리기</h2>
+  <p>브라우저 없이 API를 테스트하는 가장 기본 도구가 <code>curl</code>입니다. 백엔드 개발자는 이걸 손에 익혀야 합니다.</p>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># GET 요청</span>
+curl http://127.0.0.1:8000/todos/42
+
+<span class="c"># 쿼리 파라미터 붙이기</span>
+curl <span class="s">"http://127.0.0.1:8000/todos/42?q=hello"</span>
+
+<span class="c"># 헤더 보기 (-i: 응답 헤더 포함)</span>
+curl -i http://127.0.0.1:8000/
+
+<span class="c"># POST + JSON 본문 (-X 메서드, -H 헤더, -d 데이터)</span>
+curl -X POST http://127.0.0.1:8000/todos \
+  -H <span class="s">"Content-Type: application/json"</span> \
+  -d <span class="s">'{"title": "장보기", "done": false}'</span></pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>옵션</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td><code>-X</code></td><td>HTTP 메서드 지정 (<code>POST</code>, <code>PATCH</code> …)</td></tr>
+      <tr><td><code>-H</code></td><td>헤더 추가 (보통 <code>Content-Type</code>)</td></tr>
+      <tr><td><code>-d</code></td><td>요청 본문(body) 데이터</td></tr>
+      <tr><td><code>-i</code></td><td>응답에 상태줄·헤더까지 함께 출력</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">자주 하는 실수</span>
+    <p><code>-d</code>로 JSON을 보낼 땐 <strong><code>-H "Content-Type: application/json"</code>을 반드시</strong> 붙이세요. 빠뜨리면 서버가 폼 데이터로 오해해 422가 납니다. 그리고 URL에 <code>?</code>·<code>&amp;</code>가 있으면 셸이 해석하지 않도록 <strong>전체를 따옴표로</strong> 감싸야 합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>uvicorn main:app</code>에서 <code>main</code>과 <code>app</code>은 각각 뭔가요?</summary>
+    <div class="answer"><p><code>main</code>은 <code>main.py</code> 모듈, <code>app</code>은 그 안에서 <code>app = FastAPI()</code>로 만든 인스턴스 변수 이름입니다. 즉 "main 모듈의 app 객체를 ASGI 앱으로 띄워라"라는 뜻입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 설정 한 줄 없이 <code>/docs</code>가 뜨는 이유는?</summary>
+    <div class="answer"><p>FastAPI가 경로 함수의 타입 힌트를 읽어 OpenAPI 명세(<code>/openapi.json</code>)를 자동 생성하고, Swagger UI/ReDoc가 그 명세를 렌더링하기 때문입니다. 타입 힌트가 곧 문서의 원천입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>/todos/abc</code>로 요청하면 어떻게 되나요?</summary>
+    <div class="answer"><p><code>todo_id: int</code> 힌트 때문에 FastAPI가 <code>"abc"</code>를 정수로 변환하지 못하고 <strong>422 Unprocessable Entity</strong> 응답을 자동으로 돌려줍니다. 함수 본문은 실행조차 되지 않습니다.</p></div>
+  </details>
+
+  <div class="box tip">
+    <span class="ic">🎯</span>
+    <span class="label">Week 1 마무리</span>
+    <p>큰 그림(REST·MSA) → 타입 힌트 → 첫 앱·자동 문서까지 왔습니다. 다음 주에는 요청의 모든 입구(<strong>Path · Query · Body · Header</strong>)와 HTTP 메서드·상태 코드를 깊게 파고듭니다.</p>
+  </div>
+
+  <nav class="pager">
+    <a class="prev" href="02-python-typehints.html"><span class="dir">← 이전</span><span class="ttl">Python 타입 힌트 (↔ TypeScript)</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 · Week 2 준비</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 1 · Lesson 03 · 동작 흐름 · Swagger · cURL</footer>
+</body>
+</html>

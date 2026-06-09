@@ -52,8 +52,12 @@ GRANT USAGE ON SCHEMA public TO app_rw, app_ro;
 GRANT SELECT, INSERT, UPDATE, DELETE ON orders TO app_rw;
 GRANT SELECT ON orders TO app_ro;
 
--- IDENTITY 시퀀스 사용 권한(INSERT 시 필요)도 쓰기 유저에게만
-GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_rw;
+-- 주의: orders.id 는 GENERATED ALWAYS AS IDENTITY 다. IDENTITY 컬럼은
+--       뒤의 시퀀스에 대한 USAGE 권한이 필요 없다 — 테이블 INSERT 권한이면
+--       충분하다. (3절에서 app_rw 가 시퀀스 USAGE 없이 INSERT 하는 것으로 증명)
+--       시퀀스 USAGE 가 필요한 경우는 레거시 serial 컬럼이거나, 앱이 직접
+--       nextval() 을 호출하는 경우다. 그런 상황이라면 아래처럼 부여한다:
+--   GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_rw;
 
 -- =========================================================================
 -- 3) 앱 전용 최소 권한 유저 — SET ROLE 로 각 유저의 권한을 검증

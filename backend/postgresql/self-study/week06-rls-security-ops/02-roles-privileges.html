@@ -61,8 +61,10 @@
 <span class="k">GRANT</span> <span class="k">SELECT</span>, <span class="k">INSERT</span>, <span class="k">UPDATE</span>, <span class="k">DELETE</span> <span class="k">ON</span> orders <span class="k">TO</span> app_rw;
 <span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> orders <span class="k">TO</span> app_ro;
 
-<span class="c">-- 3) IDENTITY 시퀀스 USAGE (INSERT 시 필요)는 쓰기 유저에게만</span>
-<span class="k">GRANT</span> <span class="k">USAGE</span> <span class="k">ON ALL SEQUENCES IN SCHEMA</span> public <span class="k">TO</span> app_rw;</pre></div>
+<span class="c">-- orders.id 는 GENERATED ALWAYS AS IDENTITY. IDENTITY 컬럼은 뒤의 시퀀스</span>
+<span class="c">-- USAGE 가 필요 없다 — 테이블 INSERT 권한이면 충분(3절에서 증명).</span>
+<span class="c">-- 시퀀스 USAGE 는 레거시 serial 이나 앱이 직접 nextval() 호출 시에만 필요:</span>
+<span class="c">--   GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_rw;</span></pre></div>
 
   <div class="box note">
     <span class="ic">📝</span>

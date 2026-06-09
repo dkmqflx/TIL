@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:18
+    container_name: pg-study
+    environment:
+      POSTGRES_USER: study
+      POSTGRES_PASSWORD: study_pw
+      POSTGRES_DB: study_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+
+volumes:
+  pgdata:

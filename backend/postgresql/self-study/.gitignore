@@ -1,0 +1,5 @@
+# 레슨 작성용 골격 (학습 콘텐츠 아님)
+_TEMPLATE.html
+# psql 로컬 산출물
+*.log
+.DS_Store

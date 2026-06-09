@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 2·01 — 요청의 모든 입구: Path · Query · Body · Header</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · Request &amp; HTTP</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 2 — Lesson 01</span>
+  <h1>요청의 모든 입구<br>Path · Query · Body · Header · Cookie · Form</h1>
+  <p class="subtitle">클라이언트가 보내는 데이터는 요청의 <strong>여러 입구</strong>로 나뉘어 들어옵니다. 어떤 데이터를 어느 입구로 받을지 고르는 것이 API 설계의 첫 단추입니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>택배 하나에도 <b>주소(Path)</b> · <b>포스트잇 메모(Query)</b> · <b>상자 속 내용물(Body)</b> · <b>운송 정보(Header)</b> · <b>회원카드(Cookie)</b>가 따로 있다. FastAPI는 함수 매개변수의 <b>선언 방식</b>만 보고 어느 입구인지 자동으로 알아챈다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>HTTP 요청의 구조와 6가지 데이터 입구를 구분한다</li>
+    <li>Path / Query / Body를 언제 쓰는지 판단 기준을 갖는다</li>
+    <li>각 입구를 FastAPI에서 선언하는 법을 NestJS와 비교해 익힌다</li>
+  </ul>
+
+  <h2><span class="num">1</span>HTTP 요청의 해부도</h2>
+  <p>먼저 "요청 하나가 실제로 어떻게 생겼는지"를 봅시다. <code>curl -X POST</code>가 만들어내는 날것의 HTTP 메시지입니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 270" role="img" aria-label="HTTP 요청 메시지 구조">
+      <rect x="20" y="20" width="620" height="230" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <!-- request line -->
+      <text x="40" y="55" font-family="JetBrains Mono, monospace" font-size="14" fill="#ff9d6e">POST <tspan fill="#6fd6c7">/todos/42</tspan><tspan fill="#c9a6ff">?notify=true</tspan> HTTP/1.1</text>
+      <rect x="34" y="40" width="120" height="22" fill="none" stroke="#ff9d6e" stroke-width="1.3" rx="4"/>
+      <text x="40" y="80" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#807a6c">└ 메서드</text>
+      <text x="200" y="80" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">└ Path 파라미터</text>
+      <text x="380" y="80" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#c9a6ff">└ Query 파라미터</text>
+      <!-- headers -->
+      <text x="40" y="115" font-family="JetBrains Mono, monospace" font-size="13" fill="#ffd479">Host: <tspan fill="#ece6d6">api.todo.com</tspan></text>
+      <text x="40" y="137" font-family="JetBrains Mono, monospace" font-size="13" fill="#ffd479">Content-Type: <tspan fill="#9ad9a0">application/json</tspan></text>
+      <text x="40" y="159" font-family="JetBrains Mono, monospace" font-size="13" fill="#ffd479">Cookie: <tspan fill="#ece6d6">session=abc123</tspan></text>
+      <text x="470" y="137" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#807a6c">← Header / Cookie</text>
+      <!-- blank line + body -->
+      <line x1="40" y1="178" x2="620" y2="178" stroke="#2c281f" stroke-dasharray="3 3"/>
+      <text x="40" y="205" font-family="JetBrains Mono, monospace" font-size="13" fill="#ece6d6">{ <tspan fill="#9ad9a0">"title"</tspan>: <tspan fill="#9ad9a0">"장보기"</tspan>, <tspan fill="#9ad9a0">"done"</tspan>: <tspan fill="#ff9d6e">false</tspan> }</text>
+      <text x="40" y="232" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#807a6c">└ Body (본문) — 빈 줄 다음에 온다</text>
+    </svg>
+    <figcaption>한 줄짜리 요청 안에 6개 입구가 흩어져 있다. FastAPI가 이걸 깔끔히 분리해준다.</figcaption>
+  </figure>
+
+  <div class="box analogy">
+    <span class="ic">📦</span>
+    <span class="label">비유 — 택배 상자</span>
+    <p><strong>Path</strong>는 상자에 적힌 <em>받는 주소</em>(어떤 자원인가) · <strong>Query</strong>는 붙여둔 <em>포스트잇 메모</em>(어떻게 처리할까: 정렬·필터) · <strong>Body</strong>는 <em>상자 속 실제 내용물</em>(생성/수정할 데이터) · <strong>Header</strong>는 <em>운송장의 메타 정보</em>(형식·인증) · <strong>Cookie</strong>는 <em>단골 회원카드</em>입니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>Path 파라미터 — "어떤 자원인가"</h2>
+  <p>URL 경로에 박혀 있는 값입니다. 특정 자원을 <strong>식별</strong>할 때 씁니다. 중괄호 <code>{}</code>로 선언하고, 같은 이름의 함수 매개변수로 받습니다. 타입 힌트를 달면 자동 검증됩니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todos.controller.ts</span></div><pre><span class="d">@Get</span>(<span class="s">':id'</span>)
+<span class="f">findOne</span>(<span class="d">@Param</span>(<span class="s">'id'</span>) id: <span class="t">number</span>) {
+  <span class="k">return</span> ...;
+}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.get</span>(<span class="s">"/todos/{id}"</span>)
+<span class="k">def</span> <span class="f">find_one</span>(id: <span class="t">int</span>):
+    <span class="k">return</span> ...</pre></div>
+    </div>
+  </div>
+  <p>Path 파라미터는 <strong>항상 필수</strong>입니다 — URL의 일부이니 빠질 수 없죠. <code>/todos/abc</code>처럼 타입이 안 맞으면 422가 자동 응답됩니다.</p>
+
+  <h2><span class="num">3</span>Query 파라미터 — "어떻게 처리할까"</h2>
+  <p>URL <code>?</code> 뒤의 <code>key=value</code> 쌍입니다. 주로 <strong>정렬·필터·페이지네이션</strong>처럼 "선택적 옵션"에 씁니다. 함수 매개변수가 <em>경로에 없고 기본 타입</em>이면 FastAPI가 자동으로 쿼리로 인식합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="c"># GET /todos?skip=0&limit=10&done=true</span>
+<span class="d">@app.get</span>(<span class="s">"/todos"</span>)
+<span class="k">def</span> <span class="f">list_todos</span>(skip: <span class="t">int</span> = <span class="n">0</span>, limit: <span class="t">int</span> = <span class="n">10</span>, done: <span class="t">bool</span> | <span class="t">None</span> = <span class="k">None</span>):
+    <span class="c"># skip, limit → 기본값 있으니 선택적</span>
+    <span class="c"># done → None 기본값이라 생략 가능</span>
+    <span class="k">return</span> {<span class="s">"skip"</span>: skip, <span class="s">"limit"</span>: limit, <span class="s">"done"</span>: done}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">필수 vs 선택은 "기본값"이 가른다</span>
+    <p>매개변수에 <strong>기본값이 있으면 선택적</strong>, <strong>없으면 필수</strong> 쿼리가 됩니다. <code>q: str</code> → 필수, <code>q: str = "x"</code> → 선택. Path는 이와 무관하게 늘 필수라는 점과 대비됩니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>Request Body — "생성/수정할 데이터"</h2>
+  <p>POST·PATCH로 보내는 JSON 본문입니다. FastAPI에서는 <strong>Pydantic 모델</strong>로 받습니다 (Week 3에서 깊게). 매개변수 타입이 Pydantic 모델이면 자동으로 "본문에서 읽어라"가 됩니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — DTO</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">create-todo.dto.ts</span></div><pre><span class="k">class</span> <span class="t">CreateTodoDto</span> {
+  title: <span class="t">string</span>;
+  done: <span class="t">boolean</span>;
+}
+<span class="c">// controller</span>
+<span class="d">@Post</span>()
+<span class="f">create</span>(<span class="d">@Body</span>() dto: <span class="t">CreateTodoDto</span>) {}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — Pydantic</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">class</span> <span class="t">CreateTodo</span>(<span class="t">BaseModel</span>):
+    title: <span class="t">str</span>
+    done: <span class="t">bool</span>
+
+<span class="d">@app.post</span>(<span class="s">"/todos"</span>)
+<span class="k">def</span> <span class="f">create</span>(todo: <span class="t">CreateTodo</span>):
+    <span class="k">return</span> todo</pre></div>
+    </div>
+  </div>
+  <p>NestJS의 DTO + class-validator 조합을, FastAPI는 Pydantic 모델 하나로 <strong>선언과 검증을 동시에</strong> 해결합니다.</p>
+
+  <h2><span class="num">5</span>Header · Cookie · Form — 나머지 입구</h2>
+  <p>이들은 명시적으로 <code>Header()</code>, <code>Cookie()</code>, <code>Form()</code>을 써서 "이 매개변수는 이 입구에서 받아라"라고 알려줍니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> Header, Cookie, Form
+
+<span class="d">@app.get</span>(<span class="s">"/me"</span>)
+<span class="k">def</span> <span class="f">me</span>(
+    user_agent: <span class="t">str</span> | <span class="t">None</span> = <span class="t">Header</span>(<span class="k">None</span>),   <span class="c"># 헤더 User-Agent</span>
+    session: <span class="t">str</span> | <span class="t">None</span> = <span class="t">Cookie</span>(<span class="k">None</span>),      <span class="c"># 쿠키 session</span>
+):
+    <span class="k">return</span> {<span class="s">"ua"</span>: user_agent, <span class="s">"session"</span>: session}
+
+<span class="d">@app.post</span>(<span class="s">"/login"</span>)
+<span class="k">def</span> <span class="f">login</span>(username: <span class="t">str</span> = <span class="t">Form</span>(), password: <span class="t">str</span> = <span class="t">Form</span>()):
+    <span class="c"># HTML form (application/x-www-form-urlencoded)</span>
+    <span class="k">return</span> {<span class="s">"user"</span>: username}</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">Header 이름 변환 규칙</span>
+    <p>Python 변수 <code>user_agent</code>는 HTTP 헤더 <code>User-Agent</code>에 자동 매핑됩니다 (언더스코어 → 하이픈, 대소문자 무시). 그리고 <code>Form()</code>을 쓰려면 <code>uv add python-multipart</code>가 필요합니다 — 안 깔면 에러가 납니다.</p>
+  </div>
+
+  <h3>그럼 프론트에서는 어떻게 호출하나? <span style="font-size:0.8rem;color:var(--ink-faint)">(프론트 출신을 위한 보너스)</span></h3>
+  <p>위 <code>/me</code> 엔드포인트는 헤더와 쿠키를 받습니다. 그런데 이 둘은 브라우저가 <strong>상당 부분 자동으로</strong> 처리해줘서, 프론트가 할 일은 케이스마다 다릅니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🪪</span>
+    <span class="label">비유 — 입장할 때 자동으로 따라오는 것들</span>
+    <p>헤더(특히 <code>User-Agent</code>)와 쿠키는 클럽에 들어갈 때 <strong>몸에 이미 붙어 있는 신분증</strong> 같은 겁니다. 손님이 매번 "제 신분증이요!" 하고 꺼내지 않아도, 입구(브라우저)가 알아서 같이 들여보냅니다. 단, <em>다른 건물(다른 출처)</em>로 갈 땐 "이 신분증도 같이 보내주세요"라고 명시해야 합니다.</p>
+  </div>
+
+  <p><strong>① <code>User-Agent</code> 헤더</strong> — 브라우저가 모든 요청에 자동으로 붙입니다. 프론트는 아무것도 안 해도 채워집니다.</p>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">client.js</span></div><pre><span class="c">// 이것만으로 충분 — User-Agent는 브라우저가 자동으로 넣어줌</span>
+<span class="f">fetch</span>(<span class="s">"http://127.0.0.1:8000/me"</span>);
+
+<span class="c">// ❌ User-Agent는 '금지된 헤더'라 직접 덮어쓸 수 없다 (무시됨)</span>
+<span class="f">fetch</span>(<span class="s">"/me"</span>, { headers: { <span class="s">"User-Agent"</span>: <span class="s">"내맘대로"</span> } });</pre></div>
+  <p>만약 <code>X-Client-Version</code> 같은 <strong>커스텀 헤더</strong>였다면 그땐 직접 넣어야 합니다 (FastAPI: <code>x_client_version: str | None = Header(None)</code>):</p>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">client.js</span></div><pre><span class="f">fetch</span>(<span class="s">"/me"</span>, {
+  headers: { <span class="s">"X-Client-Version"</span>: <span class="s">"1.2.3"</span> },  <span class="c">// ← 직접 지정</span>
+});</pre></div>
+
+  <p><strong>② <code>session</code> 쿠키</strong> — 브라우저가 자동으로 실어 보냅니다. 단 <strong>같은 출처냐 다른 출처냐</strong>가 갈림길입니다.</p>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag" style="background:#0d6e64">same</span> 같은 출처</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">client.js</span></div><pre><span class="c">// 프론트·API가 같은 도메인:포트</span>
+<span class="f">fetch</span>(<span class="s">"/me"</span>);
+<span class="c">// → 쿠키 자동 포함 ✅</span></pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">cross</span> 다른 출처</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">client.js</span></div><pre><span class="c">// 예: 프론트 :5173 ↔ API :8000</span>
+<span class="f">fetch</span>(<span class="s">"http://127.0.0.1:8000/me"</span>, {
+  credentials: <span class="s">"include"</span>,  <span class="c">// ← 필수!</span>
+});</pre></div>
+    </div>
+  </div>
+  <p>다른 출처일 때는 <code>credentials: "include"</code>(axios는 <code>withCredentials: true</code>)가 없으면 쿠키가 안 실립니다. 그리고 <strong>서버(FastAPI)의 CORS 설정</strong>도 쿠키를 허용해야 하는데, 이 부분은 <strong>Week 7 (CORS)</strong>에서 다룹니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>받는 것</th><th>프론트가 할 일</th></tr></thead>
+    <tbody>
+      <tr><td><code>user_agent</code> (User-Agent)</td><td>아무것도 안 해도 됨 (브라우저 자동) · 직접 변경 불가</td></tr>
+      <tr><td><code>session</code> 쿠키 — 같은 출처</td><td>아무것도 안 해도 됨 (자동 전송)</td></tr>
+      <tr><td><code>session</code> 쿠키 — 다른 출처</td><td><code>credentials: "include"</code> + 서버 CORS 허용</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="ic">🔭</span>
+    <span class="label">그 쿠키는 누가 만드나?</span>
+    <p>보통 프론트가 만드는 게 아니라, <strong>로그인 시 서버가 <code>Set-Cookie</code>로 내려줍니다</strong> (대개 <code>HttpOnly</code>라 JS로 못 읽어 더 안전). 이후 요청부터 브라우저가 자동으로 다시 실어 보내는 구조입니다. 이 세션/쿠키 인증 흐름 전체는 <strong>Week 8 (인증/인가)</strong>에서 직접 구현합니다.</p>
+  </div>
+
+  <h3>인자 순서가 바뀌어도 될까?</h3>
+  <p>결론부터: <strong>FastAPI 입장에선 순서가 전혀 상관없습니다.</strong> FastAPI는 인자의 <em>위치</em>가 아니라 <strong>이름 + <code>Header()</code>/<code>Cookie()</code>/타입 선언</strong>을 보고 어디서 값을 꺼낼지 정하기 때문입니다. <code>user_agent</code>와 <code>session</code>의 자리를 바꿔도 동작은 똑같습니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">단, 파이썬 문법 규칙 하나 — "기본값 없는 인자가 먼저"</span>
+    <p>이건 FastAPI가 아니라 <strong>순수 파이썬 규칙</strong>입니다: <em>기본값이 있는 인자 뒤에 기본값 없는 인자가 올 수 없습니다.</em> 위 예시는 <code>Header(None)</code>·<code>Cookie(None)</code> 둘 다 기본값이 있어 자유롭지만, <strong>필수 인자와 섞이면</strong> 걸립니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="c"># ❌ SyntaxError: non-default argument follows default argument</span>
+<span class="d">@app.get</span>(<span class="s">"/items/{item_id}"</span>)
+<span class="k">def</span> <span class="f">read</span>(
+    user_agent: <span class="t">str</span> | <span class="t">None</span> = <span class="t">Header</span>(<span class="k">None</span>),  <span class="c"># 기본값 있음</span>
+    item_id: <span class="t">int</span>,                           <span class="c"># 기본값 없음 → 뒤에 못 옴!</span>
+): ...
+
+<span class="c"># ✅ 필수 인자를 앞으로</span>
+<span class="d">@app.get</span>(<span class="s">"/items/{item_id}"</span>)
+<span class="k">def</span> <span class="f">read</span>(
+    item_id: <span class="t">int</span>,                           <span class="c"># 필수 먼저</span>
+    user_agent: <span class="t">str</span> | <span class="t">None</span> = <span class="t">Header</span>(<span class="k">None</span>),  <span class="c"># 선택 나중</span>
+): ...</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">추천 — <code>Annotated</code>를 쓰면 순서 고민이 사라진다</span>
+    <p>FastAPI 최신 권장 방식인 <code>Annotated</code>를 쓰면 <code>Header()</code>/<code>Cookie()</code> 메타데이터가 <strong>타입 쪽으로</strong> 들어가고 실제 기본값은 <code>= None</code>으로 분리됩니다. 그러면 위 문법 제약에서 자유로워지고, 특히 <strong>필수 쿼리/헤더</strong>를 받을 때 깔끔합니다.</p>
+  </div>
+
+  <h4 style="margin:30px 0 4px;font-size:1.05rem;color:var(--ink)">잠깐 — 그래서 <code>Annotated</code>가 뭔데?</h4>
+  <p><code>typing</code> 모듈이 주는 도구로, 형태는 <code>Annotated[진짜_타입, 부가정보...]</code>입니다. <strong>첫 번째는 진짜 타입</strong>(<code>str</code>·<code>int</code>…), <strong>나머지는 그 타입에 붙이는 메타데이터</strong>입니다. 타입은 그대로 두고 "추가 메모"만 붙이는 거죠 — 타입 체커는 첫 번째 타입만 보고, FastAPI는 뒤의 메타데이터를 읽어 활용합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🔖</span>
+    <span class="label">비유 — 책에 붙인 포스트잇</span>
+    <p>책의 내용(타입)은 그대로입니다. 포스트잇(메타데이터)은 필요한 사람만 떼어 읽죠. <code>Annotated[str, Header()]</code>는 <strong>"이건 <code>str</code>인데, FastAPI 너는 이걸 헤더에서 꺼내"</strong>라는 포스트잇이 붙은 타입입니다.</p>
+  </div>
+
+  <div class="box note">
+    <span class="ic">📌</span>
+    <span class="label">먼저 — 여기서 "출처"란?</span>
+    <p><strong>출처 = 이 값을 요청(Request)의 <em>어느 부분</em>에서 꺼낼지</strong>를 뜻합니다. 이 강의 앞에서 본 요청의 입구들(Path · Query · Body · Header · Cookie) 중 어디서 값을 가져오느냐죠. 그래서 매개변수 하나에는 늘 두 정보가 필요합니다 — <strong>타입</strong>(값의 모양, 예: <code>str</code>)과 <strong>출처</strong>(어디서 꺼낼지, 예: <code>Query()</code>). 같은 <code>str</code>이라도 <code>Query()</code>면 <code>?q=...</code>에서, <code>Header()</code>면 헤더에서 값을 찾습니다.</p>
+  </div>
+
+  <p>사실 당신은 NestJS에서 이미 비슷한 패턴을 썼습니다 — 데코레이터로 파라미터에 "출처(어디서 꺼낼지)"를 붙였죠. <code>Annotated</code>는 정확히 같은 일을 합니다.</p>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — 데코레이터로 출처 표시</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todos.controller.ts</span></div><pre><span class="c">// 타입(string)과 출처(@Query)가 분리</span>
+<span class="f">findAll</span>(<span class="d">@Query</span>(<span class="s">'q'</span>) q: <span class="t">string</span>) {}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — Annotated로 출처 표시</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="c"># 타입(str)과 출처(Query)가 분리</span>
+<span class="k">def</span> <span class="f">find_all</span>(q: <span class="t">Annotated</span>[<span class="t">str</span>, <span class="t">Query</span>()]): ...</pre></div>
+    </div>
+  </div>
+
+  <p>매개변수 하나에는 <strong>① 타입 · ② 출처 · ③ 기본값</strong> 세 정보가 있는데, 옛 방식은 이걸 두 자리에 욱여넣고 <code>Annotated</code>는 세 자리에 나눠 담습니다:</p>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="c"># 옛 방식: '기본값 자리'(= 뒤)에 출처 정보를 욱여넣음</span>
+q: <span class="t">str</span> = <span class="t">Query</span>(default=<span class="k">None</span>)
+<span class="c">#  ↑타입        ↑'기본값 자리'인데 여기에 출처(Query)가 들어가 충돌·순서 제약</span>
+
+<span class="c"># Annotated: 세 정보가 각자 제자리에</span>
+q: <span class="t">Annotated</span>[<span class="t">str</span>, <span class="t">Query</span>()] = <span class="k">None</span>
+<span class="c">#            ↑타입  ↑출처      ↑기본값  → 깔끔 + 재사용 + 테스트 쉬움</span></pre></div>
+  <p>그래서 <code>Annotated</code>는 ① 순서 제약이 사라지고, ② 같은 <code>Annotated[...]</code>를 변수로 빼서 <strong>재사용</strong>할 수 있고, ③ 테스트에서 함수를 <code>find_all("hello")</code>처럼 직접 부를 때 기본값이 정상 동작합니다. Week 6의 <code>Depends</code>에서도 <code>Annotated</code>가 다시 등장합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> typing <span class="k">import</span> Annotated
+<span class="k">from</span> fastapi <span class="k">import</span> Header, Cookie
+
+<span class="d">@app.get</span>(<span class="s">"/me"</span>)
+<span class="k">def</span> <span class="f">me</span>(
+    user_agent: <span class="t">Annotated</span>[<span class="t">str</span> | <span class="t">None</span>, <span class="t">Header</span>()] = <span class="k">None</span>,
+    session: <span class="t">Annotated</span>[<span class="t">str</span> | <span class="t">None</span>, <span class="t">Cookie</span>()] = <span class="k">None</span>,
+):
+    <span class="k">return</span> {<span class="s">"ua"</span>: user_agent, <span class="s">"session"</span>: session}</pre></div>
+  <p>옛 방식 <code>q: str = Query(...)</code>는 "기본값처럼" 취급돼 순서 제약에 걸리지만, <code>q: Annotated[str, Query()]</code>는 기본값이 없으니 어디 둬도 됩니다. <strong>한 줄 요약: 순서는 의미를 바꾸지 않되, "필수 → 선택" 순으로만 적으면 되고, <code>Annotated</code>를 쓰면 그 고민조차 거의 사라집니다.</strong></p>
+
+  <div class="section-divider">설계 판단</div>
+
+  <h2><span class="num">6</span>언제 무엇을 쓸까 — 결정 표</h2>
+  <table class="tbl">
+    <thead><tr><th>입구</th><th>쓰는 경우</th><th>예시</th><th>필수?</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Path</strong></td><td>특정 자원 식별</td><td><code>/todos/42</code></td><td>항상 필수</td></tr>
+      <tr><td><strong>Query</strong></td><td>정렬·필터·페이지</td><td><code>?limit=10</code></td><td>보통 선택</td></tr>
+      <tr><td><strong>Body</strong></td><td>생성/수정 데이터</td><td>JSON <code>{title}</code></td><td>모델에 따름</td></tr>
+      <tr><td><strong>Header</strong></td><td>메타·인증 토큰</td><td><code>Authorization</code></td><td>경우에 따라</td></tr>
+      <tr><td><strong>Cookie</strong></td><td>세션 식별</td><td><code>session=...</code></td><td>경우에 따라</td></tr>
+      <tr><td><strong>Form</strong></td><td>HTML 폼·파일</td><td>로그인 폼</td><td>모델에 따름</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">GET에 Body 넣지 않기</span>
+    <p>조회용 <code>GET</code> 요청에 본문(Body)을 싣는 건 피하세요 — 많은 프록시·캐시가 GET 본문을 무시하고, REST 관례에도 어긋납니다. 조회 조건은 <strong>Query</strong>로 보내는 게 정석입니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">7</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> FastAPI는 매개변수가 Path/Query/Body 중 무엇인지 어떻게 구분하나요?</summary>
+    <div class="answer"><p>① 경로 문자열 <code>{}</code>에 같은 이름이 있으면 Path, ② 없고 타입이 기본형(int·str 등)이면 Query, ③ 타입이 Pydantic 모델이면 Body로 해석합니다. Header/Cookie/Form은 명시적으로 해당 함수(<code>Header()</code> 등)로 선언합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 검색어를 받는 <code>/search</code>는 Query, Body 중 무엇이 맞나요?</summary>
+    <div class="answer"><p>일반적으로 <code>GET /search?q=...</code>처럼 Query를 씁니다. 조회는 멱등·캐시 가능해야 하므로 GET + Query가 정석입니다. 다만 검색 조건이 매우 복잡하면(중첩 필터 등) 실무에서 예외적으로 POST + Body를 쓰기도 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>limit: int = 10</code>과 <code>limit: int</code>의 차이는?</summary>
+    <div class="answer"><p>앞은 기본값 10이 있어 생략 가능한 선택 쿼리, 뒤는 기본값이 없어 반드시 보내야 하는 필수 쿼리입니다. 빠뜨리면 422가 납니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week01-overview-typehints/03-fastapi-flow-swagger-curl.html"><span class="dir">← 이전</span><span class="ttl">Week 1 · FastAPI 동작 흐름</span></a>
+    <a class="next" href="02-http-methods-status.html"><span class="dir">다음 →</span><span class="ttl">HTTP 메서드 &amp; 상태 코드 설계</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 2 · Lesson 01 · 요청의 입구</footer>
+</body>
+</html>

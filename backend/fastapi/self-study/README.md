@@ -135,8 +135,8 @@ backend/fastapi/self-study/
 
 ## ✅ 진행 체크리스트
 
-- [ ] Week 1 — 큰 그림 & 타입힌트
-- [ ] Week 2 — Request & HTTP
+- [x] Week 1 — 큰 그림 & 타입힌트
+- [x] Week 2 — Request & HTTP
 - [ ] Week 3 — Pydantic & 응답 설계
 - [ ] Week 4 — 비동기 원리 & 내부 동작
 - [ ] Week 5 — PostgreSQL & SQLAlchemy

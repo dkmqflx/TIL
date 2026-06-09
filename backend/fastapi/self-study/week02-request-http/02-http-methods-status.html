@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 2·02 — HTTP 메서드 &amp; 상태 코드 설계</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · Request &amp; HTTP</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 2 — Lesson 02</span>
+  <h1>HTTP 메서드 &amp; 상태 코드<br>API의 동사와 결과 보고</h1>
+  <p class="subtitle">메서드는 "무엇을 할지"를, 상태 코드는 "어떻게 됐는지"를 말합니다. 이 둘을 정확히 쓰는 것만으로 API의 품질이 절반은 결정됩니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>메서드는 <b>동사</b>(GET 읽기 · POST 만들기 · PATCH 고치기 · DELETE 지우기), 상태 코드는 <b>한 줄 결과 보고</b>(2xx 성공 · 4xx 네 잘못 · 5xx 내 잘못)다. 생성은 <b>201</b>, 본문 없는 삭제는 <b>204</b>.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>주요 HTTP 메서드의 의미와 멱등성(idempotent)을 이해한다</li>
+    <li>상태 코드를 범위별로 알고, 상황에 맞게 고른다</li>
+    <li>FastAPI에서 상태 코드를 지정하는 법을 익힌다</li>
+  </ul>
+
+  <h2><span class="num">1</span>메서드 — API의 동사들</h2>
+  <table class="tbl">
+    <thead><tr><th>메서드</th><th>의미</th><th>안전?</th><th>멱등?</th><th>본문</th></tr></thead>
+    <tbody>
+      <tr><td><code>GET</code></td><td>조회</td><td>✅ 안전</td><td>✅ 멱등</td><td>없음</td></tr>
+      <tr><td><code>POST</code></td><td>생성</td><td>❌</td><td>❌ 비멱등</td><td>있음</td></tr>
+      <tr><td><code>PUT</code></td><td>전체 교체</td><td>❌</td><td>✅ 멱등</td><td>있음</td></tr>
+      <tr><td><code>PATCH</code></td><td>부분 수정</td><td>❌</td><td>△ 보통 비멱등</td><td>있음</td></tr>
+      <tr><td><code>DELETE</code></td><td>삭제</td><td>❌</td><td>✅ 멱등</td><td>보통 없음</td></tr>
+    </tbody>
+  </table>
+
+  <h3>"안전(safe)"과 "멱등(idempotent)"이 뭔가요?</h3>
+  <p><strong>안전</strong> = 서버 상태를 바꾸지 않음(읽기 전용). <strong>멱등</strong> = <em>같은 요청을 여러 번 보내도 결과가 같음</em>.</p>
+
+  <div class="box analogy">
+    <span class="ic">🛗</span>
+    <span class="label">비유 — 엘리베이터 vs 초인종</span>
+    <p><strong>멱등한 요청(PUT·DELETE)</strong>은 <em>엘리베이터 호출 버튼</em>입니다. 열 번 눌러도 결과는 "엘리베이터가 온다" 하나뿐이죠. 반면 <strong>비멱등한 POST</strong>는 <em>"택배 주문하기" 버튼</em> — 열 번 누르면 택배가 열 개 옵니다! 그래서 결제·주문 같은 POST는 중복 요청 방지가 중요합니다.</p>
+  </div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">왜 면접에서 멱등성을 물을까</span>
+    <p>네트워크가 끊겨 클라이언트가 <strong>요청을 재시도</strong>할 때, 멱등한 메서드는 안심하고 다시 보낼 수 있습니다. 비멱등한 POST는 중복 생성 위험이 있어 별도 장치(고유 키, 멱등성 키)가 필요하죠. 이 차이를 아는지가 곧 "HTTP를 제대로 이해했는가"의 척도입니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>상태 코드 — 결과 한 줄 보고</h2>
+  <p>응답의 첫 줄에 실리는 세 자리 숫자입니다. 백 자리만 봐도 큰 그림을 알 수 있습니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 200" role="img" aria-label="HTTP 상태 코드 범위">
+      <g font-family="JetBrains Mono, monospace">
+        <rect x="20" y="30" width="150" height="140" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+        <text x="95" y="62" text-anchor="middle" font-size="22" font-weight="700" fill="#0a4f48">2xx</text>
+        <text x="95" y="86" text-anchor="middle" font-size="12" font-family="Pretendard" fill="#1c1a16">성공 🎉</text>
+        <text x="95" y="112" text-anchor="middle" font-size="11" fill="#4a463d">200 OK</text>
+        <text x="95" y="130" text-anchor="middle" font-size="11" fill="#4a463d">201 Created</text>
+        <text x="95" y="148" text-anchor="middle" font-size="11" fill="#4a463d">204 No Content</text>
+
+        <rect x="185" y="30" width="150" height="140" rx="10" fill="#f0eadd" stroke="#807a6c" stroke-width="2"/>
+        <text x="260" y="62" text-anchor="middle" font-size="22" font-weight="700" fill="#5b4b8a">3xx</text>
+        <text x="260" y="86" text-anchor="middle" font-size="12" font-family="Pretendard" fill="#1c1a16">리다이렉트 ↪</text>
+        <text x="260" y="112" text-anchor="middle" font-size="11" fill="#4a463d">301 Moved</text>
+        <text x="260" y="130" text-anchor="middle" font-size="11" fill="#4a463d">304 Not Modified</text>
+
+        <rect x="350" y="30" width="150" height="140" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+        <text x="425" y="62" text-anchor="middle" font-size="22" font-weight="700" fill="#9a6a05">4xx</text>
+        <text x="425" y="86" text-anchor="middle" font-size="12" font-family="Pretendard" fill="#1c1a16">네 잘못 🙅</text>
+        <text x="425" y="112" text-anchor="middle" font-size="11" fill="#4a463d">400 · 401 · 403</text>
+        <text x="425" y="130" text-anchor="middle" font-size="11" fill="#4a463d">404 Not Found</text>
+        <text x="425" y="148" text-anchor="middle" font-size="11" fill="#4a463d">422 검증 실패</text>
+
+        <rect x="515" y="30" width="125" height="140" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+        <text x="577" y="62" text-anchor="middle" font-size="22" font-weight="700" fill="#b8332e">5xx</text>
+        <text x="577" y="86" text-anchor="middle" font-size="12" font-family="Pretendard" fill="#1c1a16">내 잘못 💥</text>
+        <text x="577" y="112" text-anchor="middle" font-size="11" fill="#4a463d">500 Server</text>
+        <text x="577" y="130" text-anchor="middle" font-size="11" fill="#4a463d">502 · 503</text>
+      </g>
+    </svg>
+    <figcaption>4xx는 클라이언트가 고쳐야 하고, 5xx는 서버 개발자(=당신)가 고쳐야 한다.</figcaption>
+  </figure>
+
+  <table class="tbl">
+    <thead><tr><th>코드</th><th>이름</th><th>언제</th></tr></thead>
+    <tbody>
+      <tr><td><code>200</code></td><td>OK</td><td>일반 성공 (조회·수정)</td></tr>
+      <tr><td><code>201</code></td><td>Created</td><td>새 자원 생성 성공 (POST)</td></tr>
+      <tr><td><code>204</code></td><td>No Content</td><td>성공했지만 돌려줄 본문 없음 (DELETE)</td></tr>
+      <tr><td><code>400</code></td><td>Bad Request</td><td>요청 형식 자체가 잘못</td></tr>
+      <tr><td><code>401</code></td><td>Unauthorized</td><td>인증 안 됨 (로그인 필요)</td></tr>
+      <tr><td><code>403</code></td><td>Forbidden</td><td>인증은 됐지만 권한 없음</td></tr>
+      <tr><td><code>404</code></td><td>Not Found</td><td>자원이 없음</td></tr>
+      <tr><td><code>422</code></td><td>Unprocessable</td><td>FastAPI의 검증 실패 (타입·필수 등)</td></tr>
+      <tr><td><code>500</code></td><td>Server Error</td><td>서버 코드에서 처리 못 한 예외</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">401 vs 403 헷갈리지 않기</span>
+    <p><strong>401</strong>은 "너 누구냐?"(인증 안 됨 — 로그인하라), <strong>403</strong>은 "너인 건 알겠는데 출입 금지"(권한 없음)입니다. 로그인 안 한 사용자 → 401, 일반 회원이 관리자 페이지 접근 → 403.</p>
+  </div>
+
+  <h2><span class="num">3</span>FastAPI에서 상태 코드 지정하기</h2>
+  <p>FastAPI는 성공 시 기본 <code>200</code>을 돌려줍니다. 생성은 <code>201</code>, 삭제는 <code>204</code>로 바꾸려면 데코레이터에 <code>status_code</code>를 줍니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> FastAPI, status
+
+app = <span class="t">FastAPI</span>()
+
+<span class="d">@app.post</span>(<span class="s">"/todos"</span>, status_code=status.<span class="t">HTTP_201_CREATED</span>)
+<span class="k">def</span> <span class="f">create</span>(todo: <span class="t">CreateTodo</span>):
+    <span class="k">return</span> todo  <span class="c"># → 201 Created</span>
+
+<span class="d">@app.delete</span>(<span class="s">"/todos/{id}"</span>, status_code=status.<span class="t">HTTP_204_NO_CONTENT</span>)
+<span class="k">def</span> <span class="f">delete</span>(id: <span class="t">int</span>):
+    <span class="k">return</span>  <span class="c"># 204는 본문이 없어야 한다 → None 반환</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">왜 <code>status.HTTP_201_CREATED</code>를 쓰나</span>
+    <p>그냥 <code>201</code> 숫자를 써도 되지만, <code>status</code> 모듈의 상수를 쓰면 <strong>오타 방지 + 자동완성 + 가독성</strong>이 좋아집니다. <code>201</code>이 무슨 뜻인지 코드만 봐도 읽히죠.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todos.controller.ts</span></div><pre><span class="d">@Post</span>()
+<span class="d">@HttpCode</span>(<span class="n">201</span>)
+<span class="f">create</span>(<span class="d">@Body</span>() dto) {}</pre></div>
+      <p>NestJS는 POST 기본이 이미 201.</p>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.post</span>(
+  <span class="s">"/todos"</span>,
+  status_code=<span class="n">201</span>,
+)
+<span class="k">def</span> <span class="f">create</span>(dto): ...</pre></div>
+      <p>FastAPI는 기본 200이라 명시 필요.</p>
+    </div>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>PUT</code>과 <code>PATCH</code>는 멱등성이 어떻게 다른가요?</summary>
+    <div class="answer"><p><code>PUT</code>은 자원 전체를 보낸 값으로 교체하므로 같은 요청을 반복해도 결과가 같아 멱등합니다. <code>PATCH</code>는 부분 수정이라 보통 멱등으로 보지만, "조회수 +1" 같은 상대적 변경을 담으면 비멱등이 됩니다 — 구현에 달렸습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 삭제 성공에 200이 아니라 204를 권하는 이유는?</summary>
+    <div class="answer"><p>삭제 후 돌려줄 데이터가 보통 없기 때문입니다. <code>204 No Content</code>는 "성공했고 본문은 비어 있다"를 정확히 표현합니다. 단, 삭제된 객체를 응답으로 돌려주고 싶다면 200 + 본문도 유효한 선택입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 요청 JSON에 필수 필드가 빠지면 몇 번이 응답되나요?</summary>
+    <div class="answer"><p><code>422 Unprocessable Entity</code>입니다. FastAPI/Pydantic의 검증 실패는 400이 아니라 422를 씁니다. 어떤 필드가 왜 틀렸는지 상세 내역도 함께 돌려줍니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-path-query-body-header.html"><span class="dir">← 이전</span><span class="ttl">요청의 입구: Path · Query · Body</span></a>
+    <a class="next" href="03-exception-basic.html"><span class="dir">다음 →</span><span class="ttl">예외 처리 · HTTPException</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 2 · Lesson 02 · 메서드 &amp; 상태 코드</footer>
+</body>
+</html>

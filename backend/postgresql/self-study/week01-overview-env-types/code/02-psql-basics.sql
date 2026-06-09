@@ -11,6 +11,7 @@ SELECT current_database(), current_user, version();
 SHOW search_path;
 
 -- 간단 테이블로 \d 체험
+DROP TABLE IF EXISTS ping;
 CREATE TABLE ping (id int PRIMARY KEY, msg text);
 INSERT INTO ping VALUES (1, 'hello postgres 18');
 SELECT * FROM ping;

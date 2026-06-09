@@ -73,7 +73,7 @@
   <div class="box tip">
     <span class="ic">💡</span>
     <span class="label">postgres:18은 볼륨을 상위 경로에 마운트한다</span>
-    <p><span class="chip">PG18</span> 볼륨은 <code>/var/lib/postgresql</code><strong>(상위)</strong>에 마운트해야 합니다. 예전 관습대로 <code>/var/lib/postgresql/data</code>로 마운트하면 <strong>부팅이 거부됩니다</strong> — postgres:18 이미지가 데이터를 버전별 하위 디렉터리(예: <code>.../18/docker</code>)에 두도록 구조가 바뀌었기 때문입니다. 옛 자료(이미지·블로그)에는 아직 <code>/data</code> 접미사가 흔하니, PG18에서는 떼고 쓰세요.</p>
+    <p><span class="chip">PG18</span> 볼륨은 <code>/var/lib/postgresql</code><strong>(상위)</strong>에 마운트해야 합니다. 예전 관습대로 <code>/var/lib/postgresql/data</code>로 마운트하면 <code>unused mount/volume</code> 경고와 함께 컨테이너가 <strong>exit 1로 즉시 종료</strong>됩니다 — 데이터를 조용히 잃는 게 아니라 아예 막아주는 안전장치입니다. PG18부터 이미지가 실제 데이터를 버전별 하위 디렉터리(<code>/var/lib/postgresql/18/docker</code>)에 두도록 바뀌었기 때문입니다. 옛 자료(이미지·블로그)에는 아직 <code>/data</code> 접미사가 흔하니, PG18에서는 떼고 한 단계 위에 마운트하세요.</p>
   </div>
 
   <p>설계도가 준비됐으니, 같은 폴더에서 명령 한 줄이면 컨테이너를 켜고 끌 수 있습니다.</p>

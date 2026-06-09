@@ -417,3 +417,9 @@ ul.goals li::before {
 .compare__pg .compare__head { color: var(--teal-deep); }
 .compare__mysql .tag { background: #b8332e; }
 .compare__pg .tag { background: var(--teal); }
+
+/* ---------- 참고 링크 리스트 ---------- */
+ul.refs { list-style: none; padding: 0; margin: 14px 0; }
+ul.refs li { position: relative; padding-left: 22px; margin: 7px 0; font-size: 0.96rem; }
+ul.refs li::before { content: "🔗"; position: absolute; left: 0; top: 0; font-size: 0.9em; }
+ul.refs a { color: var(--teal); text-underline-offset: 3px; }

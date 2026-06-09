@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 9·03 — 동기/비동기 성능 테스트 &amp; 개선</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 9 · 실시간 · 이벤트 · 성능</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 9 — Lesson 03</span>
+  <h1>성능, 추측하지 말고<br>측정하라</h1>
+  <p class="subtitle">"느린 것 같다"는 느낌이 아니라 <strong>숫자</strong>로 말해야 합니다. 부하 테스트로 RPS와 지연을 재고, I/O 바운드 작업에서 <strong>async가 처리량을 어떻게 끌어올리는지</strong> 확인한 뒤, 흔한 병목을 하나씩 걷어냅니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>성능은 <b>측정</b>이 먼저다. 부하를 걸어 <b>RPS(처리량)</b>와 <b>p95 지연</b>을 보고, 병목이 어디인지 숫자로 짚는다. I/O 바운드라면 <b>async 전환</b>이 같은 서버로 훨씬 많은 동시 요청을 처리하게 해준다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>부하 테스트 도구(locust·wrk·ab)로 RPS와 지연(p50/p95/p99)을 측정한다</li>
+    <li>sync def·event-loop 블로킹·async def의 동시성 차이를 정확히 구분한다</li>
+    <li>I/O 바운드에서 async 전환의 처리량 효과를 수치로 이해한다</li>
+    <li>흔한 병목(동기 라이브러리·N+1·캐싱·커넥션 풀·워커 수)을 개선한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 측정하는가 — 감이 아니라 숫자</h2>
+  <p>"이 엔드포인트가 느린 것 같아"는 디버깅의 출발점이 못 됩니다. 어디가, 얼마나, 어떤 부하에서 느린지 모르면 엉뚱한 곳을 고치게 되죠. 그래서 <strong>부하 테스트(load test)</strong>로 동시 요청을 쏟아붓고 다음 지표를 봅니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>지표</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td><strong>RPS</strong> (requests/sec)</td><td>초당 처리한 요청 수 = <strong>처리량(throughput)</strong>. 높을수록 좋다</td></tr>
+      <tr><td><strong>p50</strong> 지연</td><td>요청의 절반이 이 시간 안에 끝남 (중앙값)</td></tr>
+      <tr><td><strong>p95 / p99</strong> 지연</td><td>95% / 99%가 이 시간 안에 끝남. <strong>꼬리 지연(tail latency)</strong> — 사용자 체감에 중요</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">평균이 아니라 p95·p99를 보라</span>
+    <p>평균 지연은 소수의 느린 요청을 가립니다. 평균 50ms라도 p99가 2초면, 100명 중 1명은 2초를 기다린다는 뜻이죠. <strong>사용자 경험은 꼬리(p95/p99)가 결정</strong>합니다. 그래서 성능 리포트는 백분위수로 읽습니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>부하 테스트 도구 — locust · wrk · ab</h2>
+  <table class="tbl">
+    <thead><tr><th>도구</th><th>특징</th><th>언제</th></tr></thead>
+    <tbody>
+      <tr><td><code>ab</code> (ApacheBench)</td><td>설치 간단 · 단일 URL 빠른 측정</td><td>"이 엔드포인트 RPS 대충 보자"</td></tr>
+      <tr><td><code>wrk</code></td><td>가볍고 매우 고성능 · 멀티스레드</td><td>높은 부하로 한계 RPS 측정</td></tr>
+      <tr><td><code>locust</code></td><td>파이썬으로 시나리오 작성 · 웹 UI</td><td>로그인→조회→주문 같은 흐름 재현</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal — ab · wrk 빠른 측정</span></div><pre><span class="c"># ApacheBench: 총 1000 요청, 동시 50</span>
+ab -n <span class="n">1000</span> -c <span class="n">50</span> http://localhost:8000/sync
+
+<span class="c"># wrk: 4스레드, 동시 연결 100, 10초 동안</span>
+wrk -t<span class="n">4</span> -c<span class="n">100</span> -d<span class="n">10</span>s http://localhost:8000/async</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">locustfile.py — 시나리오 부하</span></div><pre><span class="k">from</span> locust <span class="k">import</span> HttpUser, task
+
+<span class="k">class</span> <span class="t">ApiUser</span>(<span class="t">HttpUser</span>):
+    <span class="d">@task</span>
+    <span class="k">def</span> <span class="f">hit_async</span>(self):
+        self.client.<span class="f">get</span>(<span class="s">"/async"</span>)   <span class="c"># locust -f locustfile.py 로 실행, 웹 UI에서 사용자 수 조절</span></pre></div>
+
+  <h2><span class="num">3</span>sync def vs async def — 정확히 무슨 일이 일어나나</h2>
+  <p>흔한 오해부터 바로잡습니다. <strong>"sync <code>def</code> 엔드포인트는 서버 전체를 멈춘다"는 틀린 말입니다.</strong> FastAPI는 동작이 다음 세 가지로 갈립니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>작성 방식</th><th>실제 동작</th><th>동시성</th></tr></thead>
+    <tbody>
+      <tr><td><code>def</code> (sync) 엔드포인트</td><td>FastAPI가 <strong>외부 스레드풀</strong>에서 실행 (기본 약 40개)</td><td>제한적 (워커 수만큼)</td></tr>
+      <tr><td><code>async def</code> 안에서 <strong>블로킹 호출</strong><br>(예: <code>time.sleep</code>, 동기 DB)</td><td><strong>이벤트 루프 전체가 멈춤</strong> 😱</td><td>최악 — 모두 막힘</td></tr>
+      <tr><td><code>async def</code> + <code>await</code> (async 드라이버)</td><td>I/O 대기 중 루프가 다른 요청 처리</td><td>매우 높음 ✅</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">가장 위험한 건 async def 안의 블로킹</span>
+    <p>sync <code>def</code>는 스레드풀로 보내져 <strong>동시성이 "제한"될 뿐</strong> 멈추진 않습니다. 정말 치명적인 건 <code>async def</code> 안에서 <code>time.sleep(1)</code>이나 동기 DB 호출 같은 <strong>블로킹 코드</strong>를 쓰는 경우입니다. 이건 이벤트 루프 단일 스레드를 통째로 잡아, 그동안 <strong>다른 모든 요청이 얼어붙습니다</strong>. async 함수 안에서는 반드시 <code>await</code> 가능한 비동기 버전(<code>asyncio.sleep</code>, async DB 드라이버)을 쓰세요.</p>
+  </div>
+
+  <h2><span class="num">4</span>데모 — I/O 바운드에서 async의 효과</h2>
+  <p>외부 API 호출이나 DB 조회처럼 <strong>기다리는 시간이 대부분인 I/O 바운드</strong> 작업을 가정합시다. 각 요청이 100ms를 "그냥 대기"한다고 할 때, 두 방식을 비교합니다. (아래는 <code>code/main.py</code>의 데모 엔드포인트 쌍입니다.)</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py — 블로킹 vs 비동기</span></div><pre><span class="k">import</span> asyncio, time
+
+<span class="c"># ❌ async 함수 안에서 블로킹 → 이벤트 루프가 멈춘다</span>
+<span class="d">@app.get</span>(<span class="s">"/blocking"</span>)
+<span class="k">async def</span> <span class="f">blocking</span>():
+    time.<span class="f">sleep</span>(<span class="n">0.1</span>)        <span class="c"># 루프 전체를 막는 100ms</span>
+    <span class="k">return</span> {<span class="s">"ok"</span>: <span class="k">True</span>}
+
+<span class="c"># ✅ await로 양보 → 대기 중 다른 요청 처리</span>
+<span class="d">@app.get</span>(<span class="s">"/async"</span>)
+<span class="k">async def</span> <span class="f">good_async</span>():
+    <span class="k">await</span> asyncio.<span class="f">sleep</span>(<span class="n">0.1</span>)  <span class="c"># 100ms 동안 루프를 양보</span>
+    <span class="k">return</span> {<span class="s">"ok"</span>: <span class="k">True</span>}</pre></div>
+
+  <p>같은 100ms 대기지만 결과는 극과 극입니다. <code>/blocking</code>은 요청을 사실상 한 줄로 세워 처리하므로 RPS가 ~10에 머뭅니다(1초/0.1초). <code>/async</code>는 대기 중 다른 요청을 받아 수백 개를 겹쳐 처리하므로 RPS가 수백~수천으로 치솟습니다. Week 4에서 배운 "I/O는 await로 양보"가 처리량으로 직결되는 장면입니다.</p>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">아래 숫자는 측정값이 아니라 설명용 예시</span>
+    <p>다음 그래프의 RPS 값은 원리를 보여주기 위한 <strong>illustrative(예시) 수치</strong>입니다. 실제 값은 하드웨어·워커 수·작업 성격에 따라 달라지니, 꼭 <strong>여러분 환경에서 직접 측정</strong>하세요(2절 도구 사용). 핵심은 절대값이 아니라 <strong>경향</strong>입니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 250" role="img" aria-label="이벤트 루프 블로킹 vs 비동기 RPS 비교 막대 그래프 (예시)">
+      <!-- axes -->
+      <line x1="120" y1="30" x2="120" y2="200" stroke="#807a6c" stroke-width="1.5"/>
+      <line x1="120" y1="200" x2="600" y2="200" stroke="#807a6c" stroke-width="1.5"/>
+      <text x="60" y="115" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#807a6c" transform="rotate(-90 60 115)">RPS (높을수록 ↑)</text>
+
+      <!-- grid -->
+      <line x1="120" y1="155" x2="600" y2="155" stroke="#d8cfba" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="120" y1="110" x2="600" y2="110" stroke="#d8cfba" stroke-width="1" stroke-dasharray="3 3"/>
+      <line x1="120" y1="65" x2="600" y2="65" stroke="#d8cfba" stroke-width="1" stroke-dasharray="3 3"/>
+
+      <!-- bar: blocking -->
+      <rect x="200" y="182" width="120" height="18" rx="3" fill="#e0552f"/>
+      <text x="260" y="222" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#16140f">/blocking (루프 블로킹)</text>
+      <text x="330" y="195" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f">~10 RPS</text>
+
+      <!-- bar: async -->
+      <rect x="420" y="50" width="120" height="150" rx="3" fill="#0d6e64"/>
+      <text x="480" y="222" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#16140f">/async (await)</text>
+      <text x="480" y="44" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">~수백 RPS</text>
+
+      <text x="360" y="243" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">100ms I/O 대기 작업 · 예시 수치(illustrative)</text>
+    </svg>
+    <figcaption>I/O 바운드에서 await 기반 async는 대기 시간을 겹쳐 처리량을 크게 끌어올린다 (예시 수치).</figcaption>
+  </figure>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">async가 항상 이기는 건 아니다 — CPU 바운드</span>
+    <p>위 효과는 <strong>대기가 많은 I/O 바운드</strong>에서의 이야기입니다. 이미지 처리·암호 해싱 같은 <strong>CPU 바운드</strong>는 양보할 대기 시간이 없어 async로 바꿔도 처리량이 늘지 않습니다. 오히려 단일 이벤트 루프를 점유해 해롭죠. CPU 작업은 <code>run_in_executor</code>(프로세스/스레드)나 별도 워커·작업 큐로 빼야 합니다.</p>
+  </div>
+
+  <h2><span class="num">5</span>흔한 병목 &amp; 개선</h2>
+  <p>측정으로 느린 지점을 찾았다면, 다음 순서로 의심해보세요.</p>
+
+  <table class="tbl">
+    <thead><tr><th>병목</th><th>증상</th><th>개선</th></tr></thead>
+    <tbody>
+      <tr><td><strong>동기 라이브러리</strong></td><td>async 앱인데 처리량이 안 오름</td><td>async 드라이버로 전환 (<code>httpx</code>, async DB), 불가피하면 <code>run_in_executor</code></td></tr>
+      <tr><td><strong>N+1 쿼리</strong></td><td>목록 1개당 쿼리 N번 추가 발생</td><td>JOIN·<code>selectinload</code> 등으로 한 번에 로드</td></tr>
+      <tr><td><strong>반복 계산/조회</strong></td><td>같은 결과를 매번 다시 계산</td><td><strong>캐싱(Redis)</strong> — 결과를 잠시 저장해 재사용</td></tr>
+      <tr><td><strong>커넥션 풀 부족</strong></td><td>부하 시 DB 연결 대기로 지연 급증</td><td><strong>풀 크기 튜닝</strong>(<code>pool_size</code>, <code>max_overflow</code>)</td></tr>
+      <tr><td><strong>워커 수</strong></td><td>CPU 코어를 못 쓰거나, 너무 많아 메모리 압박</td><td>코어 수에 맞춰 <code>--workers</code> 조정</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal — 워커 늘려 띄우기</span></div><pre><span class="c"># 멀티 프로세스로 CPU 코어 활용 (CPU 바운드·전체 처리량에 유효)</span>
+uvicorn main:app --workers <span class="n">4</span>
+<span class="c"># 운영에선 보통 gunicorn + uvicorn worker 조합을 많이 쓴다</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">개선 후엔 다시 측정하라 (1절로 복귀)</span>
+    <p>"고쳤으니 빨라졌겠지"도 추측입니다. 변경 전후로 <strong>같은 부하 테스트를 돌려 RPS·p95를 비교</strong>해야 개선이 실제였는지, 혹은 다른 병목으로 옮겨갔을 뿐인지 알 수 있습니다. 측정 → 개선 → 재측정의 루프가 성능 작업의 전부입니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 640 200" role="img" aria-label="성능 작업의 순환 - 측정, 병목 찾기, 개선, 재측정">
+      <!-- step boxes -->
+      <rect x="40" y="70" width="120" height="56" rx="10" fill="#16140f"/>
+      <text x="100" y="95" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#ece6d6">① 측정</text>
+      <text x="100" y="113" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9a9382">RPS · p95</text>
+
+      <rect x="200" y="70" width="120" height="56" rx="10" fill="#e0552f"/>
+      <text x="260" y="95" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#fff">② 병목 찾기</text>
+      <text x="260" y="113" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#fff">어디가 느린가</text>
+
+      <rect x="360" y="70" width="120" height="56" rx="10" fill="#c98a16"/>
+      <text x="420" y="95" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#fff">③ 개선</text>
+      <text x="420" y="113" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#fff">async·캐싱·풀</text>
+
+      <rect x="520" y="70" width="100" height="56" rx="10" fill="#0d6e64"/>
+      <text x="570" y="95" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#fff">④ 재측정</text>
+      <text x="570" y="113" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#fff">비교 확인</text>
+
+      <!-- forward arrows -->
+      <line x1="160" y1="98" x2="198" y2="98" stroke="#807a6c" stroke-width="2" marker-end="url(#la)"/>
+      <line x1="320" y1="98" x2="358" y2="98" stroke="#807a6c" stroke-width="2" marker-end="url(#la)"/>
+      <line x1="480" y1="98" x2="518" y2="98" stroke="#807a6c" stroke-width="2" marker-end="url(#la)"/>
+
+      <!-- loop back arrow -->
+      <path d="M 570 126 L 570 165 L 100 165 L 100 128" fill="none" stroke="#0d6e64" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#lb)"/>
+      <text x="335" y="183" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">개선됐으면 또 다음 병목으로 — 루프 반복</text>
+      <defs>
+        <marker id="la" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="lb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>성능 작업은 한 번으로 끝나지 않는다 — 측정·병목·개선·재측정의 순환이다.</figcaption>
+  </figure>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> "sync def 엔드포인트는 서버 전체를 멈춘다"가 왜 틀린 말인가요?</summary>
+    <div class="answer"><p>FastAPI는 sync <code>def</code> 엔드포인트를 <strong>외부 스레드풀</strong>(기본 약 40개)에서 실행하므로, 동시성이 워커 수만큼 <strong>제한</strong>될 뿐 멈추지는 않습니다. 진짜 멈추는 경우는 <code>async def</code> 안에서 <code>time.sleep</code> 같은 <strong>블로킹 코드</strong>를 쓸 때입니다. 이때 이벤트 루프가 통째로 잡혀 다른 모든 요청이 얼어붙습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> I/O 바운드에서 async가 처리량을 올리는 원리는?</summary>
+    <div class="answer"><p>요청이 외부 응답을 기다리는 동안 <code>await</code>로 이벤트 루프에 제어를 양보하고, 루프는 그 사이 다른 요청을 처리합니다. 대기 시간이 겹쳐 처리되므로 같은 서버로 훨씬 많은 동시 요청을 소화합니다. 단, 양보할 대기가 없는 <strong>CPU 바운드</strong>에는 효과가 없습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 성능 리포트에서 평균보다 p95·p99를 보는 이유는?</summary>
+    <div class="answer"><p>평균은 소수의 느린 요청을 가립니다. 평균이 낮아도 p99가 크면 일부 사용자는 매우 오래 기다린다는 뜻이고, 체감 품질은 이 꼬리 지연이 좌우합니다. 그래서 백분위수(p50/p95/p99)로 분포를 보고, 개선 전후를 같은 부하로 비교합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-message-broker-pubsub.html"><span class="dir">← 이전</span><span class="ttl">메시지 브로커 &amp; Redis Pub/Sub</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 · Week 10 준비</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 9 · Lesson 03 · 성능 테스트 &amp; 개선</footer>
+</body>
+</html>

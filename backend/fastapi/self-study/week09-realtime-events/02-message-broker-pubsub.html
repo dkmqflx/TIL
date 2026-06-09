@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 9·02 — 메시지 브로커 &amp; Redis Pub/Sub</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 9 · 실시간 · 이벤트 · 성능</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 9 — Lesson 02</span>
+  <h1>메시지 브로커<br>발행하면, 듣는 쪽이 받는다</h1>
+  <p class="subtitle">서비스끼리 직접 함수를 호출하면 단단히 묶입니다(결합). <strong>이벤트를 발행</strong>하고 관심 있는 쪽이 <strong>구독</strong>하게 만들면, 서로를 몰라도 협력할 수 있습니다. 그 중계소가 <strong>메시지 브로커</strong>입니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>브로커는 <b>방송국</b>이다. 발행자(publisher)는 "누가 듣는지" 모른 채 채널에 방송하고, 구독자(subscriber)는 관심 채널만 골라 듣는다. 서로를 직접 호출하지 않으니 <b>결합이 풀리고(디커플링)</b>, 비동기로 흘러간다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>동기 직접 호출과 이벤트 발행의 차이, 그리고 디커플링의 의미를 안다</li>
+    <li>메시지 브로커가 왜 비동기·버퍼링·결합도 측면에서 유리한지 설명한다</li>
+    <li>Redis Pub/Sub의 publish / subscribe 기본 흐름을 작성한다</li>
+    <li>WebSocket과 결합해 여러 서버 인스턴스 간 broadcast(스케일아웃)를 구현한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>이벤트 기반 아키텍처 — 결합도를 낮추기</h2>
+  <p>주문이 들어오면 ①재고 차감, ②알림 발송, ③통계 집계를 해야 한다고 합시다. <strong>동기 직접 호출</strong> 방식은 주문 서비스가 이 세 서비스를 차례로 호출합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">order_service.py — 직접 호출 (강결합)</span></div><pre><span class="k">def</span> <span class="f">create_order</span>(order):
+    save(order)
+    inventory.<span class="f">decrease</span>(order)   <span class="c"># 재고 서비스를 직접 안다</span>
+    notifier.<span class="f">send</span>(order)        <span class="c"># 알림 서비스를 직접 안다</span>
+    stats.<span class="f">record</span>(order)        <span class="c"># 통계 서비스를 직접 안다</span>
+    <span class="c"># 알림 서비스가 느리거나 죽으면? 주문 전체가 막힌다.</span></pre></div>
+
+  <p>문제는 두 가지입니다. 주문 서비스가 <strong>세 서비스를 전부 알아야</strong> 하고(강결합), 하나라도 느리거나 죽으면 <strong>주문 응답이 통째로 지연/실패</strong>합니다. 새 구독자(예: "배송 예측")를 추가하려면 주문 코드를 또 고쳐야 하죠.</p>
+  <p><strong>이벤트 발행</strong> 방식은 주문 서비스가 그냥 <code>"order.created"</code> 이벤트 하나만 브로커에 던집니다. 누가 듣는지는 모릅니다. 재고·알림·통계는 각자 그 이벤트를 <strong>구독</strong>해 알아서 처리합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">order_service.py — 이벤트 발행 (느슨한 결합)</span></div><pre><span class="k">def</span> <span class="f">create_order</span>(order):
+    save(order)
+    broker.<span class="f">publish</span>(<span class="s">"order.created"</span>, order)  <span class="c"># 던지고 끝. 누가 듣든 모름</span>
+    <span class="c"># 구독자가 몇이든, 추가/제거돼도 이 코드는 안 바뀐다.</span></pre></div>
+
+  <div class="box analogy">
+    <span class="ic">📻</span>
+    <span class="label">비유 — 방송국 / 우체국</span>
+    <p>브로커는 <strong>방송국</strong>입니다. DJ(발행자)는 "지금 몇 명이 듣고 있는지" 모르고 그냥 채널로 방송합니다. 청취자(구독자)는 자기가 관심 있는 주파수(채널)만 맞춰 듣습니다. DJ와 청취자는 서로를 직접 알 필요가 없죠. <strong>우체국</strong>으로 봐도 좋습니다. 편지를 우체통(채널)에 넣으면, 그 주소를 구독한 사람이 받습니다. 보내는 사람은 받는 사람의 사정을 신경 쓰지 않습니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>왜 메시지 브로커인가 — 3가지 이득</h2>
+  <table class="tbl">
+    <thead><tr><th>이득</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td><strong>비동기</strong></td><td>발행자는 처리 완료를 기다리지 않는다. 주문 응답이 알림 발송 속도에 묶이지 않음</td></tr>
+      <tr><td><strong>버퍼링</strong></td><td>구독자가 잠깐 느리거나 트래픽이 몰려도, 브로커가 메시지를 받아 흘려보낸다(완충)</td></tr>
+      <tr><td><strong>디커플링</strong></td><td>발행자와 구독자가 서로를 몰라도 된다. 구독자를 자유롭게 추가/제거</td></tr>
+    </tbody>
+  </table>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 230" role="img" aria-label="Pub/Sub 구조 - 발행자에서 채널을 거쳐 여러 구독자로">
+      <!-- publisher -->
+      <rect x="20" y="92" width="130" height="48" rx="10" fill="#e0552f"/>
+      <text x="85" y="113" text-anchor="middle" font-family="Pretendard" font-size="12.5" font-weight="700" fill="#fff">Publisher</text>
+      <text x="85" y="130" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#fff">order.created</text>
+      <text x="85" y="162" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#807a6c">누가 듣는지 모름</text>
+
+      <!-- channel -->
+      <line x1="150" y1="116" x2="248" y2="116" stroke="#e0552f" stroke-width="2.5" marker-end="url(#pa)"/>
+      <text x="199" y="108" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">publish</text>
+      <rect x="250" y="80" width="140" height="72" rx="12" fill="#16140f"/>
+      <text x="320" y="108" text-anchor="middle" font-family="Pretendard" font-size="12.5" font-weight="700" fill="#ece6d6">Broker</text>
+      <text x="320" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9ad9a0">channel</text>
+      <text x="320" y="170" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#807a6c">중계소 (방송국)</text>
+
+      <!-- subscribers -->
+      <line x1="390" y1="100" x2="486" y2="56" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#pb)"/>
+      <line x1="390" y1="116" x2="486" y2="116" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#pb)"/>
+      <line x1="390" y1="132" x2="486" y2="176" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#pb)"/>
+      <text x="445" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#0d6e64">subscribe</text>
+
+      <rect x="488" y="34" width="152" height="44" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="564" y="61" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#0a4f48">📦 재고 차감</text>
+      <rect x="488" y="94" width="152" height="44" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="564" y="121" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#0a4f48">🔔 알림 발송</text>
+      <rect x="488" y="154" width="152" height="44" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="564" y="181" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#0a4f48">📊 통계 집계</text>
+      <defs>
+        <marker id="pa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="pb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>하나의 발행이 채널을 거쳐 구독한 모든 서비스로 퍼진다. 발행자는 구독자를 알지 못한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>Redis Pub/Sub — 가장 쉬운 시작</h2>
+  <p>Redis는 인메모리 데이터 저장소이자 가벼운 메시지 브로커입니다. <code>publish(channel, msg)</code>로 채널에 메시지를 던지고, <code>subscribe(channel)</code>로 채널을 구독합니다. FastAPI(비동기)에서는 <strong>비동기 클라이언트</strong>인 <code>redis.asyncio</code>를 씁니다.</p>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">redis.asyncio를 쓰세요 (옛 aioredis 아님)</span>
+    <p>예전엔 <code>aioredis</code>라는 별도 패키지를 썼지만, 지금은 <strong>redis-py에 흡수</strong>되어 <code>import redis.asyncio as redis</code>가 표준입니다. 옛 튜토리얼에서 <code>aioredis</code>를 보면 구버전입니다. 설치는 <code>uv add redis</code> 하나면 됩니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">publisher — 발행</span></div><pre><span class="k">import</span> redis.asyncio <span class="k">as</span> redis
+
+r = redis.<span class="f">from_url</span>(<span class="s">"redis://localhost:6379"</span>)
+
+<span class="k">async def</span> <span class="f">publish_message</span>(text: <span class="t">str</span>):
+    <span class="k">await</span> r.<span class="f">publish</span>(<span class="s">"chat"</span>, text)   <span class="c"># "chat" 채널로 발행</span></pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">subscriber — 구독 루프</span></div><pre><span class="k">async def</span> <span class="f">subscribe_loop</span>():
+    pubsub = r.<span class="f">pubsub</span>()
+    <span class="k">await</span> pubsub.<span class="f">subscribe</span>(<span class="s">"chat"</span>)          <span class="c"># "chat" 채널 구독</span>
+    <span class="k">async for</span> message <span class="k">in</span> pubsub.<span class="f">listen</span>():
+        <span class="k">if</span> message[<span class="s">"type"</span>] == <span class="s">"message"</span>:    <span class="c"># 실제 메시지만 (구독 확인 신호 제외)</span>
+            data = message[<span class="s">"data"</span>].<span class="f">decode</span>()
+            <span class="f">print</span>(<span class="s">"받음:"</span>, data)</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">listen()은 메시지 외 신호도 흘려보낸다</span>
+    <p><code>pubsub.listen()</code>이 처음 내보내는 항목은 "구독 성공(subscribe)" 같은 제어 메시지입니다. 그래서 <code>message["type"] == "message"</code>인 것만 골라 처리해야 합니다. 이 가드를 빠뜨리면 엉뚱한 신호를 데이터로 착각합니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>WebSocket × Redis — 여러 서버로 스케일아웃</h2>
+  <p>지난 강의의 마지막 경고를 기억하시나요? <code>ConnectionManager.active</code>는 <strong>한 프로세스 메모리</strong>에만 있어서, 서버를 여러 대 띄우면 A 서버 사용자와 B 서버 사용자가 서로 못 봅니다. Redis Pub/Sub이 이 벽을 허뭅니다.</p>
+  <p>핵심 아이디어: <strong>채팅 메시지를 직접 broadcast하지 말고, Redis 채널에 publish한다.</strong> 모든 서버 인스턴스는 같은 Redis 채널을 구독하고 있다가, 메시지가 오면 <strong>자기에게 붙은 WebSocket들에게만</strong> 뿌린다. 그러면 어느 서버에 붙었든 모두가 같은 메시지를 받습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py — 다중 서버 채팅</span></div><pre><span class="c"># 1) 클라이언트 메시지 → Redis 채널로 발행 (직접 broadcast 안 함)</span>
+<span class="d">@app.websocket</span>(<span class="s">"/ws/chat"</span>)
+<span class="k">async def</span> <span class="f">chat</span>(ws: <span class="t">WebSocket</span>):
+    <span class="k">await</span> ws.<span class="f">accept</span>()
+    manager.active.<span class="f">append</span>(ws)
+    <span class="k">try</span>:
+        <span class="k">while</span> <span class="k">True</span>:
+            text = <span class="k">await</span> ws.<span class="f">receive_text</span>()
+            <span class="k">await</span> r.<span class="f">publish</span>(<span class="s">"chat"</span>, text)   <span class="c"># Redis로!</span>
+    <span class="k">except</span> <span class="t">WebSocketDisconnect</span>:
+        manager.active.<span class="f">remove</span>(ws)
+
+<span class="c"># 2) 서버 시작 시: Redis 구독 → 받은 메시지를 내 소켓들에 broadcast</span>
+<span class="k">async def</span> <span class="f">redis_to_clients</span>():
+    pubsub = r.<span class="f">pubsub</span>()
+    <span class="k">await</span> pubsub.<span class="f">subscribe</span>(<span class="s">"chat"</span>)
+    <span class="k">async for</span> msg <span class="k">in</span> pubsub.<span class="f">listen</span>():
+        <span class="k">if</span> msg[<span class="s">"type"</span>] == <span class="s">"message"</span>:
+            <span class="k">await</span> manager.<span class="f">broadcast</span>(msg[<span class="s">"data"</span>].<span class="f">decode</span>())</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 220" role="img" aria-label="WebSocket과 Redis로 여러 서버 인스턴스 간 메시지 공유">
+      <rect x="20" y="40" width="90" height="40" rx="8" fill="#0d6e64"/><text x="65" y="65" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff">유저 A</text>
+      <rect x="20" y="140" width="90" height="40" rx="8" fill="#0d6e64"/><text x="65" y="165" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff">유저 B</text>
+
+      <rect x="180" y="36" width="120" height="48" rx="10" fill="#16140f"/><text x="240" y="56" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#ece6d6">서버 #1</text><text x="240" y="73" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9a9382">ws + manager</text>
+      <rect x="180" y="136" width="120" height="48" rx="10" fill="#16140f"/><text x="240" y="156" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#ece6d6">서버 #2</text><text x="240" y="173" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9a9382">ws + manager</text>
+
+      <rect x="430" y="80" width="180" height="60" rx="12" fill="#e0552f"/><text x="520" y="106" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#fff">Redis</text><text x="520" y="124" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#fff">channel: chat</text>
+
+      <line x1="110" y1="60" x2="178" y2="60" stroke="#0d6e64" stroke-width="2"/>
+      <line x1="110" y1="160" x2="178" y2="160" stroke="#0d6e64" stroke-width="2"/>
+      <line x1="300" y1="60" x2="428" y2="100" stroke="#e0552f" stroke-width="2.2" marker-end="url(#qa)"/><text x="372" y="70" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">publish</text>
+      <line x1="428" y1="120" x2="302" y2="160" stroke="#c98a16" stroke-width="2.2" marker-end="url(#qb)"/><text x="372" y="155" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9a6a05">구독→전달</text>
+      <text x="330" y="208" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#807a6c">서버 #1에 발행된 메시지가 Redis를 거쳐 서버 #2의 유저 B에게도 도달한다</text>
+      <defs>
+        <marker id="qa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="qb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>각 서버는 자기 소켓만 관리하고, 서버 간 전파는 Redis 채널이 책임진다 — 수평 확장의 핵심.</figcaption>
+  </figure>
+
+  <h2><span class="num">5</span>Pub/Sub vs 큐 — 그리고 더 강력한 브로커</h2>
+  <p>한 줄로 짚고 갑니다. <strong>Redis Pub/Sub은 메시지를 보존하지 않습니다.</strong> 발행하는 순간 듣고 있던 구독자에게만 전달되고, 그때 끊겨 있던 구독자는 그 메시지를 영영 못 받습니다(fire-and-forget). 반면 <strong>큐(queue)</strong>는 소비될 때까지 메시지를 쌓아두므로, 잠깐 죽었던 워커도 나중에 처리할 수 있습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>도구</th><th>특징</th><th>적합한 곳</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Redis Pub/Sub</strong></td><td>가볍고 빠름 · 보존 안 함</td><td>실시간 알림·채팅 fan-out</td></tr>
+      <tr><td><strong>RabbitMQ</strong></td><td>큐·ACK·재시도·라우팅 풍부</td><td>작업 처리 보장이 중요한 비동기 작업</td></tr>
+      <tr><td><strong>Kafka</strong></td><td>로그 보존·대용량 스트림·재처리</td><td>이벤트 스트리밍·데이터 파이프라인</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">유실되면 안 되는 메시지라면</span>
+    <p>"알림이 한 번쯤 빠져도 괜찮다"면 Pub/Sub으로 충분합니다. 하지만 "결제 처리 이벤트는 절대 잃으면 안 된다"면 <strong>보존·ACK·재시도</strong>를 제공하는 RabbitMQ나 Kafka, 혹은 Redis Streams를 고려하세요. 메시지의 <strong>유실 허용 여부</strong>가 도구 선택의 첫 갈림길입니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 직접 호출 대신 이벤트를 발행하면 결합도가 왜 낮아지나요?</summary>
+    <div class="answer"><p>발행자는 채널에 이벤트만 던질 뿐, 누가 구독하는지 알지 못하기 때문입니다. 구독자를 추가/제거해도 발행자 코드는 바뀌지 않습니다. 또 발행자가 구독자의 처리 완료를 기다리지 않으므로(비동기), 느린 구독자 때문에 발행자가 막히지도 않습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> WebSocket 채팅에 Redis Pub/Sub을 왜 끼워 넣나요?</summary>
+    <div class="answer"><p>WebSocket 연결 목록은 각 서버 프로세스 메모리에만 있어, 서버를 여러 대 띄우면 다른 서버에 붙은 사용자끼리 메시지가 안 닿습니다. 메시지를 Redis 채널에 publish하고 모든 서버가 그 채널을 구독해 자기 소켓들에 broadcast하면, 어느 서버에 붙었든 전부 같은 메시지를 받습니다(스케일아웃).</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Redis Pub/Sub과 메시지 큐의 결정적 차이는?</summary>
+    <div class="answer"><p>Pub/Sub은 메시지를 <strong>보존하지 않습니다</strong>. 발행 시점에 듣고 있던 구독자에게만 전달되고, 끊겨 있던 구독자는 그 메시지를 못 받습니다. 큐는 소비될 때까지 메시지를 쌓아두어, 잠시 죽었던 워커도 복귀 후 처리할 수 있습니다. 유실이 곤란하면 RabbitMQ/Kafka/Redis Streams를 씁니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-websocket.html"><span class="dir">← 이전</span><span class="ttl">WebSocket 실시간 통신</span></a>
+    <a class="next" href="03-performance-test.html"><span class="dir">다음 →</span><span class="ttl">동기/비동기 성능 테스트 &amp; 개선</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 9 · Lesson 02 · 메시지 브로커 &amp; Pub/Sub</footer>
+</body>
+</html>

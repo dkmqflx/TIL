@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 9·01 — WebSocket 실시간 통신</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 9 · 실시간 · 이벤트 · 성능</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 9 — Lesson 01</span>
+  <h1>WebSocket<br>서버가 먼저 말을 거는 채널</h1>
+  <p class="subtitle">지금까지의 HTTP는 클라이언트가 <strong>물어봐야만</strong> 서버가 답했습니다. WebSocket은 한 번 연결해두면 <strong>양쪽이 아무 때나 메시지를 던질 수 있는</strong> 지속 회선입니다. 채팅·알림·실시간 대시보드의 토대죠.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>HTTP가 <b>편지 주고받기</b>(매번 봉투 새로 붙여 한 번에 한 통)라면, WebSocket은 <b>전화 통화</b>다. 한 번 연결되면 끊을 때까지 <b>양방향</b>으로 자유롭게 말한다. 서버가 먼저 말을 걸 수 있다는 게 핵심이다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>HTTP와 WebSocket의 통신 모델 차이를 설명한다</li>
+    <li>@app.websocket으로 엔드포인트를 만들고 accept → 수신/송신 루프를 돌린다</li>
+    <li>WebSocketDisconnect로 연결 종료를 안전하게 처리한다</li>
+    <li>ConnectionManager로 다중 접속을 관리하고 broadcast로 채팅을 구현한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>HTTP vs WebSocket — 편지 vs 전화</h2>
+  <p>HTTP는 <strong>요청-응답</strong> 모델입니다. 클라이언트가 요청을 보내면 서버가 한 번 답하고 연결이 끝납니다. 다음 데이터를 받으려면 다시 요청해야 하죠. "새 알림 있나요?"를 1초마다 물어보는 <strong>폴링(polling)</strong>이 그래서 등장했지만, 빈손으로 돌아오는 요청이 대부분이라 낭비가 큽니다.</p>
+  <p>WebSocket은 처음 한 번 HTTP로 핸드셰이크한 뒤 <strong>연결을 그대로 유지</strong>합니다. 그 회선 위로 서버와 클라이언트가 <strong>양방향</strong>으로 아무 때나 메시지를 보냅니다. 서버에 새 데이터가 생기면 <strong>서버가 먼저</strong> 밀어줄 수 있습니다(push).</p>
+
+  <div class="box analogy">
+    <span class="ic">📞</span>
+    <span class="label">비유 — 편지 vs 전화 통화</span>
+    <p><strong>HTTP는 편지</strong>입니다. 할 말이 있을 때마다 봉투를 새로 붙여(연결을 새로 맺어) 한 통 보내고, 답장이 오면 끝. 상대 소식을 알려면 또 편지를 써야 합니다. <strong>WebSocket은 전화 통화</strong>입니다. 한 번 다이얼해 연결되면 끊기 전까지 양쪽이 자유롭게 말합니다. 상대가 먼저 "여보세요, 새 소식!" 하고 말을 걸 수도 있죠. 이게 실시간의 본질입니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>항목</th><th>HTTP</th><th>WebSocket</th></tr></thead>
+    <tbody>
+      <tr><td>방향</td><td>단방향 (요청→응답)</td><td>양방향 (full-duplex)</td></tr>
+      <tr><td>연결</td><td>요청마다 맺고 끊음</td><td>한 번 맺고 유지</td></tr>
+      <tr><td>서버가 먼저 보내기</td><td>불가 (폴링으로 흉내)</td><td>가능 (push)</td></tr>
+      <tr><td>오버헤드</td><td>매 요청 헤더 반복</td><td>최초 1회 핸드셰이크 후 가벼움</td></tr>
+      <tr><td>주소 스킴</td><td><code>http://</code> / <code>https://</code></td><td><code>ws://</code> / <code>wss://</code></td></tr>
+    </tbody>
+  </table>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 250" role="img" aria-label="HTTP 폴링 vs WebSocket 지속 연결 비교">
+      <!-- HTTP side -->
+      <text x="150" y="26" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#16140f">HTTP — 매번 편지</text>
+      <rect x="40" y="40" width="80" height="34" rx="8" fill="#16140f"/><text x="80" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece6d6">Client</text>
+      <rect x="220" y="40" width="80" height="34" rx="8" fill="#16140f"/><text x="260" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece6d6">Server</text>
+      <line x1="120" y1="92" x2="218" y2="92" stroke="#e0552f" stroke-width="2" marker-end="url(#ha)"/><text x="169" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">요청①</text>
+      <line x1="220" y1="110" x2="122" y2="110" stroke="#807a6c" stroke-width="2" marker-end="url(#hb)"/><text x="169" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#807a6c">응답 (없음)</text>
+      <line x1="120" y1="138" x2="218" y2="138" stroke="#e0552f" stroke-width="2" marker-end="url(#ha)"/><text x="169" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">요청②</text>
+      <line x1="220" y1="156" x2="122" y2="156" stroke="#807a6c" stroke-width="2" marker-end="url(#hb)"/><text x="169" y="150" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#807a6c">응답 (없음)</text>
+      <line x1="120" y1="184" x2="218" y2="184" stroke="#e0552f" stroke-width="2" marker-end="url(#ha)"/><text x="169" y="178" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">요청③</text>
+      <line x1="220" y1="202" x2="122" y2="202" stroke="#0d6e64" stroke-width="2" marker-end="url(#hc)"/><text x="169" y="196" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#0d6e64">드디어 데이터!</text>
+      <text x="150" y="230" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#807a6c">빈손 요청이 대부분 — 낭비</text>
+
+      <!-- divider -->
+      <line x1="340" y1="36" x2="340" y2="216" stroke="#d8cfba" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+      <!-- WS side -->
+      <text x="510" y="26" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#16140f">WebSocket — 전화 한 통</text>
+      <rect x="400" y="40" width="80" height="34" rx="8" fill="#0d6e64"/><text x="440" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff">Client</text>
+      <rect x="580" y="40" width="80" height="34" rx="8" fill="#0d6e64"/><text x="620" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#fff">Server</text>
+      <!-- persistent line -->
+      <line x1="440" y1="74" x2="440" y2="206" stroke="#0d6e64" stroke-width="2.5"/>
+      <line x1="620" y1="74" x2="620" y2="206" stroke="#0d6e64" stroke-width="2.5"/>
+      <text x="530" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#0a4f48">연결 유지 (지속)</text>
+      <line x1="440" y1="120" x2="618" y2="120" stroke="#e0552f" stroke-width="2" marker-end="url(#ha)"/><text x="530" y="114" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">send</text>
+      <line x1="620" y1="150" x2="442" y2="150" stroke="#c98a16" stroke-width="2" marker-end="url(#hd)"/><text x="530" y="144" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9a6a05">서버가 먼저 push</text>
+      <line x1="440" y1="180" x2="618" y2="180" stroke="#e0552f" stroke-width="2" marker-end="url(#ha)"/><text x="530" y="174" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">send</text>
+      <text x="510" y="230" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#807a6c">양방향 · 아무 때나</text>
+      <defs>
+        <marker id="ha" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="hb" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="hc" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="hd" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>HTTP는 빈손 요청을 반복하지만, WebSocket은 한 회선으로 양방향 push가 가능하다.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span>언제 WebSocket을 쓰는가</h2>
+  <p>모든 API를 WebSocket으로 바꿀 필요는 없습니다. <strong>서버가 먼저, 자주, 작은 메시지를 밀어줘야 하는</strong> 상황에 쓰세요. 일반 CRUD는 HTTP가 더 단순하고 캐싱·로깅·인증 생태계도 잘 갖춰져 있습니다.</p>
+  <table class="tbl">
+    <thead><tr><th>상황</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td>실시간 채팅</td><td>메신저, 고객 상담, 협업 댓글</td></tr>
+      <tr><td>알림 push</td><td>"새 주문이 들어왔습니다" 즉시 표시</td></tr>
+      <tr><td>실시간 대시보드</td><td>주가·트래픽·센서 값이 끊임없이 갱신</td></tr>
+      <tr><td>협업 편집</td><td>여러 명이 같은 문서를 동시에 수정</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">3</span>가장 작은 WebSocket 엔드포인트</h2>
+  <p>FastAPI는 <code>@app.websocket</code> 데코레이터로 WebSocket 라우트를 만듭니다. 함수 안에서 먼저 <code>await websocket.accept()</code>로 핸드셰이크를 수락하고, 그다음 <strong>수신/송신 루프</strong>를 돕니다. WebSocket 핸들러는 거의 항상 <code>async def</code>입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> FastAPI, WebSocket, WebSocketDisconnect
+
+app = <span class="t">FastAPI</span>()
+
+<span class="d">@app.websocket</span>(<span class="s">"/ws"</span>)
+<span class="k">async def</span> <span class="f">echo</span>(websocket: <span class="t">WebSocket</span>):
+    <span class="k">await</span> websocket.<span class="f">accept</span>()          <span class="c"># 핸드셰이크 수락 (필수!)</span>
+    <span class="k">try</span>:
+        <span class="k">while</span> <span class="k">True</span>:
+            text = <span class="k">await</span> websocket.<span class="f">receive_text</span>()   <span class="c"># 클라이언트 메시지 대기</span>
+            <span class="k">await</span> websocket.<span class="f">send_text</span>(<span class="s">f"echo: {text}"</span>)  <span class="c"># 되돌려 보냄</span>
+    <span class="k">except</span> <span class="t">WebSocketDisconnect</span>:
+        <span class="f">print</span>(<span class="s">"클라이언트 연결 종료"</span>)        <span class="c"># 정상적인 종료 신호</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">accept()를 빠뜨리면 연결이 안 된다</span>
+    <p>HTTP 라우트와 달리 WebSocket은 <code>await websocket.accept()</code>를 호출해야 비로소 연결이 성립합니다. 빠뜨리면 클라이언트 쪽에서 연결이 거부됩니다. 인증을 먼저 확인한 뒤 통과한 경우에만 <code>accept()</code>하고, 막을 땐 <code>await websocket.close(code=1008)</code>로 거절하는 패턴이 흔합니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>WebSocketDisconnect — 끊김을 다루기</h2>
+  <p>전화는 언젠가 끊깁니다. 사용자가 탭을 닫거나, 네트워크가 끊기거나, 새로고침하면 연결이 종료되죠. 이때 <code>receive_text()</code>가 <code>WebSocketDisconnect</code> 예외를 던집니다. <strong>이 예외를 잡아 정리(cleanup)하지 않으면</strong>, 끊긴 연결이 관리 목록에 남아 다음 broadcast 때 에러를 일으킵니다.</p>
+  <p>그래서 루프는 <code>try / except WebSocketDisconnect</code>로 감싸고, 예외가 나면 <strong>해당 연결을 목록에서 제거</strong>하는 것이 기본 패턴입니다. 다음 절의 <code>ConnectionManager</code>가 바로 그 정리를 책임집니다.</p>
+
+  <h2><span class="num">5</span>ConnectionManager — 다중 접속 관리</h2>
+  <p>채팅방에는 여러 명이 들어옵니다. "한 명이 보낸 메시지를 <strong>접속한 모두에게</strong> 뿌린다(broadcast)"를 하려면, 현재 살아있는 연결들을 어딘가 모아둬야 합니다. 그 역할을 하는 작은 클래스가 <code>ConnectionManager</code>입니다. 활성 연결 리스트를 들고, <strong>연결/해제/방송</strong> 세 가지만 합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">class</span> <span class="t">ConnectionManager</span>:
+    <span class="k">def</span> <span class="f">__init__</span>(self):
+        self.active: <span class="t">list</span>[<span class="t">WebSocket</span>] = []   <span class="c"># 살아있는 연결들</span>
+
+    <span class="k">async def</span> <span class="f">connect</span>(self, ws: <span class="t">WebSocket</span>):
+        <span class="k">await</span> ws.<span class="f">accept</span>()
+        self.active.<span class="f">append</span>(ws)
+
+    <span class="k">def</span> <span class="f">disconnect</span>(self, ws: <span class="t">WebSocket</span>):
+        self.active.<span class="f">remove</span>(ws)        <span class="c"># 목록에서 제거 (정리)</span>
+
+    <span class="k">async def</span> <span class="f">broadcast</span>(self, message: <span class="t">str</span>):
+        <span class="k">for</span> connection <span class="k">in</span> self.active:
+            <span class="k">await</span> connection.<span class="f">send_text</span>(message)  <span class="c"># 모두에게 전송</span>
+
+manager = <span class="t">ConnectionManager</span>()</pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">broadcast는 왜 async이고 await가 필요한가</span>
+    <p><code>send_text</code>는 네트워크로 데이터를 내보내는 <strong>I/O 작업</strong>이라 <code>await</code> 대상입니다. 그래서 이를 호출하는 <code>broadcast</code>도 <code>async def</code>여야 하고, 리스트를 돌며 각 연결마다 <code>await connection.send_text(...)</code>로 보냅니다. Week 4에서 배운 "I/O는 await로 양보한다"가 그대로 적용됩니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 220" role="img" aria-label="한 명이 보낸 메시지가 ConnectionManager를 거쳐 모든 접속자에게 broadcast 되는 흐름">
+      <!-- sender -->
+      <rect x="20" y="92" width="120" height="44" rx="9" fill="#e0552f"/>
+      <text x="80" y="113" text-anchor="middle" font-family="Pretendard" font-size="12.5" font-weight="700" fill="#fff">민수</text>
+      <text x="80" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#fff">"안녕!"</text>
+      <text x="80" y="158" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#807a6c">메시지 전송</text>
+
+      <line x1="140" y1="114" x2="238" y2="114" stroke="#e0552f" stroke-width="2.5" marker-end="url(#ba)"/>
+      <text x="189" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">receive_text</text>
+
+      <!-- manager -->
+      <rect x="240" y="78" width="150" height="72" rx="12" fill="#16140f"/>
+      <text x="315" y="104" text-anchor="middle" font-family="Pretendard" font-size="12.5" font-weight="700" fill="#ece6d6">Connection</text>
+      <text x="315" y="122" text-anchor="middle" font-family="Pretendard" font-size="12.5" font-weight="700" fill="#ece6d6">Manager</text>
+      <text x="315" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9ad9a0">broadcast()</text>
+
+      <!-- receivers -->
+      <line x1="390" y1="98" x2="486" y2="56" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#bb)"/>
+      <line x1="390" y1="114" x2="486" y2="114" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#bb)"/>
+      <line x1="390" y1="130" x2="486" y2="172" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#bb)"/>
+      <text x="442" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#0d6e64">send_text</text>
+
+      <rect x="488" y="34" width="140" height="44" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="558" y="61" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#0a4f48">👤 영희</text>
+      <rect x="488" y="92" width="140" height="44" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="558" y="119" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#0a4f48">👤 철수</text>
+      <rect x="488" y="150" width="140" height="44" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="558" y="177" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#0a4f48">👤 지민</text>
+      <defs>
+        <marker id="ba" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="bb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>한 명이 보낸 메시지를 ConnectionManager가 받아 활성 연결 전체에 send_text로 뿌린다.</figcaption>
+  </figure>
+
+  <h2><span class="num">6</span>간단 채팅 예제 — 다 합치기</h2>
+  <p>이제 라우트 하나로 채팅방이 완성됩니다. 접속하면 manager에 등록하고, 메시지를 받을 때마다 모두에게 방송하고, 끊기면 목록에서 빼고 퇴장을 알립니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.websocket</span>(<span class="s">"/ws/chat/{name}"</span>)
+<span class="k">async def</span> <span class="f">chat</span>(websocket: <span class="t">WebSocket</span>, name: <span class="t">str</span>):
+    <span class="k">await</span> manager.<span class="f">connect</span>(websocket)            <span class="c"># accept + 목록 등록</span>
+    <span class="k">await</span> manager.<span class="f">broadcast</span>(<span class="s">f"🟢 {name} 님 입장"</span>)
+    <span class="k">try</span>:
+        <span class="k">while</span> <span class="k">True</span>:
+            text = <span class="k">await</span> websocket.<span class="f">receive_text</span>()
+            <span class="k">await</span> manager.<span class="f">broadcast</span>(<span class="s">f"{name}: {text}"</span>)  <span class="c"># 모두에게</span>
+    <span class="k">except</span> <span class="t">WebSocketDisconnect</span>:
+        manager.<span class="f">disconnect</span>(websocket)         <span class="c"># 정리</span>
+        <span class="k">await</span> manager.<span class="f">broadcast</span>(<span class="s">f"🔴 {name} 님 퇴장"</span>)</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">NestJS와 비교하면</span>
+    <p>NestJS는 <code>@WebSocketGateway()</code> + <code>@SubscribeMessage()</code>로 게이트웨이를 선언하고 보통 <strong>Socket.IO</strong> 위에서 돕니다. FastAPI는 데코레이터 하나(<code>@app.websocket</code>)와 순수 WebSocket 프로토콜로 더 얇게 시작합니다. 대신 방(room)·재연결·폴백 같은 편의 기능은 Socket.IO가 풍부하니, 규모가 커지면 <code>python-socketio</code>를 얹는 선택지도 있습니다.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">메모리 안의 리스트는 한 프로세스에만 산다</span>
+    <p><code>manager.active</code>는 그 서버 프로세스의 메모리에 있는 리스트입니다. 서버를 여러 대(워커 여러 개)로 띄우면, A 서버에 붙은 사용자와 B 서버에 붙은 사용자는 서로의 메시지를 못 받습니다. 이 <strong>스케일아웃 문제</strong>를 푸는 것이 다음 강의의 메시지 브로커(Redis Pub/Sub)입니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">7</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> HTTP 폴링 대신 WebSocket을 쓰면 뭐가 좋아지나요?</summary>
+    <div class="answer"><p>폴링은 "새 데이터 있나요?"를 주기적으로 묻느라 빈손 요청이 대부분이라 낭비가 큽니다. WebSocket은 연결을 유지한 채 <strong>서버가 데이터가 생긴 순간 먼저 push</strong>하므로, 지연이 작고 불필요한 트래픽이 사라집니다. 채팅·알림처럼 서버발 이벤트가 잦은 경우에 특히 유리합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> WebSocketDisconnect를 처리하지 않으면 어떻게 되나요?</summary>
+    <div class="answer"><p>연결이 끊겨도 manager의 활성 목록에 죽은 연결이 그대로 남습니다. 그 상태로 broadcast하면 끊긴 소켓에 <code>send_text</code>를 시도하다 예외가 나고, 방송 전체가 깨질 수 있습니다. <code>except WebSocketDisconnect</code>에서 <code>disconnect()</code>로 목록에서 제거해야 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> broadcast 함수는 왜 async로 만들어야 하나요?</summary>
+    <div class="answer"><p>각 연결에 메시지를 보내는 <code>send_text</code>가 네트워크 I/O라서 <code>await</code> 대상이기 때문입니다. <code>await</code>를 쓰려면 그 함수 자체가 <code>async def</code>여야 합니다. 리스트를 돌며 연결마다 <code>await connection.send_text(...)</code>로 보냅니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week08-auth/03-otp-background-tasks.html"><span class="dir">← 이전</span><span class="ttl">Week 8 · OTP &amp; Background Tasks</span></a>
+    <a class="next" href="02-message-broker-pubsub.html"><span class="dir">다음 →</span><span class="ttl">메시지 브로커 &amp; Redis Pub/Sub</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 9 · Lesson 01 · WebSocket</footer>
+</body>
+</html>

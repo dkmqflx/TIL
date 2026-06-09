@@ -43,7 +43,7 @@
 <span class="c">-- 권장: SQL 표준 IDENTITY</span>
 <span class="k">CREATE</span> <span class="k">TABLE</span> std_way (id <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>, name <span class="t">text</span>);</pre></div>
 
-  <p><code>SERIAL</code>은 진짜 타입이 아니라 <strong>"int 컬럼 + 시퀀스 + 기본값 연결"의 축약</strong>입니다. 그래서 시퀀스가 별도 객체로 남아 소유권·권한이 컬럼과 따로 놀고, 컬럼을 지워도 시퀀스가 남는 등 자잘한 함정이 있습니다. <code>GENERATED ALWAYS AS IDENTITY</code>는 같은 일을 하되 <strong>시퀀스를 컬럼이 소유</strong>하도록 묶어 두고, <code>ALWAYS</code>는 사용자가 실수로 id를 직접 끼워 넣는 것까지 막아 줍니다. 새 테이블이라면 IDENTITY를 쓰세요.</p>
+  <p><code>SERIAL</code>은 진짜 타입이 아니라 <strong>"int 컬럼 + 시퀀스 + <code>DEFAULT nextval(...)</code> 연결"의 축약</strong>입니다(시퀀스는 컬럼에 <code>OWNED BY</code>로 묶여 있어 컬럼·테이블을 지우면 함께 사라집니다 — 고아 시퀀스가 남는 건 아닙니다). 그래도 두 가지 불편이 있습니다. 첫째, 시퀀스가 <strong>별도로 보이는 객체</strong>라 권한을 따로(<code>GRANT … ON SEQUENCE</code>) 챙겨야 합니다. 둘째, 컬럼엔 <code>DEFAULT</code>만 걸려 있어 <strong>클라이언트가 id 값을 직접 INSERT</strong>해버릴 수 있고, 그러면 시퀀스와 값이 어긋날 위험이 있습니다. <code>GENERATED ALWAYS AS IDENTITY</code>는 SQL 표준이고 <strong>시퀀스를 컬럼이 소유</strong>하며, <code>ALWAYS</code> 덕에 직접 삽입을 막아 줍니다(정말 넣어야 하면 <code>OVERRIDING SYSTEM VALUE</code>를 명시해야 함). 새 테이블이라면 IDENTITY를 쓰세요.</p>
 
   <div class="compare">
     <div class="compare__mysql">
@@ -100,22 +100,27 @@
     <p><code>timestamp</code>는 "2026-06-09 11:04"처럼 <strong>타임존 정보가 없는 벽시계 값</strong>일 뿐입니다. 서버와 클라이언트의 타임존이 다르면 같은 값이 다른 순간을 가리켜 시간이 어긋납니다. 반면 <code>timestamptz</code>는 입력을 <strong>내부적으로 UTC로 변환해 저장</strong>하고, 조회할 때 <strong>세션 타임존</strong>으로 표시합니다. (주의: 이름과 달리 타임존을 "저장"하는 게 아니라, UTC로 정규화해 저장하고 표시 시점에 변환합니다.)</p>
   </div>
 
-  <p>아래는 실제 실행 결과입니다. 세션 타임존은 컨테이너 기본값인 <code>Etc/UTC</code>이고, <code>at_right</code>에는 오프셋 <code>+00</code>이 붙어 "이 값은 UTC 기준"임을 알 수 있습니다.</p>
+  <p>같은 행을 넣고 <strong>세션 타임존만 바꿔</strong> 조회해 보면 함정이 눈에 보입니다. 아래는 실제 실행 결과입니다 — <code>Etc/UTC</code>에선 두 컬럼이 같아 보이지만, <code>Asia/Seoul</code>로 바꾸면 <code>at_wrong</code>(<code>timestamp</code>)는 그대로 <code>11:12:20</code>인데 <code>at_right</code>(<code>timestamptz</code>)는 같은 순간을 한국 시각 <code>20:12:20+09</code>로 환산해 표시합니다.</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — timestamp vs timestamptz</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> log (
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — timestamp vs timestamptz (타임존 전환)</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> log (
   at_wrong <span class="t">timestamp</span>,      <span class="c">-- 타임존 정보 없음 (지뢰)</span>
   at_right <span class="t">timestamptz</span>     <span class="c">-- UTC로 저장, 세션 타임존으로 표시</span>
 );
-<span class="k">SHOW</span> timezone;
-<span class="c"> TimeZone</span>
-<span class="c">----------</span>
-<span class="c"> Etc/UTC</span>
-
 <span class="k">INSERT</span> <span class="k">INTO</span> log <span class="k">VALUES</span> (<span class="f">now</span>(), <span class="f">now</span>());
+
+<span class="c">-- (1) 기본 세션 타임존(컨테이너 기본값 Etc/UTC)</span>
 <span class="k">SELECT</span> * <span class="k">FROM</span> log;
 <span class="c">          at_wrong          |           at_right</span>
 <span class="c">----------------------------+-------------------------------</span>
-<span class="c"> 2026-06-09 11:04:34.802719 | 2026-06-09 11:04:34.802719+00</span></pre></div>
+<span class="c"> 2026-06-09 11:12:20.558484 | 2026-06-09 11:12:20.558484+00</span>
+
+<span class="c">-- (2) 세션 타임존을 한국으로 바꾸면 — 함정이 드러난다</span>
+<span class="k">SET</span> timezone <span class="k">TO</span> <span class="s">'Asia/Seoul'</span>;
+<span class="k">SELECT</span> * <span class="k">FROM</span> log;
+<span class="c">          at_wrong          |           at_right</span>
+<span class="c">----------------------------+-------------------------------</span>
+<span class="c"> 2026-06-09 11:12:20.558484 | 2026-06-09 20:12:20.558484+09</span>
+<span class="c">             ↑ 그대로(타임존 무시)         ↑ +09로 환산 표시</span></pre></div>
 
   <div class="compare">
     <div class="compare__mysql">
@@ -148,12 +153,14 @@
       <tr><td><code>INT</code> / <code>BIGINT</code></td><td><code>int</code> / <code>bigint</code></td><td>사실상 동일</td></tr>
       <tr><td><code>VARCHAR(n)</code></td><td><code>text</code> 선호</td><td>Postgres는 길이 제한이 성능 이득 없음 — 보통 <code>text</code></td></tr>
       <tr><td><code>TINYINT(1)</code></td><td><code>boolean</code></td><td>진짜 불리언 타입</td></tr>
-      <tr><td><code>DATETIME</code></td><td><code>timestamptz</code></td><td>타임존 인지(섹션 3)</td></tr>
+      <tr><td><code>DATETIME</code></td><td><code>timestamptz</code> (권장)</td><td>타임존 인지(섹션 3) — 아래 주석 참고</td></tr>
       <tr><td><code>JSON</code></td><td><code>jsonb</code></td><td>인덱싱 가능한 이진 JSON (Week 3)</td></tr>
       <tr><td><code>ENUM</code></td><td>enum 타입</td><td><code>CREATE TYPE … AS ENUM</code> (Week 3)</td></tr>
       <tr><td><code>AUTO_INCREMENT</code></td><td><code>IDENTITY</code> / <code>uuidv7()</code></td><td>정수 키는 IDENTITY, UUID 키는 uuidv7()</td></tr>
     </tbody>
   </table>
+
+  <p style="font-size:0.92rem;color:var(--ink-faint);">의미상으로는 MySQL <code>DATETIME</code> ↔ PG <code>timestamp</code>, MySQL <code>TIMESTAMP</code> ↔ PG <code>timestamptz</code>에 가깝습니다(1:1 대응은 아님). 그래도 앱에서는 <strong>타임존 안전</strong>을 위해 <code>timestamptz</code>를 권장합니다 — 섹션 3 참고.</p>
 
   <div class="section-divider">복습</div>
 

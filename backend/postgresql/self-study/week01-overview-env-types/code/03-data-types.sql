@@ -23,6 +23,11 @@ SHOW timezone;
 INSERT INTO log VALUES (now(), now());
 SELECT * FROM log;
 
+-- 세션 타임존을 바꿔 보면 함정이 드러난다
+SET timezone TO 'Asia/Seoul';
+SELECT * FROM log;   -- at_wrong는 그대로(타임존 무시), at_right는 +09로 변환되어 표시
+RESET timezone;
+
 -- 4) numeric vs float — 돈/정밀 계산은 numeric
 SELECT 0.1::float8 + 0.2::float8 AS float_bad,    -- 0.30000000000000004
        0.1::numeric + 0.2::numeric AS numeric_ok; -- 0.3

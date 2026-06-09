@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·03 — CTE · 윈도우 함수 · keyset pagination · N+1</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · 인덱스 · 쿼리 성능 · 분석 SQL</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 03</span>
+  <h1>CTE · 윈도우 함수<br>keyset pagination · N+1</h1>
+  <p class="subtitle">분석·리포팅 SQL의 핵심 도구: <strong>WITH(CTE)</strong>로 단계를 쪼개고, <strong>윈도우 함수</strong>로 순위·누계를 내고, <strong>keyset</strong>으로 빠르게 페이지를 넘깁니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>분석 SQL의 세 무기: <b>WITH(CTE)</b>로 단계를 쪼개고, <b>윈도우 함수</b>로 순위·누계를 내고, <b>keyset</b>으로 깊은 페이지를 빠르게 넘긴다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><strong>CTE</strong>(<code>WITH</code>·재귀)로 복잡한 쿼리를 단계로 분해한다</li>
+    <li><strong>윈도우 함수</strong>로 순위·누계·전후 비교를 내고 <code>GROUP BY</code>와 구분한다</li>
+    <li><strong>keyset pagination</strong>으로 <code>OFFSET</code>의 깊은 페이지 문제를 해결하고 <strong>N+1</strong>을 줄인다</li>
+  </ul>
+
+  <h2><span class="num">1</span>CTE(<code>WITH</code>) — 단계를 쪼개고, 재귀로 계층을 순회</h2>
+  <p>CTE(Common Table Expression)는 쿼리 안에서 <strong>중간 결과에 임시 이름을 붙이는</strong> 도구입니다. 🍔 햄버거 레시피를 "① 패티 굽기 → ② 야채 손질 → ③ 조립"처럼 단계로 나눠 적으면 읽기 쉽듯, 거대한 서브쿼리 중첩을 <code>WITH 이름 AS (...)</code>로 펼쳐 단계별로 읽게 합니다.</p>
+  <p>특히 <code>WITH RECURSIVE</code>는 <strong>계층 구조</strong>(댓글 트리, 조직도, 카테고리 트리)를 순회합니다. 루트에서 시작해(<strong>앵커</strong>) 자식으로 내려가며(<strong>재귀</strong>) 깊이를 누적할 수 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 재귀 CTE로 댓글 트리 순회 (depth 계산)</span></div><pre><span class="k">WITH</span> <span class="k">RECURSIVE</span> tree <span class="k">AS</span> (
+  <span class="c">-- 앵커: 루트(부모 없음)에서 시작</span>
+  <span class="k">SELECT</span> id, parent_id, body, <span class="n">0</span> <span class="k">AS</span> depth
+  <span class="k">FROM</span> comments <span class="k">WHERE</span> parent_id <span class="k">IS</span> <span class="k">NULL</span>
+  <span class="k">UNION ALL</span>
+  <span class="c">-- 재귀: 자식으로 내려가며 depth + 1</span>
+  <span class="k">SELECT</span> c.id, c.parent_id, c.body, t.depth + <span class="n">1</span>
+  <span class="k">FROM</span> comments c <span class="k">JOIN</span> tree t <span class="k">ON</span> c.parent_id = t.id
+)
+<span class="k">SELECT</span> id, depth, <span class="f">repeat</span>(<span class="s">'  '</span>, depth) || body <span class="k">AS</span> thread <span class="k">FROM</span> tree <span class="k">ORDER BY</span> id;
+<span class="c"> id | depth |      thread</span>
+<span class="c">----+-------+------------------</span>
+<span class="c">  1 |     0 | 원댓글</span>
+<span class="c">  2 |     1 |   답글 A</span>
+<span class="c">  3 |     1 |   답글 B</span>
+<span class="c">  4 |     2 |     답글 A-1</span>
+<span class="c">  5 |     3 |       답글 A-1-1</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">CTE는 기본적으로 인라인 최적화된다</span>
+    <p>예전 Postgres에서 CTE는 항상 <strong>독립 실행(materialize)</strong>되어 최적화 경계로 작동했지만, PG12+부터는 (한 번만 참조되고 부작용이 없으면) <strong>인라인</strong>해 본 쿼리와 함께 최적화합니다. 일부러 한 번만 계산해 재사용하고 싶으면 <code>WITH x AS MATERIALIZED (...)</code>로 명시할 수 있습니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>윈도우 함수 — 행을 접지 않고 옆에 계산</h2>
+  <p><code>GROUP BY</code>는 행을 <strong>접어서</strong> 그룹당 한 줄로 줄입니다. 반면 <strong>윈도우 함수</strong>는 행을 그대로 두고 <strong>옆 칸에 계산값을 덧붙입니다</strong> — 각 행을 보면서 "이 행은 지역 내 몇 위인가", "여기까지 누계는 얼마인가", "전날 대비 얼마 늘었나"를 답합니다. 핵심 문법은 <code>함수() OVER (PARTITION BY ... ORDER BY ...)</code>입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — ROW_NUMBER/RANK/DENSE_RANK + 누계 + LAG</span></div><pre><span class="k">SELECT</span>
+  region, ymd, amount,
+  <span class="f">ROW_NUMBER</span>() <span class="k">OVER</span> (<span class="k">PARTITION BY</span> region <span class="k">ORDER BY</span> amount <span class="k">DESC</span>) <span class="k">AS</span> rn,
+  <span class="f">RANK</span>()       <span class="k">OVER</span> (<span class="k">PARTITION BY</span> region <span class="k">ORDER BY</span> amount <span class="k">DESC</span>) <span class="k">AS</span> rnk,
+  <span class="f">SUM</span>(amount)  <span class="k">OVER</span> (<span class="k">PARTITION BY</span> region <span class="k">ORDER BY</span> ymd)         <span class="k">AS</span> running_total,
+  amount - <span class="f">LAG</span>(amount) <span class="k">OVER</span> (<span class="k">PARTITION BY</span> region <span class="k">ORDER BY</span> ymd) <span class="k">AS</span> vs_prev
+<span class="k">FROM</span> sales <span class="k">ORDER BY</span> region, ymd;
+<span class="c"> region |    ymd     | amount | rn | rnk | running_total | vs_prev</span>
+<span class="c">--------+------------+--------+----+-----+---------------+---------</span>
+<span class="c"> Busan  | 2024-01-01 |    200 |  2 |   2 |           200 |</span>
+<span class="c"> Busan  | 2024-01-02 |    180 |  3 |   3 |           380 |     -20</span>
+<span class="c"> Busan  | 2024-01-03 |    220 |  1 |   1 |           600 |      40</span>
+<span class="c"> Seoul  | 2024-01-01 |    100 |  3 |   3 |           100 |</span>
+<span class="c"> Seoul  | 2024-01-02 |    150 |  1 |   1 |           250 |      50</span>
+<span class="c"> Seoul  | 2024-01-03 |    120 |  2 |   2 |           370 |     -30</span></pre></div>
+
+  <p>같은 데이터에 <code>GROUP BY</code>를 쓰면 지역당 <strong>한 행</strong>(총합)만 남고 개별 일자는 사라집니다. 윈도우 함수는 일자별 원본을 유지하면서 <code>running_total</code>·<code>vs_prev</code>를 옆에 붙인다는 점이 결정적 차이입니다. <code>RANK</code>는 동점 뒤 순위를 건너뛰고(<code>1,1,3</code>), <code>DENSE_RANK</code>는 건너뛰지 않으며(<code>1,1,2</code>), <code>ROW_NUMBER</code>는 무조건 고유 번호를 매깁니다.</p>
+
+  <h2><span class="num">3</span>keyset pagination — <code>OFFSET</code>의 깊은 페이지 문제</h2>
+  <p><code>LIMIT 10 OFFSET 50000</code>으로 깊은 페이지를 넘기면 Postgres는 <strong>앞 50,000행을 모두 읽고 버린</strong> 뒤 10행을 줍니다 — 페이지가 깊어질수록 점점 느려집니다. <strong>keyset(seek) pagination</strong>은 "마지막으로 본 행의 키보다 큰 것부터"를 <code>WHERE</code>로 직접 지정해, 인덱스로 <strong>그 지점으로 곧장 점프</strong>합니다.</p>
+  <p>10만 행 피드에서 둘을 비교하면 차이가 극명합니다. 정렬 키 <code>(created_at, id)</code>에 복합 인덱스가 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — OFFSET 50000 (앞 행 다 읽고 버림) vs keyset (즉시 점프)</span></div><pre><span class="c">-- (a) OFFSET 깊은 페이지: 앞 50,010행을 읽고 버린다(느림)</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> id, created_at <span class="k">FROM</span> feed <span class="k">ORDER BY</span> created_at, id <span class="k">OFFSET</span> <span class="n">50000</span> <span class="k">LIMIT</span> <span class="n">10</span>;
+<span class="c">                                              QUERY PLAN</span>
+<span class="c">-------------------------------------------------------------------------------------------------------</span>
+<span class="c"> Limit (actual time=6.475..6.477 rows=10.00 loops=1)</span>
+<span class="c">   Buffers: shared hit=368 read=194</span>
+<span class="c">   -&gt;  Index Only Scan using idx_feed_created on feed (actual time=0.059..5.471 rows=50010.00 loops=1)</span>
+<span class="c">         Heap Fetches: 50010</span>
+
+<span class="c">-- (b) keyset: 마지막으로 본 (created_at,id)보다 큰 행만 → 인덱스로 즉시 점프</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> id, created_at <span class="k">FROM</span> feed
+<span class="k">WHERE</span> (created_at, id) &gt; (<span class="t">timestamptz</span> <span class="s">'2024-01-01'</span> + <span class="k">interval</span> <span class="s">'50000 seconds'</span>, <span class="n">50000</span>)
+<span class="k">ORDER BY</span> created_at, id <span class="k">LIMIT</span> <span class="n">10</span>;
+<span class="c">                                              QUERY PLAN</span>
+<span class="c">-------------------------------------------------------------------------------------------------------</span>
+<span class="c"> Limit (actual time=0.006..0.007 rows=10.00 loops=1)</span>
+<span class="c">   Buffers: shared hit=4</span>
+<span class="c">   -&gt;  Index Only Scan using idx_feed_created on feed (actual time=0.005..0.006 rows=10.00 loops=1)</span>
+<span class="c">         Index Cond: (ROW(created_at, id) &gt; ROW(..., 50000))</span>
+<span class="c">         Heap Fetches: 10</span></pre></div>
+
+  <p>같은 인덱스를 쓰지만 결과가 다릅니다 — OFFSET은 <code>rows=50010</code>을 읽고(버퍼 562, 6.5ms), keyset은 <code>rows=10</code>만 읽습니다(버퍼 4, 0.02ms). 행 비교 <code>(a, b) &gt; (x, y)</code>가 복합 인덱스의 <code>Index Cond</code>로 그대로 들어가 곧장 점프하는 게 비결입니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">큰 목록에 OFFSET 페이지네이션을 쓰지 마라</span>
+    <p><code>OFFSET</code>은 건너뛸 행을 <strong>실제로 읽고 버리므로</strong>, 페이지가 깊어질수록 선형으로 느려집니다(무한 스크롤·딥링크에서 치명적). 또 페이지 사이에 행이 삽입·삭제되면 <strong>중복·누락</strong>이 생깁니다. 정렬 키에 <strong>유일성</strong>(예: <code>(created_at, id)</code>)을 보장하고 그 키 기준 <strong>keyset</strong>으로 넘기면, 깊이와 무관하게 일정하게 빠르고 안정적입니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>N+1 — 여러 번 쿼리 대신 한 방 JOIN</h2>
+  <p>ORM의 흔한 함정인 <strong>N+1</strong>은 "목록 1번 + 각 항목의 연관 데이터 N번"을 따로 조회하는 패턴입니다. 글 20개를 가져온 뒤 각 글의 작성자를 20번 더 조회하면 쿼리가 21번 — 네트워크 왕복이 쌓여 느려집니다. 해법은 <strong>JOIN으로 한 방에</strong> 가져오거나, 집계가 필요하면 윈도우 함수·서브쿼리로 합치는 것입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — N+1 대신 JOIN 한 방 (각 행에 지역 합 붙이기)</span></div><pre><span class="c">-- 글마다 작성자/집계를 따로 N번 조회하지 말고 한 쿼리로 합친다</span>
+<span class="k">SELECT</span> s.region, s.ymd, s.amount, t.region_total
+<span class="k">FROM</span> sales s
+<span class="k">JOIN</span> (
+  <span class="k">SELECT</span> region, <span class="f">SUM</span>(amount) <span class="k">AS</span> region_total <span class="k">FROM</span> sales <span class="k">GROUP BY</span> region
+) t <span class="k">ON</span> t.region = s.region
+<span class="k">ORDER BY</span> s.region, s.ymd;
+<span class="c"> region |    ymd     | amount | region_total</span>
+<span class="c">--------+------------+--------+--------------</span>
+<span class="c"> Busan  | 2024-01-01 |    200 |          600</span>
+<span class="c"> Busan  | 2024-01-02 |    180 |          600</span>
+<span class="c"> Busan  | 2024-01-03 |    220 |          600</span>
+<span class="c"> Seoul  | 2024-01-01 |    100 |          370</span>
+<span class="c"> Seoul  | 2024-01-02 |    150 |          370</span>
+<span class="c"> Seoul  | 2024-01-03 |    120 |          370</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">집계를 옆에 붙일 땐 윈도우가 더 간결</span>
+    <p>위 "각 행에 지역 합"은 사실 윈도우 함수 한 줄로도 됩니다 — <code>SUM(amount) OVER (PARTITION BY region)</code>. JOIN/서브쿼리 없이 같은 결과를 내고 읽기도 쉽습니다. 연관 <strong>엔티티</strong>를 묶을 땐 JOIN, 같은 테이블의 <strong>집계</strong>를 행에 붙일 땐 윈도우 — 상황에 맞춰 고르세요.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">분석 SQL <span class="tag">MySQL</span></div>
+      <p>윈도우 함수·CTE·재귀 CTE는 <strong>MySQL 8.0부터</strong> 지원됩니다(이전 버전엔 없어 사용자 변수·서브쿼리로 우회했습니다). keyset pagination 개념·문법은 동일합니다. 다만 행 비교(<code>(a,b) &gt; (x,y)</code>) 같은 튜플 비교 활용은 Postgres 쪽 예제가 더 흔합니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">분석 SQL <span class="tag">PostgreSQL</span></div>
+      <p>윈도우 함수·CTE·재귀 CTE를 오래전부터 풍부하게 지원합니다. 행 비교를 <strong>복합 인덱스의 <code>Index Cond</code></strong>로 그대로 밀어 넣어 keyset을 깔끔하게 구현하고, <code>MATERIALIZED</code>로 CTE 최적화를 세밀하게 제어할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 윈도우 함수와 <code>GROUP BY</code>의 차이는?</summary>
+    <div class="answer"><p><code>GROUP BY</code>는 행을 <strong>접어서</strong> 그룹당 한 줄로 줄입니다. 윈도우 함수는 <strong>원본 행을 그대로 두고</strong> 각 행 옆에 계산값(순위·누계·전후 비교)을 덧붙입니다. "지역 총합만" 필요하면 <code>GROUP BY</code>, "각 일자 행을 보면서 지역 내 순위·누계도" 필요하면 윈도우 함수입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>OFFSET</code> 페이지네이션이 깊어질수록 느린 이유는?</summary>
+    <div class="answer"><p><code>OFFSET 50000</code>은 건너뛸 5만 행을 <strong>실제로 읽은 뒤 버리고</strong> 그다음 10행만 돌려주기 때문입니다(예에서 <code>rows=50010</code>을 읽음). 페이지가 깊어질수록 버리는 양이 선형으로 늘어 느려집니다. keyset은 <code>WHERE (key) &gt; (last)</code>로 인덱스를 타고 곧장 점프해 깊이와 무관하게 빠릅니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 재귀 CTE는 어디에 쓰나?</summary>
+    <div class="answer"><p><strong>계층·그래프 구조</strong>를 순회할 때입니다 — 댓글 트리, 조직도(상사→부하), 카테고리 트리, 자재명세(BOM) 등. <strong>앵커</strong>(루트)에서 시작해 <code>UNION ALL</code>로 자식을 따라 내려가며 깊이·경로를 누적합니다. 일반 SQL로는 깊이를 모르는 트리를 한 번에 펼치기 어렵습니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/queries-with.html">WITH Queries (CTE · 재귀) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/tutorial-window.html">Window Functions (튜토리얼) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/functions-window.html">Window Functions (함수 레퍼런스) — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="02-explain-analyze.html"><span class="dir">← 이전</span><span class="ttl">EXPLAIN ANALYZE · 플래너</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 돌아가기</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 4 · Lesson 03 · CTE · 윈도우 · keyset</footer>
+</body>
+</html>

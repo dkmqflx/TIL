@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·02 — EXPLAIN ANALYZE · 플래너 · 통계 · 인덱스 함정</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · 인덱스 · 쿼리 성능 · 분석 SQL</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 02</span>
+  <h1>EXPLAIN ANALYZE<br>플래너 · 통계 · 인덱스 함정</h1>
+  <p class="subtitle">추측하지 말고 <strong>측정</strong>하세요. <code>EXPLAIN ANALYZE</code>는 Postgres가 쿼리를 <strong>'어떻게'</strong> 실행하는지 보여주는 X-레이입니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>추측하지 말고 측정하라. <b><code>EXPLAIN ANALYZE</code></b>는 Postgres가 쿼리를 '어떻게' 실행하는지 보여주는 X-레이다. <b>통계</b>가 틀리면 <b>플랜</b>도 틀린다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>EXPLAIN</code>(추정) vs <code>EXPLAIN ANALYZE</code>(실측)를 읽는다</li>
+    <li><strong>Seq Scan vs Index/Bitmap Scan</strong>을 플래너가 언제 고르는지 안다</li>
+    <li>통계·<code>ANALYZE</code>가 플랜을 좌우함을 이해하고 <strong>인덱스 함정</strong>을 피한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>EXPLAIN 읽는 법 — 추정 vs 실측</h2>
+  <p><code>EXPLAIN</code>은 쿼리를 <strong>실행하지 않고</strong> 플래너의 <strong>비용 추정</strong>만 보여줍니다. <code>cost=시작..전체</code>는 임의 단위의 추정 비용이고, <code>rows</code>는 <strong>예상</strong> 행 수입니다. 여기에 <code>ANALYZE</code>를 붙이면 쿼리를 <strong>실제로 실행</strong>해 <code>actual time</code>(실측 시간)과 <strong>실제 rows</strong>를 함께 보여줍니다. <code>BUFFERS</code>는 읽은 페이지 수(I/O)를 더합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — EXPLAIN(추정만) vs EXPLAIN ANALYZE(실측)</span></div><pre><span class="c">-- 추정만: 실행하지 않고 비용 추정만 (cost, 예상 rows)</span>
+<span class="k">EXPLAIN</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> user_id = <span class="n">42</span>;
+<span class="c">                                  QUERY PLAN</span>
+<span class="c">-------------------------------------------------------------------------------</span>
+<span class="c"> Bitmap Heap Scan on orders  (cost=4.45..74.81 rows=20 width=30)</span>
+<span class="c">   Recheck Cond: (user_id = 42)</span>
+<span class="c">   -&gt;  Bitmap Index Scan on idx_orders_user  (cost=0.00..4.44 rows=20 width=0)</span>
+<span class="c">         Index Cond: (user_id = 42)</span>
+
+<span class="c">-- 실측: 실제 실행 + actual time/rows + 버퍼(I/O)</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> user_id = <span class="n">42</span>;
+<span class="c">                                             QUERY PLAN</span>
+<span class="c">-----------------------------------------------------------------------------------------------------</span>
+<span class="c"> Bitmap Heap Scan on orders  (cost=4.45..74.81 rows=20 width=30) (actual time=0.050..0.072 rows=20.00 loops=1)</span>
+<span class="c">   Recheck Cond: (user_id = 42)</span>
+<span class="c">   Buffers: shared hit=20 read=2</span>
+<span class="c">   -&gt;  Bitmap Index Scan on idx_orders_user  (cost=0.00..4.44 rows=20 ...) (actual time=0.042..0.042 rows=20.00 loops=1)</span>
+<span class="c">         Index Cond: (user_id = 42)</span>
+<span class="c"> Execution Time: 0.085 ms</span></pre></div>
+
+  <p>플랜은 <strong>아래에서 위로</strong>, 안쪽 노드(<code>-&gt;</code>)부터 읽습니다. 여기서는 인덱스로 행 위치를 모은 뒤(<code>Bitmap Index Scan</code>) 테이블에서 실제 행을 가져옵니다(<code>Bitmap Heap Scan</code>). 추정 <code>rows=20</code>과 실제 <code>rows=20.00</code>이 일치 — 통계가 정확하다는 신호입니다.</p>
+
+  <h2><span class="num">2</span>Seq Scan vs Index Scan vs Bitmap Heap Scan</h2>
+  <p>"인덱스가 있으면 항상 인덱스를 탄다"는 흔한 오해입니다. 플래너는 <strong>선택도(selectivity)</strong>를 보고 더 싼 쪽을 고릅니다. 찾는 행이 <strong>적으면</strong> 인덱스로 점프하는 게 이득이지만, 테이블의 <strong>대부분</strong>을 가져올 거라면 인덱스를 한 행씩 들춰 본체로 점프하는 비용이 더 커서 — <strong>그냥 통째로 순차 스캔</strong>(Seq Scan)하는 게 빠릅니다.</p>
+  <p>같은 컬럼, 같은 테이블에서 선택도만 바꿔 둘을 모두 봅시다. <code>status</code>는 <code>shipped</code> 5%, <code>pending</code> 95%입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 낮은 선택도 → Index Scan / 높은 선택도 → Seq Scan</span></div><pre><span class="c">-- (a) shipped 5% : 적게 골라내므로 인덱스 경로</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> status = <span class="s">'shipped'</span>;
+<span class="c">                                          QUERY PLAN</span>
+<span class="c">----------------------------------------------------------------------------------------------</span>
+<span class="c"> Index Scan using idx_orders_status on orders (actual time=0.025..1.020 rows=5000.00 loops=1)</span>
+<span class="c">   Index Cond: (status = 'shipped'::text)</span>
+<span class="c">   Buffers: shared hit=736 read=6</span>
+
+<span class="c">-- (b) pending 95% : 거의 다 가져오므로 인덱스가 손해 → Seq Scan</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> status = <span class="s">'pending'</span>;
+<span class="c">                             QUERY PLAN</span>
+<span class="c">---------------------------------------------------------------------</span>
+<span class="c"> Seq Scan on orders (actual time=0.006..4.725 rows=95000.00 loops=1)</span>
+<span class="c">   Filter: (status = 'pending'::text)</span>
+<span class="c">   Rows Removed by Filter: 5000</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">세 가지 스캔, 한 줄 요약</span>
+    <p><strong>Seq Scan</strong>: 테이블을 통째로 읽는다(작은 테이블·낮은 선택도엔 이게 더 빠름). <strong>Index Scan</strong>: 인덱스로 행을 하나씩 찾아 본체로 점프(소수 행에 유리). <strong>Bitmap Heap Scan</strong>: 인덱스로 <strong>행 위치들을 비트맵으로 모은 뒤</strong> 본체를 블록 순서로 한 번에 읽는다(중간 규모 결과에 유리, 무작위 I/O를 줄임).</p>
+  </div>
+
+  <h2><span class="num">3</span>통계 &amp; ANALYZE — 추정이 틀리면 나쁜 플랜</h2>
+  <p>플래너의 모든 판단은 <strong>통계</strong>에 근거합니다. Postgres는 <code>pg_statistic</code>에 각 컬럼의 값 분포(히스토그램·최빈값 등)를 담아 두고, 이를 보고 "이 조건이면 약 몇 행"인지 추정합니다. 통계는 <code>ANALYZE</code> 명령이나 <strong>autovacuum</strong>이 갱신합니다. 대량 변경 후 통계가 낡으면 <strong>추정이 어긋나 잘못된 플랜</strong>을 고릅니다.</p>
+  <p>일부러 망가뜨려 봅시다. <code>shipped</code>를 5% → 대부분으로 늘린 직후, <code>ANALYZE</code> 전에는 플래너가 아직 "5%"라 믿고 <strong>인덱스 경로</strong>를 고르지만(실제로는 9만 행이라 비효율), <code>ANALYZE</code> 후에는 통계가 갱신돼 <strong>Seq Scan</strong>으로 교정됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 통계가 낡으면 플랜이 틀린다</span></div><pre><span class="k">UPDATE</span> orders <span class="k">SET</span> status = <span class="s">'shipped'</span> <span class="k">WHERE</span> id &lt;= <span class="n">90000</span>;  <span class="c">-- 이제 대부분 shipped</span>
+
+<span class="c">-- ANALYZE 전: 여전히 'shipped'=5%로 착각 → 인덱스 경로(잘못된 선택)</span>
+<span class="k">EXPLAIN</span> (ANALYZE, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> status = <span class="s">'shipped'</span>;
+<span class="c">                                          QUERY PLAN</span>
+<span class="c">-----------------------------------------------------------------------------------------------</span>
+<span class="c"> Index Scan using idx_orders_status on orders (actual time=3.343..9.765 rows=90500.00 loops=1)</span>
+<span class="c">   Index Cond: (status = 'shipped'::text)</span>
+
+<span class="c">-- ANALYZE 후: 통계 갱신 → Seq Scan으로 교정</span>
+<span class="k">ANALYZE</span> orders;
+<span class="k">EXPLAIN</span> (ANALYZE, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> status = <span class="s">'shipped'</span>;
+<span class="c">                             QUERY PLAN</span>
+<span class="c">---------------------------------------------------------------------</span>
+<span class="c"> Seq Scan on orders (actual time=0.442..5.830 rows=90500.00 loops=1)</span>
+<span class="c">   Filter: (status = 'shipped'::text)</span>
+<span class="c">   Rows Removed by Filter: 9500</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">추정이 자꾸 틀린다면</span>
+    <p>대량 적재·삭제 직후에는 <code>ANALYZE 테이블;</code>을 직접 돌려 통계를 새로 고치세요. 특정 컬럼의 분포가 심하게 치우쳐 추정이 빗나간다면 <code>default_statistics_target</code>(기본 <code>100</code>)을 올려 표본을 키우거나, 컬럼 단위로 <code>ALTER TABLE ... ALTER COLUMN ... SET STATISTICS</code>를 조정합니다. 플랜의 <strong>추정 rows와 실제 rows가 크게 다르면</strong> 통계를 의심하세요.</p>
+  </div>
+
+  <h2><span class="num">4</span>인덱스 함정 — 인덱스를 못 타게 만드는 실수</h2>
+  <p>인덱스를 만들어 두고도 안 타는 경우가 잦습니다. 가장 흔한 함정은 <strong>인덱스 컬럼에 함수·연산을 씌우는 것</strong>입니다. <code>WHERE upper(status) = 'SHIPPED'</code>는 <code>status</code> 인덱스를 못 씁니다 — 인덱스에는 <code>status</code>의 원래 값이 있지 <code>upper(status)</code>가 없으니까요. 해법은 <strong>그 표현식을 그대로 색인하는 expression index</strong>(Lesson 01)입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 컬럼에 함수 → Seq Scan, expression index로 교정</span></div><pre><span class="c">-- (함정) upper(status)는 status 인덱스를 못 탄다 → Seq Scan</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> <span class="f">upper</span>(status) = <span class="s">'SHIPPED'</span>;
+<span class="c">                             QUERY PLAN</span>
+<span class="c">---------------------------------------------------------------------</span>
+<span class="c"> Seq Scan on orders (actual time=0.872..14.114 rows=5000.00 loops=1)</span>
+<span class="c">   Filter: (upper(status) = 'SHIPPED'::text)</span>
+<span class="c">   Rows Removed by Filter: 95000</span>
+
+<span class="c">-- (교정) 표현식을 그대로 색인하면 다시 인덱스를 탄다</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> idx_orders_upper_status <span class="k">ON</span> orders (<span class="f">upper</span>(status));
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> <span class="f">upper</span>(status) = <span class="s">'SHIPPED'</span>;
+<span class="c">                                             QUERY PLAN</span>
+<span class="c">----------------------------------------------------------------------------------------------------</span>
+<span class="c"> Bitmap Heap Scan on orders (actual time=0.197..1.111 rows=5000.00 loops=1)</span>
+<span class="c">   Recheck Cond: (upper(status) = 'SHIPPED'::text)</span>
+<span class="c">   -&gt;  Bitmap Index Scan on idx_orders_upper_status (... rows=5000.00 loops=1)</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">인덱스를 죽이는 패턴들</span>
+    <p><strong>① 컬럼에 함수·연산</strong>: <code>lower(email)=…</code>, <code>amount*2&gt;…</code>, <code>date(created_at)=…</code> → expression index가 없으면 Seq Scan. <strong>② 앞 와일드카드 LIKE</strong>: <code>LIKE '%ipped'</code>는 접두가 없어 B-tree를 못 씀(부분일치는 <code>pg_trgm</code> GIN으로). <strong>③ 암묵적 타입 캐스팅</strong>: <code>varchar</code> 컬럼을 <code>int</code>와 비교하면 캐스팅이 끼어 인덱스를 놓칠 수 있음 — 타입을 맞추세요. <strong>④ OR 조건</strong>: <code>a=1 OR b=2</code>는 각 컬럼 인덱스를 합치기 어려워 Seq Scan이 되기도 함(<code>UNION</code>으로 분리하면 각자 인덱스를 탐).</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 앞 와일드카드 LIKE '%ipped' → Seq Scan</span></div><pre><span class="k">EXPLAIN</span> (ANALYZE, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">WHERE</span> status <span class="k">LIKE</span> <span class="s">'%ipped'</span>;
+<span class="c">                             QUERY PLAN</span>
+<span class="c">--------------------------------------------------------------------</span>
+<span class="c"> Seq Scan on orders (actual time=0.331..4.821 rows=5000.00 loops=1)</span>
+<span class="c">   Filter: (status ~~ '%ipped'::text)</span>
+<span class="c">   Rows Removed by Filter: 95000</span></pre></div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">실행 계획 보기 <span class="tag">MySQL</span></div>
+      <p>MySQL도 <code>EXPLAIN</code>으로 계획을 봅니다(전통적으로 한 행 표 형태, 8.0+는 <code>FORMAT=TREE</code>·<code>FORMAT=JSON</code> 지원). <code>EXPLAIN ANALYZE</code>(8.0.18+)는 실제 실행 후 실측을 보여줍니다. <code>type</code>(<code>ALL</code>=풀스캔, <code>ref</code>·<code>range</code>=인덱스), <code>rows</code>, <code>key</code> 열을 읽는 식입니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">실행 계획 보기 <span class="tag">PostgreSQL</span></div>
+      <p>Postgres는 <strong>노드 트리</strong>로 더 상세히 보여줍니다. <code>EXPLAIN (ANALYZE, BUFFERS)</code>는 각 노드의 추정 vs 실측 rows, 시간, 버퍼 I/O까지 노출합니다. <code>cost</code> 추정과 <code>actual</code>을 나란히 비교할 수 있어 <strong>"통계가 틀렸는지"를 바로 진단</strong>할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>cost</code>와 <code>actual time</code>의 차이는?</summary>
+    <div class="answer"><p><code>cost</code>는 플래너가 <strong>실행 전에</strong> 매긴 추정 비용(임의 단위)이고, <code>actual time</code>은 <code>ANALYZE</code>로 <strong>실제 실행한 뒤</strong> 측정한 밀리초입니다. <code>EXPLAIN</code>만 쓰면 cost(추정)만, <code>EXPLAIN ANALYZE</code>를 쓰면 둘 다 나옵니다. 추정 rows와 실제 rows가 크게 다르면 통계 문제를 의심합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 인덱스가 있는데도 Seq Scan이 더 나을 때는?</summary>
+    <div class="answer"><p>찾는 행이 테이블의 <strong>큰 비중</strong>을 차지할 때입니다(예: 95% <code>pending</code>). 인덱스로 한 행씩 찾아 본체로 점프하는 무작위 I/O보다, 그냥 통째로 순차 읽는 게 더 쌉니다. 작은 테이블에서도 마찬가지입니다. 플래너는 <strong>선택도</strong>를 보고 이 판단을 내립니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>WHERE</code> 컬럼에 함수를 쓰면 무슨 문제가 생기나?</summary>
+    <div class="answer"><p>일반 인덱스를 <strong>못 탑니다</strong>. 인덱스에는 컬럼의 <strong>원래 값</strong>이 들어 있는데 <code>upper(status)</code> 같은 함수 결과는 거기에 없기 때문입니다 → Seq Scan. 해법은 그 <strong>표현식을 그대로 색인하는 expression index</strong>(<code>CREATE INDEX ... (upper(status))</code>)입니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/using-explain.html">Using EXPLAIN — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-explain.html">EXPLAIN (SQL 명령) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/planner-stats.html">Statistics Used by the Planner — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="01-index-types.html"><span class="dir">← 이전</span><span class="ttl">인덱스 종류</span></a>
+    <a class="next" href="03-cte-window-pagination.html"><span class="dir">다음 →</span><span class="ttl">CTE · 윈도우 · keyset</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 4 · Lesson 02 · EXPLAIN ANALYZE · 플래너</footer>
+</body>
+</html>

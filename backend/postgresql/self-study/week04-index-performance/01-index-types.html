@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·01 — 인덱스 종류 · B-tree · GIN · GiST · BRIN · partial · expression</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · 인덱스 · 쿼리 성능 · 분석 SQL</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 01</span>
+  <h1>인덱스 종류<br>B-tree · GIN · GiST · BRIN · partial · expression</h1>
+  <p class="subtitle">인덱스는 <strong>책의 색인</strong>입니다. Postgres는 B-tree 하나가 아니라 <strong>GIN·GiST·BRIN</strong>에 <strong>partial·expression</strong>까지 — 데이터 모양에 맞는 색인을 고릅니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>인덱스는 책의 색인이다. Postgres는 B-tree 하나가 아니라 <b>GIN·GiST·BRIN·partial·expression</b>까지 — <b>데이터 모양에 맞는 색인</b>을 고른다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>B-tree가 왜 기본인지, 인덱스의 <strong>쓰기·공간 트레이드오프</strong>를 안다</li>
+    <li><strong>GIN·GiST·BRIN·Hash</strong>를 각각 언제 쓰는지 구분한다</li>
+    <li><strong>partial·expression·멀티컬럼·covering</strong> 인덱스를 만들고 <code>EXPLAIN</code>으로 검증한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>인덱스 기본 — 왜 빠른가, 무엇을 치르는가</h2>
+  <p>500쪽짜리 햄버거 레시피 책에서 "양파"가 나오는 곳을 찾는다고 합시다. 🍔 처음부터 끝까지 넘기면(Seq Scan) 오래 걸리지만, 책 뒤의 <strong>색인</strong>에서 "양파 → 12, 88, 301쪽"을 보면 바로 점프합니다. 데이터베이스 인덱스도 똑같습니다 — 컬럼 값을 미리 정렬·정리해 두어, 전체 테이블을 훑지 않고 원하는 행으로 곧장 갑니다.</p>
+  <p>공짜는 아닙니다. 인덱스는 <strong>별도의 디스크 공간</strong>을 차지하고, 행을 <code>INSERT</code>·<code>UPDATE</code>·<code>DELETE</code>할 때마다 <strong>인덱스도 함께 갱신</strong>해야 하므로 쓰기가 느려집니다. 그래서 인덱스는 "많을수록 좋은" 게 아니라 <strong>읽기 이득 vs 쓰기·공간 비용</strong>을 저울질해 고릅니다.</p>
+  <p>기본은 <strong>B-tree</strong>입니다. 등호(<code>=</code>), 범위(<code>&lt;</code>·<code>&gt;</code>·<code>BETWEEN</code>), 정렬(<code>ORDER BY</code>), 그리고 <strong>접두 LIKE</strong>(<code>'서울%'</code>)까지 모두 처리합니다. 충분히 큰 테이블(아래는 10만 행)에서 등호 검색이 인덱스를 타는 것을 봅시다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — B-tree, 10만 행에서 등호 검색</span></div><pre><span class="k">CREATE</span> <span class="k">INDEX</span> idx_users_age <span class="k">ON</span> users (age);
+<span class="k">ANALYZE</span> users;                          <span class="c">-- 통계 갱신(필수)</span>
+
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> users <span class="k">WHERE</span> age = <span class="n">25</span>;
+<span class="c">                                        QUERY PLAN</span>
+<span class="c">------------------------------------------------------------------------------------------</span>
+<span class="c"> Bitmap Heap Scan on users (actual time=0.120..0.547 rows=1667.00 loops=1)</span>
+<span class="c">   Recheck Cond: (age = 25)</span>
+<span class="c">   -&gt;  Bitmap Index Scan on idx_users_age (actual time=0.068..0.068 rows=1667.00 loops=1)</span>
+<span class="c">         Index Cond: (age = 25)</span></pre></div>
+
+  <p>풀스캔이 아니라 <code>idx_users_age</code>를 통해 1,667행만 정확히 집었습니다. (이렇게 다수 행을 한꺼번에 모으는 경우 Postgres는 <code>Index Scan</code> 대신 <strong>Bitmap Index Scan</strong>을 자주 고릅니다 — Lesson 02에서 자세히 다룹니다.)</p>
+
+  <h2><span class="num">2</span>종류별 용도 — 데이터 모양에 맞춰 고른다</h2>
+  <p>Postgres의 인덱스는 여러 <strong>액세스 메서드(access method)</strong>로 나뉩니다. 핵심은 "이 컬럼·이 검색에 어떤 색인이 맞나"입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>종류</th><th>언제</th><th>예</th></tr></thead>
+    <tbody>
+      <tr><td><strong>B-tree</strong> (기본)</td><td>등호·범위·정렬·접두 LIKE — 대부분의 경우</td><td><code>WHERE age &gt; 30 ORDER BY created_at</code></td></tr>
+      <tr><td><strong>GIN</strong></td><td>한 행에 <strong>값이 여러 개</strong> — jsonb·배열·전문검색</td><td><code>WHERE data @&gt; '{...}'</code>, <code>tags @&gt; ARRAY[...]</code></td></tr>
+      <tr><td><strong>GiST</strong></td><td>범위·기하·근접(nearest) 검색</td><td><code>WHERE box &amp;&amp; ...</code>, range 겹침, <code>ORDER BY pt &lt;-&gt; ...</code></td></tr>
+      <tr><td><strong>BRIN</strong></td><td><strong>거대한 자연정렬</strong> 테이블(시계열 등) — 매우 작음</td><td>로그 <code>WHERE ts BETWEEN ...</code></td></tr>
+      <tr><td><strong>Hash</strong></td><td>등호 전용(<code>=</code>) — 드묾, 보통 B-tree로 충분</td><td><code>WHERE token = '...'</code></td></tr>
+    </tbody>
+  </table>
+
+  <p>GIN·GiST는 Week 3에서 본 jsonb·전문검색의 엔진이었습니다. 여기서는 앱 개발에서 잘 안 보이지만 강력한 <strong>BRIN</strong>을 봅시다. 시계열처럼 <strong>물리적으로 정렬되어 쌓이는</strong> 50만 행 테이블에서, 같은 컬럼에 BRIN과 B-tree를 만들어 <strong>크기를 비교</strong>하면 차이가 압도적입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — BRIN vs B-tree 크기 (50만 행 시계열)</span></div><pre><span class="k">CREATE</span> <span class="k">INDEX</span> idx_sensors_ts_brin  <span class="k">ON</span> sensors <span class="k">USING</span> brin (ts);
+<span class="k">CREATE</span> <span class="k">INDEX</span> idx_sensors_ts_btree <span class="k">ON</span> sensors (ts);
+<span class="k">SELECT</span>
+  <span class="f">pg_size_pretty</span>(<span class="f">pg_relation_size</span>(<span class="s">'idx_sensors_ts_brin'</span>))  <span class="k">AS</span> brin_size,
+  <span class="f">pg_size_pretty</span>(<span class="f">pg_relation_size</span>(<span class="s">'idx_sensors_ts_btree'</span>)) <span class="k">AS</span> btree_size;
+<span class="c"> brin_size | btree_size</span>
+<span class="c">-----------+------------</span>
+<span class="c"> 24 kB     | 11 MB</span>
+
+<span class="c">-- BRIN으로 범위 조회 (B-tree 제거 후)</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> <span class="f">count</span>(*) <span class="k">FROM</span> sensors <span class="k">WHERE</span> ts <span class="k">BETWEEN</span> <span class="s">'2024-01-02'</span> <span class="k">AND</span> <span class="s">'2024-01-03'</span>;
+<span class="c">                          QUERY PLAN</span>
+<span class="c">--------------------------------------------------------------------</span>
+<span class="c"> Aggregate (actual time=8.230..8.231 rows=1.00 loops=1)</span>
+<span class="c">   -&gt;  Bitmap Heap Scan on sensors (... rows=86401.00 loops=1)</span>
+<span class="c">         Recheck Cond: ((ts &gt;= ...) AND (ts &lt;= ...))</span>
+<span class="c">         -&gt;  Bitmap Index Scan on idx_sensors_ts_brin (... rows=6400.00 loops=1)</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">BRIN은 "블록 범위" 색인</span>
+    <p>BRIN(Block Range INdex)은 각 행이 아니라 <strong>물리 블록 묶음마다 최소/최대값</strong>만 저장합니다. 그래서 24 kB로 11 MB B-tree와 같은 범위 조회를 해냅니다. 단, 컬럼이 디스크에 <strong>정렬된 순서로 쌓여 있어야</strong> 위력을 냅니다 — 시계열 <code>ts</code>, 자동증가 <code>id</code>처럼요. 무작위로 흩어진 값에는 효과가 없습니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>partial · expression 인덱스</h2>
+  <p><strong>partial index</strong>는 테이블의 <strong>일부 행만</strong> 인덱싱합니다. "비활성 계정만 조회"가 잦다면 <code>WHERE status = 'inactive'</code> 조건을 붙여 그 5%만 색인합니다 — 인덱스가 작아 빠르고 공간도 아낍니다. 쿼리의 <code>WHERE</code>가 partial 조건과 맞아야 쓰입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — partial index (inactive 5%만) + 크기 비교</span></div><pre><span class="k">CREATE</span> <span class="k">INDEX</span> idx_users_inactive <span class="k">ON</span> users (id) <span class="k">WHERE</span> status = <span class="s">'inactive'</span>;
+
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> id <span class="k">FROM</span> users <span class="k">WHERE</span> status = <span class="s">'inactive'</span>;
+<span class="c">                                            QUERY PLAN</span>
+<span class="c">---------------------------------------------------------------------------------------------------</span>
+<span class="c"> Index Only Scan using idx_users_inactive on users (actual time=0.019..1.057 rows=5000.00 loops=1)</span>
+
+<span class="c">-- 부분 인덱스(inactive 5%)는 전체 status 인덱스보다 훨씬 작다</span>
+<span class="c"> partial_size | full_size</span>
+<span class="c">--------------+-----------</span>
+<span class="c"> 128 kB       | 696 kB</span></pre></div>
+
+  <p><strong>expression index</strong>는 컬럼이 아니라 <strong>함수의 결과</strong>를 인덱싱합니다. 대소문자 무시 로그인처럼 <code>WHERE lower(email) = ...</code>를 자주 쓴다면, 그 표현식을 그대로 색인해야 인덱스를 탑니다(Lesson 02의 "인덱스 함정" 참고).</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — expression index: lower(email)</span></div><pre><span class="k">CREATE</span> <span class="k">INDEX</span> idx_users_lower_email <span class="k">ON</span> users (<span class="f">lower</span>(email));
+
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> id <span class="k">FROM</span> users <span class="k">WHERE</span> <span class="f">lower</span>(email) = <span class="s">'user500@example.com'</span>;
+<span class="c">                                          QUERY PLAN</span>
+<span class="c">-----------------------------------------------------------------------------------------------</span>
+<span class="c"> Bitmap Heap Scan on users (actual time=0.592..0.593 rows=1.00 loops=1)</span>
+<span class="c">   Recheck Cond: (lower(email) = 'user500@example.com'::text)</span>
+<span class="c">   -&gt;  Bitmap Index Scan on idx_users_lower_email (... rows=1.00 loops=1)</span>
+<span class="c">         Index Cond: (lower(email) = 'user500@example.com'::text)</span></pre></div>
+
+  <h2><span class="num">4</span>멀티컬럼 인덱스 · 컬럼 순서 · covering</h2>
+  <p>여러 컬럼을 묶은 <code>(a, b)</code> 인덱스는 <strong>왼쪽 접두(left-prefix) 규칙</strong>을 따릅니다 — <code>a</code> 단독, 또는 <code>a, b</code> 조합 쿼리에는 쓰이지만, <strong><code>b</code>만으로는</strong> 쓰지 못합니다. 색인이 <code>a</code> 먼저, 그 안에서 <code>b</code> 순으로 정렬돼 있어, <code>a</code>가 없으면 어디서 시작할지 모르기 때문입니다. (전화번호부가 "성→이름" 순이면 성 없이 이름만으로는 못 찾는 것과 같습니다.)</p>
+  <p>여기에 <code>INCLUDE</code>를 붙이면 <strong>covering index</strong>가 됩니다 — 자주 함께 조회하는 컬럼을 인덱스에 얹어 두면, 테이블 본체를 안 보고 <strong>인덱스만으로</strong>(Index Only Scan) 결과를 돌려줍니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — (email, age) 복합 인덱스의 왼쪽 접두 규칙</span></div><pre><span class="k">CREATE</span> <span class="k">INDEX</span> idx_users_email_age <span class="k">ON</span> users (email, age) <span class="k">INCLUDE</span> (status);
+
+<span class="c">-- 선두 컬럼(email) + age → 복합 인덱스를 탄다. INCLUDE(status)로 Index Only Scan</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> status <span class="k">FROM</span> users <span class="k">WHERE</span> email = <span class="s">'User500@Example.com'</span> <span class="k">AND</span> age = <span class="n">38</span>;
+<span class="c">                                           QUERY PLAN</span>
+<span class="c">-------------------------------------------------------------------------------------------------</span>
+<span class="c"> Index Only Scan using idx_users_email_age on users (actual time=0.018..0.019 rows=1.00 loops=1)</span>
+<span class="c">   Index Cond: ((email = 'User500@Example.com'::text) AND (age = 38))</span>
+<span class="c">   Heap Fetches: 1</span>
+
+<span class="c">-- 선두 컬럼(email) 없이 age 만으로는 (email, age) 인덱스를 못 쓴다 → Seq Scan</span>
+<span class="k">EXPLAIN</span> (ANALYZE, BUFFERS, COSTS OFF)
+<span class="k">SELECT</span> * <span class="k">FROM</span> users <span class="k">WHERE</span> age = <span class="n">30</span>;
+<span class="c">                            QUERY PLAN</span>
+<span class="c">-------------------------------------------------------------------</span>
+<span class="c"> Seq Scan on users (actual time=0.007..2.268 rows=1667.00 loops=1)</span>
+<span class="c">   Filter: (age = 30)</span>
+<span class="c">   Rows Removed by Filter: 98333</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">PG18 skip scan — 왼쪽 접두 규칙의 예외</span>
+    <p>PostgreSQL 18은 <strong>B-tree skip scan</strong>을 추가했습니다. 선두 컬럼의 <strong>distinct 값이 매우 적으면</strong>(예: <code>status</code>의 <code>active</code>/<code>inactive</code> 둘뿐), 플래너가 그 몇 개 값을 "건너뛰며" 훑어 <strong>선두 컬럼 없이도</strong> 복합 인덱스를 쓸 수 있습니다(<code>EXPLAIN</code>에 <code>Index Searches: N</code>로 보임). 위 예처럼 선두 컬럼이 <code>email</code>(고유값 다수)이면 skip scan이 무의미해 평소처럼 Seq Scan이 됩니다. 규칙의 <strong>큰 줄기는 여전히 "선두 컬럼을 빼지 마라"</strong>입니다.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">인덱스 종류 <span class="tag">MySQL</span></div>
+      <p>InnoDB는 사실상 <strong>B-tree</strong> 하나가 주력입니다. 전문검색은 <code>FULLTEXT</code> 인덱스, 공간 데이터는 <code>SPATIAL</code> 인덱스로 <strong>별도 취급</strong>합니다. partial index는 없고(생성 컬럼 + 인덱스로 우회), 함수 인덱스·INCLUDE는 비교적 최근 버전에서 제한적으로 지원합니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">인덱스 종류 <span class="tag">PostgreSQL</span></div>
+      <p>여러 <strong>액세스 메서드</strong>(B-tree·GIN·GiST·BRIN·Hash·SP-GiST)를 같은 문법(<code>USING</code>)으로 다룹니다. jsonb·배열·전문검색은 모두 <strong>GIN</strong> 하나로, 거대한 시계열은 <strong>BRIN</strong>으로. partial·expression·covering(<code>INCLUDE</code>)이 모두 1급 기능이라, 데이터 모양에 맞춰 색인을 정밀하게 고를 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">인덱스 남발은 부채다</span>
+    <p>인덱스가 많을수록 <strong>읽기는 빨라질 수 있어도 쓰기는 느려지고 공간은 늘어납니다</strong> — 모든 <code>INSERT</code>/<code>UPDATE</code>가 관련 인덱스를 전부 갱신해야 하니까요. 게다가 <strong>아무도 안 쓰는 인덱스</strong>는 순수한 비용입니다. 실제 쿼리(<code>WHERE</code>/<code>JOIN</code>/<code>ORDER BY</code>)에 근거해 만들고, <code>pg_stat_user_indexes</code>로 사용량을 점검해 안 쓰는 것은 지우세요.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> GIN 인덱스는 언제 쓰나?</summary>
+    <div class="answer"><p>한 행에 <strong>값이 여러 개</strong> 들어 있고, 그 안의 원소·키를 검색할 때입니다 — <strong>jsonb</strong>(<code>@&gt;</code> 포함 검색), <strong>배열</strong>(원소 포함), <strong>전문검색</strong>(<code>tsvector</code>). GIN은 값을 잘게 쪼개 역색인(inverted index)으로 만들어 "이 값을 포함하는 행"을 빠르게 찾습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> partial index의 이점은?</summary>
+    <div class="answer"><p>테이블의 <strong>일부 행만</strong> 색인하므로 인덱스가 <strong>작고 빠르며 공간을 아낍니다</strong>. 예에서 <code>inactive</code> 5%만 담은 부분 인덱스(128 kB)는 전체 <code>status</code> 인덱스(696 kB)보다 훨씬 작았습니다. 자주 조회하는 부분집합(활성 행, 미처리 주문 등)이 명확할 때 특히 유용합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 멀티컬럼 <code>(a, b)</code> 인덱스를 <code>b</code>만으로 검색에 쓸 수 있나?</summary>
+    <div class="answer"><p>원칙적으로 <strong>못 씁니다</strong> — <strong>왼쪽 접두 규칙</strong> 때문입니다. 색인이 <code>a</code> 먼저 정렬돼 있어 선두 컬럼 <code>a</code> 조건이 없으면 시작점을 모릅니다(예에서 <code>WHERE age=30</code>은 Seq Scan). 단, PG18의 <strong>skip scan</strong>은 선두 컬럼의 distinct 값이 매우 적을 때 예외적으로 인덱스를 쓸 수 있습니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/indexes.html">Indexes — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/indexes-types.html">Index Types (B-tree · GIN · GiST · BRIN · Hash) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/indexes-partial.html">Partial Indexes — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="../week03-jsonb-search/03-fulltext-search.html"><span class="dir">← 이전</span><span class="ttl">전문검색 · pg_trgm</span></a>
+    <a class="next" href="02-explain-analyze.html"><span class="dir">다음 →</span><span class="ttl">EXPLAIN ANALYZE · 플래너</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 4 · Lesson 01 · 인덱스 종류</footer>
+</body>
+</html>

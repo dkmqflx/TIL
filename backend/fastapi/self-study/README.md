@@ -142,6 +142,6 @@ backend/fastapi/self-study/
 - [x] Week 5 — PostgreSQL & SQLAlchemy
 - [x] Week 6 — JSON API 구축 & 구조화
 - [x] Week 7 — 비동기 DB & 외부 통신
-- [ ] Week 8 — 인증 / 인가
+- [x] Week 8 — 인증 / 인가
 - [ ] Week 9 — 실시간 & 이벤트 & 성능
 - [ ] Week 10 — 테스트 심화 & 배포

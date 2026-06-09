@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 8·01 — JWT · OAuth2 · 패스워드 해싱</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 8 · 인증 / 인가</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 8 — Lesson 01</span>
+  <h1>JWT · OAuth2 · 해싱<br>“너 누구냐”를 증명하기</h1>
+  <p class="subtitle">로그인은 결국 <strong>“이 요청을 누가 보냈는가”</strong>를 증명하는 일입니다. 패스워드를 안전하게 보관하고(해싱), 신원을 위조 불가능한 토큰(JWT)으로 발급하는 — 인증의 3대 부품을 익힙니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>패스워드는 <b>일방향으로 분쇄(해싱)</b>해서 저장하고, 로그인에 성공하면 <b>서버만 서명할 수 있는 토큰(JWT)</b>을 발급한다. 이후 요청은 그 토큰을 <b>Bearer</b>로 들고 오고, 서버는 서명만 검증하면 “누구인지”를 알 수 있다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>인증(Authentication)과 인가(Authorization)를 구분한다</li>
+    <li>패스워드를 bcrypt로 해싱·검증하고, 평문 저장이 왜 금지인지 안다</li>
+    <li>JWT의 3-파트 구조와 서명으로 위변조를 막는 원리를 이해한다</li>
+    <li>OAuth2PasswordBearer + <code>/token</code> 엔드포인트로 토큰을 발급한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>인증 vs 인가 — 헷갈리지 말 것</h2>
+  <p>두 단어가 비슷해 보이지만 묻는 질문이 완전히 다릅니다. 인증이 먼저, 인가가 그 다음입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>구분</th><th>묻는 질문</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td><b>인증</b> (Authentication)</td><td>“너 <b>누구</b>냐?”</td><td>아이디·비밀번호 로그인, 토큰 검증</td></tr>
+      <tr><td><b>인가</b> (Authorization)</td><td>“너 이거 할 <b>권한</b> 있냐?”</td><td>관리자만 삭제 가능, 본인 글만 수정</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box analogy">
+    <span class="ic">🎫</span>
+    <span class="label">비유 — 공연장 입장</span>
+    <p><strong>인증</strong>은 입구에서 신분증을 확인하고 <strong>입장 팔찌</strong>를 채워주는 일입니다(너 누구냐). <strong>인가</strong>는 그 팔찌 색깔을 보고 “일반석은 들어가지만 백스테이지는 안 됨”을 판정하는 일이죠(권한 있냐). 이번 레슨은 <b>인증과 팔찌(JWT) 발급</b>, 다음 레슨은 <b>인가(권한 체크)</b>를 다룹니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>패스워드 해싱 — 절대 평문 저장 금지</h2>
+  <p>DB가 유출되는 사고는 언제든 일어납니다. 그때 패스워드가 평문으로 들어 있으면 모든 사용자 계정이 그 즉시 털립니다. 그래서 패스워드는 <strong>원본을 복구할 수 없는 형태</strong>로 변환해 저장합니다 — 이게 해싱입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">⚙️</span>
+    <span class="label">비유 — 일방향 분쇄기</span>
+    <p>해싱은 종이(평문 비밀번호)를 <strong>분쇄기</strong>에 넣는 것과 같습니다. 같은 종이를 넣으면 늘 같은 조각 패턴(해시)이 나오지만, <strong>조각을 보고 원래 종이를 복원할 수는 없습니다</strong>. 로그인 때는 “들어온 비밀번호를 똑같이 분쇄해서, 저장된 조각과 일치하는가”만 비교합니다. 서버조차 원본 비밀번호를 모르는 게 정상입니다.</p>
+  </div>
+
+  <p>실무 표준은 <code>bcrypt</code>입니다. 파이썬에선 최신 <code>pwdlib[bcrypt]</code>(FastAPI 공식 문서가 채택)나 전통의 <code>passlib[bcrypt]</code>로 씁니다. 핵심 동작은 두 가지 — <strong>hash</strong>(저장할 때)와 <strong>verify</strong>(로그인할 때)입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">security.py — pwdlib</span></div><pre><span class="k">from</span> pwdlib <span class="k">import</span> PasswordHash
+<span class="k">from</span> pwdlib.hashers.bcrypt <span class="k">import</span> BcryptHasher
+
+password_hash = <span class="t">PasswordHash</span>((<span class="t">BcryptHasher</span>(),))
+
+<span class="k">def</span> <span class="f">hash_password</span>(raw: <span class="t">str</span>) -> <span class="t">str</span>:
+    <span class="k">return</span> password_hash.<span class="f">hash</span>(raw)            <span class="c"># 가입 시 1회 — 이 결과만 DB에 저장</span>
+
+<span class="k">def</span> <span class="f">verify_password</span>(raw: <span class="t">str</span>, hashed: <span class="t">str</span>) -> <span class="t">bool</span>:
+    <span class="k">return</span> password_hash.<span class="f">verify</span>(raw, hashed)  <span class="c"># 로그인 시 — 일치 여부만 반환</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">pwdlib vs passlib</span>
+    <p>둘 다 bcrypt를 감싸는 래퍼이고 API도 거의 같습니다. 다만 <code>passlib</code>(1.7.4)는 최신 <code>bcrypt</code> 패키지(5.x)와 충돌해 에러가 나는 경우가 있어, 새 프로젝트에선 <strong>pwdlib</strong>를 권장합니다. 이 스터디의 실행 예제(<code>code/main.py</code>)도 pwdlib로 통일했습니다.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">평문·MD5·SHA256 단독 저장은 모두 금지</span>
+    <p>평문은 말할 것도 없고, <code>md5(password)</code>나 <code>sha256(password)</code> 같은 <strong>단순 해시도 금지</strong>입니다. 이런 해시는 너무 빨라서 공격자가 초당 수십억 번 시도(레인보우 테이블·무차별 대입)할 수 있습니다. bcrypt는 <strong>의도적으로 느리고(work factor)</strong>, 매번 다른 <strong>솔트(salt)를 자동 포함</strong>해 같은 비밀번호라도 해시가 달라집니다. 비밀번호엔 반드시 bcrypt / argon2 같은 전용 알고리즘을 쓰세요.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">bcrypt의 72바이트 제한</span>
+    <p>bcrypt는 입력의 <strong>앞 72바이트까지만</strong> 다룹니다. 매우 긴 비밀번호(또는 멀티바이트 한글이 많은 경우) 73바이트 이후는 <strong>무시되거나, 최신 <code>bcrypt</code> 5.x에선 아예 오류(<code>password cannot be longer than 72 bytes</code>)가 납니다</strong>. 실무에선 입력 길이를 제한하거나(예: 64자), 72바이트 제한이 없는 <code>argon2</code>를 고려합니다. 데모 수준에선 신경 쓰지 않아도 되지만, “왜 긴 비밀번호가 안 먹지?”의 원인이 이것입니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>JWT — 위조 방지 입장 팔찌</h2>
+  <p>로그인에 성공하면 서버는 <strong>JWT(JSON Web Token)</strong>를 발급합니다. JWT는 점(<code>.</code>)으로 구분된 세 조각을 base64로 인코딩한 한 줄 문자열입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">JWT 한 줄</span></div><pre><span class="t">eyJhbGciOiJIUzI1NiJ9</span>.<span class="f">eyJzdWIiOiLrr7zsiJgiLCJleHAiOjE3MzB9</span>.<span class="s">dQw4w9WgXcQ</span>
+└──── header ────┘ └────────── payload ──────────┘ └─ signature ─┘</pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>파트</th><th>내용</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td><b>header</b></td><td>서명 알고리즘 (예: <code>HS256</code>)</td><td>base64 — 누구나 디코딩 가능</td></tr>
+      <tr><td><b>payload</b></td><td>담은 정보(클레임): <code>sub</code>(누구), <code>exp</code>(만료) 등</td><td>base64 — <strong>암호화 아님!</strong></td></tr>
+      <tr><td><b>signature</b></td><td>header+payload를 <strong>시크릿 키로 서명</strong></td><td>서버만 만들 수 있음</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box analogy">
+    <span class="ic">🎗️</span>
+    <span class="label">비유 — 위조 방지 입장 팔찌</span>
+    <p>JWT는 공연장 <strong>입장 팔찌</strong>와 같습니다. 팔찌 안엔 “좌석 정보(payload)”가 적혀 있어 누구나 읽을 수 있지만, <strong>특수 인장(signature)</strong>이 찍혀 있어 손님이 마음대로 좌석을 바꿔 쓰면 인장이 깨져 즉시 들킵니다. 인장 도장은 <strong>주최 측(서버)만</strong> 갖고 있으니까요. 서버는 매번 인장만 확인하면 되고, 손님 명단을 따로 들고 다닐 필요가 없습니다.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">payload는 암호화가 아니라 ‘서명’이다</span>
+    <p>JWT의 payload는 base64일 뿐 <strong>누구나 디코딩해 읽을 수 있습니다</strong>. 서명은 <strong>위변조를 막을 뿐 내용을 가리지 않습니다</strong>. 따라서 비밀번호·카드번호 같은 민감 정보를 payload에 넣지 마세요. 보통 <code>sub</code>(사용자 식별자)와 <code>exp</code> 정도만 담습니다.</p>
+  </div>
+
+  <p>발급은 <code>jwt.encode</code>, 검증은 <code>jwt.decode</code>입니다. 시크릿 키는 <strong>서버만</strong> 갖습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">security.py — PyJWT</span></div><pre><span class="k">import</span> jwt
+<span class="k">from</span> datetime <span class="k">import</span> datetime, timedelta, timezone
+
+SECRET_KEY = <span class="s">"..."</span>           <span class="c"># 프로덕션에선 환경변수/시크릿. 절대 커밋 금지!</span>
+ALGORITHM = <span class="s">"HS256"</span>
+
+<span class="k">def</span> <span class="f">create_access_token</span>(sub: <span class="t">str</span>) -> <span class="t">str</span>:
+    payload = {
+        <span class="s">"sub"</span>: sub,                                       <span class="c"># 누구인지</span>
+        <span class="s">"exp"</span>: datetime.<span class="f">now</span>(timezone.utc) + <span class="f">timedelta</span>(minutes=<span class="n">30</span>),  <span class="c"># 만료</span>
+    }
+    <span class="k">return</span> jwt.<span class="f">encode</span>(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+<span class="k">def</span> <span class="f">decode_token</span>(token: <span class="t">str</span>) -> <span class="t">dict</span>:
+    <span class="c"># 서명이 깨졌거나 exp 가 지났으면 예외 발생</span>
+    <span class="k">return</span> jwt.<span class="f">decode</span>(token, SECRET_KEY, algorithms=[ALGORITHM])</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">exp(만료)는 보안의 핵심</span>
+    <p>토큰이 유출돼도 피해를 줄이려면 <strong>수명을 짧게</strong> 둡니다(예: access 30분). <code>jwt.decode</code>는 <code>exp</code>가 지난 토큰을 <strong>자동으로 거부</strong>합니다(PyJWT는 <code>ExpiredSignatureError</code>). 더 오래 로그인을 유지하려면 별도의 <strong>refresh 토큰</strong>으로 재발급하는 패턴을 씁니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>OAuth2PasswordBearer + <code>/token</code></h2>
+  <p>FastAPI는 “비밀번호로 로그인해 토큰을 받는” 흐름(OAuth2 Password Flow)을 표준으로 지원합니다. 두 부품을 씁니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>부품</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>OAuth2PasswordRequestForm</code></td><td><code>/token</code>이 받을 <code>username</code>/<code>password</code> 폼을 정의</td></tr>
+      <tr><td><code>OAuth2PasswordBearer</code></td><td>보호된 요청에서 <code>Authorization: Bearer ...</code> 헤더의 토큰을 꺼내옴 + Swagger에 자물쇠 버튼 추가</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.py — /token 엔드포인트</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> APIRouter, Depends, HTTPException
+<span class="k">from</span> fastapi.security <span class="k">import</span> OAuth2PasswordRequestForm, OAuth2PasswordBearer
+
+oauth2_scheme = <span class="t">OAuth2PasswordBearer</span>(tokenUrl=<span class="s">"token"</span>)  <span class="c"># 토큰 발급 경로 안내</span>
+router = <span class="t">APIRouter</span>()
+
+<span class="d">@router.post</span>(<span class="s">"/token"</span>)
+<span class="k">def</span> <span class="f">login</span>(form: <span class="t">OAuth2PasswordRequestForm</span> = <span class="t">Depends</span>()):
+    user = <span class="f">get_user</span>(form.username)
+    <span class="k">if</span> <span class="k">not</span> user <span class="k">or</span> <span class="k">not</span> <span class="f">verify_password</span>(form.password, user.hashed):
+        <span class="k">raise</span> <span class="t">HTTPException</span>(<span class="n">401</span>, <span class="s">"아이디 또는 비밀번호가 틀렸습니다"</span>)
+    token = <span class="f">create_access_token</span>(sub=user.username)
+    <span class="k">return</span> {<span class="s">"access_token"</span>: token, <span class="s">"token_type"</span>: <span class="s">"bearer"</span>}</pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">라이브러리 선택 — 한 가지로 통일</span>
+    <p>JWT 라이브러리는 <strong>PyJWT</strong>(<code>import jwt</code>)와 <strong>python-jose</strong>(<code>from jose import jwt</code>) 두 가지가 있습니다. 이 스터디는 <strong>PyJWT</strong>로 통일합니다 — 의존성이 가볍고 유지보수가 활발합니다. 예외 클래스가 다르니 섞지 마세요(PyJWT: <code>jwt.ExpiredSignatureError</code> / <code>jwt.InvalidTokenError</code>, jose: <code>JWTError</code>).</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label"><code>python-multipart</code>이 필요하다</span>
+    <p><code>OAuth2PasswordRequestForm</code>은 <strong>폼 데이터</strong>를 파싱합니다. 그래서 <code>python-multipart</code> 패키지가 설치돼 있지 않으면 <code>/token</code> 호출 시 RuntimeError가 납니다. 설치 목록에 <code>python-multipart</code>를 꼭 포함하세요.</p>
+  </div>
+
+  <h2><span class="num">5</span>전체 흐름 — 로그인 → 토큰 → Bearer 요청</h2>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 250" role="img" aria-label="로그인부터 Bearer 토큰 요청까지의 흐름">
+      <!-- client -->
+      <rect x="20" y="100" width="120" height="50" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="80" y="130" text-anchor="middle" font-family="Pretendard" font-size="13" fill="#ece6d6">클라이언트</text>
+      <!-- server -->
+      <rect x="540" y="100" width="120" height="50" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="600" y="130" text-anchor="middle" font-family="Pretendard" font-size="13" fill="#0a4f48">FastAPI 서버</text>
+      <!-- step1 -->
+      <line x1="140" y1="55" x2="540" y2="55" stroke="#e0552f" stroke-width="2.5" marker-end="url(#a1)"/>
+      <text x="340" y="45" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#e0552f">① POST /token  (username + password)</text>
+      <!-- step2 -->
+      <line x1="540" y1="95" x2="140" y2="95" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#a2)"/>
+      <text x="340" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#0d6e64">② access_token (JWT) 발급</text>
+      <!-- step3 -->
+      <line x1="140" y1="175" x2="540" y2="175" stroke="#c98a16" stroke-width="2.5" marker-end="url(#a3)"/>
+      <text x="340" y="166" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#9a6a05">③ GET /me  (Authorization: Bearer &lt;JWT&gt;)</text>
+      <!-- step4 -->
+      <line x1="540" y1="215" x2="140" y2="215" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#a2)"/>
+      <text x="340" y="232" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#0d6e64">④ 서명 검증 → 유저 정보 응답</text>
+      <defs>
+        <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>한 번 로그인해 토큰을 받으면, 이후 요청은 토큰만 헤더에 실어 보낸다. 서버는 명단 대신 서명만 검증한다.</figcaption>
+  </figure>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 인증과 인가의 차이를 한 문장으로?</summary>
+    <div class="answer"><p>인증은 “너 누구냐”(신원 확인), 인가는 “너 이거 할 권한 있냐”(권한 확인)입니다. 인증이 먼저 끝나야 인가를 따질 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 패스워드를 <code>sha256</code>으로 해시해서 저장하면 안 되나요?</summary>
+    <div class="answer"><p>안 됩니다. sha256은 너무 빨라 무차별 대입·레인보우 테이블에 취약하고 솔트도 자동으로 붙지 않습니다. bcrypt(또는 argon2)는 의도적으로 느리고 솔트를 자동 포함해 같은 비밀번호라도 해시가 매번 다릅니다. 비밀번호엔 전용 알고리즘을 쓰세요.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> JWT payload에 사용자 비밀번호를 넣어도 되나요?</summary>
+    <div class="answer"><p>안 됩니다. payload는 암호화가 아니라 base64일 뿐이라 누구나 디코딩해 읽을 수 있습니다. 서명은 위변조만 막지 내용을 가리지 않습니다. 보통 <code>sub</code>(식별자)와 <code>exp</code> 정도만 담습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week07-async-db-external/03-cors-middleware.html"><span class="dir">← 이전</span><span class="ttl">Week 7 · CORS &amp; 미들웨어</span></a>
+    <a class="next" href="02-dependency-auth-redis.html"><span class="dir">다음 →</span><span class="ttl">의존성 기반 권한 &amp; Redis</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 8 · Lesson 01 · JWT · OAuth2 · 해싱</footer>
+</body>
+</html>

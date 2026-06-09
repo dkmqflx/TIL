@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1·02 — Docker로 띄우기 &amp; psql 기초</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 · 환경 · 데이터 타입</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 1 — Lesson 02</span>
+  <h1>Docker로 PostgreSQL 띄우기<br>그리고 psql로 들여다보기</h1>
+  <p class="subtitle">DB를 내 컴퓨터에 직접 설치하지 않고, <code>postgres:18</code> 컨테이너로 <strong>빌려 씁니다</strong>. 그리고 psql의 백슬래시 명령으로 DB 속을 <strong>직접 들여다봅니다</strong>.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>DB를 직접 설치하지 말고 <b>postgres:18 컨테이너</b>로 빌려 쓴다. 그리고 psql의 <b>백슬래시 명령(<code>\d</code> 패밀리)</b>으로 DB 속을 들여다본다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>Docker로 PostgreSQL 18을 띄우고 끈다</li>
+    <li>psql로 접속해 <code>\l</code> <code>\dt</code> <code>\d</code> <code>\du</code> <code>\dn</code> 핵심 메타 명령을 쓴다</li>
+    <li>데이터베이스·스키마·<code>search_path</code> 개념을 구분한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 Docker로 DB를 띄우나</h2>
+  <p>"PostgreSQL을 내 맥에 직접 설치"하면 버전이 꼬이고, 다른 프로젝트와 포트가 충돌하고, 팀원마다 환경이 제각각이 됩니다. Docker는 이 문제를 <strong>격리(isolation)</strong>와 <strong>재현성(reproducibility)</strong>으로 해결합니다 — DB가 컨테이너 안에 갇혀 로컬과 섞이지 않고, 같은 설계도(이미지)를 받으면 누구나 똑같은 DB를 띄웁니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">📦</span>
+    <span class="label">비유 — 콘크리트 창고 짓기 vs 조립식 레고 창고</span>
+    <p>DB를 직접 설치하는 건 <strong>마당에 콘크리트로 창고를 짓는 것</strong>과 같습니다. 한 번 지으면 옮기기 힘들고, 헐 때도 흙바닥이 더럽혀집니다. Docker 컨테이너는 <strong>레고처럼 가져다 놓는 조립식 창고</strong>입니다. <code>up</code>으로 세우고 <code>down</code>으로 흔적 없이 치웁니다. "내 컴퓨터에선 됐는데?"가 사라지는 이유 — 모두가 같은 컨테이너 설계도를 받기 때문입니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>방식</th><th>설치</th><th>충돌</th><th>팀 공유</th></tr></thead>
+    <tbody>
+      <tr><td>로컬 직접 설치</td><td>OS마다 절차가 다름</td><td>버전·포트 충돌 잦음</td><td>"내 환경에선…" 문제</td></tr>
+      <tr><td>Docker 컨테이너</td><td>이미지 pull 한 번</td><td>컨테이너 안에 격리</td><td>compose 파일 1장 공유</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">2</span>docker-compose.yml &amp; 띄우고 끄기</h2>
+  <p>컨테이너 한 채를 띄우는 설계도입니다. 이미지·계정·포트·데이터 보관 위치를 선언합니다. 이번 주 실습 환경은 아래 파일로 이미 준비돼 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">docker-compose.yml</span></div><pre><span class="t">services</span>:
+  <span class="t">db</span>:
+    <span class="t">image</span>: postgres:<span class="n">18</span>          <span class="c"># PostgreSQL 18 공식 이미지</span>
+    <span class="t">container_name</span>: pg-study
+    <span class="t">environment</span>:
+      <span class="t">POSTGRES_USER</span>: study
+      <span class="t">POSTGRES_PASSWORD</span>: study_pw
+      <span class="t">POSTGRES_DB</span>: study_db
+    <span class="t">ports</span>:
+      - <span class="s">"5432:5432"</span>          <span class="c"># 호스트 5432 → 컨테이너 5432</span>
+    <span class="t">volumes</span>:
+      - pgdata:/var/lib/postgresql  <span class="c"># ⚠ /data 아님 — 아래 팁 참고</span>
+
+<span class="t">volumes</span>:
+  <span class="t">pgdata</span>:</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">postgres:18은 볼륨을 상위 경로에 마운트한다</span>
+    <p><span class="chip">PG18</span> 볼륨은 <code>/var/lib/postgresql</code><strong>(상위)</strong>에 마운트해야 합니다. 예전 관습대로 <code>/var/lib/postgresql/data</code>로 마운트하면 <strong>부팅이 거부됩니다</strong> — postgres:18 이미지가 데이터를 버전별 하위 디렉터리(예: <code>.../18/docker</code>)에 두도록 구조가 바뀌었기 때문입니다. 옛 자료(이미지·블로그)에는 아직 <code>/data</code> 접미사가 흔하니, PG18에서는 떼고 쓰세요.</p>
+  </div>
+
+  <p>설계도가 준비됐으니, 같은 폴더에서 명령 한 줄이면 컨테이너를 켜고 끌 수 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># 백그라운드(-d, detached)로 DB 컨테이너 시작</span>
+docker compose up -d
+
+<span class="c"># 잘 떴는지 확인</span>
+docker compose ps
+
+<span class="c"># 종료(데이터는 volume에 보존)</span>
+docker compose down
+
+<span class="c"># 데이터까지 완전 삭제</span>
+docker compose down -v</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">down -v는 데이터를 증발시킨다</span>
+    <p>그냥 <code>docker compose down</code>은 컨테이너만 지우고 <strong>named volume(pgdata)은 남겨</strong> 데이터가 살아남습니다. 하지만 <code>-v</code>를 붙이면 <strong>볼륨까지 삭제</strong>돼 그 안에 쌓인 데이터가 전부 사라집니다. 실습을 깨끗이 초기화하고 싶을 때만 의식적으로 쓰세요 — 습관적으로 붙이면 안 됩니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>psql 접속</h2>
+  <p>컨테이너가 떴으면, 그 안의 PostgreSQL에 말을 걸 차례입니다. <strong>psql</strong>은 PostgreSQL이 공식으로 제공하는 <strong>커맨드라인 클라이언트(CLI)</strong>입니다. 이미지 안에 이미 들어 있으니, 컨테이너 안에서 바로 실행하면 됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal — 컨테이너 안의 psql로 접속</span></div><pre>docker compose exec db psql -U study -d study_db
+<span class="c"># -U study   : 접속할 역할(role)</span>
+<span class="c"># -d study_db: 접속할 데이터베이스</span>
+<span class="c"># 접속되면 프롬프트가 study_db=# 로 바뀐다</span></pre></div>
+
+  <p>접속이 됐는지 가장 확실히 확인하는 방법은 "나는 지금 어느 DB에 누구로 붙어 있나"를 물어보는 것입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 연결 확인</span></div><pre><span class="k">SELECT</span> current_database(), current_user, version();
+<span class="c"> current_database | current_user |              version</span>
+<span class="c">------------------+--------------+----------------------------------</span>
+<span class="c"> study_db         | study        | PostgreSQL 18.4 (Debian ...) ...</span>
+<span class="c">(1 row)</span></pre></div>
+
+  <h2><span class="num">4</span>psql 메타 명령 — <code>\d</code> 패밀리</h2>
+  <p>psql의 진짜 무기는 <strong>백슬래시(<code>\</code>)로 시작하는 메타 명령</strong>입니다. DB 속(테이블·스키마·역할 등)을 SQL을 길게 쓰지 않고 한 글자로 들여다볼 수 있습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>명령</th><th>무엇을 보나</th></tr></thead>
+    <tbody>
+      <tr><td><code>\l</code></td><td>데이터베이스 목록</td></tr>
+      <tr><td><code>\dt</code></td><td>현재 스키마의 테이블 목록</td></tr>
+      <tr><td><code>\d &lt;table&gt;</code></td><td>특정 테이블의 구조(컬럼·타입·인덱스)</td></tr>
+      <tr><td><code>\du</code></td><td>역할(role) 목록</td></tr>
+      <tr><td><code>\dn</code></td><td>스키마 목록</td></tr>
+      <tr><td><code>\?</code></td><td>psql 메타 명령 도움말</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">메타 명령은 SQL이 아니다</span>
+    <p><span class="chip">psql</span> <code>\dt</code> 같은 명령은 <strong>psql 클라이언트가 해석</strong>하는 명령이지 표준 SQL이 아닙니다. 그래서 애플리케이션 드라이버(psycopg, JDBC 등)로 보내면 <strong>동작하지 않습니다</strong>. (psql은 내부적으로 이를 <code>pg_catalog</code> 조회 SQL로 바꿔 실행합니다 — <code>\d</code> 한 글자가 긴 카탈로그 쿼리의 별명인 셈입니다.)</p>
+  </div>
+
+  <p>간단한 테이블을 하나 만들어 <code>\dt</code>와 <code>\d</code>를 직접 체험해 봅시다. 아래는 실제로 실행한 결과입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — \dt 와 \d 체험</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> ping (id <span class="t">int</span> <span class="k">PRIMARY KEY</span>, msg <span class="t">text</span>);
+
+\dt
+<span class="c">        List of tables</span>
+<span class="c"> Schema | Name | Type  | Owner</span>
+<span class="c">--------+------+-------+-------</span>
+<span class="c"> public | ping | table | study</span>
+
+\d ping
+<span class="c">                Table "public.ping"</span>
+<span class="c"> Column |  Type   | Collation | Nullable | Default</span>
+<span class="c">--------+---------+-----------+----------+---------</span>
+<span class="c"> id     | integer |           | not null |</span>
+<span class="c"> msg    | text    |           |          |</span>
+<span class="c">Indexes:</span>
+<span class="c">    "ping_pkey" PRIMARY KEY, btree (id)</span></pre></div>
+
+  <h2><span class="num">5</span>데이터베이스 vs 스키마 vs search_path</h2>
+  <p>여기서 Postgres 입문자가 가장 자주 헷갈리는 세 가지를 정리합니다. <strong>데이터베이스</strong>, <strong>스키마</strong>, 그리고 <strong><code>search_path</code></strong>는 서로 다른 층위입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🗄️</span>
+    <span class="label">비유 — 서랍장(장 · 서랍 · 물건)</span>
+    <p><strong>데이터베이스 = 장(서랍장 한 채)</strong>, <strong>스키마 = 그 안의 서랍</strong>, <strong>테이블 = 서랍 속 물건</strong>입니다. 하나의 장(데이터베이스) 안에 여러 서랍(스키마)이 있고, 기본 서랍의 이름은 <code>public</code>입니다. 물건을 찾을 때 어느 서랍부터 열어볼지의 순서가 바로 <code>search_path</code>입니다.</p>
+  </div>
+
+  <p>지금 연결의 기본 검색 순서를 확인해 봅시다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 기본 search_path</span></div><pre><span class="k">SHOW</span> search_path;
+<span class="c">   search_path</span>
+<span class="c">-----------------</span>
+<span class="c"> "$user", public</span>
+<span class="c">(1 row)</span></pre></div>
+
+  <p>기본값 <code>"$user", public</code>은 "먼저 내 이름(<code>$user</code>)과 같은 스키마를 찾고, 없으면 <code>public</code>을 찾으라"는 뜻입니다. <code>SELECT * FROM ping</code>처럼 스키마를 명시하지 않으면, 이 순서대로 <code>ping</code> 테이블을 찾습니다.</p>
+
+  <p>이 구조가 MySQL과 어떻게 다른지가 핵심입니다.</p>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">데이터베이스 모델 <span class="tag">MySQL</span></div>
+      <p>MySQL에서는 <strong>database ≈ schema가 사실상 동의어</strong>입니다. 목록은 <code>SHOW DATABASES;</code>, 전환은 <code>USE db;</code>로 합니다. "한 단계"의 통(database) 안에 바로 테이블이 들어 있다고 보면 됩니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">데이터베이스 모델 <span class="tag">PostgreSQL</span></div>
+      <p>Postgres는 <strong>한 database 안에 여러 schema</strong>가 있는 "두 단계" 구조입니다(기본 스키마는 <code>public</code>). 목록은 <code>\l</code>, 전환은 <code>\c db</code>로 합니다. 같은 database 안에서 스키마는 <code>\dn</code>으로 봅니다.</p>
+    </div>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">\c 로 database를 바꾸면 연결이 새로 맺어진다</span>
+    <p>Postgres에서 <strong>한 연결(connection)은 하나의 database에만 붙습니다</strong>. 그래서 psql에서 <code>\c other_db</code>로 다른 database로 옮기면, 기존 연결을 끊고 <strong>새 연결을 다시 맺습니다</strong>. MySQL의 <code>USE db;</code>가 같은 연결 안에서 대상만 바꾸는 것과 결정적으로 다릅니다 — 반면 같은 database 안의 <strong>스키마</strong>는 연결을 끊지 않고 <code>search_path</code>나 스키마 접두사(<code>schema.table</code>)로 자유롭게 넘나듭니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Postgres에서 database와 schema의 관계는?</summary>
+    <div class="answer"><p>하나의 <strong>database 안에 여러 schema</strong>가 들어 있고, 기본 스키마는 <code>public</code>입니다(두 단계 구조). 반면 MySQL은 database와 schema가 사실상 <strong>동의어</strong>입니다. 서랍장으로 치면 database가 장, schema가 그 안의 서랍입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 테이블 구조를 보는 psql 명령은?</summary>
+    <div class="answer"><p><code>\d &lt;table&gt;</code>입니다(예: <code>\d ping</code>). 컬럼·타입·인덱스를 보여줍니다. 테이블 <strong>목록</strong>만 볼 때는 <code>\dt</code>를 씁니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>search_path</code>는 무엇을 결정하나?</summary>
+    <div class="answer"><p>스키마를 <strong>명시하지 않았을 때</strong> 객체(테이블·함수 등)를 <strong>어느 스키마에서 어떤 순서로 찾을지</strong>를 결정합니다. 기본값 <code>"$user", public</code>은 내 이름과 같은 스키마를 먼저, 없으면 <code>public</code>을 찾습니다.</p></div>
+  </details>
+
+  <h2><span class="num">7</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/app-psql.html">psql — PostgreSQL CLI 공식 문서</a></li>
+    <li><a href="https://hub.docker.com/_/postgres">Docker Official Image: postgres (Docker Hub)</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/ddl-schemas.html">Schemas — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="01-why-postgres-architecture.html"><span class="dir">← 이전</span><span class="ttl">왜 Postgres &amp; 아키텍처</span></a>
+    <a class="next" href="03-data-types.html"><span class="dir">다음 →</span><span class="ttl">데이터 타입 (uuidv7, timestamptz)</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 1 · Lesson 02 · Docker &amp; psql 기초</footer>
+</body>
+</html>

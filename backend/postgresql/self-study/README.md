@@ -119,5 +119,5 @@ backend/postgresql/self-study/
 - [x] Week 2 — 스키마 설계 · 쓰기 측 강력 기능
 - [x] Week 3 — JSONB & 반정형 데이터 · 검색
 - [x] Week 4 — 인덱스 · 쿼리 성능 · 분석 SQL
-- [ ] Week 5 — 트랜잭션 · 동시성 · MVCC
+- [x] Week 5 — 트랜잭션 · 동시성 · MVCC
 - [ ] Week 6 — RLS · 권한 · 운영 · 확장

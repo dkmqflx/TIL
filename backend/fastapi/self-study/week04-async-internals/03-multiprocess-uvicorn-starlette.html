@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·03 — 멀티프로세스 &amp; Uvicorn/Starlette/FastAPI</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · 비동기 원리 &amp; 내부 동작</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 03</span>
+  <h1>멀티프로세스 &amp; 3층 구조<br>Uvicorn · Starlette · FastAPI</h1>
+  <p class="subtitle">비동기는 <strong>한 코어 안의 동시성</strong>을 줍니다. 여러 코어를 쓰려면 <strong>멀티프로세스(워커)</strong>가 필요하죠. 그리고 그 위에 올라탄 <strong>3층 구조</strong>가 FastAPI 요청 한 건을 처리합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>비동기(I/O 동시성)와 멀티프로세스(CPU 병렬성)는 <b>다른 층위의 해결책</b>이다. 실무는 둘을 합친다. 그리고 요청 한 건은 <b>Uvicorn(서버) → Starlette(프레임워크) → FastAPI(검증·문서)</b> 3층을 통과한다. FastAPI는 <b>Starlette를 상속</b>한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>단일 프로세스가 왜 보통 코어 하나만 쓰는지 안다</li>
+    <li>멀티프로세스 워커로 CPU를 활용하는 방법을 익힌다</li>
+    <li>Uvicorn·Starlette·FastAPI의 역할 계층을 그린다</li>
+    <li>ASGI와 WSGI의 차이를 한 줄로 설명한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>단일 프로세스 = 코어 한 개</h2>
+  <p>Lesson 1~2에서 본 비동기 서버는 <strong>한 프로세스 · 한 이벤트 루프</strong>입니다. GIL 때문에 이 프로세스는 사실상 <strong>CPU 코어 하나</strong>만 제대로 활용합니다. I/O 대기를 메우는 데는 충분하지만, 8코어 머신에서 코어 7개가 놀고 있다면 낭비죠.</p>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">비동기로는 CPU 병렬이 안 되는 이유</span>
+    <p>이벤트 루프는 단일 스레드입니다. <code>await</code>로 갈아타도 <strong>같은 순간엔 코드 한 줄만</strong> 실행됩니다. 동시성은 주지만 병렬성은 주지 않죠. 여러 코어에서 <strong>진짜 동시에</strong> 계산하려면 인터프리터(=프로세스)를 여러 개 띄워야 합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>멀티프로세스 워커 — 코어 활용하기</h2>
+  <p>해법은 같은 앱을 <strong>여러 프로세스(워커)</strong>로 띄워 들어오는 요청을 나눠 처리하는 것입니다. 각 워커는 자신의 이벤트 루프를 가진 독립 프로세스라, 서로 다른 코어에서 진짜 병렬로 돕니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># 방법 1) Uvicorn이 직접 워커 4개 기동</span>
+uvicorn main:app --workers <span class="n">4</span>
+
+<span class="c"># 방법 2) Gunicorn이 프로세스를 관리하고, 각 워커는 Uvicorn</span>
+gunicorn main:app -k uvicorn.workers.UvicornWorker --workers <span class="n">4</span></pre></div>
+
+  <p>두 축을 헷갈리지 마세요. <strong>비동기는 "한 워커 안에서 I/O 동시 처리"</strong>, <strong>멀티프로세스는 "워커를 늘려 CPU 병렬 처리"</strong>입니다. 서로 다른 문제를 푸는 다른 층위의 도구이고, 실무에선 보통 <strong>함께</strong> 씁니다 (예: async def 앱 + 워커 4개).</p>
+
+  <table class="tbl">
+    <thead><tr><th>해결책</th><th>해결하는 문제</th><th>단위</th></tr></thead>
+    <tbody>
+      <tr><td><b>비동기</b> (async/await)</td><td>I/O 대기 중 다른 요청 처리 (동시성)</td><td>코루틴 / 이벤트 루프</td></tr>
+      <tr><td><b>멀티프로세스</b> (--workers)</td><td>여러 코어 동시 계산 (병렬성)</td><td>프로세스(워커)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">워커는 상태를 공유하지 않는다</span>
+    <p>워커는 <strong>독립된 프로세스</strong>라 메모리를 공유하지 않습니다. 전역 변수에 캐시·세션·카운터를 담아두면 워커마다 값이 따로 놀아 버그가 됩니다. 공유 상태는 <strong>Redis·DB 같은 외부 저장소</strong>에 두세요. (NestJS를 PM2 cluster로 여러 인스턴스 띄울 때와 같은 주의입니다.)</p>
+  </div>
+
+  <h2><span class="num">3</span>3층 구조 — Uvicorn · Starlette · FastAPI</h2>
+  <p>요청 한 건이 처리되기까지, 사실 세 개의 라이브러리가 층을 이뤄 협력합니다. 각자의 역할이 또렷하게 나뉘어 있죠.</p>
+
+  <table class="tbl">
+    <thead><tr><th>층</th><th>정체</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><b>Uvicorn</b></td><td>ASGI <b>서버</b></td><td>소켓 수신, HTTP 파싱, 이벤트 루프 구동. 네트워크 ↔ 파이썬 객체 변환.</td></tr>
+      <tr><td><b>Starlette</b></td><td>웹 <b>마이크로프레임워크</b></td><td>라우팅, 미들웨어, 요청/응답 객체, WebSocket, 백그라운드 태스크.</td></tr>
+      <tr><td><b>FastAPI</b></td><td>Starlette 위 <b>확장</b></td><td>타입 기반 검증(Pydantic), 의존성 주입, 자동 OpenAPI 문서.</td></tr>
+    </tbody>
+  </table>
+
+  <p>중요한 사실: <strong>FastAPI는 Starlette를 상속</strong>합니다. 즉 FastAPI 앱은 그 자체가 Starlette 앱이고, 미들웨어·WebSocket 같은 기능은 전부 Starlette에서 물려받은 것입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">fastapi/applications.py (개념)</span></div><pre><span class="k">from</span> starlette.applications <span class="k">import</span> Starlette
+
+<span class="k">class</span> <span class="t">FastAPI</span>(<span class="t">Starlette</span>):   <span class="c"># ← Starlette를 그대로 상속</span>
+    <span class="c"># 여기에 검증·의존성·자동 문서 기능을 얹는다</span>
+    ...</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 330" role="img" aria-label="Uvicorn 안에 Starlette, 그 안에 FastAPI가 중첩된 3층 구조">
+      <!-- Uvicorn (outer) -->
+      <rect x="24" y="24" width="612" height="282" rx="14" fill="#16140f" stroke="#2c281f" stroke-width="2"/>
+      <text x="46" y="52" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#ece6d6">Uvicorn — ASGI 서버</text>
+      <text x="46" y="72" font-family="Pretendard, sans-serif" font-size="11.5" fill="#9a9382">소켓 · HTTP 파싱 · 이벤트 루프 구동</text>
+
+      <!-- Starlette (middle) -->
+      <rect x="60" y="86" width="540" height="200" rx="12" fill="#dcebe6" stroke="#0d6e64" stroke-width="2"/>
+      <text x="82" y="114" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#0a4f48">Starlette — 웹 마이크로프레임워크</text>
+      <text x="82" y="134" font-family="Pretendard, sans-serif" font-size="11.5" fill="#0a4f48">라우팅 · 미들웨어 · Request/Response · WebSocket</text>
+
+      <!-- FastAPI (inner) -->
+      <rect x="100" y="148" width="460" height="118" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="122" y="176" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#e0552f">FastAPI — Starlette 상속 확장</text>
+      <text x="122" y="196" font-family="Pretendard, sans-serif" font-size="11.5" fill="#16140f">Pydantic 검증 · 의존성 주입 · 자동 OpenAPI 문서</text>
+      <text x="122" y="232" font-family="JetBrains Mono, monospace" font-size="12" fill="#9a6a05">class FastAPI(Starlette): ...</text>
+
+      <!-- request arrow -->
+      <line x1="328" y1="312" x2="328" y2="288" stroke="#c98a16" stroke-width="2.5" marker-end="url(#up)"/>
+      <text x="345" y="325" font-family="Pretendard, sans-serif" font-size="11" fill="#9a6a05">HTTP 요청이 바깥 → 안으로 흐른다</text>
+
+      <defs>
+        <marker id="up" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Uvicorn 안에 Starlette, 그 안에 FastAPI가 중첩된다. 안쪽일수록 더 고수준의 일을 한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">4</span>ASGI vs WSGI</h2>
+  <p>Uvicorn을 "ASGI 서버"라고 불렀습니다. Django·Flask가 쓰던 옛 규격은 <strong>WSGI</strong>인데, 한 줄 차이는 이렇습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>규격</th><th>특징</th><th>대표 서버</th></tr></thead>
+    <tbody>
+      <tr><td><b>WSGI</b></td><td>동기 전용. 요청 1건 = 워커 1개가 끝까지 점유. WebSocket 불가.</td><td>Gunicorn(기본), uWSGI</td></tr>
+      <tr><td><b>ASGI</b></td><td><b>async/await · WebSocket · 장기 연결</b> 지원. 비동기 동시성 가능.</td><td>Uvicorn, Hypercorn</td></tr>
+    </tbody>
+  </table>
+
+  <p>한 줄로: <strong>ASGI는 WSGI에 비동기와 WebSocket을 더한 차세대 규격</strong>입니다. FastAPI가 비동기·WebSocket을 쓸 수 있는 건 ASGI 위에 서 있기 때문이죠.</p>
+
+  <div class="box analogy">
+    <span class="ic">🏨</span>
+    <span class="label">비유 — 호텔로 보는 전체 구조</span>
+    <p>호텔 한 채를 <strong>프로세스(워커)</strong>라 합시다. 더 많은 손님을 받으려면 <strong>여러 동(멀티프로세스)</strong>을 짓습니다. 각 동의 <strong>전화 교환원</strong>이 외부 전화(HTTP)를 받아 내부 언어로 연결하는데, 이게 <strong>Uvicorn</strong>입니다. 건물의 <strong>골조와 복도·엘리베이터</strong>—손님을 객실로 안내하는 길(라우팅·미들웨어)—가 <strong>Starlette</strong>입니다. 그리고 각 <strong>객실의 인테리어와 컨시어지 서비스</strong>(타입 검증·의존성·자동 문서)가 <strong>FastAPI</strong>죠. 손님(요청)은 교환원 → 복도 → 객실 순으로 안내받습니다.</p>
+  </div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Week 4 정리 — 두 축으로 기억하기</span>
+    <p>① <strong>동시성 축</strong>: async/await + 이벤트 루프로 한 워커 안 I/O를 겹쳐 처리. ② <strong>병렬성 축</strong>: 멀티프로세스 워커로 여러 코어를 활용. 그리고 이 모든 게 <strong>Uvicorn → Starlette → FastAPI</strong> 3층 위에서 돌아갑니다. 두 축과 3층, 이 그림이 머리에 있으면 성능 튜닝의 큰 그림이 보입니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 비동기를 쓰는데도 워커를 여러 개 띄우는 이유는?</summary>
+    <div class="answer"><p>비동기는 <strong>한 코어 안의 I/O 동시성</strong>만 줍니다. GIL 때문에 단일 프로세스는 CPU 코어 하나만 제대로 씁니다. 여러 코어를 활용해 CPU를 병렬로 쓰고 처리량을 높이려면 멀티프로세스 워커(<code>--workers N</code>)가 필요합니다. 둘은 다른 층위의 해결책이라 함께 씁니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Uvicorn, Starlette, FastAPI의 역할을 한마디씩 구분하면?</summary>
+    <div class="answer"><p>Uvicorn은 ASGI <strong>서버</strong>(소켓·HTTP 파싱·이벤트 루프), Starlette는 웹 <strong>프레임워크</strong>(라우팅·미들웨어·WebSocket), FastAPI는 그 위 <strong>확장</strong>(타입 검증·의존성·자동 문서)입니다. FastAPI는 Starlette를 상속하므로 그 자체가 Starlette 앱이기도 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> ASGI가 WSGI와 다른 핵심 한 가지는?</summary>
+    <div class="answer"><p>ASGI는 <strong>async/await와 WebSocket·장기 연결</strong>을 지원한다는 점입니다. WSGI는 동기 전용이라 비동기 동시성이나 WebSocket을 다룰 수 없습니다. FastAPI가 비동기로 동작하는 토대가 바로 ASGI(그 위의 Uvicorn)입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-async-await-threadpool.html"><span class="dir">← 이전</span><span class="ttl">async/await &amp; ThreadPool 함정</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 · Week 5 준비</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 4 · Lesson 03 · 멀티프로세스 &amp; Uvicorn/Starlette/FastAPI</footer>
+</body>
+</html>

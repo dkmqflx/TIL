@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·01 — 동기/비동기 &amp; Event Loop</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · 비동기 원리 &amp; 내부 동작</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 01</span>
+  <h1>동기 · 비동기 · Event Loop<br>FastAPI가 빠른 진짜 이유</h1>
+  <p class="subtitle">NestJS가 Node의 <strong>이벤트 루프</strong> 위에서 돌듯, FastAPI도 <strong>asyncio 이벤트 루프</strong> 위에서 돕니다. "스레드를 늘리지 않고도 동시에 많은 요청을 처리"하는 마법의 정체를 파헤칩니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>비동기는 <b>일을 더 빨리 하는 것</b>이 아니라, <b>기다리는 시간을 놀지 않는 것</b>이다. I/O(DB·네트워크)를 기다리는 동안 다른 요청을 처리한다. 그래서 <b>I/O 바운드</b>에서 빛나고, CPU 바운드엔 큰 효과가 없다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>동기(blocking)와 비동기(non-blocking)의 차이를 설명한다</li>
+    <li>동시성(concurrency)과 병렬성(parallelism)을 구분한다</li>
+    <li>멀티프로세스·멀티스레드·비동기 세 방식의 장단점을 비교한다</li>
+    <li>coroutine·await·Event Loop가 협력하는 흐름을 그린다</li>
+  </ul>
+
+  <h2><span class="num">1</span>동기(blocking) vs 비동기(non-blocking)</h2>
+  <p>동기 방식은 "한 작업이 <strong>완전히 끝날 때까지</strong> 다음 작업으로 못 넘어가는" 방식입니다. 비동기 방식은 "오래 걸리는 작업(특히 <strong>기다림</strong>)을 시작해두고, 끝나기를 기다리는 동안 다른 일을 먼저 하는" 방식이죠.</p>
+
+  <div class="box analogy">
+    <span class="ic">☕</span>
+    <span class="label">비유 — 카페 점원 한 명</span>
+    <p><strong>동기 점원</strong>은 첫 손님의 라떼가 <em>완성될 때까지</em> 카운터에 서서 기다립니다. 에스프레소가 추출되는 30초 동안 뒷줄은 그냥 멈춰 있죠. <strong>비동기 점원</strong>은 라떼 주문을 받아 머신에 걸어두고(=I/O 시작), 추출되는 동안 <em>다음 손님 주문을 받습니다</em>. 머신이 "삐—" 울리면(=I/O 완료) 그때 음료를 건네죠. 점원은 한 명(단일 스레드)인데도 줄이 훨씬 빨리 줄어듭니다. 비결은 "<strong>기다리는 시간에 다른 일을 하는 것</strong>"입니다.</p>
+  </div>
+
+  <p>여기서 핵심은 <strong>점원이 더 빨라진 게 아니라는 점</strong>입니다. 에스프레소 추출 시간 자체는 그대로입니다. 다만 그 <strong>대기 시간(I/O)</strong>을 놀리지 않고 다른 주문을 받는 데 썼을 뿐이죠. 비동기가 "일을 빨리 하는 게 아니라 기다림을 활용하는 것"이라는 말이 이 뜻입니다.</p>
+
+  <h2><span class="num">2</span>동시성(concurrency) ≠ 병렬성(parallelism)</h2>
+  <p>둘은 자주 헷갈리지만 전혀 다른 개념입니다. 한 줄로 구분하면 이렇습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>개념</th><th>한 줄 정의</th><th>카페 비유</th></tr></thead>
+    <tbody>
+      <tr><td><b>동시성</b><br>(concurrency)</td><td>여러 작업을 <strong>번갈아</strong> 진행해 "동시에 진행 중"으로 보이게 함. 실제 일꾼은 한 명일 수 있음.</td><td>점원 1명이 여러 주문을 왔다 갔다 처리</td></tr>
+      <tr><td><b>병렬성</b><br>(parallelism)</td><td>여러 작업을 <strong>물리적으로 같은 순간</strong>에 실행. 일꾼(코어)이 여러 명 필요.</td><td>점원 4명이 각자 한 주문씩 동시에 처리</td></tr>
+    </tbody>
+  </table>
+
+  <p>비동기(asyncio)는 <strong>동시성</strong>을 단일 스레드로 구현하는 기법입니다. 한 명이 빠르게 번갈아 일할 뿐, 실제로 두 코드가 같은 순간에 도는 건 아닙니다. 반면 <strong>병렬성</strong>은 코어가 여러 개 필요하고, 파이썬에선 멀티프로세스로 얻습니다(Lesson 3).</p>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">파이썬의 GIL — 왜 스레드로는 병렬 CPU가 안 되나</span>
+    <p>CPython에는 <strong>GIL(Global Interpreter Lock)</strong>이 있어 한 순간에 파이썬 바이트코드를 실행하는 스레드는 <strong>하나뿐</strong>입니다. 그래서 멀티스레드를 써도 CPU 연산은 진짜 병렬이 되지 않죠. 다만 I/O 대기 중에는 GIL을 놓아주므로, I/O 작업의 동시 처리는 가능합니다. "CPU 병렬"이 필요하면 스레드가 아니라 <strong>프로세스</strong>를 늘려야 합니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>멀티태스킹 3방식 비교</h2>
+  <p>"여러 일을 한꺼번에 처리"하는 방법은 크게 셋입니다. 무엇을 고르느냐는 작업이 <strong>I/O 바운드인지 CPU 바운드인지</strong>에 달렸습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>방식</th><th>구조</th><th>장점</th><th>단점</th><th>어울리는 작업</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>멀티프로세스</b></td>
+        <td>독립된 프로세스 여러 개<br>(각자 메모리·인터프리터)</td>
+        <td>진짜 병렬(여러 코어 활용)<br>GIL 영향 없음</td>
+        <td>메모리 많이 씀<br>프로세스 간 통신 비쌈</td>
+        <td><b>CPU 바운드</b><br>(이미지 처리, 계산)</td>
+      </tr>
+      <tr>
+        <td><b>멀티스레드</b></td>
+        <td>한 프로세스 안 스레드 여러 개<br>(메모리 공유)</td>
+        <td>메모리 적게 씀<br>I/O 대기 시 다른 스레드 진행</td>
+        <td>GIL로 CPU 병렬 불가<br>경쟁 상태(race) 위험</td>
+        <td>I/O 바운드<br>(동기 라이브러리 사용 시)</td>
+      </tr>
+      <tr>
+        <td><b>비동기</b><br>(단일 스레드<br>+이벤트 루프)</td>
+        <td>스레드 1개<br>+ 코루틴 + 이벤트 루프</td>
+        <td>스레드/메모리 오버헤드 최소<br>수천 동시 연결에 강함</td>
+        <td>코드 전체가 async여야 효과<br>CPU 작업 한 개가 전체를 막음</td>
+        <td><b>I/O 바운드</b><br>(DB·HTTP 대기)</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>세 방식은 <strong>배타적이지 않습니다</strong>. 실무 FastAPI 배포는 흔히 "<strong>비동기(I/O 동시성)</strong> + <strong>멀티프로세스 워커(CPU 활용)</strong>"를 함께 씁니다. 이 조합은 Lesson 3에서 자세히 다룹니다.</p>
+
+  <h2><span class="num">4</span>coroutine · await · Event Loop</h2>
+  <p>이제 파이썬 비동기의 부품 세 개를 봅시다. NestJS의 <code>async/await</code>를 써봤다면 모양은 거의 똑같습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>부품</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>async def</code> (coroutine)</td><td>"중간에 멈췄다 재개할 수 있는 함수". 호출해도 바로 실행되지 않고 <strong>코루틴 객체</strong>를 만든다.</td></tr>
+      <tr><td><code>await</code></td><td>"여기서 기다림이 생긴다. 끝날 때까지 <strong>이벤트 루프에 제어권을 양보</strong>한다"는 표시.</td></tr>
+      <tr><td><b>Event Loop</b></td><td>준비된 코루틴을 골라 실행하고, <code>await</code>에서 양보하면 다른 코루틴으로 갈아타는 <strong>관제탑</strong>.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> Node.js — 익숙한 async/await</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">service.ts</span></div><pre><span class="k">async</span> <span class="f">getUser</span>(id: <span class="t">number</span>) {
+  <span class="c">// await에서 이벤트 루프에 양보</span>
+  <span class="k">const</span> u = <span class="k">await</span> db.<span class="f">find</span>(id);
+  <span class="k">return</span> u;
+}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> Python — 거의 동일한 모양</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">service.py</span></div><pre><span class="k">async</span> <span class="k">def</span> <span class="f">get_user</span>(id: <span class="t">int</span>):
+    <span class="c"># await에서 이벤트 루프에 양보</span>
+    u = <span class="k">await</span> db.<span class="f">find</span>(id)
+    <span class="k">return</span> u</pre></div>
+    </div>
+  </div>
+
+  <p>흐름은 이렇습니다. 코루틴이 <code>await db.find(id)</code>를 만나면 "DB 응답을 기다려야 하니 나는 잠깐 멈출게"라며 <strong>이벤트 루프에 제어권을 넘깁니다</strong>. 루프는 그 틈에 <em>다른 요청의 코루틴</em>을 실행하죠. DB 응답이 도착하면 루프가 원래 코루틴을 <strong>멈췄던 줄부터 재개</strong>합니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 320" role="img" aria-label="Event Loop가 코루틴을 번갈아 실행하는 흐름">
+      <!-- loop circle -->
+      <circle cx="330" cy="160" r="78" fill="none" stroke="#0d6e64" stroke-width="2.5" stroke-dasharray="6 7"/>
+      <path d="M330,82 a78,78 0 0 1 60,30" fill="none" stroke="#0d6e64" stroke-width="3" marker-end="url(#el)"/>
+      <text x="330" y="150" text-anchor="middle" font-family="Fraunces, 'Pretendard', sans-serif" font-size="17" font-weight="700" fill="#0a4f48">Event</text>
+      <text x="330" y="173" text-anchor="middle" font-family="Fraunces, 'Pretendard', sans-serif" font-size="17" font-weight="700" fill="#0a4f48">Loop</text>
+      <text x="330" y="196" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">관제탑</text>
+
+      <!-- ready queue -->
+      <rect x="24" y="34" width="200" height="60" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="124" y="58" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="12" font-weight="700" fill="#0a4f48">준비 큐 (ready)</text>
+      <text x="124" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#16140f">[ 요청A · 요청C ]</text>
+      <line x1="180" y1="94" x2="262" y2="125" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#el)"/>
+      <text x="200" y="118" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">실행</text>
+
+      <!-- running task -->
+      <rect x="436" y="34" width="200" height="60" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="536" y="57" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="12" font-weight="700" fill="#ece6d6">실행 중 코루틴</text>
+      <text x="536" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#6fd6c7">요청B</text>
+      <line x1="398" y1="125" x2="478" y2="94" stroke="#c98a16" stroke-width="2.2" marker-end="url(#am)"/>
+      <text x="470" y="118" font-family="JetBrains Mono, monospace" font-size="10" fill="#9a6a05">await 양보</text>
+
+      <!-- waiting / IO -->
+      <rect x="230" y="248" width="200" height="56" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="330" y="270" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="12" font-weight="700" fill="#e0552f">I/O 대기 (DB·네트워크)</text>
+      <text x="330" y="292" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#16140f">요청B — 응답 대기 중…</text>
+      <line x1="330" y1="238" x2="330" y2="246" stroke="#e0552f" stroke-width="2"/>
+      <line x1="408" y1="248" x2="392" y2="218" stroke="#e0552f" stroke-width="2.2" marker-end="url(#co)"/>
+      <text x="438" y="240" font-family="JetBrains Mono, monospace" font-size="10" fill="#e0552f">완료 시 재개</text>
+
+      <defs>
+        <marker id="el" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="am" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="co" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>코루틴이 await로 양보하면 루프는 준비 큐의 다른 코루틴을 실행한다. I/O가 끝나면 멈췄던 줄부터 재개한다.</figcaption>
+  </figure>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">await가 없는 async 함수는 의미가 거의 없다</span>
+    <p>이벤트 루프가 "다른 일을 할 틈"은 오직 <code>await</code>가 양보하는 순간에 생깁니다. <code>async def</code>로 선언만 하고 안에서 한 번도 <code>await</code>하지 않으면, 그 코루틴은 끝까지 루프를 독점합니다. 양보 지점(<code>await</code>)이 곧 동시성의 숨구멍입니다.</p>
+  </div>
+
+  <h2><span class="num">5</span>비동기는 I/O 바운드에서 빛난다</h2>
+  <p>마지막으로 가장 중요한 한 줄입니다. 비동기의 이득은 <strong>"기다림(I/O)"을 다른 일로 메우는 것</strong>에서 나옵니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>작업 종류</th><th>예시</th><th>비동기 효과</th></tr></thead>
+    <tbody>
+      <tr><td><b>I/O 바운드</b></td><td>DB 쿼리, 외부 API 호출, 파일 읽기, 네트워크 대기</td><td><b>매우 큼</b> — 대기 시간을 다른 요청 처리에 활용</td></tr>
+      <tr><td><b>CPU 바운드</b></td><td>이미지 리사이즈, 암호화, 대규모 수치 계산</td><td><b>거의 없음</b> — 양보할 "대기"가 없어 루프를 통째로 막음</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">CPU 작업은 이벤트 루프를 통째로 멈춘다</span>
+    <p>무거운 계산(예: 큰 행렬 곱)을 <code>async def</code> 안에서 그냥 돌리면, 그 코드는 <code>await</code> 양보 없이 CPU를 붙잡습니다. 그 사이 <strong>모든 다른 요청이 멈춥니다</strong>. CPU 바운드는 비동기가 아니라 <strong>멀티프로세스</strong>(또는 워커 스레드 오프로딩)로 풀어야 합니다. 다음 Lesson에서 이 "블로킹 함정"을 정면으로 다룹니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> "비동기가 더 빠르다"는 말은 왜 부정확한가요?</summary>
+    <div class="answer"><p>개별 작업의 실행 시간 자체를 줄이는 게 아니기 때문입니다. 비동기는 I/O를 <strong>기다리는 동안</strong> 다른 작업을 처리해 전체 처리량(throughput)을 높입니다. 기다림이 없는 순수 CPU 작업은 비동기로도 빨라지지 않습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 동시성과 병렬성의 차이를 한마디로?</summary>
+    <div class="answer"><p>동시성은 "여러 작업을 번갈아 진행해 동시에 진행 중처럼 보이게" 하는 것(일꾼 1명도 가능)이고, 병렬성은 "여러 작업을 같은 순간에 물리적으로 실행"하는 것(코어가 여러 개 필요)입니다. asyncio는 동시성, 멀티프로세스는 병렬성입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 이벤트 루프는 코루틴을 언제 다른 것으로 갈아타나요?</summary>
+    <div class="answer"><p>코루틴이 <code>await</code>를 만나 제어권을 양보하는 순간입니다. 그 틈에 루프는 준비 큐의 다른 코루틴을 실행하고, 원래 코루틴의 I/O가 끝나면 멈췄던 지점부터 재개합니다. <code>await</code>가 없으면 양보가 일어나지 않아 동시성이 생기지 않습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week03-pydantic-response/03-apirouter.html"><span class="dir">← 이전</span><span class="ttl">Week 3 · APIRouter</span></a>
+    <a class="next" href="02-async-await-threadpool.html"><span class="dir">다음 →</span><span class="ttl">async/await 처리 &amp; ThreadPool 함정</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 4 · Lesson 01 · 동기/비동기 &amp; Event Loop</footer>
+</body>
+</html>

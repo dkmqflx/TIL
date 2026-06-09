@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·02 — async/await 처리 &amp; ThreadPool 함정</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · 비동기 원리 &amp; 내부 동작</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 02</span>
+  <h1>async def vs def<br>그리고 블로킹의 함정</h1>
+  <p class="subtitle">FastAPI는 <code>async def</code>와 일반 <code>def</code> 경로 함수를 <strong>서로 다른 방식</strong>으로 실행합니다. 이 차이를 모르면 <strong>서버 전체가 멈추는</strong> 가장 흔한 사고를 냅니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p><b>async def</b>는 이벤트 루프에서, 일반 <b>def</b>는 자동으로 <b>threadpool</b>에서 돈다. 가장 큰 함정은 <b>async def 안에서 블로킹 코드</b>(time.sleep, 동기 DB, requests)를 부르는 것 — 이벤트 루프 전체가 멈춰 <b>모든 요청이 느려진다</b>.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>FastAPI가 async def와 def를 어떻게 다르게 실행하는지 안다</li>
+    <li>async def 안 블로킹 호출이 왜 전체를 멈추는지 설명한다</li>
+    <li>언제 async def, 언제 def를 쓸지 결정 가이드를 익힌다</li>
+    <li>잘못된 예를 올바른 비동기·threadpool 패턴으로 고친다</li>
+  </ul>
+
+  <h2><span class="num">1</span>FastAPI의 두 갈래 실행 경로</h2>
+  <p>FastAPI(정확히는 Starlette)는 경로 함수를 보고 <strong>두 가지 방식 중 하나</strong>로 실행합니다. 함수를 어떻게 선언했는지에 따라 자동으로 갈립니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>선언</th><th>실행 위치</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td><code>async def</code></td><td><b>이벤트 루프</b> (메인 스레드)</td><td>코루틴으로 직접 실행. <code>await</code>로 양보하며 동시 처리.</td></tr>
+      <tr><td><code>def</code> (일반 함수)</td><td><b>threadpool</b> (워커 스레드)</td><td>이벤트 루프를 막지 않도록 별도 스레드로 <strong>자동 오프로딩</strong>.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box analogy">
+    <span class="ic">🏢</span>
+    <span class="label">비유 — 관제탑과 별관 작업실</span>
+    <p><strong>이벤트 루프</strong>는 관제탑 한 명입니다. <code>async def</code> 작업은 관제탑이 직접 처리하되, 기다림이 생기면(<code>await</code>) 잠깐 다른 일을 봅니다. 그런데 누군가 관제탑에게 "여기서 5분만 가만히 서 계세요(블로킹)"라고 하면 <strong>관제탑이 멈춰 모든 항공기가 대기</strong>합니다. 그래서 FastAPI는 <code>def</code>로 선언된, 멈출 수 있는 동기 작업은 아예 <strong>별관 작업실(threadpool)</strong>로 보내 관제탑을 자유롭게 둡니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>⚠️ 가장 중요한 함정 — async 안의 블로킹</h2>
+  <p>이 한 가지만 기억해도 절반은 성공입니다. <strong><code>async def</code> 안에서 동기(블로킹) 코드를 직접 호출하면 이벤트 루프가 통째로 멈춥니다.</strong> 그 코루틴이 <code>await</code> 없이 시간을 잡아먹는 동안, 같은 워커가 처리하던 <strong>다른 모든 요청이 함께 멈춥니다</strong>.</p>
+
+  <p>대표적인 블로킹 범인들입니다.</p>
+  <table class="tbl">
+    <thead><tr><th>블로킹 코드</th><th>대신 써야 할 것</th></tr></thead>
+    <tbody>
+      <tr><td><code>time.sleep(n)</code></td><td><code>await asyncio.sleep(n)</code></td></tr>
+      <tr><td><code>requests.get(url)</code> (동기 HTTP)</td><td><code>await httpx.AsyncClient().get(url)</code></td></tr>
+      <tr><td>동기 DB 드라이버 (psycopg2 등)</td><td>async 드라이버 (asyncpg, SQLAlchemy async)</td></tr>
+      <tr><td>무거운 CPU 연산</td><td><code>run_in_threadpool</code> 또는 멀티프로세스(Lesson 3)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">bad.py — 절대 이렇게 쓰지 말 것</span></div><pre><span class="k">import</span> time
+
+<span class="d">@app.get</span>(<span class="s">"/bad"</span>)
+<span class="k">async</span> <span class="k">def</span> <span class="f">bad</span>():
+    time.<span class="f">sleep</span>(<span class="n">5</span>)        <span class="c"># 😱 블로킹! 이벤트 루프가 5초간 정지</span>
+    <span class="k">return</span> {<span class="s">"ok"</span>: <span class="k">True</span>}  <span class="c"># 그 5초 동안 서버의 모든 요청이 멈춘다</span></pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">good.py — 비동기로 양보</span></div><pre><span class="k">import</span> asyncio
+
+<span class="d">@app.get</span>(<span class="s">"/good"</span>)
+<span class="k">async</span> <span class="k">def</span> <span class="f">good</span>():
+    <span class="k">await</span> asyncio.<span class="f">sleep</span>(<span class="n">5</span>)  <span class="c"># ✅ 대기 동안 루프가 다른 요청 처리</span>
+    <span class="k">return</span> {<span class="s">"ok"</span>: <span class="k">True</span>}</pre></div>
+
+  <p>둘 다 "5초 기다림"이지만 결과는 정반대입니다. <code>time.sleep</code>은 스레드를 <strong>붙잡고</strong>, <code>asyncio.sleep</code>은 이벤트 루프에 <strong>양보</strong>합니다. 양보 한 줄이 "한 요청만 5초"와 "모든 요청이 5초"를 가릅니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 250" role="img" aria-label="블로킹과 양보가 다른 요청에 미치는 영향 비교">
+      <!-- BAD lane -->
+      <text x="30" y="40" font-family="Pretendard, sans-serif" font-size="13" font-weight="700" fill="#e0552f">async def + time.sleep (블로킹)</text>
+      <rect x="30" y="52" width="500" height="34" rx="6" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="42" y="74" font-family="JetBrains Mono, monospace" font-size="11" fill="#16140f">요청A: ███████ 5초 점유 (루프 정지)</text>
+      <rect x="30" y="92" width="500" height="30" rx="6" fill="#fff" stroke="#d8cfba" stroke-width="1.5"/>
+      <text x="42" y="112" font-family="JetBrains Mono, monospace" font-size="11" fill="#807a6c">요청B: ⏳ 대기… A가 끝나야 시작 (5초 지연)</text>
+      <text x="540" y="74" font-family="JetBrains Mono, monospace" font-size="10" fill="#e0552f">😱</text>
+
+      <!-- GOOD lane -->
+      <text x="30" y="160" font-family="Pretendard, sans-serif" font-size="13" font-weight="700" fill="#0a4f48">async def + await asyncio.sleep (양보)</text>
+      <rect x="30" y="172" width="500" height="34" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="42" y="194" font-family="JetBrains Mono, monospace" font-size="11" fill="#16140f">요청A: ─ await ─ (대기 중, 루프 양보)</text>
+      <rect x="30" y="212" width="500" height="30" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="42" y="232" font-family="JetBrains Mono, monospace" font-size="11" fill="#16140f">요청B: ▶ A 대기 중 바로 처리됨 (지연 없음)</text>
+      <text x="540" y="194" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">✅</text>
+    </svg>
+    <figcaption>블로킹은 같은 워커의 다른 요청까지 멈춘다. await는 대기 중 다른 요청을 처리하게 한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>그럼 동기 라이브러리만 있으면? — def로 두기</h2>
+  <p>async 버전이 없는 라이브러리(예: 어떤 SDK, 동기 ORM)를 써야 할 때가 있습니다. 그땐 억지로 <code>async def</code>에 넣지 말고, <strong>그냥 <code>def</code>로 선언</strong>하세요. FastAPI가 알아서 threadpool로 보내 이벤트 루프를 보호합니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — 늘 async가 기본</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">cats.controller.ts</span></div><pre><span class="d">@Get</span>()
+<span class="k">async</span> <span class="f">findAll</span>() {
+  <span class="k">return</span> <span class="k">this</span>.svc.<span class="f">findAll</span>();
+}</pre></div>
+      <p>Node엔 동기 I/O가 드물어 거의 async로 통일.</p>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — 선택이 의미를 가짐</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="c"># 동기 라이브러리 → def로!</span>
+<span class="d">@app.get</span>(<span class="s">"/report"</span>)
+<span class="k">def</span> <span class="f">report</span>():
+    <span class="k">return</span> sync_orm.<span class="f">query</span>()</pre></div>
+      <p>def면 threadpool로 자동 오프로딩.</p>
+    </div>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">threadpool은 무한하지 않다 (기본 ~40 스레드)</span>
+    <p>"동기는 def로 두면 안전"은 맞지만 <strong>무제한은 아닙니다</strong>. FastAPI의 threadpool(AnyIO 기반)은 기본적으로 <strong>약 40개 스레드</strong>로 제한됩니다. 동시 요청이 이 수를 넘기면 나머지는 <strong>큐에서 대기</strong>하죠. 느린 동기 작업이 폭주하면 풀이 고갈되어 결국 지연이 생깁니다. 트래픽이 높은 I/O라면 <strong>진짜 비동기 라이브러리 + async def</strong>가 정답입니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>결정 가이드 — async def? def?</h2>
+  <p>실무에서 헷갈릴 때 이 표 하나로 정리됩니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>상황</th><th>선택</th><th>이유</th></tr></thead>
+    <tbody>
+      <tr><td>I/O인데 <b>async 라이브러리</b>가 있다 (httpx, asyncpg)</td><td><code>async def</code> + <code>await</code></td><td>이벤트 루프에서 최고 효율로 동시 처리</td></tr>
+      <tr><td>I/O인데 <b>동기 라이브러리</b>밖에 없다 (requests, psycopg2)</td><td><code>def</code></td><td>threadpool이 루프를 막지 않게 오프로딩</td></tr>
+      <tr><td>가벼운 <b>CPU 작업</b> (간단 계산)</td><td><code>def</code></td><td>threadpool로 보내 루프 보호</td></tr>
+      <tr><td>무거운 <b>CPU 작업</b> (대규모 연산)</td><td>멀티프로세스 / 큐(Celery 등)</td><td>GIL 때문에 스레드론 부족 → Lesson 3</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">async 함수 안에서 동기 함수를 꼭 불러야 할 때</span>
+    <p>이미 <code>async def</code> 안인데 동기 함수를 한 번 호출해야 한다면, 직접 부르지 말고 <code>run_in_threadpool</code>로 감싸 워커 스레드로 보내세요. 이러면 그 동기 호출이 이벤트 루프를 막지 않습니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi.concurrency <span class="k">import</span> run_in_threadpool
+
+<span class="d">@app.get</span>(<span class="s">"/mixed"</span>)
+<span class="k">async</span> <span class="k">def</span> <span class="f">mixed</span>():
+    <span class="c"># 동기 blocking 함수를 워커 스레드로 오프로딩</span>
+    result = <span class="k">await</span> <span class="f">run_in_threadpool</span>(sync_blocking_call, arg)
+    <span class="k">return</span> {<span class="s">"data"</span>: result}</pre></div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>async def</code> 경로와 일반 <code>def</code> 경로는 어디서 실행되나요?</summary>
+    <div class="answer"><p><code>async def</code>는 메인 <strong>이벤트 루프</strong>에서 코루틴으로 직접 실행됩니다. 일반 <code>def</code>는 FastAPI가 자동으로 <strong>threadpool(워커 스레드)</strong>로 보내 이벤트 루프를 막지 않게 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>async def</code> 안에 <code>time.sleep(5)</code>를 쓰면 무슨 일이 일어나죠?</summary>
+    <div class="answer"><p><code>time.sleep</code>은 블로킹이라 <code>await</code> 양보 없이 이벤트 루프를 5초간 붙잡습니다. 그동안 같은 워커가 처리하던 <strong>모든 요청이 함께 멈춥니다</strong>. <code>await asyncio.sleep(5)</code>로 바꾸면 대기 중 루프가 다른 요청을 처리합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> "동기 라이브러리는 그냥 def로 두면 항상 안전"한가요?</summary>
+    <div class="answer"><p>대체로 안전하지만 무제한은 아닙니다. threadpool은 기본 약 40개 스레드로 제한되어, 느린 동기 작업이 폭주하면 풀이 고갈되고 나머지 요청이 큐에서 대기합니다. 트래픽이 큰 I/O는 async 라이브러리 + <code>async def</code>가 더 낫습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-sync-async-eventloop.html"><span class="dir">← 이전</span><span class="ttl">동기/비동기 &amp; Event Loop</span></a>
+    <a class="next" href="03-multiprocess-uvicorn-starlette.html"><span class="dir">다음 →</span><span class="ttl">멀티프로세스 &amp; Uvicorn/Starlette/FastAPI</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 4 · Lesson 02 · async/await &amp; ThreadPool</footer>
+</body>
+</html>

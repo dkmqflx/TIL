@@ -144,4 +144,4 @@ backend/fastapi/self-study/
 - [x] Week 7 — 비동기 DB & 외부 통신
 - [x] Week 8 — 인증 / 인가
 - [x] Week 9 — 실시간 & 이벤트 & 성능
-- [ ] Week 10 — 테스트 심화 & 배포
+- [x] Week 10 — 테스트 심화 & 배포

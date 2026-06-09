@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 10·01 — pytest 심화: Mocking · Fixture · TestClient</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 10 · 테스트 심화 &amp; 배포</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 10 — Lesson 01</span>
+  <h1>pytest 심화<br>Mocking · Fixture · TestClient</h1>
+  <p class="subtitle">"테스트가 통과하니 배포해도 된다"고 말하려면, 테스트가 <strong>빠르고 격리되고 반복 가능</strong>해야 합니다. pytest의 fixture·mocking과 FastAPI의 <strong>TestClient + dependency_overrides</strong>로 그 토대를 세웁니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>좋은 테스트는 <b>매번 같은 결과</b>를 낸다. 그러려면 외부 세계(실 DB·외부 API)를 끊어내야 한다. <b>fixture</b>로 셋업/티어다운을 재사용하고, <b>dependency_overrides</b>로 진짜 DB를 테스트 DB로 갈아끼우고, <b>mock</b>으로 외부 호출을 가짜 응답으로 대체한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>fixture로 테스트 셋업/티어다운을 재사용하고 conftest.py로 공유한다</li>
+    <li>TestClient로 GET/POST/PATCH/DELETE를 상태코드·본문까지 검증한다</li>
+    <li>dependency_overrides로 get_db를 테스트용 sqlite로 교체한다</li>
+    <li>monkeypatch/Mock으로 외부 의존성을 격리한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>테스트 피라미드 — 무엇을 얼마나</h2>
+  <p>테스트는 다 같은 무게가 아닙니다. <strong>단위(unit) &gt; 통합(integration) &gt; e2e</strong> 순으로 아래쪽을 두텁게 쌓는 게 정석입니다. 단위 테스트는 빠르고 많고, 위로 갈수록 느리고 적게. 우리가 오늘 쓰는 TestClient 테스트는 "앱+DB를 함께 도는" 통합 테스트 영역입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🎭</span>
+    <span class="label">비유 — Mock은 대역 배우</span>
+    <p>액션 영화에서 위험한 장면은 <strong>스턴트 대역</strong>이 대신합니다. 외부 결제 API·날씨 API처럼 "진짜로 부르면 느리고·돈 들고·매번 답이 다른" 의존성은, 테스트에서 <strong>가짜 응답을 주는 대역(Mock)</strong>으로 바꿔칩니다. 덕분에 테스트는 네트워크 없이도 항상 같은 결과를 냅니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>fixture — 셋업/티어다운을 재사용</h2>
+  <p>모든 테스트가 "DB 연결 → 테이블 생성 → ... → 정리"를 반복하면 코드가 더럽습니다. pytest <code>fixture</code>는 그 <strong>준비물(setup)과 뒷정리(teardown)를 함수 하나로 묶어 재사용</strong>하게 해줍니다. <code>yield</code> 위는 셋업, 아래는 티어다운입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">test 예시</span></div><pre><span class="k">import</span> pytest
+
+<span class="d">@pytest.fixture</span>
+<span class="k">def</span> <span class="f">client</span>():
+    Base.metadata.<span class="f">create_all</span>(bind=test_engine)   <span class="c"># setup: 테이블 생성</span>
+    app.dependency_overrides[get_db] = override_get_db
+    <span class="k">with</span> <span class="t">TestClient</span>(app) <span class="k">as</span> c:
+        <span class="k">yield</span> c                               <span class="c"># 테스트에 c 를 넘겨줌</span>
+    app.dependency_overrides.<span class="f">clear</span>()         <span class="c"># teardown: 정리</span>
+    Base.metadata.<span class="f">drop_all</span>(bind=test_engine)
+
+<span class="k">def</span> <span class="f">test_create</span>(client):                       <span class="c"># 인자 이름 = fixture 이름</span>
+    res = client.<span class="f">post</span>(<span class="s">"/todos"</span>, json={<span class="s">"title"</span>: <span class="s">"장보기"</span>})
+    <span class="k">assert</span> res.status_code == <span class="n">201</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">conftest.py — 여러 파일이 공유하는 fixture</span>
+    <p>같은 <code>client</code>·<code>db_session</code> fixture를 여러 테스트 파일에서 쓰고 싶다면 <code>conftest.py</code>에 정의하세요. pytest는 그 디렉터리(및 하위)의 모든 <code>test_*.py</code>에서 <strong>import 없이 자동으로</strong> 인식합니다. 공유 셋업의 단일 출처가 됩니다.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — Jest + supertest</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todos.e2e-spec.ts</span></div><pre><span class="k">beforeAll</span>(<span class="k">async</span> () => {
+  <span class="k">const</span> mod = <span class="k">await</span> <span class="t">Test</span>
+    .<span class="f">createTestingModule</span>({ imports: [<span class="t">AppModule</span>] })
+    .<span class="f">compile</span>();
+  app = mod.<span class="f">createNestApplication</span>();
+  <span class="k">await</span> app.<span class="f">init</span>();
+});
+
+<span class="f">it</span>(<span class="s">'POST /todos'</span>, () =>
+  <span class="f">request</span>(app.<span class="f">getHttpServer</span>())
+    .<span class="f">post</span>(<span class="s">'/todos'</span>).<span class="f">expect</span>(<span class="n">201</span>));</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — pytest + TestClient</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">test_main.py</span></div><pre><span class="d">@pytest.fixture</span>
+<span class="k">def</span> <span class="f">client</span>():
+    <span class="k">with</span> <span class="t">TestClient</span>(app) <span class="k">as</span> c:
+        <span class="k">yield</span> c
+
+<span class="k">def</span> <span class="f">test_create</span>(client):
+    res = client.<span class="f">post</span>(<span class="s">"/todos"</span>,
+        json={<span class="s">"title"</span>: <span class="s">"x"</span>})
+    <span class="k">assert</span> res.status_code == <span class="n">201</span></pre></div>
+      <p><code>beforeAll/afterAll</code> ↔ fixture의 <code>yield</code> 전후. supertest ↔ TestClient.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">3</span>TestClient — CRUD를 실제로 두드려보기</h2>
+  <p><code>TestClient</code>는 httpx 기반으로, 진짜 서버를 띄우지 않고 <strong>ASGI 앱을 메모리에서 직접 호출</strong>합니다. 빠르고, 네트워크가 필요 없죠. CRUD마다 <strong>상태코드와 응답 본문</strong>을 모두 확인하는 게 핵심입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">test_main.py</span></div><pre><span class="k">def</span> <span class="f">test_get_todo</span>(client):
+    created = client.<span class="f">post</span>(<span class="s">"/todos"</span>, json={<span class="s">"title"</span>: <span class="s">"운동"</span>}).<span class="f">json</span>()
+    res = client.<span class="f">get</span>(<span class="s">f"/todos/{created['id']}"</span>)
+    <span class="k">assert</span> res.status_code == <span class="n">200</span>          <span class="c"># 상태코드 확인</span>
+    <span class="k">assert</span> res.<span class="f">json</span>()[<span class="s">"title"</span>] == <span class="s">"운동"</span>    <span class="c"># 본문 확인</span>
+
+<span class="k">def</span> <span class="f">test_patch_todo</span>(client):
+    cid = client.<span class="f">post</span>(<span class="s">"/todos"</span>, json={<span class="s">"title"</span>: <span class="s">"독서"</span>}).<span class="f">json</span>()[<span class="s">"id"</span>]
+    res = client.<span class="f">patch</span>(<span class="s">f"/todos/{cid}"</span>, json={<span class="s">"done"</span>: <span class="k">True</span>})
+    <span class="k">assert</span> res.<span class="f">json</span>()[<span class="s">"done"</span>] <span class="k">is</span> <span class="k">True</span>
+
+<span class="k">def</span> <span class="f">test_delete_todo</span>(client):
+    cid = client.<span class="f">post</span>(<span class="s">"/todos"</span>, json={<span class="s">"title"</span>: <span class="s">"삭제"</span>}).<span class="f">json</span>()[<span class="s">"id"</span>]
+    <span class="k">assert</span> client.<span class="f">delete</span>(<span class="s">f"/todos/{cid}"</span>).status_code == <span class="n">204</span>
+    <span class="k">assert</span> client.<span class="f">get</span>(<span class="s">f"/todos/{cid}"</span>).status_code == <span class="n">404</span>  <span class="c"># 삭제 후 없음</span></pre></div>
+
+  <h2><span class="num">4</span>dependency_overrides — 진짜 DB를 테스트 DB로</h2>
+  <p>테스트가 운영 DB를 건드리면 재앙입니다. FastAPI의 <code>app.dependency_overrides</code>는 <strong>의존성(get_db)을 통째로 다른 함수로 갈아끼우는</strong> 공식 메커니즘입니다. 운영에선 <code>get_db</code>가 PostgreSQL 세션을 주지만, 테스트에선 별도 sqlite를 주는 함수로 바꿉니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">test_main.py</span></div><pre><span class="k">from</span> sqlalchemy.pool <span class="k">import</span> StaticPool
+
+<span class="c"># 테스트용 in-memory sqlite — 커넥션을 공유해야 테이블이 유지된다</span>
+test_engine = <span class="f">create_engine</span>(
+    <span class="s">"sqlite://"</span>,
+    connect_args={<span class="s">"check_same_thread"</span>: <span class="k">False</span>},
+    poolclass=<span class="t">StaticPool</span>,                  <span class="c"># 핵심! 단일 커넥션 재사용</span>
+)
+TestingSessionLocal = <span class="f">sessionmaker</span>(bind=test_engine)
+
+<span class="k">def</span> <span class="f">override_get_db</span>():
+    db = <span class="f">TestingSessionLocal</span>()
+    <span class="k">try</span>:
+        <span class="k">yield</span> db
+    <span class="k">finally</span>:
+        db.<span class="f">close</span>()
+
+app.dependency_overrides[get_db] = override_get_db   <span class="c"># 갈아끼우기</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">in-memory sqlite의 함정 — StaticPool</span>
+    <p><code>"sqlite://"</code>(in-memory)는 <strong>커넥션마다 DB가 새로 생깁니다.</strong> 기본 풀을 쓰면 매 요청이 새 커넥션 → 방금 만든 테이블이 사라져 CRUD 테스트가 알 수 없는 이유로 실패합니다. 반드시 <code>poolclass=StaticPool</code> + <code>check_same_thread=False</code>로 <strong>단 하나의 커넥션을 공유</strong>하게 하세요. (대안: <code>sqlite:///./test.db</code> 파일 사용.)</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 230" role="img" aria-label="dependency_overrides로 테스트 DB 주입">
+      <!-- request -->
+      <rect x="18" y="92" width="120" height="46" rx="9" fill="#16140f" stroke="#2c281f"/>
+      <text x="78" y="120" text-anchor="middle" font-family="Pretendard" font-size="12.5" fill="#ece6d6">TestClient 요청</text>
+      <line x1="138" y1="115" x2="208" y2="115" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#a1)"/>
+      <!-- endpoint with Depends(get_db) -->
+      <rect x="210" y="78" width="180" height="74" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="300" y="104" text-anchor="middle" font-family="Pretendard" font-size="12.5" fill="#16140f">엔드포인트</text>
+      <text x="300" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">Depends(get_db)</text>
+      <!-- switch -->
+      <line x1="390" y1="100" x2="470" y2="50" stroke="#807a6c" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#a2)"/>
+      <line x1="390" y1="130" x2="470" y2="180" stroke="#0d6e64" stroke-width="2.8" marker-end="url(#a1)"/>
+      <!-- prod db (overridden out) -->
+      <rect x="472" y="22" width="170" height="52" rx="10" fill="#f0eadd" stroke="#807a6c" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="557" y="44" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#807a6c">운영 PostgreSQL</text>
+      <text x="557" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#807a6c">override 로 차단 ✕</text>
+      <!-- test db -->
+      <rect x="472" y="156" width="170" height="52" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.8"/>
+      <text x="557" y="178" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#16140f">테스트 sqlite</text>
+      <text x="557" y="196" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">StaticPool 공유</text>
+      <text x="430" y="200" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64">override</text>
+      <defs>
+        <marker id="a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+      </defs>
+    </svg>
+    <figcaption>get_db를 override_get_db로 교체 → 같은 코드가 운영 DB 대신 테스트 sqlite를 본다.</figcaption>
+  </figure>
+
+  <h2><span class="num">5</span>Mocking — 외부 의존성 격리</h2>
+  <p>DB는 테스트 DB로 바꿨지만, "외부 날씨 API·결제 API" 같은 <strong>네트워크 호출</strong>은 어떻게 할까요? 함수 자체를 가짜로 갈아끼웁니다. pytest의 <code>monkeypatch</code> 또는 표준 라이브러리 <code>unittest.mock</code>을 씁니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">test_main.py</span></div><pre><span class="k">def</span> <span class="f">call_weather_api</span>(city):       <span class="c"># 실제론 외부 HTTP 호출</span>
+    ...
+
+<span class="k">def</span> <span class="f">summarize_weather</span>(city):
+    data = <span class="f">call_weather_api</span>(city)
+    <span class="k">return</span> <span class="s">f"{city}: {data['temp']}도"</span>
+
+<span class="k">def</span> <span class="f">test_summary</span>(monkeypatch):
+    <span class="c"># 외부 API 대신 가짜 응답을 주는 "대역"을 주입</span>
+    monkeypatch.<span class="f">setattr</span>(<span class="s">"test_main.call_weather_api"</span>,
+                        <span class="k">lambda</span> c: {<span class="s">"temp"</span>: <span class="n">21</span>})
+    <span class="k">assert</span> <span class="f">summarize_weather</span>(<span class="s">"서울"</span>) == <span class="s">"서울: 21도"</span></pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>도구</th><th>방식</th><th>언제</th></tr></thead>
+    <tbody>
+      <tr><td><code>monkeypatch</code></td><td>속성/함수/환경변수를 테스트 동안만 교체</td><td>pytest 기본, 간단한 교체</td></tr>
+      <tr><td><code>unittest.mock.MagicMock</code></td><td>가짜 객체 + 호출 여부·인자 검증</td><td>"몇 번 불렸나"까지 확인</td></tr>
+      <tr><td><code>mocker</code> (pytest-mock)</td><td>mock을 fixture로 깔끔하게</td><td>mock을 자주 쓸 때</td></tr>
+      <tr><td><code>dependency_overrides</code></td><td>FastAPI 의존성 자체를 교체</td><td>DB·인증 등 Depends 대상</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">"어디를" patch 하느냐가 핵심</span>
+    <p>mock은 <strong>정의된 곳이 아니라 사용되는 곳</strong>을 패치해야 먹힙니다. <code>summarize_weather</code>가 <code>test_main</code> 모듈에서 <code>call_weather_api</code>를 부른다면 <code>"test_main.call_weather_api"</code>를 패치하세요. 이걸 헷갈리면 "분명 mock 했는데 진짜가 불린다"는 함정에 빠집니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 테스트에서 실제 DB 대신 테스트 DB를 쓰게 하는 FastAPI 메커니즘은?</summary>
+    <div class="answer"><p><code>app.dependency_overrides[get_db] = override_get_db</code>입니다. <code>Depends(get_db)</code>를 쓰는 모든 엔드포인트가 자동으로 테스트용 세션을 받게 됩니다. 테스트가 끝나면 <code>.clear()</code>로 원복합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> in-memory sqlite로 TestClient를 돌렸더니 "테이블이 없다"고 합니다. 왜죠?</summary>
+    <div class="answer"><p>기본 커넥션 풀에서는 요청마다 새 커넥션이 잡히고, in-memory DB는 커넥션마다 새로 만들어지기 때문입니다. <code>create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)</code>로 단일 커넥션을 공유시키면 해결됩니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> monkeypatch와 dependency_overrides는 언제 무엇을 쓰나요?</summary>
+    <div class="answer"><p>외부 API 호출 같은 <strong>일반 함수/속성</strong>은 <code>monkeypatch</code>(또는 unittest.mock)로 교체합니다. <code>Depends</code>로 주입되는 <strong>FastAPI 의존성(DB 세션, 현재 사용자 등)</strong>은 <code>dependency_overrides</code>로 교체합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week09-realtime-events/03-performance-test.html"><span class="dir">← 이전</span><span class="ttl">Week 9 · 성능 테스트 &amp; 개선</span></a>
+    <a class="next" href="02-alembic-migration.html"><span class="dir">다음 →</span><span class="ttl">Alembic 마이그레이션</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 10 · Lesson 01 · pytest 심화</footer>
+</body>
+</html>

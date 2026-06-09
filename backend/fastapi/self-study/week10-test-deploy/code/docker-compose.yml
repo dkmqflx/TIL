@@ -1,0 +1,42 @@
+# =============================================================================
+# docker-compose.yml — app + postgres + redis 를 한 번에 묶어 띄우기
+# =============================================================================
+# 실행:  docker compose up --build
+# 종료:  docker compose down        (볼륨까지: docker compose down -v)
+# =============================================================================
+services:
+  app:
+    build: .                       # 위 Dockerfile 로 이미지 빌드
+    ports:
+      - "8000:8000"
+    environment:
+      # 컨테이너 네트워크 안에서는 서비스 이름(db/redis)이 곧 호스트명이 된다
+      DATABASE_URL: postgresql+psycopg://app:secret@db:5432/appdb
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: appdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:                   # DB 가 실제로 준비됐는지 확인 후 app 시작
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 10·02 — Alembic 마이그레이션</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 10 · 테스트 심화 &amp; 배포</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 10 — Lesson 02</span>
+  <h1>Alembic 마이그레이션<br>DB 스키마의 버전 관리</h1>
+  <p class="subtitle">개발 초기엔 <code>create_all()</code>로 충분했지만, 운영 중 <strong>"컬럼 하나 추가"</strong>가 필요한 순간 그 한계가 드러납니다. 스키마 변경을 안전하게 이력으로 남기는 도구 — Alembic을 익힙니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p><code>create_all()</code>은 <b>없는 테이블만 만들 뿐</b>, 이미 있는 테이블의 컬럼을 바꾸지 못한다. Alembic은 스키마 변경을 <b>버전 파일(rev)</b>로 기록하고 <b>upgrade/downgrade</b>로 앞뒤로 옮긴다 — 한마디로 <b>DB 스키마용 git</b>이다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>create_all()의 한계와 마이그레이션이 필요한 이유를 안다</li>
+    <li>alembic init → env.py 연결 → revision → upgrade 흐름을 익힌다</li>
+    <li>마이그레이션 파일의 upgrade/downgrade 구조를 읽는다</li>
+    <li>autogenerate의 한계를 알고 생성 결과를 검토한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 마이그레이션인가</h2>
+  <p>Week 7에서 <code>Base.metadata.create_all(engine)</code>로 테이블을 만들었습니다. 그런데 이 함수는 <strong>"존재하지 않는 테이블만 새로 만들" 뿐</strong>, 이미 있는 테이블에 컬럼을 더하거나 타입을 바꾸지는 못합니다. 운영 DB에 데이터가 쌓인 상태에서 "할 일에 우선순위 컬럼 추가"가 필요해지면, <code>create_all()</code>은 아무 일도 하지 않습니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🌿</span>
+    <span class="label">비유 — Alembic은 DB 스키마용 git</span>
+    <p>코드는 git으로 커밋·이력 관리하고, 문제가 생기면 이전 커밋으로 되돌립니다. <strong>DB 스키마도 똑같이 다뤄야</strong> 합니다. Alembic의 각 마이그레이션 파일은 하나의 <strong>커밋</strong>이고, <code>upgrade</code>는 앞으로 가는 변경, <code>downgrade</code>는 되돌리는 변경입니다. <code>alembic upgrade head</code>는 "최신 커밋까지 따라잡기"인 셈이죠.</p>
+  </div>
+
+  <h2><span class="num">2</span>시작하기 — init과 env.py 연결</h2>
+  <p><code>alembic init</code>으로 마이그레이션 작업 폴더를 만들고, <strong>env.py에 우리 모델의 metadata를 연결</strong>합니다. 이 연결이 있어야 autogenerate가 "모델 ↔ 실제 DB"의 차이를 감지합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># 마이그레이션 폴더(alembic/) + alembic.ini 생성</span>
+$ alembic init alembic</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">alembic/env.py</span></div><pre><span class="c"># 우리 모델의 Base 를 가져와 metadata 를 연결한다</span>
+<span class="k">from</span> app.database <span class="k">import</span> Base
+<span class="k">from</span> app <span class="k">import</span> models          <span class="c"># 모든 모델이 Base 에 등록되도록 import</span>
+
+target_metadata = Base.metadata   <span class="c"># ← autogenerate 가 이걸 기준으로 비교</span>
+
+<span class="c"># DB URL 은 alembic.ini 의 sqlalchemy.url 또는 env 변수로 주입</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">모델 import를 빠뜨리지 말 것</span>
+    <p>autogenerate는 <code>target_metadata</code>에 <strong>등록된 모델</strong>만 봅니다. <code>models.py</code>를 어딘가에서 import하지 않으면 그 테이블이 metadata에 안 잡혀, Alembic이 "이 테이블 지워야겠네"라고 <strong>오판</strong>할 수 있습니다. env.py에서 모델 모듈을 확실히 import하세요.</p>
+  </div>
+
+  <h2><span class="num">3</span>변경 만들기 — revision &amp; upgrade</h2>
+  <p>모델을 수정한 뒤 <code>--autogenerate</code>로 마이그레이션을 생성하면, Alembic이 "모델과 현재 DB의 차이"를 읽어 변경 스크립트 초안을 만들어 줍니다. 그다음 <code>upgrade head</code>로 적용합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># 1) 모델 변경 후, 차이를 읽어 마이그레이션 파일 생성</span>
+$ alembic revision --autogenerate -m <span class="s">"add priority to todos"</span>
+
+<span class="c"># 2) 최신 버전까지 적용 (DB 에 실제 반영)</span>
+$ alembic upgrade head
+
+<span class="c"># 되돌리기: 직전 버전으로 한 칸</span>
+$ alembic downgrade -1
+
+<span class="c"># 현재 버전 / 이력 확인</span>
+$ alembic current
+$ alembic history</pre></div>
+
+  <p>생성된 마이그레이션 파일은 <strong><code>upgrade()</code>(앞으로)와 <code>downgrade()</code>(되돌리기)</strong> 두 함수로 이뤄집니다. <code>down_revision</code>이 부모(이전) 버전을 가리켜 사슬처럼 연결됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">alembic/versions/3f9a..._add_priority.py</span></div><pre>revision = <span class="s">"3f9a1c"</span>
+down_revision = <span class="s">"a1b2c3"</span>      <span class="c"># 이전 버전 = 부모 (사슬 연결)</span>
+
+<span class="k">def</span> <span class="f">upgrade</span>():
+    op.<span class="f">add_column</span>(<span class="s">"todos"</span>,
+        sa.<span class="t">Column</span>(<span class="s">"priority"</span>, sa.<span class="t">Integer</span>(), server_default=<span class="s">"1"</span>))
+
+<span class="k">def</span> <span class="f">downgrade</span>():
+    op.<span class="f">drop_column</span>(<span class="s">"todos"</span>, <span class="s">"priority"</span>)   <span class="c"># upgrade 의 정확한 역연산</span></pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 200" role="img" aria-label="마이그레이션 버전 흐름">
+      <!-- revisions -->
+      <g font-family="Pretendard" font-size="12.5">
+        <rect x="40" y="78" width="120" height="48" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.6"/>
+        <text x="100" y="98" text-anchor="middle" fill="#16140f">rev 1</text>
+        <text x="100" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">create todos</text>
+
+        <rect x="270" y="78" width="120" height="48" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.6"/>
+        <text x="330" y="98" text-anchor="middle" fill="#16140f">rev 2</text>
+        <text x="330" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">+ priority</text>
+
+        <rect x="500" y="78" width="120" height="48" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="1.8"/>
+        <text x="560" y="98" text-anchor="middle" fill="#ece6d6">rev 3 (head)</text>
+        <text x="560" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#9ad9a0">+ due_date</text>
+      </g>
+      <!-- upgrade arrows -->
+      <line x1="160" y1="92" x2="268" y2="92" stroke="#0d6e64" stroke-width="2.6" marker-end="url(#ua)"/>
+      <line x1="390" y1="92" x2="498" y2="92" stroke="#0d6e64" stroke-width="2.6" marker-end="url(#ua)"/>
+      <text x="214" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64">upgrade</text>
+      <text x="444" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64">upgrade</text>
+      <!-- downgrade arrows -->
+      <line x1="268" y1="114" x2="160" y2="114" stroke="#e0552f" stroke-width="2.2" stroke-dasharray="5 4" marker-end="url(#da)"/>
+      <line x1="498" y1="114" x2="390" y2="114" stroke="#e0552f" stroke-width="2.2" stroke-dasharray="5 4" marker-end="url(#da)"/>
+      <text x="214" y="148" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f">downgrade</text>
+      <text x="444" y="148" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f">downgrade</text>
+      <defs>
+        <marker id="ua" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="da" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>rev1 → rev2 → rev3(head). upgrade는 앞으로, downgrade는 정확히 그 역으로 되돌린다.</figcaption>
+  </figure>
+
+  <h2><span class="num">4</span>NestJS TypeORM 마이그레이션과 나란히</h2>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — TypeORM</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal + migration</span></div><pre><span class="c"># 엔티티 변경 후 생성</span>
+$ typeorm migration:generate \
+    src/migrations/AddPriority
+$ typeorm migration:run
+$ typeorm migration:revert
+
+<span class="c">// 1700000000-AddPriority.ts</span>
+<span class="k">async</span> <span class="f">up</span>(q): { <span class="c">/* ALTER … */</span> }
+<span class="k">async</span> <span class="f">down</span>(q): { <span class="c">/* 되돌리기 */</span> }</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — Alembic</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal + migration</span></div><pre><span class="c"># 모델 변경 후 생성</span>
+$ alembic revision --autogenerate \
+    -m <span class="s">"add priority"</span>
+$ alembic upgrade head
+$ alembic downgrade -1
+
+<span class="c"># versions/..._add_priority.py</span>
+<span class="k">def</span> <span class="f">upgrade</span>(): ...
+<span class="k">def</span> <span class="f">downgrade</span>(): ...</pre></div>
+      <p><code>migration:generate</code> ↔ <code>revision --autogenerate</code>, <code>up/down</code> ↔ <code>upgrade/downgrade</code>. 개념이 1:1로 맞습니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">5</span>autogenerate의 한계 — 반드시 검토</h2>
+  <p>autogenerate는 강력하지만 <strong>만능이 아닙니다.</strong> 테이블·컬럼 추가/삭제 같은 굵직한 변경은 잘 잡지만, 일부 변경은 놓치거나 위험하게 생성합니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">생성된 마이그레이션은 사람이 꼭 검토</span>
+    <p>autogenerate가 <strong>못 잡거나 부정확한</strong> 대표 사례: 컬럼 <strong>타입 변경</strong>(detect 옵션 없으면 무시), 컬럼/테이블 <strong>이름 변경</strong>(drop+add로 오인 → 데이터 유실!), 일부 제약·인덱스, 서버 기본값 등. 운영 데이터가 걸린 변경일수록 <strong>생성된 <code>upgrade()</code>/<code>downgrade()</code>를 눈으로 확인하고 수정</strong>한 뒤 적용하세요. "git diff 없이 머지"하지 않듯이요.</p>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">create_all과 Alembic은 함께 쓰지 않는다</span>
+    <p>Alembic을 도입했다면 앱 시작 시의 <code>Base.metadata.create_all()</code>은 제거하세요. 둘이 동시에 스키마를 만들면 "이미 테이블이 있는데 Alembic은 처음부터 만들려 한다"는 충돌이 납니다. <strong>스키마의 단일 진실 공급원(SSOT)은 마이그레이션 이력</strong>이어야 합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>create_all()</code>로는 왜 컬럼 추가가 안 되나요?</summary>
+    <div class="answer"><p><code>create_all()</code>은 "존재하지 않는 테이블을 생성"하는 함수일 뿐, 이미 존재하는 테이블의 스키마(컬럼 추가·타입 변경 등)는 건드리지 않습니다. 변경 이력을 다루려면 Alembic 같은 마이그레이션 도구가 필요합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> autogenerate가 만든 마이그레이션을 그대로 믿어도 되나요?</summary>
+    <div class="answer"><p>아니요. 타입 변경을 놓치거나, 컬럼 이름 변경을 drop+add(데이터 유실)로 오인할 수 있습니다. 생성된 <code>upgrade()</code>/<code>downgrade()</code>를 반드시 검토하고, 필요하면 직접 수정한 뒤 적용해야 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 배포한 변경에 문제가 생겼습니다. 어떻게 되돌리나요?</summary>
+    <div class="answer"><p><code>alembic downgrade -1</code>로 직전 버전으로, 또는 <code>alembic downgrade &lt;revision&gt;</code>로 특정 버전까지 되돌립니다. 각 마이그레이션의 <code>downgrade()</code>가 <code>upgrade()</code>의 역연산을 정확히 담고 있어야 안전하게 롤백됩니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-pytest-mocking-fixture.html"><span class="dir">← 이전</span><span class="ttl">pytest 심화: Mocking · Fixture</span></a>
+    <a class="next" href="03-docker-cicd-retrospective.html"><span class="dir">다음 →</span><span class="ttl">Docker · CI/CD · 회고</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 10 · Lesson 02 · Alembic 마이그레이션</footer>
+</body>
+</html>

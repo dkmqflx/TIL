@@ -1,0 +1,41 @@
+# place at .github/workflows/ci.yml
+# =============================================================================
+# GitHub Actions CI — push / PR 시 lint(ruff) + test(pytest) 자동 실행
+# =============================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # 1) 저장소 코드를 러너로 체크아웃
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) uv 설치 (파이썬도 uv 가 관리하도록 함)
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true       # 의존성 캐시로 CI 속도 향상
+
+      # 3) pyproject 가 요구하는 파이썬 버전 설치
+      - name: Set up Python
+        run: uv python install
+
+      # 4) 락 파일대로 의존성 동기화 (개발 의존성 포함: ruff/pytest 필요)
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # 5) Lint — ruff 로 코드 스타일/오류 검사
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      # 6) Test — pytest 실행
+      - name: Test (pytest)
+        run: uv run pytest -v

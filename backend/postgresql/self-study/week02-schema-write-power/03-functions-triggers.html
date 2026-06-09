@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 2·03 — PL/pgSQL 함수 · 트리거</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · 스키마 설계 · 쓰기 측 강력 기능</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 2 — Lesson 03</span>
+  <h1>PL/pgSQL 함수 · 트리거<br>updated_at · 감사 로그 자동화</h1>
+  <p class="subtitle"><code>updated_at</code>을 앱이 매번 챙기지 말고 <strong>트리거에게 맡기세요</strong> — 그리고 감사 로그(audit)도 DB가 자동으로 남기게 합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p><b><code>updated_at</code></b>을 앱이 매번 챙기지 말고 <b>트리거</b>에게 맡겨라 — 그리고 <b>감사 로그(audit)</b>도 DB가 자동으로 남기게.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>PL/pgSQL 함수의 기본 구조(변수·<code>IF</code>·<code>RETURN</code>)를 안다</li>
+    <li>트리거로 <code>updated_at</code>을 자동 갱신한다</li>
+    <li>감사 로그(audit) 트리거로 변경 내용을 자동 기록한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>PL/pgSQL 함수 — DB 안에 사는 작은 함수</h2>
+  <p>Postgres는 SQL만이 아니라 <strong>절차적 언어 PL/pgSQL</strong>로 함수를 정의할 수 있습니다. 변수·조건문·반복문·예외를 쓸 수 있어, 간단한 계산 로직을 DB 안에 둘 수 있습니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — DB 안에 사는 작은 함수</span>
+    <p>PL/pgSQL 함수는 <strong>주방 안에 붙어 있는 레시피 카드</strong> 같은 것입니다. "할인가 계산"처럼 자주 쓰는 절차를 DB 안에 한 번 정의해 두면, 앱마다 똑같은 계산을 복붙하지 않고 <code>SELECT discounted_price(...)</code>로 불러 쓸 수 있습니다. 본문은 <code>$$ ... $$</code>(달러 인용) 사이에 넣습니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — PL/pgSQL 함수 기본 구조</span></div><pre><span class="k">CREATE OR REPLACE</span> <span class="k">FUNCTION</span> <span class="f">discounted_price</span>(price <span class="t">numeric</span>, pct <span class="t">numeric</span>)
+<span class="k">RETURNS</span> <span class="t">numeric</span>
+<span class="k">LANGUAGE</span> plpgsql
+<span class="k">AS</span> $$
+<span class="k">DECLARE</span>
+  result <span class="t">numeric</span>;
+<span class="k">BEGIN</span>
+  <span class="k">IF</span> pct &lt; <span class="n">0</span> <span class="k">OR</span> pct &gt; <span class="n">100</span> <span class="k">THEN</span>
+    <span class="k">RAISE EXCEPTION</span> <span class="s">'할인율은 0~100 사이여야 합니다: %'</span>, pct;
+  <span class="k">END IF</span>;
+  result := price * (<span class="n">1</span> - pct / <span class="n">100</span>);
+  <span class="k">RETURN</span> <span class="f">round</span>(result, <span class="n">2</span>);
+<span class="k">END</span>;
+$$;
+
+<span class="k">SELECT</span> <span class="f">discounted_price</span>(<span class="n">10000</span>, <span class="n">30</span>) <span class="k">AS</span> sale_price;
+<span class="c"> sale_price</span>
+<span class="c">------------</span>
+<span class="c">    7000.00</span></pre></div>
+
+  <h2><span class="num">2</span>트리거 기본 — BEFORE/AFTER · NEW/OLD</h2>
+  <p><strong>트리거(trigger)</strong>는 INSERT/UPDATE/DELETE가 일어날 때 <strong>자동으로 함수를 실행</strong>시키는 장치입니다. 두 가지 축을 기억하세요.</p>
+
+  <table class="tbl">
+    <thead><tr><th>구분</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td><code>BEFORE</code></td><td>행이 저장되기 <strong>전</strong> — <code>NEW</code>를 수정해 저장될 값을 바꿀 수 있음</td></tr>
+      <tr><td><code>AFTER</code></td><td>행이 저장된 <strong>후</strong> — 로그 기록 등 부수 작업에 적합</td></tr>
+      <tr><td><code>FOR EACH ROW</code></td><td>영향받은 <strong>행마다</strong> 실행</td></tr>
+      <tr><td><code>NEW</code> / <code>OLD</code></td><td>변경 <strong>후</strong> 행 / 변경 <strong>전</strong> 행</td></tr>
+    </tbody>
+  </table>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">트리거 구조 <span class="tag">MySQL</span></div>
+      <p>MySQL은 <code>CREATE TRIGGER … BEGIN … END</code> 본문에 <strong>로직을 직접</strong> 적습니다. 트리거가 곧 코드 블록이라, 같은 로직을 여러 트리거에서 재사용하기 어렵습니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">트리거 구조 <span class="tag">PostgreSQL</span></div>
+      <p>Postgres는 <strong>함수와 트리거가 분리</strong>됩니다. <code>RETURNS trigger</code> 함수를 먼저 만들고, <code>CREATE TRIGGER … EXECUTE FUNCTION f()</code>로 연결합니다. 하나의 함수를 <strong>여러 테이블·트리거가 공유</strong>할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">3</span>⭐ updated_at 자동 갱신 트리거</h2>
+  <p>실무에서 가장 단골인 트리거입니다. 행이 수정될 때마다 앱이 <code>updated_at = now()</code>를 일일이 챙기는 건 빠뜨리기 쉽습니다. <code>BEFORE UPDATE</code> 트리거로 <strong>DB가 자동으로</strong> 갱신하게 맡기세요.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — set_updated_at 함수 + 트리거</span></div><pre><span class="k">CREATE OR REPLACE</span> <span class="k">FUNCTION</span> <span class="f">set_updated_at</span>()
+<span class="k">RETURNS</span> <span class="t">trigger</span>
+<span class="k">LANGUAGE</span> plpgsql
+<span class="k">AS</span> $$
+<span class="k">BEGIN</span>
+  <span class="k">NEW</span>.updated_at := <span class="f">now</span>();   <span class="c">-- 저장되기 전(BEFORE)에 값을 손본다</span>
+  <span class="k">RETURN</span> <span class="k">NEW</span>;
+<span class="k">END</span>;
+$$;
+
+<span class="k">CREATE TRIGGER</span> trg_set_updated_at
+  <span class="k">BEFORE UPDATE</span> <span class="k">ON</span> article
+  <span class="k">FOR EACH ROW</span>
+  <span class="k">EXECUTE FUNCTION</span> <span class="f">set_updated_at</span>();</pre></div>
+
+  <p>이제 행을 수정하면, 우리가 <code>updated_at</code>을 건드리지 않았는데도 값이 자동으로 바뀝니다. 아래는 INSERT 후 2초 뒤 UPDATE한 실제 결과 — <code>12:03:22</code>에서 <code>12:03:24</code>로 갱신됐습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — updated_at이 자동으로 갱신됨</span></div><pre><span class="k">INSERT</span> <span class="k">INTO</span> article (title, body) <span class="k">VALUES</span> (<span class="s">'첫 글'</span>, <span class="s">'초안'</span>);
+<span class="k">SELECT</span> id, updated_at <span class="k">AS</span> before_update <span class="k">FROM</span> article;
+<span class="c"> id |         before_update</span>
+<span class="c">----+-------------------------------</span>
+<span class="c">  1 | 2026-06-09 12:03:22.597622+00</span>
+
+<span class="k">UPDATE</span> article <span class="k">SET</span> body = <span class="s">'수정본'</span> <span class="k">WHERE</span> id = <span class="n">1</span>;   <span class="c">-- updated_at은 안 건드림</span>
+<span class="k">SELECT</span> id, updated_at <span class="k">AS</span> after_update <span class="k">FROM</span> article;
+<span class="c"> id |         after_update</span>
+<span class="c">----+-------------------------------</span>
+<span class="c">  1 | 2026-06-09 12:03:24.604974+00   ← 트리거가 자동 갱신</span></pre></div>
+
+  <h2><span class="num">4</span>감사 로그(audit) 트리거</h2>
+  <p>"누가 무엇을 어떻게 바꿨나"를 남기는 <strong>감사 로그</strong>도 트리거의 단골입니다. <code>AFTER INSERT/UPDATE/DELETE</code> 트리거가 변경 전후 행을 <code>to_jsonb()</code>로 직렬화해 별도 <code>audit_log</code> 테이블에 자동 기록합니다. <code>TG_OP</code>(연산 종류)·<code>TG_TABLE_NAME</code>(테이블 이름)은 트리거 함수 안에서 쓸 수 있는 특수 변수입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — audit_changes 함수 (jsonb로 old/new 기록)</span></div><pre><span class="k">CREATE OR REPLACE</span> <span class="k">FUNCTION</span> <span class="f">audit_changes</span>()
+<span class="k">RETURNS</span> <span class="t">trigger</span> <span class="k">LANGUAGE</span> plpgsql <span class="k">AS</span> $$
+<span class="k">BEGIN</span>
+  <span class="k">INSERT</span> <span class="k">INTO</span> audit_log (table_name, action, old_row, new_row)
+  <span class="k">VALUES</span> (
+    <span class="k">TG_TABLE_NAME</span>,                                       <span class="c">-- 테이블 이름</span>
+    <span class="k">TG_OP</span>,                                               <span class="c">-- INSERT/UPDATE/DELETE</span>
+    <span class="k">CASE WHEN</span> <span class="k">TG_OP</span> &lt;&gt; <span class="s">'INSERT'</span> <span class="k">THEN</span> <span class="f">to_jsonb</span>(<span class="k">OLD</span>) <span class="k">END</span>,  <span class="c">-- 변경 전</span>
+    <span class="k">CASE WHEN</span> <span class="k">TG_OP</span> &lt;&gt; <span class="s">'DELETE'</span> <span class="k">THEN</span> <span class="f">to_jsonb</span>(<span class="k">NEW</span>) <span class="k">END</span>   <span class="c">-- 변경 후</span>
+  );
+  <span class="k">RETURN</span> <span class="k">NULL</span>;   <span class="c">-- AFTER 트리거의 반환값은 무시됨</span>
+<span class="k">END</span>;
+$$;
+
+<span class="k">CREATE TRIGGER</span> trg_audit
+  <span class="k">AFTER</span> <span class="k">INSERT</span> <span class="k">OR</span> <span class="k">UPDATE</span> <span class="k">OR</span> <span class="k">DELETE</span> <span class="k">ON</span> article
+  <span class="k">FOR EACH ROW</span> <span class="k">EXECUTE FUNCTION</span> <span class="f">audit_changes</span>();</pre></div>
+
+  <p>이제 article에 INSERT·UPDATE·DELETE를 차례로 실행하면, <code>audit_log</code>에 변경 이력이 자동으로 쌓입니다. 아래는 실제 실행 결과입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — audit_log에 자동으로 쌓인 이력</span></div><pre><span class="k">INSERT</span> <span class="k">INTO</span> article (title, body) <span class="k">VALUES</span> (<span class="s">'둘째 글'</span>, <span class="s">'hello'</span>);
+<span class="k">UPDATE</span> article <span class="k">SET</span> title = <span class="s">'둘째 글(수정)'</span> <span class="k">WHERE</span> title = <span class="s">'둘째 글'</span>;
+<span class="k">DELETE</span> <span class="k">FROM</span> article <span class="k">WHERE</span> title = <span class="s">'둘째 글(수정)'</span>;
+
+<span class="k">SELECT</span> action, old_row-&gt;&gt;<span class="s">'title'</span> <span class="k">AS</span> old_title,
+       new_row-&gt;&gt;<span class="s">'title'</span> <span class="k">AS</span> new_title
+  <span class="k">FROM</span> audit_log <span class="k">ORDER BY</span> id;
+<span class="c"> action |   old_title   |   new_title</span>
+<span class="c">--------+---------------+---------------</span>
+<span class="c"> INSERT |               | 둘째 글</span>
+<span class="c"> UPDATE | 둘째 글       | 둘째 글(수정)</span>
+<span class="c"> DELETE | 둘째 글(수정) |</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">트리거 남용 주의</span>
+    <p>트리거는 강력하지만 <strong>숨은 로직</strong>입니다 — 코드 어디에도 안 보이는데 행이 바뀌니, 디버깅이 어렵고 "왜 이 값이 바뀌었지?"를 추적하기 힘듭니다. <code>updated_at</code>·감사 로그처럼 <strong>가볍고 정형화된 부수 작업</strong>에는 훌륭하지만, <strong>무겁거나 비즈니스 핵심 로직</strong>(결제·주문 상태 전이 등)은 트리거보다 <strong>앱/서비스 계층</strong>에 두는 편이 추적·테스트에 유리합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>updated_at</code>을 트리거로 처리하면 좋은 점은?</summary>
+    <div class="answer"><p>앱의 모든 UPDATE 경로마다 <code>updated_at = now()</code>를 챙길 필요가 없어집니다. 어느 코드·도구로 수정하든 <strong>DB가 항상 자동으로</strong> 갱신하므로, 빠뜨림이 사라지고 값이 신뢰할 수 있게 됩니다. <code>BEFORE UPDATE</code> 트리거에서 <code>NEW.updated_at := now()</code>로 처리합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>BEFORE</code>와 <code>AFTER</code> 트리거의 차이는?</summary>
+    <div class="answer"><p><code>BEFORE</code>는 행이 저장되기 <strong>전</strong>에 실행돼 <code>NEW</code>를 수정해 <strong>저장될 값을 바꿀 수</strong> 있습니다(예: <code>updated_at</code> 채우기). <code>AFTER</code>는 행이 저장된 <strong>후</strong>에 실행돼, 값을 바꾸기보다 <strong>로그 기록 같은 부수 작업</strong>(예: 감사 로그)에 적합합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 트리거 남용의 위험은?</summary>
+    <div class="answer"><p>트리거는 코드에 드러나지 않는 <strong>숨은 로직</strong>이라, 행이 왜 바뀌었는지 추적이 어렵고 디버깅·테스트가 까다로워집니다. <code>updated_at</code>·감사 로그 같은 가벼운 부수 작업엔 좋지만, <strong>비즈니스 핵심 로직</strong>은 앱/서비스 계층에 두는 편이 좋습니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/plpgsql.html">PL/pgSQL — SQL Procedural Language (공식 문서)</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/trigger-definition.html">Overview of Trigger Behavior — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-createtrigger.html">CREATE TRIGGER — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/functions-json.html">JSON Functions (to_jsonb) — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="02-returning-upsert-generated.html"><span class="dir">← 이전</span><span class="ttl">RETURNING · UPSERT · 생성 컬럼</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼 홈 · Week 3 준비 중</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 2 · Lesson 03 · PL/pgSQL 함수 · 트리거</footer>
+</body>
+</html>

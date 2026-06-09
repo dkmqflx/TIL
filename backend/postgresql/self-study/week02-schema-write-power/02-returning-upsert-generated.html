@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 2·02 — RETURNING · UPSERT · MERGE · 생성 컬럼</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · 스키마 설계 · 쓰기 측 강력 기능</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 2 — Lesson 02</span>
+  <h1>RETURNING · UPSERT · MERGE<br>쓰기 측 강력 기능</h1>
+  <p class="subtitle">쓰기 한 번에 결과까지 받아오고(<code>RETURNING</code>), "있으면 수정, 없으면 삽입"을 한 문장으로(<code>ON CONFLICT</code>) — Postgres의 <strong>쓰기 측 무기들</strong>입니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>쓰기 한 번에 결과까지 받아오고(<b><code>RETURNING</code></b>), '있으면 수정 없으면 삽입'을 한 문장으로(<b><code>ON CONFLICT</code></b>) — Postgres의 쓰기 측 무기들.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>RETURNING</code>으로 왕복을 줄이고, (PG18) <code>OLD</code>/<code>NEW</code>로 변경 전후를 한 번에 받는다</li>
+    <li>UPSERT(<code>ON CONFLICT</code>)와 <code>MERGE</code>로 삽입/수정을 한 문장에 담는다</li>
+    <li>생성 컬럼 — (PG18) 기본 virtual vs <code>STORED</code>의 차이를 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>RETURNING — 쓰기 + 결과를 한 번에</h2>
+  <p>보통 INSERT 후 "방금 만든 행의 id가 뭐지?"를 알려면 다시 SELECT를 날려야 합니다. <code>RETURNING</code>은 그 왕복을 없앱니다 — INSERT/UPDATE/DELETE가 <strong>영향받은 행의 컬럼을 그대로 돌려줍니다</strong>.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — INSERT/DELETE ... RETURNING</span></div><pre><span class="k">INSERT</span> <span class="k">INTO</span> products (sku, price) <span class="k">VALUES</span> (<span class="s">'A-1'</span>, <span class="n">100.00</span>)
+  <span class="k">RETURNING</span> id, created_at;          <span class="c">-- 재조회 없이 즉시 받는다</span>
+<span class="c"> id |          created_at</span>
+<span class="c">----+-------------------------------</span>
+<span class="c">  1 | 2026-06-09 12:03:07.599352+00</span>
+
+<span class="c">-- DELETE도 무엇을 지웠는지 돌려받는다</span>
+<span class="k">DELETE</span> <span class="k">FROM</span> products <span class="k">WHERE</span> sku = <span class="s">'TMP'</span> <span class="k">RETURNING</span> id, sku;
+<span class="c"> id | sku</span>
+<span class="c">----+-----</span>
+<span class="c">  2 | TMP</span></pre></div>
+
+  <p>PG18에서는 한 걸음 더 나아가, <code>UPDATE</code>의 <strong>변경 전 값(<code>OLD</code>)과 변경 후 값(<code>NEW</code>)을 동시에</strong> 돌려받을 수 있습니다. 단, <code>RETURNING old.*, new.*</code>처럼 그대로 쓰면 컬럼명이 겹치므로(같은 <code>price</code>가 둘) <strong>별칭</strong>을 주는 게 깔끔합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — (PG18) RETURNING OLD / NEW</span></div><pre><span class="k">UPDATE</span> products <span class="k">SET</span> price = price * <span class="n">1.10</span> <span class="k">WHERE</span> sku = <span class="s">'A-1'</span>
+  <span class="k">RETURNING</span> old.price <span class="k">AS</span> old_price, new.price <span class="k">AS</span> new_price;
+<span class="c"> old_price | new_price</span>
+<span class="c">-----------+-----------</span>
+<span class="c">    100.00 |    110.00</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">MySQL엔 표준 RETURNING이 없다</span>
+    <p>MySQL에서는 INSERT 후 <code>LAST_INSERT_ID()</code>를 부르고, 다른 컬럼이 더 필요하면 <strong>한 번 더 SELECT</strong>를 던져야 합니다(왕복 2회 + 동시성 주의). Postgres의 <code>RETURNING</code>은 이 패턴을 한 문장으로 줄여, 네트워크 왕복과 경쟁 조건을 동시에 없앱니다.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">방금 만든 행 받기 <span class="tag">MySQL</span></div>
+      <p><code>INSERT</code> 후 <code>SELECT LAST_INSERT_ID();</code>로 id만 받고, 나머지 컬럼은 <code>SELECT … WHERE id = ?</code>로 재조회. UPDATE 전후 값은 별도 SELECT로 직접 챙겨야 합니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">방금 만든 행 받기 <span class="tag">PostgreSQL</span></div>
+      <p><code>INSERT … RETURNING id, created_at</code>처럼 <strong>한 문장</strong>에 받습니다. PG18은 UPDATE에서 <code>RETURNING old.*, new.*</code>로 변경 전후 값까지 즉시 돌려줍니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">2</span>UPSERT — INSERT ... ON CONFLICT</h2>
+  <p>"있으면 수정, 없으면 삽입"은 너무 흔한 요구라 별명까지 있습니다 — <strong>UPSERT</strong>. Postgres는 <code>INSERT … ON CONFLICT</code>로 이를 <strong>한 문장·원자적으로</strong> 처리합니다. 충돌 시 삽입하려던 행은 특수 테이블 <code>EXCLUDED</code>로 참조합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🔑</span>
+    <span class="label">비유 — EXCLUDED는 "문 앞에서 거절당한 행"</span>
+    <p><code>EXCLUDED</code>는 "<strong>삽입하려다 충돌로 거절당한 그 행</strong>"을 가리키는 가상 테이블입니다. <code>DO UPDATE SET qty = inventory.qty + EXCLUDED.qty</code>는 "기존 행의 수량(<code>inventory.qty</code>)에, 들어오려던 행의 수량(<code>EXCLUDED.qty</code>)을 더하라"는 뜻 — 즉 기존 값과 새 값을 조합할 수 있습니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — ON CONFLICT DO UPDATE / DO NOTHING</span></div><pre><span class="k">INSERT</span> <span class="k">INTO</span> inventory (sku, qty) <span class="k">VALUES</span> (<span class="s">'A-1'</span>, <span class="n">10</span>)
+  <span class="k">ON CONFLICT</span> (sku) <span class="k">DO UPDATE SET</span> qty = inventory.qty + <span class="k">EXCLUDED</span>.qty;
+<span class="c">-- sku='A-1' 이 없었으므로 그냥 삽입 (qty=10)</span>
+
+<span class="k">INSERT</span> <span class="k">INTO</span> inventory (sku, qty) <span class="k">VALUES</span> (<span class="s">'A-1'</span>, <span class="n">5</span>)
+  <span class="k">ON CONFLICT</span> (sku) <span class="k">DO UPDATE SET</span> qty = inventory.qty + <span class="k">EXCLUDED</span>.qty;
+<span class="c">-- 이번엔 충돌 → 10 + 5 = 15 로 갱신</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> inventory;
+<span class="c"> sku | qty</span>
+<span class="c">-----+-----</span>
+<span class="c"> A-1 |  15</span>
+
+<span class="c">-- DO NOTHING: 충돌하면 조용히 무시(중복 삽입 방지)</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> inventory (sku, qty) <span class="k">VALUES</span> (<span class="s">'A-1'</span>, <span class="n">999</span>)
+  <span class="k">ON CONFLICT</span> (sku) <span class="k">DO NOTHING</span>;
+<span class="c"> sku | qty</span>
+<span class="c">-----+-----</span>
+<span class="c"> A-1 |  15      ← 999는 무시됨</span></pre></div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">UPSERT <span class="tag">MySQL</span></div>
+      <p>MySQL은 <code>INSERT … ON DUPLICATE KEY UPDATE</code>를 씁니다. 새 값은 <code>VALUES(col)</code>(또는 최신 문법의 별칭)로 참조합니다. 어떤 키든 충돌하면 발동하는 점이 다릅니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">UPSERT <span class="tag">PostgreSQL</span></div>
+      <p>Postgres는 <code>INSERT … ON CONFLICT (col) DO UPDATE</code>로 <strong>충돌 대상 제약/컬럼을 명시</strong>합니다. 새 값은 <code>EXCLUDED.col</code>로 참조하고, <code>DO NOTHING</code>으로 무시할 수도 있습니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">3</span>MERGE — SQL 표준</h2>
+  <p><code>ON CONFLICT</code>는 "들어오려는 한 행"의 충돌을 다룹니다. 반면 <strong><code>MERGE</code></strong>는 <strong>소스 테이블과 조인</strong>해, 매칭 여부(<code>WHEN MATCHED</code> / <code>WHEN NOT MATCHED</code>)에 따라 UPDATE·INSERT·DELETE를 분기합니다. 외부 피드를 통째로 동기화하는 경우처럼 <strong>여러 행을 다른 소스와 병합</strong>할 때 유용합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — MERGE (소스 테이블과 병합)</span></div><pre><span class="c">-- stock_feed = 외부에서 들어온 재고 피드 (A-1=100, B-2=7)</span>
+<span class="k">MERGE</span> <span class="k">INTO</span> inventory <span class="k">AS</span> tgt
+<span class="k">USING</span> stock_feed <span class="k">AS</span> src
+  <span class="k">ON</span> tgt.sku = src.sku
+<span class="k">WHEN MATCHED</span> <span class="k">THEN</span>
+  <span class="k">UPDATE SET</span> qty = src.qty                          <span class="c">-- 이미 있으면 덮어쓰기</span>
+<span class="k">WHEN NOT MATCHED</span> <span class="k">THEN</span>
+  <span class="k">INSERT</span> (sku, qty) <span class="k">VALUES</span> (src.sku, src.qty);    <span class="c">-- 없으면 삽입</span>
+<span class="k">SELECT</span> * <span class="k">FROM</span> inventory <span class="k">ORDER BY</span> sku;
+<span class="c"> sku | qty</span>
+<span class="c">-----+-----</span>
+<span class="c"> A-1 | 100      ← 매칭 → 갱신</span>
+<span class="c"> B-2 |   7      ← 미매칭 → 신규 삽입</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">ON CONFLICT vs MERGE — 언제 무엇을</span>
+    <p>"고유 키 충돌 시 그 한 행을 upsert"라면 간결한 <code>ON CONFLICT</code>가 보통 정답입니다. <strong>다른 소스 테이블과 조인</strong>해 매칭/미매칭/삭제까지 여러 분기를 표현해야 하면 <code>MERGE</code>가 적합합니다(SQL 표준이라 다른 DB와도 호환). 단순한 단일 행 upsert에 MERGE는 과합니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>생성 컬럼(Generated Columns)</h2>
+  <p>다른 컬럼으로부터 <strong>자동으로 계산되는 컬럼</strong>입니다. <code>price_tax</code>를 매번 앱에서 계산해 넣는 대신, "<code>price * 1.10</code>"이라고 <strong>한 번 선언</strong>해 두면 DB가 알아서 채웁니다. 두 가지 모드가 있습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>모드</th><th>언제 계산</th><th>디스크 저장</th></tr></thead>
+    <tbody>
+      <tr><td><code>STORED</code></td><td>쓸 때(INSERT/UPDATE)</td><td>저장함 — 읽기 빠름</td></tr>
+      <tr><td>virtual (PG18 기본)</td><td>읽을 때(SELECT)</td><td>저장 안 함 — 공간 절약</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — STORED vs (PG18 기본) virtual</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> line_item (
+  name        <span class="t">text</span>,
+  price       <span class="t">numeric</span>(<span class="n">10</span>,<span class="n">2</span>),
+  price_tax   <span class="t">numeric</span>(<span class="n">10</span>,<span class="n">2</span>) <span class="k">GENERATED ALWAYS AS</span> (price * <span class="n">1.10</span>) <span class="k">STORED</span>,
+  <span class="c">-- 키워드 생략 시 PG18 기본은 virtual (읽을 때 계산)</span>
+  search_name <span class="t">text</span> <span class="k">GENERATED ALWAYS AS</span> (<span class="f">lower</span>(name))
+);
+<span class="k">INSERT</span> <span class="k">INTO</span> line_item (name, price) <span class="k">VALUES</span> (<span class="s">'Coffee'</span>, <span class="n">100.00</span>);
+<span class="k">SELECT</span> * <span class="k">FROM</span> line_item;
+<span class="c">  name  | price  | price_tax | search_name</span>
+<span class="c">--------+--------+-----------+-------------</span>
+<span class="c"> Coffee | 100.00 |    110.00 | coffee</span>
+
+<span class="c">-- 카탈로그로 확인: 's'=stored, 'v'=virtual</span>
+<span class="k">SELECT</span> attname, attgenerated <span class="k">FROM</span> pg_attribute
+  <span class="k">WHERE</span> attrelid = <span class="s">'line_item'</span>::<span class="t">regclass</span> <span class="k">AND</span> attgenerated &lt;&gt; <span class="s">''</span>;
+<span class="c">   attname   | attgenerated</span>
+<span class="c">-------------+--------------</span>
+<span class="c"> price_tax   | s             ← STORED</span>
+<span class="c"> search_name | v             ← virtual (PG18 기본)</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">PG18: generated의 기본이 virtual로 바뀜</span>
+    <p><span class="chip">PG18</span> PG18 이전에는 생성 컬럼이 <code>STORED</code>만 가능했습니다. PG18부터는 <code>STORED</code>/<code>VIRTUAL</code> 키워드를 <strong>생략하면 기본이 virtual</strong>입니다(위 카탈로그에서 <code>search_name</code>이 <code>v</code>). virtual은 디스크에 저장하지 않고 읽을 때 계산하므로 공간을 아끼지만, <strong>인덱스를 걸어야 하는 표현식</strong>이라면 <code>STORED</code>를 명시하세요(virtual 컬럼엔 인덱스를 직접 못 답니다).</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>RETURNING</code>이 절약하는 왕복은?</summary>
+    <div class="answer"><p>INSERT 후 "방금 만든 id·created_at" 같은 값을 알려면 보통 <strong>SELECT를 한 번 더</strong> 던져야 합니다. <code>RETURNING</code>은 INSERT/UPDATE/DELETE가 영향받은 행의 컬럼을 <strong>그 자리에서</strong> 돌려줘, 네트워크 왕복과 그 사이의 경쟁 조건을 없앱니다. MySQL은 <code>LAST_INSERT_ID()</code> + 재조회 패턴이 필요합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>ON CONFLICT</code>의 <code>EXCLUDED</code>란?</summary>
+    <div class="answer"><p>충돌 때문에 <strong>삽입되지 못한 "들어오려던 행"</strong>을 가리키는 가상 테이블입니다. <code>DO UPDATE SET qty = inventory.qty + EXCLUDED.qty</code>처럼 기존 행 값과 새 값을 조합할 때 씁니다. <code>DO NOTHING</code>이면 충돌 시 조용히 무시합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 생성 컬럼의 <code>STORED</code> vs virtual 차이는?</summary>
+    <div class="answer"><p><code>STORED</code>는 <strong>쓸 때 계산해 디스크에 저장</strong>(읽기 빠름·공간 사용), virtual은 <strong>읽을 때 계산</strong>(공간 절약·쓰기 부담↓)입니다. PG18부터 키워드를 생략하면 <strong>기본이 virtual</strong>입니다. 인덱스가 필요한 표현식이면 <code>STORED</code>를 명시하세요.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/dml-returning.html">Returning Data from Modified Rows — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-insert.html">INSERT (ON CONFLICT) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-merge.html">MERGE — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/ddl-generated-columns.html">Generated Columns (STORED · VIRTUAL) — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="01-ddl-constraints-keys.html"><span class="dir">← 이전</span><span class="ttl">DDL · 제약 · 기본키 전략</span></a>
+    <a class="next" href="03-functions-triggers.html"><span class="dir">다음 →</span><span class="ttl">PL/pgSQL 함수 · 트리거</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 2 · Lesson 02 · RETURNING · UPSERT · 생성 컬럼</footer>
+</body>
+</html>

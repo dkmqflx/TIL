@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 6·01 — RLS · 멀티테넌시</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · RLS · 권한 · 운영 · 확장</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 6 — Lesson 01</span>
+  <h1>RLS<br>Row Level Security</h1>
+  <p class="subtitle">한 테이블에 여러 테넌트의 데이터가 섞여 있어도, RLS를 켜면 DB가 <strong>행 단위로 '네가 볼 수 있는 행'</strong>만 돌려줍니다 — 앱 코드의 <code>WHERE tenant_id = ?</code>를 <strong>DB가 강제</strong>합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>한 테이블에 여러 테넌트의 데이터가 섞여 있어도, RLS를 켜면 DB가 <b>행 단위로 '네가 볼 수 있는 행'</b>만 돌려준다 — 앱 코드의 <b><code>WHERE tenant_id = ?</code></b>를 DB가 강제한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>RLS 정책의 <code>USING</code>(가시성)과 <code>WITH CHECK</code>(쓰기 제약)를 구분한다</li>
+    <li>세션 변수 + 정책으로 <strong>멀티테넌시</strong>를 구현하고 행이 걸러지는 것을 확인한다</li>
+    <li>흔한 함정 — <strong>superuser·owner의 RLS 우회</strong>와 <code>FORCE</code>를 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>RLS란 &amp; 왜 — 앱의 WHERE를 DB가 강제한다</h2>
+  <p>🍔 도서관 대출 창구를 떠올려 보세요. 창구 직원은 모든 사람의 대출 기록이 든 같은 장부를 보지만, <strong>당신에게는 당신의 기록만</strong> 보여 줍니다. 다른 사람 카드 번호를 댄다고 남의 기록이 나오지 않습니다 — 창구가 <strong>"네 것만"이라는 규칙을 강제</strong>하기 때문입니다. RLS가 바로 이 창구입니다.</p>
+  <p>멀티테넌트 SaaS는 보통 한 테이블에 여러 고객사(테넌트)의 행을 함께 담고 <code>tenant_id</code>로 구분합니다. 문제는 앱이 <strong>매 쿼리마다 <code>WHERE tenant_id = ?</code>를 빠뜨리지 않아야</strong> 한다는 것 — 단 한 군데라도 빠지면 <strong>다른 테넌트의 데이터가 유출</strong>됩니다. <strong>RLS(Row Level Security)</strong>는 그 필터를 애플리케이션이 아니라 <strong>DB가 행 단위로 강제</strong>하게 만듭니다. 개발자가 깜빡해도 DB가 막아 주는, '깊이 있는 방어(defense in depth)'입니다.</p>
+
+  <h2><span class="num">2</span>켜기 &amp; 정책 — USING vs WITH CHECK</h2>
+  <p>RLS는 두 단계입니다. 먼저 테이블에 <strong>스위치를 켜고</strong>(<code>ENABLE ROW LEVEL SECURITY</code>), 그다음 <strong>정책(policy)</strong>으로 "어떤 행을 허용할지" 규칙을 적습니다. 중요한 기본값: <strong>RLS를 켰는데 정책이 하나도 없으면 기본은 deny-all</strong> — 아무 행도 안 보입니다.</p>
+  <p>정책의 두 조건을 꼭 구분하세요. <code>USING</code>은 <strong>읽기·기존 행의 가시성</strong>(<code>SELECT</code>/<code>UPDATE</code>/<code>DELETE</code> 대상이 되는 행을 거름)이고, <code>WITH CHECK</code>는 <strong>새로 삽입·수정되는 행이 만족해야 할 제약</strong>(<code>INSERT</code>/<code>UPDATE</code>의 결과 행을 검사)입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — RLS 켜고 테넌트 격리 정책 만들기</span></div><pre><span class="c">-- 1) 테이블에 RLS 스위치 켜기 (정책이 없으면 기본 deny-all)</span>
+<span class="k">ALTER TABLE</span> documents <span class="k">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="c">-- 2) 정책: 세션 변수 app.current_tenant 와 같은 tenant_id 행만 허용</span>
+<span class="c">--    current_setting(..., true): 변수가 없으면 에러 대신 NULL 반환</span>
+<span class="k">CREATE POLICY</span> tenant_isolation <span class="k">ON</span> documents
+  <span class="k">USING</span>      (tenant_id = <span class="f">current_setting</span>(<span class="s">'app.current_tenant'</span>, <span class="k">true</span>)::<span class="t">int</span>)
+  <span class="k">WITH CHECK</span> (tenant_id = <span class="f">current_setting</span>(<span class="s">'app.current_tenant'</span>, <span class="k">true</span>)::<span class="t">int</span>);
+<span class="c">CREATE POLICY</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">USING과 WITH CHECK를 따로 두는 이유</span>
+    <p><code>USING</code>만 있으면 "내 테넌트 행은 보고 고칠 수 있다"까지입니다. 하지만 <code>WITH CHECK</code> 없이는 <code>INSERT</code>로 <strong>남의 <code>tenant_id</code>를 적어 넣는 것</strong>을 막지 못합니다. 둘을 같은 조건으로 주면 "내 테넌트 행만 보이고, 새로 넣는 행도 반드시 내 테넌트여야 한다"가 완성됩니다. 두 조건을 다르게 줄 수도 있습니다(예: 읽기는 넓게, 쓰기는 좁게).</p>
+  </div>
+
+  <h2><span class="num">3</span>멀티테넌시 실전 — 테넌트별로 다른 행이 나온다</h2>
+  <p>앱은 커넥션마다 <strong>"지금 이 요청은 어느 테넌트인가"</strong>를 세션 변수로 설정합니다(<code>SET app.current_tenant = '1'</code> 또는 <code>set_config('app.current_tenant','1',false)</code>). 정책이 그 변수를 참조하므로, <strong>같은 쿼리라도 변수 값에 따라 다른 행</strong>이 돌아옵니다.</p>
+  <p>그런데 여기엔 함정이 있습니다(다음 절). 우리가 psql로 접속한 <code>study</code> 유저는 <strong>SUPERUSER라 RLS를 통째로 우회</strong>합니다 — 정책을 켜도 5개 행이 다 보입니다. 그래서 RLS가 <strong>실제로 행을 거르는 장면</strong>을 보려면 <strong>NOSUPERUSER 앱 롤</strong>을 만들어 <code>SET ROLE</code>로 그 롤이 된 뒤 조회해야 합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — SUPERUSER(study)는 RLS를 우회 → 전체가 보인다</span></div><pre><span class="c">-- 접속 유저 study 는 SUPERUSER 라 정책을 무시한다(GOTCHA, 4절 참고)</span>
+<span class="k">SELECT</span> id, tenant_id, title <span class="k">FROM</span> documents <span class="k">ORDER BY</span> id;
+<span class="c"> id | tenant_id |        title</span>
+<span class="c">----+-----------+----------------------</span>
+<span class="c">  1 |         1 | Acme 분기 보고서</span>
+<span class="c">  2 |         1 | Acme 채용 계획</span>
+<span class="c">  3 |         2 | Globex 신제품 로드맵</span>
+<span class="c">  4 |         2 | Globex 가격표</span>
+<span class="c">  5 |         3 | Initech 회의록</span>
+<span class="c">(5 rows)</span></pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — app_user(NOSUPERUSER)로 바꾸면 RLS가 행을 거른다 ⭐</span></div><pre><span class="c">-- 앱 롤이 된다(이 롤은 SUPERUSER 도 owner 도 아니므로 정책 적용을 받는다)</span>
+<span class="k">SET ROLE</span> app_user;
+
+<span class="c">-- 테넌트 1 로 설정 → 테넌트 1 행만 보인다</span>
+<span class="k">SET</span> app.current_tenant = <span class="s">'1'</span>;
+<span class="k">SELECT</span> id, tenant_id, title <span class="k">FROM</span> documents <span class="k">ORDER BY</span> id;
+<span class="c"> id | tenant_id |      title</span>
+<span class="c">----+-----------+------------------</span>
+<span class="c">  1 |         1 | Acme 분기 보고서</span>
+<span class="c">  2 |         1 | Acme 채용 계획</span>
+<span class="c">(2 rows)</span>
+
+<span class="c">-- 똑같은 쿼리, 테넌트 2 로 바꾸면 → 테넌트 2 행만! (DB가 거른 것)</span>
+<span class="k">SET</span> app.current_tenant = <span class="s">'2'</span>;
+<span class="k">SELECT</span> id, tenant_id, title <span class="k">FROM</span> documents <span class="k">ORDER BY</span> id;
+<span class="c"> id | tenant_id |        title</span>
+<span class="c">----+-----------+----------------------</span>
+<span class="c">  3 |         2 | Globex 신제품 로드맵</span>
+<span class="c">  4 |         2 | Globex 가격표</span>
+<span class="c">(2 rows)</span></pre></div>
+
+  <p>같은 <code>SELECT * FROM documents</code>인데 <code>app.current_tenant</code>가 <code>1</code>이면 2개 행, <code>2</code>면 <strong>완전히 다른 2개 행</strong>이 나옵니다 — 앱이 <code>WHERE</code>를 한 글자도 쓰지 않았는데 DB가 알아서 걸러 줬습니다. 이것이 RLS의 핵심입니다. 쓰기 쪽도 <code>WITH CHECK</code>가 막아 줍니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — WITH CHECK: 남의 테넌트 행은 못 넣는다</span></div><pre><span class="c">-- 현재 테넌트는 2. 테넌트 1 행을 몰래 넣으려 하면 거부된다.</span>
+<span class="k">INSERT INTO</span> documents (tenant_id, title) <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'몰래 넣기'</span>);
+<span class="c">NOTICE:  WITH CHECK 위반으로 INSERT 거부됨:</span>
+<span class="c">  new row violates row-level security policy for table "documents"</span>
+
+<span class="c">-- 같은 테넌트(2) 행은 정상 INSERT</span>
+<span class="k">INSERT INTO</span> documents (tenant_id, title) <span class="k">VALUES</span> (<span class="n">2</span>, <span class="s">'Globex 추가 메모'</span>);
+<span class="c">INSERT 0 1</span>
+
+<span class="k">RESET ROLE</span>;  <span class="c">-- 다시 study(superuser) 로 복귀</span></pre></div>
+
+  <h2><span class="num">4</span>⚠️ 함정 — superuser·owner는 RLS를 우회한다</h2>
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">RLS가 적용되지 않는 경우 — 이걸 모르면 "RLS가 안 먹는다"고 착각한다</span>
+    <p><strong>① SUPERUSER는 RLS를 통째로 우회</strong>합니다 — 정책을 켜도 모든 행이 보입니다. <strong>② 테이블 OWNER도 기본적으로 우회</strong>합니다. 그래서 앱이 superuser나 owner로 붙으면 RLS는 사실상 꺼진 것과 같습니다(그래서 Week 6·02에서 <strong>앱 전용 최소 권한 유저</strong>로 붙으라고 합니다). owner에게도 정책을 강제하려면 <code>ALTER TABLE t FORCE ROW LEVEL SECURITY;</code>를 켜세요. ③ 여러 정책이 있으면 같은 명령에 대해 <strong>OR로 결합</strong>(PERMISSIVE, 기본)되거나, RESTRICTIVE 정책은 <strong>AND로 결합</strong>됩니다. ④ 정책 조건도 결국 <code>WHERE</code>에 더해지므로 <strong>정책이 참조하는 컬럼(예: <code>tenant_id</code>)에 인덱스</strong>가 있어야 성능이 납니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — FORCE RLS 설정 &amp; 카탈로그 확인</span></div><pre><span class="c">-- owner 에게도 RLS 강제(기본은 owner 우회)</span>
+<span class="k">ALTER TABLE</span> documents <span class="k">FORCE ROW LEVEL SECURITY</span>;
+
+<span class="c">-- relrowsecurity=RLS 켜짐, relforcerowsecurity=owner 에도 강제</span>
+<span class="k">SELECT</span> relname, relrowsecurity, relforcerowsecurity
+<span class="k">FROM</span> pg_class <span class="k">WHERE</span> relname = <span class="s">'documents'</span>;
+<span class="c">  relname  | relrowsecurity | relforcerowsecurity</span>
+<span class="c">-----------+----------------+---------------------</span>
+<span class="c"> documents | t              | t</span>
+<span class="c">(1 row)</span>
+
+<span class="c">-- 정의된 정책 목록 (polcmd '*' = ALL 명령에 적용)</span>
+<span class="k">SELECT</span> polname, polcmd <span class="k">FROM</span> pg_policy
+<span class="k">WHERE</span> polrelid = <span class="s">'documents'</span>::<span class="t">regclass</span>;
+<span class="c">     polname      | polcmd</span>
+<span class="c">------------------+--------</span>
+<span class="c"> tenant_isolation | *</span>
+<span class="c">(1 row)</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Supabase가 RLS를 핵심으로 쓰는 이유</span>
+    <p>Supabase(Week 1에서 본 Postgres 기반 BaaS)는 <strong>RLS를 보안 모델의 중심</strong>으로 씁니다. 브라우저가 DB에 직접 쿼리해도, 로그인한 사용자의 JWT가 세션 변수로 들어오고 RLS 정책(<code>auth.uid() = user_id</code> 같은)이 행을 걸러 주기 때문에 안전합니다. "앱 코드가 아니라 DB가 권한을 강제한다"는 RLS의 발상이 그대로 제품 아키텍처가 된 사례입니다.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">행 수준 보안 <span class="tag">MySQL</span></div>
+      <p>MySQL에는 <strong>행 수준 보안 정책이 기본으로 없습니다</strong>. 보통 <strong>뷰(VIEW)로 테넌트별 필터를 감싸거나</strong>, 애플리케이션 로직에서 매 쿼리 <code>WHERE tenant_id = ?</code>를 직접 붙여 처리합니다. 즉 필터를 빠뜨리지 않을 책임이 <strong>전적으로 앱</strong>에 있어, 한 곳만 실수해도 데이터가 새어 나갈 수 있습니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">행 수준 보안 <span class="tag">PostgreSQL</span></div>
+      <p>PostgreSQL은 <strong>네이티브 RLS 정책</strong>을 제공합니다. <code>ENABLE ROW LEVEL SECURITY</code> + <code>CREATE POLICY</code>로 "누가 어떤 행을 보고/쓸 수 있는지"를 <strong>DB 차원에서 선언</strong>하면, 앱이 <code>WHERE</code>를 깜빡해도 DB가 강제합니다. 단, <strong>앱은 superuser/owner가 아닌 최소 권한 롤</strong>로 붙어야 정책이 실제로 적용됩니다.</p>
+    </div>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> RLS 정책의 <code>USING</code>과 <code>WITH CHECK</code>는 무엇이 다른가?</summary>
+    <div class="answer"><p><code>USING</code>은 <strong>기존 행의 가시성</strong>을 거릅니다 — <code>SELECT</code>·<code>UPDATE</code>·<code>DELETE</code>가 대상으로 삼을 수 있는 행을 결정합니다. <code>WITH CHECK</code>는 <strong>새로 삽입·수정되는 행</strong>이 만족해야 할 제약입니다 — <code>INSERT</code>나 <code>UPDATE</code>의 결과 행을 검사해, 어기면 거부합니다. <code>WITH CHECK</code> 없이 <code>USING</code>만 두면 남의 <code>tenant_id</code>를 적어 넣는 <code>INSERT</code>를 막지 못하므로, 멀티테넌시에선 보통 둘을 같은 조건으로 줍니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 정책을 켰는데도 모든 행이 다 보였다. 무엇을 의심해야 하나?</summary>
+    <div class="answer"><p>접속한 롤이 <strong>SUPERUSER이거나 테이블 OWNER</strong>일 가능성이 큽니다. 둘 다 기본적으로 <strong>RLS를 우회</strong>합니다. owner에게도 적용하려면 <code>ALTER TABLE t FORCE ROW LEVEL SECURITY;</code>를 켜고, 앱은 superuser·owner가 아닌 <strong>최소 권한 롤</strong>로 접속해야 합니다. 또 <code>ENABLE ROW LEVEL SECURITY</code> 자체를 안 켰을 수도 있으니 함께 확인하세요.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 멀티테넌시에서 세션 변수(<code>app.current_tenant</code>)는 어떤 역할인가?</summary>
+    <div class="answer"><p>정책이 참조하는 <strong>"지금 이 커넥션이 누구인가"</strong>를 담는 값입니다. 앱은 요청을 처리할 때 커넥션에 <code>SET app.current_tenant = '...'</code>(또는 <code>set_config</code>)로 현재 테넌트를 설정하고, 정책은 <code>tenant_id = current_setting('app.current_tenant')::int</code>로 그 값을 비교합니다. 그래서 <strong>같은 쿼리라도 변수 값에 따라 돌아오는 행이 달라집니다</strong>. 커넥션 풀을 쓸 때는 요청마다 이 변수를 반드시 설정·초기화해야 다른 테넌트의 값이 새지 않습니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/ddl-rowsecurity.html">Row Security Policies — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-createpolicy.html">CREATE POLICY — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-altertable.html">ALTER TABLE (ENABLE/FORCE ROW LEVEL SECURITY) — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="../week05-transaction-concurrency/03-locks.html"><span class="dir">← 이전</span><span class="ttl">락 · 데드락 · advisory lock</span></a>
+    <a class="next" href="02-roles-privileges.html"><span class="dir">다음 →</span><span class="ttl">ROLE · GRANT · 권한</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 6 · Lesson 01 · RLS · 멀티테넌시</footer>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 6·02 — ROLE · GRANT · 권한 · 앱 전용 유저</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · RLS · 권한 · 운영 · 확장</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 6 — Lesson 02</span>
+  <h1>ROLE · GRANT<br>앱 전용 최소 권한 유저</h1>
+  <p class="subtitle">Postgres에서 <strong>유저와 그룹은 모두 ROLE</strong>입니다. 앱은 superuser로 붙지 말고, 꼭 필요한 권한만 가진 <strong>'앱 전용 최소 권한 유저'</strong>로 붙어야 합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>Postgres에서 유저와 그룹은 모두 <b>ROLE</b>이다. 앱은 superuser로 붙지 말고, 꼭 필요한 권한만 가진 <b>'앱 전용 최소 권한 유저'</b>로 붙어야 한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>ROLE 모델(유저=그룹=ROLE)과 <code>LOGIN</code>/멤버십을 안다</li>
+    <li><code>GRANT</code>·<code>REVOKE</code>·스키마 <code>USAGE</code>로 권한을 부여한다</li>
+    <li><strong>앱 전용 최소 권한 유저</strong> + <code>ALTER DEFAULT PRIVILEGES</code>를 구성한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>ROLE = 유저 + 그룹 — LOGIN 여부가 가른다</h2>
+  <p>🍔 회사 출입카드를 떠올려 보세요. 어떤 카드는 <strong>사람에게</strong>(로그인하는 유저), 어떤 카드는 <strong>'개발팀' 같은 그룹에</strong> 발급됩니다. 사람을 그룹에 넣으면 그룹 권한을 그대로 물려받습니다. Postgres에서는 이 둘이 <strong>구분 없이 모두 ROLE</strong>입니다 — 옛 <code>CREATE USER</code>는 그저 <code>CREATE ROLE ... LOGIN</code>의 별칭일 뿐입니다.</p>
+  <p>정리하면: <strong>USER란 <code>LOGIN</code> 속성을 가진 ROLE</strong>입니다. <code>NOLOGIN</code> 롤은 직접 접속은 못 하지만 <strong>권한 묶음(그룹)</strong>으로 쓰입니다. 멤버십은 <code>GRANT 그룹롤 TO 유저롤</code>로 만들고, 멤버는 그룹의 권한을 상속합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 앱 유저 롤 두 개 만들기 (둘 다 NOSUPERUSER)</span></div><pre><span class="c">-- app_rw: 읽기/쓰기, app_ro: 읽기 전용. LOGIN 이라 곧 '유저'.</span>
+<span class="k">CREATE ROLE</span> app_rw <span class="k">NOSUPERUSER LOGIN PASSWORD</span> <span class="s">'rw_pw'</span>;
+<span class="k">CREATE ROLE</span> app_ro <span class="k">NOSUPERUSER LOGIN PASSWORD</span> <span class="s">'ro_pw'</span>;
+
+<span class="c">-- rolcanlogin = t 면 로그인 가능 = 통상적 의미의 '유저'</span>
+<span class="k">SELECT</span> rolname, rolsuper, rolcanlogin
+<span class="k">FROM</span> pg_roles <span class="k">WHERE</span> rolname <span class="k">IN</span> (<span class="s">'app_rw'</span>,<span class="s">'app_ro'</span>) <span class="k">ORDER BY</span> rolname;
+<span class="c"> rolname | rolsuper | rolcanlogin</span>
+<span class="c">---------+----------+-------------</span>
+<span class="c"> app_ro  | f        | t</span>
+<span class="c"> app_rw  | f        | t</span>
+<span class="c">(2 rows)</span></pre></div>
+
+  <h2><span class="num">2</span>권한 — 스키마 USAGE부터, 그다음 테이블 권한</h2>
+  <p>PostgreSQL에서 자주 헛디디는 지점: <strong>테이블에 <code>SELECT</code> 권한을 줬는데도 "permission denied for schema"가 난다</strong>는 것. Postgres는 <strong>스키마에 대한 <code>USAGE</code> 권한이 별도</strong>이기 때문입니다. 스키마를 "들여다볼 수 있게" <code>USAGE</code>를 먼저 주고, 그 안의 테이블에 <code>GRANT</code>해야 합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 스키마 USAGE + 테이블 권한 부여</span></div><pre><span class="c">-- 1) 스키마를 쓸 수 있게 USAGE 부터</span>
+<span class="k">GRANT</span> <span class="k">USAGE</span> <span class="k">ON SCHEMA</span> public <span class="k">TO</span> app_rw, app_ro;
+
+<span class="c">-- 2) app_rw 는 읽기+쓰기, app_ro 는 읽기만</span>
+<span class="k">GRANT</span> <span class="k">SELECT</span>, <span class="k">INSERT</span>, <span class="k">UPDATE</span>, <span class="k">DELETE</span> <span class="k">ON</span> orders <span class="k">TO</span> app_rw;
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> orders <span class="k">TO</span> app_ro;
+
+<span class="c">-- 3) IDENTITY 시퀀스 USAGE (INSERT 시 필요)는 쓰기 유저에게만</span>
+<span class="k">GRANT</span> <span class="k">USAGE</span> <span class="k">ON ALL SEQUENCES IN SCHEMA</span> public <span class="k">TO</span> app_rw;</pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">PUBLIC 의사 롤 — 모두에게 자동 부여되는 함정</span>
+    <p><code>PUBLIC</code>은 모든 롤이 자동으로 속하는 <strong>가상의 롤</strong>입니다. 과거 버전에서는 <code>public</code> 스키마에 <code>PUBLIC</code>이 기본 <code>CREATE</code> 권한을 가져, 누구나 테이블을 만들 수 있었습니다. <strong>PostgreSQL 15부터는 이 기본 권한이 제거</strong>되어 더 안전해졌습니다. <code>REVOKE</code>로 <code>PUBLIC</code> 권한을 명시적으로 회수해 "기본은 막고 필요한 롤에만 허용"하는 것이 안전한 습관입니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>앱 전용 최소 권한 유저 — superuser로 붙지 마라</h2>
+  <p>운영에서 가장 흔한 실수는 <strong>앱을 superuser(또는 DB 소유자)로 접속</strong>시키는 것입니다. 그러면 SQL 인젝션 한 방에 <code>DROP TABLE</code>·<code>DROP DATABASE</code>까지 갈 수 있고, 무엇보다 <strong>RLS(Lesson 01)가 우회</strong>됩니다. 앱은 <strong>딱 필요한 권한만</strong> 가진 롤로 붙어야 합니다 — 읽기/쓰기는 <code>app_rw</code>, 보고서·대시보드는 <code>app_ro</code> 식으로.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 각 롤의 권한을 SET ROLE로 검증</span></div><pre><span class="c">-- (A) app_ro: SELECT 는 되고, INSERT 는 거부된다(의도된 동작)</span>
+<span class="k">SET ROLE</span> app_ro;
+<span class="k">SELECT</span> <span class="f">count</span>(*) <span class="k">AS</span> visible_rows <span class="k">FROM</span> orders;   <span class="c">-- 3 (읽기 OK)</span>
+<span class="c"> visible_rows</span>
+<span class="c">--------------</span>
+<span class="c">            3</span>
+
+<span class="k">INSERT INTO</span> orders (amount) <span class="k">VALUES</span> (<span class="n">999.00</span>);
+<span class="c">NOTICE:  app_ro INSERT 거부됨(정상):</span>
+<span class="c">  permission denied for table orders</span>
+<span class="k">RESET ROLE</span>;
+
+<span class="c">-- (B) app_rw: SELECT 와 INSERT 모두 성공</span>
+<span class="k">SET ROLE</span> app_rw;
+<span class="k">INSERT INTO</span> orders (amount) <span class="k">VALUES</span> (<span class="n">500.00</span>);
+<span class="c">INSERT 0 1</span>
+<span class="k">SELECT</span> <span class="f">count</span>(*) <span class="k">AS</span> rows_after_rw_insert <span class="k">FROM</span> orders;   <span class="c">-- 4</span>
+<span class="c"> rows_after_rw_insert</span>
+<span class="c">----------------------</span>
+<span class="c">                    4</span>
+<span class="k">RESET ROLE</span>;</pre></div>
+
+  <p>그런데 <code>GRANT ... ON orders</code>는 <strong>이미 존재하는 테이블</strong>에만 적용됩니다. 나중에 만드는 테이블은 앱 유저가 다시 권한을 못 받죠. 이를 해결하는 것이 <strong><code>ALTER DEFAULT PRIVILEGES</code></strong> — "앞으로 이 스키마에 만들 테이블에는 자동으로 이 권한을 줘라"는 예약 설정입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — ALTER DEFAULT PRIVILEGES: 미래 테이블에 자동 부여</span></div><pre><span class="c">-- study 가 앞으로 public 에 만들 테이블은 app_ro 가 자동으로 읽을 수 있게</span>
+<span class="k">ALTER DEFAULT PRIVILEGES IN SCHEMA</span> public
+  <span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLES</span> <span class="k">TO</span> app_ro;
+
+<span class="c">-- 검증: 설정 후 새 테이블을 만들고 app_ro 가 바로 읽히는지 확인</span>
+<span class="k">CREATE TABLE</span> invoices (id <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY PRIMARY KEY</span>, total <span class="t">numeric</span>);
+<span class="k">INSERT INTO</span> invoices (total) <span class="k">VALUES</span> (<span class="n">10</span>), (<span class="n">20</span>);
+
+<span class="k">SET ROLE</span> app_ro;
+<span class="k">SELECT</span> <span class="f">count</span>(*) <span class="k">AS</span> invoices_readable_by_ro <span class="k">FROM</span> invoices;  <span class="c">-- 2 (자동 부여!)</span>
+<span class="c"> invoices_readable_by_ro</span>
+<span class="c">-------------------------</span>
+<span class="c">                       2</span>
+<span class="k">RESET ROLE</span>;
+
+<span class="c">-- 등록된 default privilege 확인 (app_ro 에게 read(r) 가 예약됨)</span>
+<span class="k">SELECT</span> defaclobjtype, defaclacl <span class="k">FROM</span> pg_default_acl;
+<span class="c"> defaclobjtype |    defaclacl</span>
+<span class="c">---------------+------------------</span>
+<span class="c"> r             | {app_ro=r/study}</span>
+<span class="c">(1 row)</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">앱을 superuser·DB 소유자로 붙이지 마라</span>
+    <p>앱 커넥션을 superuser나 테이블 owner로 두면 <strong>① RLS가 우회</strong>되고(Lesson 01), <strong>② 사고 시 피해가 무제한</strong>입니다 — 인젝션·버그 한 번에 스키마 전체가 날아갈 수 있습니다. 앱은 <code>app_rw</code>/<code>app_ro</code> 같은 <strong>최소 권한 롤</strong>로 붙이고, 스키마 변경(마이그레이션)은 <strong>별도의 owner 롤</strong>로 분리하세요. <code>ALTER DEFAULT PRIVILEGES</code>는 그 owner가 만든 새 객체에도 앱 권한이 자동으로 따라가게 해 줍니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>(PG18) 인증 — scram-sha-256과 OAuth 2.0</h2>
+  <p>롤에 권한을 줬다면, 그다음은 <strong>"누가 이 롤로 접속할 수 있는가"</strong>를 검증하는 인증입니다. PostgreSQL의 기본 패스워드 인증은 <strong><code>scram-sha-256</code></strong>(평문·MD5보다 안전한 챌린지-응답 방식)입니다. 어떤 클라이언트가 어떤 방식으로 접속할지는 <strong><code>pg_hba.conf</code></strong>가 한 줄씩 규칙으로 정합니다(호스트·DB·유저·인증방식).</p>
+  <p><strong>PostgreSQL 18의 새 기능: OAuth 2.0 인증 지원.</strong> 외부 IdP(Identity Provider, 예: Okta·Entra ID 등)가 발급한 토큰으로 DB에 접속할 수 있게 되어, 사내 SSO·중앙 집중 인증과의 연동이 한결 쉬워졌습니다. 패스워드를 DB마다 따로 관리하지 않고 조직의 인증 체계에 통합하려는 운영 환경에 유용합니다.</p>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">유저·권한 모델 <span class="tag">MySQL</span></div>
+      <p>MySQL은 유저를 <strong><code>'user'@'host'</code></strong> 형태로 정의해 <strong>접속 출처(호스트)까지 식별</strong>합니다. 권한은 <code>GRANT ... ON db.* TO 'u'@'%'</code>처럼 부여하고, 그룹 개념 대신 <strong>롤(8.0+)</strong>을 별도로 도입했습니다. 스키마(=데이터베이스)에 대한 별도 <code>USAGE</code> 단계는 PG만큼 두드러지지 않습니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">유저·권한 모델 <span class="tag">PostgreSQL</span></div>
+      <p>PostgreSQL은 <strong>유저와 그룹을 ROLE 하나로 통합</strong>하고, 접속 출처는 <code>pg_hba.conf</code>에서 따로 다룹니다. 테이블 권한 전에 <strong>스키마 <code>USAGE</code>가 필요</strong>한 점이 MySQL에서 넘어온 팀이 자주 막히는 차이입니다. PG18부터는 <code>scram-sha-256</code>에 더해 <strong>OAuth 2.0</strong> 인증도 쓸 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> ROLE에서 "USER"란 무엇인가?</summary>
+    <div class="answer"><p>Postgres에서 유저와 그룹은 구분 없이 모두 <strong>ROLE</strong>이며, <strong>USER란 <code>LOGIN</code> 속성을 가진 ROLE</strong>입니다. <code>CREATE USER</code>는 <code>CREATE ROLE ... LOGIN</code>의 별칭일 뿐입니다. <code>NOLOGIN</code> 롤은 직접 접속은 못 하지만 권한을 묶는 <strong>그룹</strong>으로 쓰이고, <code>GRANT 그룹롤 TO 유저롤</code>로 멤버십을 만들면 권한을 상속합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 앱을 최소 권한 유저로 붙여야 하는 이유는?</summary>
+    <div class="answer"><p>두 가지입니다. <strong>① 보안 — RLS 우회 방지:</strong> superuser·테이블 owner는 RLS를 우회하므로, 앱이 그런 롤로 붙으면 행 수준 격리가 무력화됩니다. <strong>② 사고 시 피해 최소화:</strong> SQL 인젝션이나 버그가 있어도 <code>app_rw</code>가 가진 권한 범위(특정 테이블의 CRUD)로 피해가 제한됩니다. 스키마 변경 권한은 별도 owner 롤로 분리하는 것이 좋습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>ALTER DEFAULT PRIVILEGES</code>는 언제 쓰나?</summary>
+    <div class="answer"><p>일반 <code>GRANT</code>는 <strong>이미 존재하는 객체</strong>에만 적용되므로, 마이그레이션으로 <strong>새 테이블을 만들 때마다 앱 유저에게 권한을 다시 줘야</strong> 하는 번거로움이 생깁니다. <code>ALTER DEFAULT PRIVILEGES IN SCHEMA ... GRANT ... TO 롤</code>은 "앞으로 (특정 롤이) 이 스키마에 만들 객체에는 자동으로 이 권한을 부여하라"는 예약 설정이라, 새 테이블에도 권한이 자동으로 따라갑니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/user-manag.html">Database Roles — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/ddl-priv.html">Privileges — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-grant.html">GRANT — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="01-rls.html"><span class="dir">← 이전</span><span class="ttl">RLS · 멀티테넌시</span></a>
+    <a class="next" href="03-pooling-extensions-backup.html"><span class="dir">다음 →</span><span class="ttl">풀링 · 확장 · 백업 · 회고</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 6 · Lesson 02 · ROLE · 권한 · 앱 전용 유저</footer>
+</body>
+</html>

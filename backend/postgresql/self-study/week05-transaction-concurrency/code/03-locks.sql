@@ -69,7 +69,7 @@ SELECT pg_try_advisory_lock(42) AS got_again;  -- t
 SELECT pg_advisory_unlock(42) AS released_1;   -- t
 SELECT pg_advisory_unlock(42) AS released_2;   -- t
 
--- 현재 세션이 들고 있는 advisory lock 확인(모두 풀었으니 비어 있음)
+-- 현재 보유 중인 advisory 락 확인(모두 풀었으니 비어 있음)
 SELECT count(*) AS held_advisory_locks
 FROM pg_locks WHERE locktype = 'advisory';
 

@@ -106,9 +106,9 @@
 <span class="c">---------+------------------------------+-----------------</span>
 <span class="c"> items   | 2026-06-09 13:02:18.98198+00 |</span>   <span class="c">-- 수동 VACUUM 만 (autovacuum 은 이 데모에서 꺼 둠)</span></pre></div>
 
-  <p>autovacuum이 변경 속도를 <strong>못 따라가면</strong> 죽은 튜플이 쌓여 테이블·인덱스가 <strong>bloat(팽창)</strong>됩니다 — 살아 있는 행은 그대로인데 파일은 계속 커지고, 스캔할 페이지가 늘어 느려집니다. 한 행을 1,000번 UPDATE해 일부러 bloat을 만들어 봅시다(autovacuum을 꺼 둔 테이블).</p>
+  <p>autovacuum이 변경 속도를 <strong>못 따라가면</strong> 죽은 튜플이 쌓여 테이블·인덱스가 <strong>bloat(팽창)</strong>됩니다 — 살아 있는 행은 그대로인데 파일은 계속 커지고, 스캔할 페이지가 늘어 느려집니다. 한 행을 999번 UPDATE해 일부러 bloat을 만들어 봅시다(autovacuum을 꺼 둔 테이블).</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 1행을 1000번 UPDATE → 죽은 튜플 폭증 = bloat</span></div><pre><span class="c">-- 한 행을 반복 UPDATE (autovacuum 꺼 둔 상태)</span>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 1행을 999번 UPDATE → 죽은 튜플 폭증 = bloat</span></div><pre><span class="c">-- 한 행을 반복 UPDATE (autovacuum 꺼 둔 상태)</span>
 <span class="k">DO</span> $$ <span class="k">BEGIN</span> <span class="k">FOR</span> k <span class="k">IN</span> <span class="n">1</span>..<span class="n">999</span> <span class="k">LOOP</span>
   <span class="k">UPDATE</span> items <span class="k">SET</span> price = price + <span class="n">1</span> <span class="k">WHERE</span> name = <span class="s">'coffee'</span>;
 <span class="k">END LOOP</span>; <span class="k">END</span> $$;

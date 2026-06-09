@@ -133,7 +133,7 @@
   <div class="box warn">
     <span class="ic">⚠️</span>
     <span class="label">PostgreSQL의 격리 수준은 '표준 이름'과 다르게 동작한다</span>
-    <p><strong>① REPEATABLE READ가 표준보다 강하다.</strong> PG는 스냅샷 격리라 RR에서도 <strong>phantom read가 거의 생기지 않습니다</strong>(표준은 RR에서 phantom을 허용). 다만 RR/SERIALIZABLE에서는 충돌하는 쓰기를 만나면 트랜잭션이 <code>could not serialize access due to concurrent update</code>로 <strong>실패</strong>할 수 있습니다. <strong>② SERIALIZABLE은 재시도 전제.</strong> SSI는 직렬화 불가를 감지하면 한쪽을 <code>40001</code> 에러로 abort합니다 — 앱은 이 에러를 잡아 <strong>같은 트랜잭션을 다시 실행</strong>하도록 설계해야 합니다(락이 아니라 낙관적 방식이라 평소엔 빠르지만 충돌 시 재시도 책임이 앱에 있음).</p>
+    <p><strong>① REPEATABLE READ가 표준보다 강하다.</strong> PostgreSQL의 REPEATABLE READ는 스냅샷 격리라 표준과 달리 <strong>phantom read까지 막습니다</strong>(단, 직렬화 이상은 남아 SERIALIZABLE이 필요할 수 있음). 다만 RR/SERIALIZABLE에서는 충돌하는 쓰기를 만나면 트랜잭션이 <code>could not serialize access due to concurrent update</code>로 <strong>실패</strong>할 수 있습니다. <strong>② SERIALIZABLE은 재시도 전제.</strong> SSI는 직렬화 불가를 감지하면 한쪽을 <code>40001</code> 에러로 abort합니다 — 앱은 이 에러를 잡아 <strong>같은 트랜잭션을 다시 실행</strong>하도록 설계해야 합니다(락이 아니라 낙관적 방식이라 평소엔 빠르지만 충돌 시 재시도 책임이 앱에 있음).</p>
   </div>
 
   <h2><span class="num">4</span>두 세션 타임라인 — non-repeatable read를 눈으로</h2>

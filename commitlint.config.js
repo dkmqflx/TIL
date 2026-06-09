@@ -10,6 +10,7 @@ module.exports = {
         "be(nodejs)",
         "be(nestjs)",
         "be(supabase)",
+        "be(fastapi)",
         "clean-code",
         "cs(network)",
         "fe(a11y)",

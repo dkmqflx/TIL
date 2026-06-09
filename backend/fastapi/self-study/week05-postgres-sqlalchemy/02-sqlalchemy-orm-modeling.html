@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5·02 — SQLAlchemy 2.0 ORM 모델링 &amp; DDL</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · PostgreSQL &amp; SQLAlchemy</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 5 — Lesson 02</span>
+  <h1>SQLAlchemy 2.0 ORM 모델링<br>클래스로 테이블을 그리기</h1>
+  <p class="subtitle">파이썬 <strong>클래스 하나가 테이블 하나</strong>가 됩니다. NestJS의 <strong>TypeORM @Entity</strong>가 하던 일을, SQLAlchemy 2.0의 <code>DeclarativeBase</code> + <code>Mapped[]</code>로 합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>ORM은 <b>객체 ↔ 테이블 번역기</b>다. <code>class Todo(Base)</code>가 <code>todos</code> 테이블이 되고, <code>Todo(...)</code> 인스턴스 하나가 <b>한 행(row)</b>이 된다. SQL을 손으로 쓰지 않고 파이썬 객체로 데이터를 다룬다. 2.0 스타일은 <code>Mapped[]</code> 타입 힌트로 컬럼을 선언한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>ORM이 객체와 테이블을 어떻게 매핑하는지 이해한다</li>
+    <li>SQLAlchemy 2.0 스타일(DeclarativeBase · Mapped · mapped_column)로 모델을 짠다</li>
+    <li>타입·nullable·default·index 등 컬럼 옵션을 건다</li>
+    <li>create_all로 테이블을 생성(DDL)한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>ORM이란 — 객체와 테이블의 번역기</h2>
+  <p>DB는 <strong>행과 열</strong>로 데이터를 저장하지만, 우리 코드는 <strong>객체</strong>로 생각합니다. 이 둘 사이의 간극(임피던스 불일치)을 메우는 게 ORM(Object-Relational Mapping)입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🔤</span>
+    <span class="label">비유 — 양식 작성 대행</span>
+    <p>raw SQL은 <strong>모든 서류를 손으로 직접 작성</strong>하는 것입니다. 빠르지만 오타(SQL 문법 오류)가 나기 쉽고, 양식이 바뀌면 전부 고쳐야 하죠. ORM은 <strong>"이름·완료여부만 알려주세요"</strong> 하고 양식을 대신 채워주는 대행 창구입니다. 당신은 파이썬 객체만 다루고, ORM이 <code>INSERT INTO todos ...</code> 같은 SQL로 번역합니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>raw SQL</th><th>ORM</th></tr></thead>
+    <tbody>
+      <tr><td>SQL 문자열을 직접 작성</td><td>파이썬 객체로 표현</td></tr>
+      <tr><td>DB 종류 바뀌면 SQL 수정</td><td>대부분 코드 그대로 이식</td></tr>
+      <tr><td>오타·인젝션 위험 직접 관리</td><td>안전한 바인딩 자동(Lesson 3)</td></tr>
+      <tr><td>세밀한 튜닝에 유리</td><td>생산성·가독성에 유리</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">2</span>2.0 스타일 — DeclarativeBase &amp; Mapped</h2>
+  <p>SQLAlchemy 2.0은 <strong>타입 힌트 기반</strong>으로 모델을 선언합니다. <code>DeclarativeBase</code>를 상속한 <code>Base</code>를 만들고, 컬럼은 <code>Mapped[타입]</code> + <code>mapped_column(...)</code>로 적습니다. 타입 힌트가 곧 컬럼 타입이 됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">models.py</span></div><pre><span class="k">from</span> datetime <span class="k">import</span> datetime
+<span class="k">from</span> sqlalchemy <span class="k">import</span> String, func
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> (
+    DeclarativeBase, Mapped, mapped_column,
+)
+
+<span class="k">class</span> <span class="t">Base</span>(<span class="t">DeclarativeBase</span>):
+    <span class="k">pass</span>                              <span class="c"># 모든 모델의 부모. metadata가 모인다.</span>
+
+<span class="k">class</span> <span class="t">Todo</span>(<span class="t">Base</span>):
+    __tablename__ = <span class="s">"todos"</span>
+
+    id: <span class="t">Mapped</span>[<span class="t">int</span>] = <span class="f">mapped_column</span>(primary_key=<span class="k">True</span>)
+    title: <span class="t">Mapped</span>[<span class="t">str</span>] = <span class="f">mapped_column</span>(<span class="t">String</span>(<span class="n">100</span>), index=<span class="k">True</span>)
+    done: <span class="t">Mapped</span>[<span class="t">bool</span>] = <span class="f">mapped_column</span>(default=<span class="k">False</span>)
+    created_at: <span class="t">Mapped</span>[<span class="t">datetime</span>] = <span class="f">mapped_column</span>(
+        server_default=<span class="f">func.now</span>(),
+    )</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Mapped[int] vs Mapped[int | None]</span>
+    <p>2.0 스타일에서 <strong>nullable 여부는 타입 힌트가 결정</strong>합니다. <code>Mapped[str]</code>는 <code>NOT NULL</code>, <code>Mapped[str | None]</code>은 <code>NULL 허용</code>입니다. NestJS에서 <code>@Column({ nullable: true })</code>를 옵션으로 주던 것을, 여기서는 타입에 <code>| None</code>을 붙이는 것만으로 표현합니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>컬럼 옵션 — 타입 · nullable · default · index</h2>
+  <table class="tbl">
+    <thead><tr><th>옵션</th><th>의미</th><th>예</th></tr></thead>
+    <tbody>
+      <tr><td><code>primary_key=True</code></td><td>기본키(PK)</td><td><code>id</code></td></tr>
+      <tr><td><code>Mapped[T]</code> / <code>Mapped[T | None]</code></td><td>NOT NULL / NULL 허용</td><td><code>title</code> / 선택 필드</td></tr>
+      <tr><td><code>default=...</code></td><td>파이썬 측 기본값</td><td><code>done=False</code></td></tr>
+      <tr><td><code>server_default=func.now()</code></td><td>DB가 채우는 기본값</td><td><code>created_at</code></td></tr>
+      <tr><td><code>index=True</code></td><td>조회용 인덱스</td><td><code>title</code></td></tr>
+      <tr><td><code>String(100)</code></td><td>VARCHAR 길이 제한</td><td><code>title</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="ic">🕐</span>
+    <span class="label">created_at은 왜 server_default일까</span>
+    <p>파이썬 쪽 <code>default=datetime.utcnow</code>는 <strong>3.12+에서 deprecated</strong>이고, 앱 서버 시계에 의존합니다. <code>server_default=func.now()</code>는 <strong>DB 서버가 직접 시각을 찍어</strong> 정확하고 일관됩니다. 여러 인스턴스가 떠 있어도 기준 시계가 하나(DB)라 안전합니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>NestJS TypeORM과 나란히</h2>
+  <p>같은 "할 일" 엔티티를 양쪽으로 그려 봅니다. 데코레이터(Nest) ↔ 타입 힌트(SQLAlchemy)의 대비가 핵심입니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — TypeORM Entity</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todo.entity.ts</span></div><pre><span class="d">@Entity</span>(<span class="s">'todos'</span>)
+<span class="k">export class</span> <span class="t">Todo</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>()
+  id: <span class="t">number</span>;
+
+  <span class="d">@Column</span>({ length: <span class="n">100</span> })
+  title: <span class="t">string</span>;
+
+  <span class="d">@Column</span>({ default: <span class="k">false</span> })
+  done: <span class="t">boolean</span>;
+
+  <span class="d">@CreateDateColumn</span>()
+  createdAt: <span class="t">Date</span>;
+}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — SQLAlchemy 2.0</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">models.py</span></div><pre><span class="k">class</span> <span class="t">Todo</span>(<span class="t">Base</span>):
+    __tablename__ = <span class="s">"todos"</span>
+
+    id: <span class="t">Mapped</span>[<span class="t">int</span>] = \
+        <span class="f">mapped_column</span>(primary_key=<span class="k">True</span>)
+    title: <span class="t">Mapped</span>[<span class="t">str</span>] = \
+        <span class="f">mapped_column</span>(<span class="t">String</span>(<span class="n">100</span>))
+    done: <span class="t">Mapped</span>[<span class="t">bool</span>] = \
+        <span class="f">mapped_column</span>(default=<span class="k">False</span>)
+    created_at: <span class="t">Mapped</span>[<span class="t">datetime</span>] = \
+        <span class="f">mapped_column</span>(server_default=<span class="f">func.now</span>())</pre></div>
+      <p><code>@PrimaryGeneratedColumn</code> ↔ <code>primary_key=True</code>, <code>@Column</code> ↔ <code>mapped_column</code>. 데코레이터 대신 타입 힌트가 일합니다.</p>
+    </div>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 250" role="img" aria-label="파이썬 클래스와 데이터베이스 테이블의 매핑">
+      <!-- class side -->
+      <rect x="20" y="40" width="270" height="170" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="36" y="66" font-family="JetBrains Mono, monospace" font-size="12" fill="#ff9d6e">class <tspan fill="#6fd6c7">Todo</tspan>(<tspan fill="#6fd6c7">Base</tspan>):</text>
+      <text x="36" y="92" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">  __tablename__ = <tspan fill="#9ad9a0">"todos"</tspan></text>
+      <text x="36" y="118" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">  id: <tspan fill="#6fd6c7">Mapped[int]</tspan></text>
+      <text x="36" y="142" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">  title: <tspan fill="#6fd6c7">Mapped[str]</tspan></text>
+      <text x="36" y="166" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">  done: <tspan fill="#6fd6c7">Mapped[bool]</tspan></text>
+      <text x="36" y="190" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">  created_at: <tspan fill="#6fd6c7">Mapped[…]</tspan></text>
+      <text x="155" y="30" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">파이썬 클래스 (객체)</text>
+
+      <!-- arrow -->
+      <line x1="293" y1="125" x2="368" y2="125" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#m5)"/>
+      <text x="330" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">매핑</text>
+
+      <!-- table side -->
+      <rect x="370" y="40" width="270" height="170" rx="10" fill="#fff" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="505" y="30" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">DB 테이블 (todos)</text>
+      <!-- header row -->
+      <rect x="370" y="40" width="270" height="30" fill="#16140f"/>
+      <text x="392" y="60" font-family="JetBrains Mono, monospace" font-size="11" fill="#f6f1e7">id</text>
+      <text x="440" y="60" font-family="JetBrains Mono, monospace" font-size="11" fill="#f6f1e7">title</text>
+      <text x="528" y="60" font-family="JetBrains Mono, monospace" font-size="11" fill="#f6f1e7">done</text>
+      <text x="585" y="60" font-family="JetBrains Mono, monospace" font-size="11" fill="#f6f1e7">created</text>
+      <!-- rows -->
+      <line x1="370" y1="70" x2="640" y2="70" stroke="#d8cfba"/>
+      <line x1="370" y1="105" x2="640" y2="105" stroke="#d8cfba"/>
+      <line x1="370" y1="140" x2="640" y2="140" stroke="#d8cfba"/>
+      <text x="392" y="92" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a463d">1</text>
+      <text x="440" y="92" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a463d">장보기</text>
+      <text x="528" y="92" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f">false</text>
+      <text x="585" y="92" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">10:21</text>
+      <text x="392" y="127" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a463d">2</text>
+      <text x="440" y="127" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a463d">운동</text>
+      <text x="528" y="127" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64">true</text>
+      <text x="585" y="127" font-family="JetBrains Mono, monospace" font-size="10" fill="#807a6c">09:03</text>
+      <text x="505" y="180" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">인스턴스 1개 = 행(row) 1개</text>
+
+      <defs><marker id="m5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker></defs>
+    </svg>
+    <figcaption>클래스 = 테이블, 필드 = 컬럼, 인스턴스 = 행. ORM이 이 매핑을 자동으로 관리한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">5</span>create_all — 테이블 생성(DDL)</h2>
+  <p>모델을 선언했다고 테이블이 생기진 않습니다. <code>Base.metadata.create_all(engine)</code>를 호출하면, 등록된 모든 모델을 보고 <strong><code>CREATE TABLE</code>(DDL)을 실행</strong>합니다. 이미 있는 테이블은 건드리지 않습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">create_tables.py</span></div><pre><span class="k">from</span> database <span class="k">import</span> engine
+<span class="k">from</span> models <span class="k">import</span> Base
+
+<span class="c"># 모델 → CREATE TABLE 변환 후 실행. 있으면 건너뜀.</span>
+Base.metadata.<span class="f">create_all</span>(engine)</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">create_all은 "변경"을 못 한다</span>
+    <p><code>create_all</code>은 <strong>없는 테이블을 만들 뿐</strong>, 이미 있는 테이블의 컬럼 추가·타입 변경은 하지 못합니다. 모델을 고쳐도 기존 테이블엔 반영되지 않죠. 그래서 데모·초기 개발에만 쓰고, 운영의 스키마 변경은 <strong>Week 10의 Alembic 마이그레이션</strong>으로 버전 관리합니다.</p>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">다음 단계 예고 — Alembic</span>
+    <p>실무에선 "컬럼 하나 추가"도 기록(마이그레이션)으로 남겨 팀·운영 DB에 순서대로 적용합니다. NestJS의 <code>typeorm migration:generate</code>에 대응하는 게 Alembic의 <code>alembic revision --autogenerate</code>입니다. 지금은 <code>create_all</code>로 빠르게 시작하고, 구조가 안정되면 Alembic으로 갈아탑니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> SQLAlchemy 2.0 스타일에서 컬럼의 nullable 여부는 어떻게 정하나요?</summary>
+    <div class="answer"><p>타입 힌트로 정합니다. <code>Mapped[str]</code>는 NOT NULL, <code>Mapped[str | None]</code>은 NULL 허용입니다. 별도 옵션 없이 타입 자체가 nullable 여부를 선언합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>default</code>와 <code>server_default</code>의 차이는?</summary>
+    <div class="answer"><p><code>default</code>는 파이썬(앱) 쪽에서 값을 채우고, <code>server_default</code>는 DB 서버가 채웁니다. <code>created_at</code>처럼 정확한 시각·여러 인스턴스 일관성이 중요한 경우 <code>server_default=func.now()</code>로 DB가 찍게 하는 편이 안전합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 모델 컬럼을 바꿨는데 <code>create_all</code>로 테이블이 안 바뀌어요.</summary>
+    <div class="answer"><p><code>create_all</code>은 없는 테이블을 만들 뿐, 기존 테이블의 컬럼 변경은 하지 못합니다. 스키마 변경은 Alembic 마이그레이션(Week 10)으로 처리해야 합니다. 데모라면 테이블을 드롭 후 다시 만들 수도 있지만, 실데이터가 있으면 절대 그러면 안 됩니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-docker-postgres-connection.html"><span class="dir">← 이전</span><span class="ttl">Docker PostgreSQL &amp; 연결</span></a>
+    <a class="next" href="03-connection-pool-session.html"><span class="dir">다음 →</span><span class="ttl">Connection Pool · Session · fetch</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 5 · Lesson 02 · SQLAlchemy ORM 모델링</footer>
+</body>
+</html>

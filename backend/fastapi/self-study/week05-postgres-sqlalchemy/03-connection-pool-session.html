@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5·03 — Connection Pool · Session · fetch · bind</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · PostgreSQL &amp; SQLAlchemy</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 5 — Lesson 03</span>
+  <h1>Connection Pool · Session<br>그리고 안전한 쿼리</h1>
+  <p class="subtitle">DB 연결은 <strong>비싼 자원</strong>입니다. 미리 만들어 돌려 쓰는 <strong>Connection Pool</strong>, 작업 단위인 <strong>Session</strong>, 그리고 SQL Injection을 막는 <strong>bind 변수</strong>까지 — DB를 실제로 다루는 마지막 조각들입니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>DB 연결은 매번 새로 맺기엔 비싸다. 그래서 <b>풀(pool)에 미리 만들어 두고 빌려 쓰고 반납</b>한다 — 콜택시 대기열처럼. 작업은 <b>Session(작업 단위)</b>으로 묶고, 값은 문자열로 잇지 말고 <b>bind 변수로 바인딩</b>해 인젝션을 막는다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>Connection Pool이 왜 필요한지와 주요 파라미터를 안다</li>
+    <li>Session(Unit of Work)으로 작업을 묶고 commit/close한다</li>
+    <li>2.0 스타일로 쿼리를 실행하고 결과를 fetch한다</li>
+    <li>bind 변수로 SQL Injection을 막는다</li>
+  </ul>
+
+  <h2><span class="num">1</span>Connection Pool — 연결을 재사용하기</h2>
+  <p>DB 연결은 TCP 핸드셰이크·인증을 거치는 <strong>무거운 작업</strong>입니다. 요청마다 새로 맺고 끊으면 그 비용이 누적됩니다. 그래서 연결을 미리 몇 개 만들어 두고 <strong>빌려 쓰고 반납</strong>합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🚕</span>
+    <span class="label">비유 — 콜택시 대기열</span>
+    <p>손님(요청)이 올 때마다 <strong>새 택시를 사는 것</strong>은 미친 짓입니다. 대신 회사는 택시 몇 대를 <strong>대기열(pool)</strong>에 세워 둡니다. 손님이 오면 대기 중인 택시를 <strong>배차(빌림)</strong>하고, 목적지에 도착하면 택시는 <strong>다시 대기열로 복귀(반납)</strong>합니다. 손님이 몰리면 임시 차량을 더 부르고(<code>max_overflow</code>), 한가하면 줄입니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>파라미터</th><th>의미</th><th>비유</th></tr></thead>
+    <tbody>
+      <tr><td><code>pool_size</code></td><td>평상시 유지하는 연결 수</td><td>상시 대기 택시 대수</td></tr>
+      <tr><td><code>max_overflow</code></td><td>몰릴 때 추가 허용 한도</td><td>피크 때 임시 콜 한도</td></tr>
+      <tr><td><code>pool_recycle</code></td><td>일정 초 지난 연결은 폐기·재생성</td><td>오래된 차 교체 주기</td></tr>
+      <tr><td><code>pool_pre_ping</code></td><td>빌려주기 전 "살아있니?" 점검</td><td>배차 전 시동 확인</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">database.py</span></div><pre>engine = <span class="f">create_engine</span>(
+    DATABASE_URL,
+    pool_size=<span class="n">5</span>,        <span class="c"># 상시 5개</span>
+    max_overflow=<span class="n">10</span>,    <span class="c"># 피크 때 +10까지</span>
+    pool_recycle=<span class="n">1800</span>,  <span class="c"># 30분 지난 연결 재생성</span>
+    pool_pre_ping=<span class="k">True</span>, <span class="c"># 끊긴 연결 자동 폐기</span>
+)</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 250" role="img" aria-label="요청들이 커넥션 풀에서 연결을 빌리고 반납하는 흐름">
+      <!-- requests -->
+      <rect x="20" y="40" width="120" height="34" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="80" y="62" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#b8332e">요청 A</text>
+      <rect x="20" y="108" width="120" height="34" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="80" y="130" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#b8332e">요청 B</text>
+      <rect x="20" y="176" width="120" height="34" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="80" y="198" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#b8332e">요청 C</text>
+
+      <!-- borrow arrows -->
+      <line x1="142" y1="57" x2="248" y2="90" stroke="#0d6e64" stroke-width="2" marker-end="url(#p5)"/>
+      <line x1="142" y1="125" x2="248" y2="125" stroke="#0d6e64" stroke-width="2" marker-end="url(#p5)"/>
+      <line x1="142" y1="193" x2="248" y2="160" stroke="#0d6e64" stroke-width="2" marker-end="url(#p5)"/>
+      <text x="200" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">빌림</text>
+
+      <!-- pool -->
+      <rect x="250" y="50" width="180" height="150" rx="12" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="340" y="40" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#0a4f48">Connection Pool</text>
+      <rect x="270" y="70" width="140" height="26" rx="6" fill="#fff" stroke="#0d6e64"/>
+      <text x="340" y="88" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">conn #1 (사용중)</text>
+      <rect x="270" y="104" width="140" height="26" rx="6" fill="#fff" stroke="#0d6e64"/>
+      <text x="340" y="122" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">conn #2 (사용중)</text>
+      <rect x="270" y="138" width="140" height="26" rx="6" fill="#fff" stroke="#0d6e64"/>
+      <text x="340" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">conn #3 (사용중)</text>
+      <rect x="270" y="172" width="140" height="22" rx="6" fill="#dcebe6" stroke="#0d6e64" stroke-dasharray="3 3"/>
+      <text x="340" y="187" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">conn #4 (대기)</text>
+
+      <!-- to DB -->
+      <line x1="432" y1="125" x2="520" y2="125" stroke="#e0552f" stroke-width="2.5" marker-end="url(#p5b)"/>
+      <text x="476" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#e0552f">재사용</text>
+      <rect x="522" y="85" width="116" height="80" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="580" y="120" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#ece6d6">PostgreSQL</text>
+      <text x="580" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9ad9a0">5432</text>
+
+      <text x="340" y="222" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">끝나면 연결은 풀로 반납 → 다음 요청이 재사용</text>
+
+      <defs>
+        <marker id="p5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="p5b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>요청은 풀에서 연결을 빌려 쓰고, 끝나면 반납한다. 매번 새로 맺지 않아 빠르다.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span>Session — 작업 단위(Unit of Work)</h2>
+  <p>풀에서 빌린 연결 위에서 실제 작업을 묶는 게 <strong>Session</strong>입니다. 한 Session 안의 변경들은 <code>commit</code> 전까지 한 묶음(트랜잭션)으로 모였다가 함께 반영됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">database.py</span></div><pre><span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session, sessionmaker
+
+SessionLocal = <span class="f">sessionmaker</span>(
+    bind=engine, autoflush=<span class="k">False</span>, expire_on_commit=<span class="k">False</span>,
+)
+
+<span class="k">def</span> <span class="f">get_db</span>():
+    db = <span class="f">SessionLocal</span>()
+    <span class="k">try</span>:
+        <span class="k">yield</span> db
+    <span class="k">finally</span>:
+        db.<span class="f">close</span>()      <span class="c"># 끝나면 연결을 풀로 반납</span></pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>메서드</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>session.add(obj)</code></td><td>새 객체를 세션에 등록(아직 DB 반영 X)</td></tr>
+      <tr><td><code>session.commit()</code></td><td>모은 변경을 트랜잭션으로 확정</td></tr>
+      <tr><td><code>session.refresh(obj)</code></td><td>DB가 채운 값(id·created_at)을 다시 읽어옴</td></tr>
+      <tr><td><code>session.close()</code></td><td>세션 종료, 연결을 풀로 반납</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">with 문 / get_db 의존성</span>
+    <p>세션은 반드시 닫아야 연결이 풀로 돌아갑니다. <code>with Session(engine) as s:</code> 컨텍스트나, FastAPI에선 위처럼 <code>get_db</code> 제너레이터를 <code>Depends</code>로 주입해 <code>finally: close()</code>를 보장합니다. NestJS에서 요청 스코프로 Repository/EntityManager를 받는 것과 같은 역할입니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>쿼리 실행 &amp; fetch</h2>
+  <p>2.0 스타일은 <code>select()</code>로 쿼리를 만들고, <code>scalars()</code>로 ORM 객체 리스트를 받습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">query.py</span></div><pre><span class="k">from</span> sqlalchemy <span class="k">import</span> select
+<span class="k">from</span> models <span class="k">import</span> Todo
+
+<span class="c"># 전체 조회 — Todo 객체 리스트</span>
+todos = db.<span class="f">scalars</span>(<span class="f">select</span>(Todo).<span class="f">order_by</span>(Todo.id)).<span class="f">all</span>()
+
+<span class="c"># 동일하게 execute + scalars로도 가능</span>
+result = db.<span class="f">execute</span>(<span class="f">select</span>(Todo))
+todos = result.<span class="f">scalars</span>().<span class="f">all</span>()</pre></div>
+
+  <div class="box note">
+    <span class="ic">🔎</span>
+    <span class="label">scalars()를 쓰는 이유 — Row vs 객체</span>
+    <p><code>execute()</code>의 결과는 <strong>Row 객체</strong>(컬럼 묶음)입니다. <code>select(Todo)</code>처럼 엔티티 하나만 고를 땐 Row의 첫 칸이 곧 Todo 객체죠. <code>scalars()</code>는 그 첫 칸을 꺼내 <strong>Todo 객체 자체</strong>를 돌려줍니다. 그래서 <code>todo.title</code>처럼 바로 다룰 수 있습니다. 여러 컬럼을 골랐다면 <code>scalars()</code> 없이 Row로 받아 풀어 씁니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>bind 변수 — 값을 "끼워 넣지" 말고 "바인딩"하라</h2>
+  <p>가장 중요한 안전 규칙입니다. 사용자 입력을 <strong>문자열로 직접 이어 붙여</strong> SQL을 만들면 <strong>SQL Injection</strong>에 뚫립니다. 대신 값을 <strong>파라미터(bind 변수)</strong>로 따로 전달하면, DB가 그것을 "코드가 아닌 데이터"로 취급해 안전합니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">f-string으로 SQL을 만들지 마라</span>
+    <p>아래 왼쪽처럼 <code>f"... WHERE title = '{q}'"</code>로 SQL을 조립하면, <code>q</code>에 <code>' OR '1'='1</code> 같은 값이 들어왔을 때 쿼리 의미가 통째로 바뀝니다. 비밀번호를 우회하거나 테이블을 통째로 노출시킬 수 있죠. <strong>값은 절대 문자열로 잇지 말고 바인딩</strong>하세요.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">위험</span> 문자열 포매팅 (절대 금지)</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">danger.py</span></div><pre><span class="c"># ❌ 사용자 입력을 그대로 이어붙임</span>
+q = request_query
+sql = <span class="t">text</span>(
+  <span class="s">f"SELECT * FROM todos "</span>
+  <span class="s">f"WHERE title = '{q}'"</span>
+)
+db.<span class="f">execute</span>(sql)
+<span class="c"># q = "' OR '1'='1"  →  전체 노출!</span></pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">안전</span> bind 변수 바인딩</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">safe.py</span></div><pre><span class="k">from</span> sqlalchemy <span class="k">import</span> select, text
+
+<span class="c"># ✅ 값을 파라미터로 따로 전달</span>
+<span class="c"># 1) ORM은 기본이 바인딩</span>
+<span class="f">select</span>(Todo).<span class="f">where</span>(Todo.title == q)
+
+<span class="c"># 2) raw SQL도 :param 으로</span>
+db.<span class="f">execute</span>(
+  <span class="t">text</span>(<span class="s">"SELECT * FROM todos "</span>
+       <span class="s">"WHERE title = :q"</span>),
+  {<span class="s">"q"</span>: q},   <span class="c"># 데이터로 취급</span>
+)</pre></div>
+    </div>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🛡️</span>
+    <span class="label">ORM을 쓰면 기본이 안전</span>
+    <p><code>select(Todo).where(Todo.title == q)</code>처럼 ORM 표현식을 쓰면 SQLAlchemy가 <strong>자동으로 값을 바인딩</strong>합니다. 즉, 평소처럼 ORM으로 짜기만 해도 인젝션이 막힙니다. 위험은 거의 항상 <strong>raw SQL을 f-string으로 직접 조립</strong>할 때 생깁니다.</p>
+  </div>
+
+  <h2><span class="num">5</span>전체 흐름 한눈에</h2>
+  <p>지금까지의 조각을 하나의 엔드포인트로 모으면 이렇습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> Depends, FastAPI
+<span class="k">from</span> sqlalchemy <span class="k">import</span> select
+<span class="k">from</span> sqlalchemy.orm <span class="k">import</span> Session
+<span class="k">from</span> database <span class="k">import</span> get_db
+<span class="k">from</span> models <span class="k">import</span> Todo
+
+app = <span class="t">FastAPI</span>()
+
+<span class="d">@app.get</span>(<span class="s">"/todos"</span>)
+<span class="k">def</span> <span class="f">list_todos</span>(db: <span class="t">Session</span> = <span class="t">Depends</span>(get_db)):
+    <span class="k">return</span> db.<span class="f">scalars</span>(<span class="f">select</span>(Todo).<span class="f">order_by</span>(Todo.id)).<span class="f">all</span>()</pre></div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Connection Pool은 왜 필요한가요?</summary>
+    <div class="answer"><p>DB 연결은 핸드셰이크·인증을 거치는 비싼 작업이라, 요청마다 새로 맺으면 비용이 큽니다. 풀에 연결을 미리 만들어 두고 빌려 쓰고 반납하면, 콜택시 대기열처럼 재사용으로 빠르게 처리할 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>scalars()</code>는 왜 쓰나요?</summary>
+    <div class="answer"><p><code>execute()</code>는 컬럼 묶음인 Row를 돌려줍니다. <code>select(Todo)</code>처럼 엔티티 하나만 골랐다면 <code>scalars()</code>로 Row의 첫 칸(=Todo 객체)을 꺼내, 곧바로 <code>todo.title</code>처럼 객체로 다룰 수 있게 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> SQL Injection을 막는 핵심 규칙은?</summary>
+    <div class="answer"><p>값을 문자열로 이어 붙이지 말고 <strong>bind 변수(파라미터)</strong>로 따로 전달하는 것입니다. ORM 표현식(<code>where(Todo.title == q)</code>)은 자동으로 바인딩하므로 안전하고, raw SQL을 쓸 때도 <code>:q</code> 플레이스홀더 + 파라미터 dict를 씁니다. f-string으로 SQL을 조립하는 것이 가장 흔한 사고 원인입니다.</p></div>
+  </details>
+
+  <div class="box tip">
+    <span class="ic">🎯</span>
+    <span class="label">Week 5 마무리</span>
+    <p>Docker로 PostgreSQL을 띄우고 → 2.0 스타일로 모델을 그리고 → 풀·세션·바인딩으로 안전하게 데이터를 다루기까지, 이제 <strong>FastAPI에서 실제 DB를 쓰는 한 바퀴</strong>를 완성했습니다. 다음 Week 6에서는 이 위에 <strong>Repository·서비스 계층과 Depends 주입</strong>을 얹어, 라우트에서 DB 로직을 깔끔히 분리합니다.</p>
+  </div>
+
+  <nav class="pager">
+    <a class="prev" href="02-sqlalchemy-orm-modeling.html"><span class="dir">← 이전</span><span class="ttl">SQLAlchemy ORM 모델링 &amp; DDL</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 · Week 6 준비</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 5 · Lesson 03 · Pool · Session · bind</footer>
+</body>
+</html>

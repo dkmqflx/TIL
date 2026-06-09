@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5·01 — Docker로 PostgreSQL 띄우기 &amp; DB 연결</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · PostgreSQL &amp; SQLAlchemy</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 5 — Lesson 01</span>
+  <h1>Docker로 PostgreSQL 띄우기<br>그리고 DB에 연결하기</h1>
+  <p class="subtitle">로컬에 DB를 설치하지 않고도, <code>docker-compose.yml</code> 한 장으로 PostgreSQL을 켜고 끕니다. 그리고 <strong>SQLAlchemy Engine</strong>으로 그 DB에 처음 연결해 봅니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>DB는 <b>창고</b>, 드라이버(psycopg)는 <b>창고 언어 통역사</b>, SQLAlchemy는 <b>주문을 대신 처리하는 비서</b>다. Docker는 그 창고를 컴퓨터에 직접 짓지 않고 <b>컨테이너 한 채로 빌려 쓰는 것</b>. <code>docker compose up -d</code> 한 줄이면 창고가 선다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>왜 DB를 Docker로 띄우는지 — 격리·재현성의 이점을 안다</li>
+    <li>docker-compose.yml로 PostgreSQL 16을 띄우고 끈다</li>
+    <li>DATABASE_URL 형식과 드라이버(psycopg)의 역할을 이해한다</li>
+    <li>SQLAlchemy create_engine으로 Engine을 만들어 연결한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 DB를 Docker로 띄우는가</h2>
+  <p>"PostgreSQL을 내 맥에 직접 설치"하는 방식은 버전이 꼬이고, 다른 프로젝트와 충돌하고, 팀원마다 환경이 달라집니다. Docker는 이 문제를 <strong>격리(isolation)</strong>와 <strong>재현성(reproducibility)</strong>으로 해결합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">📦</span>
+    <span class="label">비유 — 집 마당에 창고를 짓지 말고, 컨테이너를 빌려라</span>
+    <p>DB를 직접 설치하는 건 <strong>마당에 창고를 콘크리트로 짓는 것</strong>과 같습니다. 한 번 지으면 옮기기 힘들고, 헐 때도 흙바닥이 더럽혀집니다. Docker 컨테이너는 <strong>레고처럼 가져다 놓는 조립식 창고</strong>입니다. <code>up</code>으로 세우고 <code>down</code>으로 흔적 없이 치웁니다. "내 컴퓨터에선 됐는데?"가 사라지는 이유 — 모두가 같은 컨테이너 설계도(이미지)를 받기 때문입니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>방식</th><th>설치</th><th>충돌</th><th>팀 공유</th></tr></thead>
+    <tbody>
+      <tr><td>로컬 직접 설치</td><td>OS마다 다름</td><td>버전·포트 충돌 잦음</td><td>"내 환경에선…" 문제</td></tr>
+      <tr><td>Docker 컨테이너</td><td>이미지 pull 한 번</td><td>컨테이너 안에 격리</td><td>compose 파일 1장 공유</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">2</span>docker-compose.yml 작성</h2>
+  <p>컨테이너 한 채를 띄우는 설계도입니다. 이미지·계정·포트·데이터 보관 위치를 선언합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">docker-compose.yml</span></div><pre><span class="t">services</span>:
+  <span class="t">db</span>:
+    <span class="t">image</span>: postgres:<span class="n">16</span>          <span class="c"># PostgreSQL 16 공식 이미지</span>
+    <span class="t">environment</span>:
+      <span class="t">POSTGRES_USER</span>: todo
+      <span class="t">POSTGRES_PASSWORD</span>: todo_pw
+      <span class="t">POSTGRES_DB</span>: todo_db
+    <span class="t">ports</span>:
+      - <span class="s">"5432:5432"</span>          <span class="c"># 호스트 5432 → 컨테이너 5432</span>
+    <span class="t">volumes</span>:
+      - pgdata:/var/lib/postgresql/data  <span class="c"># 데이터 영속화</span>
+
+<span class="t">volumes</span>:
+  <span class="t">pgdata</span>:</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">volume이 없으면 데이터가 증발한다</span>
+    <p>컨테이너는 <strong>휘발성</strong>입니다. <code>down</code>으로 지우면 안에 쌓인 데이터도 같이 사라지죠. <code>volumes</code>로 데이터 폴더를 컨테이너 <strong>바깥의 named volume(pgdata)</strong>에 연결해 두면, 컨테이너를 지웠다 다시 띄워도 데이터가 살아남습니다. 진짜로 다 지우려면 <code>docker compose down -v</code>(볼륨까지)를 씁니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>띄우고 끄기</h2>
+  <p>같은 폴더에서 명령 한 줄이면 됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># 백그라운드(-d, detached)로 DB 컨테이너 시작</span>
+docker compose up -d
+
+<span class="c"># 잘 떴는지 확인</span>
+docker compose ps
+
+<span class="c"># 종료(데이터는 volume에 보존)</span>
+docker compose down
+
+<span class="c"># 데이터까지 완전 삭제</span>
+docker compose down -v</pre></div>
+
+  <h2><span class="num">4</span>DATABASE_URL — 연결 주소의 문법</h2>
+  <p>이제 코드가 이 창고로 찾아갈 <strong>주소</strong>가 필요합니다. SQLAlchemy는 하나의 URL 문자열로 "어떤 DB·어떤 드라이버·누가·어디로" 전부를 표현합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">DATABASE_URL 형식</span></div><pre>postgresql+psycopg://todo:todo_pw@localhost:5432/todo_db
+<span class="c">└────┬───┘ └──┬──┘  └─┬─┘ └──┬──┘ └───┬───┘ └─┬┘ └──┬──┘</span>
+   <span class="c">DB종류</span>  <span class="c">드라이버</span>  <span class="c">유저</span>   <span class="c">비번</span>     <span class="c">호스트</span>  <span class="c">포트</span>  <span class="c">DB이름</span></pre></div>
+
+  <p><code>postgresql</code>은 DB 종류, <code>+psycopg</code>는 <strong>그 DB와 실제로 대화할 드라이버</strong>를 지정합니다. 이 둘을 합쳐 "PostgreSQL에 psycopg로 말 걸겠다"는 뜻이 됩니다.</p>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">psycopg(v3)란 — 동기 드라이버</span>
+    <p><span class="chip">driver</span> psycopg는 파이썬 ↔ PostgreSQL 사이를 잇는 <strong>드라이버(통역사)</strong>입니다. SQLAlchemy가 만든 SQL을 받아 실제 네트워크로 DB에 보내고 결과를 받아옵니다. 여기서는 <strong>동기(sync)</strong> 버전을 씁니다 — 요청이 끝날 때까지 기다리는 평범한 함수 호출 방식이죠. (Week 4의 async와 짝을 이루는 <code>async</code> 드라이버 <code>asyncpg</code>는 나중에 다룹니다.)</p>
+  </div>
+
+  <h2><span class="num">5</span>설치 — uv add</h2>
+  <p>드라이버와 SQLAlchemy를 의존성으로 추가합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre>uv add sqlalchemy psycopg</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">연결이 안 되면 psycopg[binary]를 의심하라</span>
+    <p><code>psycopg</code>만 설치하면 시스템에 <strong>libpq</strong>(PostgreSQL C 라이브러리)가 있어야 빌드/실행됩니다. 깨끗한 로컬에서 바로 돌리고 싶다면 미리 컴파일된 <code>uv add "psycopg[binary]"</code>가 무난합니다. 서버에서 직접 빌드하는 운영 환경에서는 <code>psycopg</code>(소스)를 권장합니다.</p>
+  </div>
+
+  <h2><span class="num">6</span>create_engine — Engine 만들기</h2>
+  <p>주소가 준비됐으니 <code>create_engine</code>으로 <strong>Engine</strong>을 만듭니다. Engine은 "연결 공장 + 커넥션 풀"이며, 앱 전체에서 <strong>딱 하나</strong>만 만들어 재사용합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">database.py</span></div><pre><span class="k">import</span> os
+<span class="k">from</span> sqlalchemy <span class="k">import</span> create_engine
+
+DATABASE_URL = os.<span class="f">getenv</span>(
+    <span class="s">"DATABASE_URL"</span>,
+    <span class="s">"postgresql+psycopg://todo:todo_pw@localhost:5432/todo_db"</span>,
+)
+
+<span class="c"># 앱당 하나. 내부에 Connection Pool을 들고 있다.</span>
+engine = <span class="f">create_engine</span>(DATABASE_URL, pool_pre_ping=<span class="k">True</span>)</pre></div>
+
+  <div class="box analogy">
+    <span class="ic">🗂️</span>
+    <span class="label">비유 — 창고·통역사·비서</span>
+    <p>그림으로 정리하면 이렇습니다. <strong>DB(창고)</strong>에는 물건(데이터)이 쌓여 있고, 당신은 창고 언어를 모릅니다. <strong>psycopg(통역사)</strong>가 창고 직원과 대화해 주고, <strong>SQLAlchemy(비서)</strong>는 당신의 파이썬 주문("Todo 다 가져와")을 통역사가 알아들을 SQL로 바꿔 전달합니다. 당신은 비서에게만 말하면 됩니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 210" role="img" aria-label="클라이언트에서 드라이버를 거쳐 DB까지 연결 흐름">
+      <!-- client / app -->
+      <rect x="20" y="70" width="150" height="70" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="95" y="100" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#0a4f48">FastAPI 앱</text>
+      <text x="95" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a463d">SQLAlchemy</text>
+      <text x="95" y="162" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">비서 — 주문을 SQL로</text>
+
+      <!-- arrow 1 -->
+      <line x1="172" y1="105" x2="252" y2="105" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#a5a)"/>
+      <text x="212" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">SQL</text>
+
+      <!-- driver -->
+      <rect x="254" y="70" width="150" height="70" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="329" y="100" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#9a6a05">psycopg</text>
+      <text x="329" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a463d">동기 드라이버</text>
+      <text x="329" y="162" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">통역사 — 네트워크 전송</text>
+
+      <!-- arrow 2 -->
+      <line x1="406" y1="105" x2="486" y2="105" stroke="#e0552f" stroke-width="2.5" marker-end="url(#a5b)"/>
+      <text x="446" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#e0552f">TCP 5432</text>
+
+      <!-- DB -->
+      <rect x="488" y="60" width="150" height="90" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="563" y="92" text-anchor="middle" font-family="Pretendard" font-size="13" font-weight="700" fill="#ece6d6">PostgreSQL</text>
+      <text x="563" y="112" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9ad9a0">(Docker 컨테이너)</text>
+      <text x="563" y="172" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">창고 — 데이터 보관</text>
+
+      <defs>
+        <marker id="a5a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="a5b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>앱(비서) → psycopg(통역사) → PostgreSQL(창고). 각자 한 단계씩 책임진다.</figcaption>
+  </figure>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">7</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> DB를 직접 설치하지 않고 Docker로 띄우는 핵심 이점은?</summary>
+    <div class="answer"><p>격리와 재현성입니다. 컨테이너 안에 DB가 갇혀 있어 로컬 환경과 충돌하지 않고, compose 파일 한 장만 공유하면 팀 전체가 동일한 버전·설정의 DB를 똑같이 띄울 수 있습니다. <code>up</code>/<code>down</code>으로 흔적 없이 켜고 끕니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>postgresql+psycopg://...</code>에서 <code>+psycopg</code>는 무슨 뜻인가요?</summary>
+    <div class="answer"><p>실제로 PostgreSQL과 대화할 <strong>드라이버</strong>를 지정합니다. <code>postgresql</code>은 DB 종류, <code>psycopg</code>는 통역사 역할의 드라이버입니다. 여기서는 동기 버전을 쓰며, SQLAlchemy가 만든 SQL을 받아 네트워크로 DB에 보내고 결과를 받아옵니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Engine은 요청마다 새로 만들어야 하나요?</summary>
+    <div class="answer"><p>아니요. Engine은 내부에 Connection Pool을 들고 있는 무거운 객체라 <strong>앱당 하나만</strong> 만들어 모듈 전역에서 재사용합니다. 요청마다 새로 빌려 쓰는 것은 Engine이 아니라 그 풀에서 나오는 <strong>연결/세션</strong>입니다(Lesson 3).</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week04-async-internals/03-multiprocess-uvicorn-starlette.html"><span class="dir">← 이전</span><span class="ttl">Week 4 · Uvicorn/Starlette 역할</span></a>
+    <a class="next" href="02-sqlalchemy-orm-modeling.html"><span class="dir">다음 →</span><span class="ttl">SQLAlchemy 2.0 ORM 모델링 &amp; DDL</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 5 · Lesson 01 · Docker PostgreSQL &amp; 연결</footer>
+</body>
+</html>

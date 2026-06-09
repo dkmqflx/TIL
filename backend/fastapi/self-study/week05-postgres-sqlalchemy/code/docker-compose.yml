@@ -1,0 +1,26 @@
+# PostgreSQL 16 개발용 컨테이너
+# 실행:   docker compose up -d
+# 종료:   docker compose down
+# 데이터까지 삭제: docker compose down -v
+services:
+  db:
+    image: postgres:16
+    container_name: til-fastapi-db
+    environment:
+      POSTGRES_USER: todo
+      POSTGRES_PASSWORD: todo_pw
+      POSTGRES_DB: todo_db
+    ports:
+      # 호스트 5432 -> 컨테이너 5432
+      - "5432:5432"
+    volumes:
+      # 컨테이너를 지워도 데이터가 살아남도록 named volume에 보관
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo -d todo_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:

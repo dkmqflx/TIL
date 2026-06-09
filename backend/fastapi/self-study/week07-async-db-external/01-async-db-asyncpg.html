@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 7·01 — 비동기 DB (asyncpg) &amp; Lifespan</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 7 · 비동기 DB &amp; 외부 통신</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 7 — Lesson 01</span>
+  <h1>비동기 DB (asyncpg)<br>이벤트 루프를 막지 마라</h1>
+  <p class="subtitle">Week 4에서 "<strong>async 함수 안에서 동기 I/O를 호출하면 이벤트 루프가 멈춘다</strong>"고 배웠죠. DB 호출도 똑같은 I/O입니다. 이번엔 SQLAlchemy 2.0 + asyncpg로 DB까지 <strong>완전 비동기</strong>로 만듭니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>비동기 서버에서 <b>동기 DB 드라이버</b>를 쓰면, DB가 응답을 주는 동안 이벤트 루프 전체가 멈춰 다른 요청을 못 받는다. <code>asyncpg</code> + <code>create_async_engine</code> + <code>AsyncSession</code>으로 갈아끼우고, <b>모든 쿼리 앞에 <code>await</code></b>를 붙이면 DB 대기 중에도 서버가 다른 일을 한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>왜 비동기 서버에서 동기 DB 호출이 위험한지 이벤트 루프 관점에서 이해한다</li>
+    <li>asyncpg 드라이버 + create_async_engine + async_sessionmaker로 엔진/세션을 구성한다</li>
+    <li>async 엔드포인트에서 async with 세션 + await execute(select(...))로 쿼리한다</li>
+    <li>Lifespan으로 startup/shutdown 리소스를 관리한다 (engine.dispose())</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 비동기 DB인가 — Week 4 함정의 연장</h2>
+  <p>Week 4에서 핵심 규칙 하나를 배웠습니다. <strong>"<code>async def</code> 엔드포인트 안에서 동기(blocking) I/O를 부르면 이벤트 루프가 통째로 멈춘다"</strong>. 그 함정의 가장 흔한 현장이 바로 <strong>데이터베이스</strong>입니다.</p>
+  <p>DB 쿼리는 본질적으로 네트워크 I/O입니다. 쿼리를 보내고 결과가 돌아올 때까지 수십 ms를 기다리죠. 이 "기다림"을 동기 드라이버(<code>psycopg2</code> 같은)로 하면, 그동안 <strong>이벤트 루프가 그 한 요청에 묶여</strong> 다른 요청을 하나도 처리하지 못합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">☕</span>
+    <span class="label">비유 — 카페 바리스타 한 명</span>
+    <p>이벤트 루프는 <strong>바리스타 한 명</strong>입니다. 동기 DB는 "에스프레소 머신이 추출하는 30초 동안 바리스타가 <strong>가만히 머신만 쳐다보는</strong>" 것과 같습니다. 그동안 줄 선 다른 손님(요청)은 아무도 주문을 못 합니다. 비동기 DB는 "추출 버튼만 누르고(<code>await</code>) <strong>다음 손님 주문을 받으러 가는</strong>" 똑똑한 바리스타입니다. 추출이 끝나면(결과 도착) 그 커피를 마저 내어줍니다. 같은 바리스타 한 명인데 처리량이 몇 배가 됩니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 280" role="img" aria-label="동기 DB vs 비동기 DB 이벤트 루프 비교">
+      <!-- sync row -->
+      <text x="20" y="28" font-family="Pretendard" font-size="13" font-weight="700" fill="#b8332e">동기 DB — 이벤트 루프가 멈춘다</text>
+      <rect x="20" y="40" width="120" height="34" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="80" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">요청 A 처리</text>
+      <rect x="142" y="40" width="240" height="34" rx="6" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="262" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#b8332e">DB 대기 (루프 정지 🔒)</text>
+      <rect x="384" y="40" width="120" height="34" rx="6" fill="#f0eadd" stroke="#807a6c" stroke-width="1.5"/>
+      <text x="444" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#4a463d">요청 B 처리</text>
+      <text x="262" y="92" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#b8332e">↑ 이 시간 동안 요청 B는 그냥 기다린다</text>
+
+      <line x1="20" y1="120" x2="640" y2="120" stroke="#d8cfba" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+      <!-- async row -->
+      <text x="20" y="158" font-family="Pretendard" font-size="13" font-weight="700" fill="#0a4f48">비동기 DB — 대기 중 다른 요청 처리</text>
+      <rect x="20" y="170" width="110" height="34" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="75" y="192" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">A: await 쿼리</text>
+      <rect x="134" y="170" width="150" height="34" rx="6" fill="#dcebe6" stroke="#0d9e8c" stroke-width="1.5"/>
+      <text x="209" y="192" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">B 처리 (양보!)</text>
+      <rect x="288" y="170" width="150" height="34" rx="6" fill="#dcebe6" stroke="#0d9e8c" stroke-width="1.5"/>
+      <text x="363" y="192" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">C 처리 (양보!)</text>
+      <rect x="442" y="170" width="120" height="34" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="502" y="192" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">A: 결과 도착</text>
+      <path d="M75,210 q0,30 200,30 q150,0 150,-32" fill="none" stroke="#0d6e64" stroke-width="2" stroke-dasharray="4 4" marker-end="url(#aa)"/>
+      <text x="262" y="262" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#0a4f48">A의 DB 대기 시간에 B·C를 끼워 처리한다</text>
+      <defs><marker id="aa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker></defs>
+    </svg>
+    <figcaption>같은 이벤트 루프 한 개라도, 비동기 DB는 대기 시간에 다른 요청을 끼워 넣는다.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span>드라이버 교체 — postgresql+asyncpg://</h2>
+  <p>비동기 DB의 출발점은 <strong>비동기 드라이버</strong>입니다. PostgreSQL에서는 <code>asyncpg</code>가 표준입니다. SQLAlchemy에게 "이 드라이버로 비동기 연결을 맺어라"라고 알려주는 건 <strong>연결 URL의 접두사</strong>입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>구분</th><th>연결 URL</th><th>엔진 생성</th></tr></thead>
+    <tbody>
+      <tr><td>동기 (지금까지)</td><td><code>postgresql+psycopg2://...</code></td><td><code>create_engine</code></td></tr>
+      <tr><td>비동기 (이번 주)</td><td><code>postgresql+asyncpg://...</code></td><td><code>create_async_engine</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">URL 접두사 하나만 틀려도 터진다</span>
+    <p>비동기 엔진(<code>create_async_engine</code>)에 <strong>동기 URL</strong>(<code>postgresql://</code> 또는 <code>+psycopg2</code>)을 주면 <code>InvalidRequestError</code>가 납니다. 반드시 <code>postgresql+asyncpg://</code>로 시작해야 합니다. 드라이버(<code>asyncpg</code>)도 따로 설치돼 있어야 하고요(<code>uv add asyncpg</code>).</p>
+  </div>
+
+  <h2><span class="num">3</span>엔진 &amp; 세션 구성 — async_sessionmaker</h2>
+  <p>비동기 버전은 이름 앞에 대부분 <code>async</code>가 붙거나 <code>Async</code>로 바뀐다고 기억하면 쉽습니다. 동기와 1:1로 대응됩니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>동기 (SQLAlchemy 2.0)</th><th>비동기 (이번 주)</th></tr></thead>
+    <tbody>
+      <tr><td><code>create_engine</code></td><td><code>create_async_engine</code></td></tr>
+      <tr><td><code>sessionmaker</code></td><td><code>async_sessionmaker</code></td></tr>
+      <tr><td><code>Session</code></td><td><code>AsyncSession</code></td></tr>
+      <tr><td><code>session.execute(...)</code></td><td><code>await session.execute(...)</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">database.py</span></div><pre><span class="k">from</span> sqlalchemy.ext.asyncio <span class="k">import</span> (
+    create_async_engine,
+    async_sessionmaker,
+    AsyncSession,
+)
+
+DATABASE_URL = <span class="s">"postgresql+asyncpg://user:pw@localhost:5432/app"</span>
+
+<span class="c"># 1) 비동기 엔진 — 커넥션 풀을 관리한다</span>
+engine = <span class="f">create_async_engine</span>(DATABASE_URL, echo=<span class="k">True</span>)
+
+<span class="c"># 2) 세션 팩토리 — 요청마다 세션을 찍어낸다</span>
+AsyncSessionLocal = <span class="f">async_sessionmaker</span>(
+    engine,
+    class_=<span class="t">AsyncSession</span>,
+    expire_on_commit=<span class="k">False</span>,   <span class="c"># 커밋 후에도 객체 속성 접근 가능</span>
+)</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 180" role="img" aria-label="엔진-세션팩토리-세션-커넥션풀 구조">
+      <rect x="20" y="64" width="150" height="52" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="95" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">create_async</text>
+      <text x="95" y="102" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">_engine</text>
+      <text x="95" y="138" text-anchor="middle" font-family="Pretendard" font-size="10" fill="#807a6c">앱당 1개 · 커넥션 풀</text>
+
+      <rect x="220" y="64" width="160" height="52" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="300" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9a6a05">async_session</text>
+      <text x="300" y="102" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9a6a05">maker</text>
+      <text x="300" y="138" text-anchor="middle" font-family="Pretendard" font-size="10" fill="#807a6c">세션을 찍어내는 팩토리</text>
+
+      <rect x="430" y="50" width="210" height="80" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="535" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#6fd6c7">AsyncSession</text>
+      <text x="535" y="98" text-anchor="middle" font-family="Pretendard" font-size="10" fill="#ece6d6">요청마다 하나</text>
+      <text x="535" y="115" text-anchor="middle" font-family="Pretendard" font-size="10" fill="#9ad9a0">await execute / commit</text>
+
+      <line x1="170" y1="90" x2="218" y2="90" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#ea)"/>
+      <line x1="380" y1="90" x2="428" y2="90" stroke="#c98a16" stroke-width="2.2" marker-end="url(#eb)"/>
+      <defs>
+        <marker id="ea" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="eb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>엔진(풀)은 앱당 하나, 팩토리가 요청마다 AsyncSession을 찍어낸다.</figcaption>
+  </figure>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">expire_on_commit=False 가 비동기에서 특히 중요</span>
+    <p>기본값(<code>True</code>)이면 커밋 직후 객체 속성에 접근할 때 SQLAlchemy가 <strong>자동으로 DB를 다시 읽으려</strong> 합니다. 비동기에서는 이 "숨은 재조회"가 <code>await</code> 없이 일어나 <code>MissingGreenlet</code> 에러를 냅니다. <code>expire_on_commit=False</code>로 꺼두는 게 비동기의 정석입니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>엔드포인트 — 동기 → 비동기 전환 (before / after)</h2>
+  <p>Week 5·6에서 쓰던 동기 라우트를 비동기로 바꿔봅시다. 바뀌는 건 ① <code>def</code> → <code>async def</code>, ② <code>with</code> → <code>async with</code>, ③ <code>execute</code> 앞에 <code>await</code>. 이 세 가지뿐입니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Sync</span> Before — 동기 (Week 5·6)</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/items.py</span></div><pre><span class="d">@router.get</span>(<span class="s">"/items"</span>)
+<span class="k">def</span> <span class="f">list_items</span>():
+    <span class="k">with</span> <span class="f">SessionLocal</span>() <span class="k">as</span> session:
+        result = session.<span class="f">execute</span>(
+            <span class="f">select</span>(<span class="t">Item</span>)
+        )
+        <span class="k">return</span> result.<span class="f">scalars</span>().<span class="f">all</span>()</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Async</span> After — 비동기 (Week 7)</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/items.py</span></div><pre><span class="d">@router.get</span>(<span class="s">"/items"</span>)
+<span class="k">async def</span> <span class="f">list_items</span>():
+    <span class="k">async with</span> <span class="f">AsyncSessionLocal</span>() <span class="k">as</span> session:
+        result = <span class="k">await</span> session.<span class="f">execute</span>(
+            <span class="f">select</span>(<span class="t">Item</span>)
+        )
+        <span class="k">return</span> result.<span class="f">scalars</span>().<span class="f">all</span>()</pre></div>
+    </div>
+  </div>
+  <p><code>result.scalars().all()</code>은 <strong>이미 메모리에 받은 결과</strong>를 가공하는 거라 <code>await</code>가 없습니다. <code>await</code>는 <strong>DB와 통신하는 순간</strong>(<code>execute</code>, <code>commit</code>, <code>flush</code>)에만 붙는다고 기억하세요.</p>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">쓰기는 await session.commit()</span>
+    <p>생성·수정·삭제는 <code>session.add(obj)</code> 뒤에 <code>await session.commit()</code>으로 마무리합니다. 새로 생성된 <code>id</code> 등을 바로 써야 하면 <code>await session.refresh(obj)</code>로 DB 값을 다시 채웁니다. 이 둘 모두 DB와 통신하므로 <code>await</code>가 필요합니다.</p>
+  </div>
+
+  <h2><span class="num">5</span>Lifespan — startup/shutdown 리소스 관리</h2>
+  <p>엔진은 <strong>앱 전체에서 단 하나</strong>여야 합니다(커넥션 풀을 공유해야 하니까). 그리고 서버가 꺼질 때는 풀을 <strong>깨끗이 정리</strong>해야 하죠. 이 "시작할 때 준비 / 끝날 때 정리"를 담는 곳이 <strong>Lifespan</strong>입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> contextlib <span class="k">import</span> asynccontextmanager
+<span class="k">from</span> fastapi <span class="k">import</span> FastAPI
+
+<span class="d">@asynccontextmanager</span>
+<span class="k">async def</span> <span class="f">lifespan</span>(app: <span class="t">FastAPI</span>):
+    <span class="c"># 🟢 startup — yield 이전</span>
+    <span class="k">print</span>(<span class="s">"서버 시작: 커넥션 풀 준비 완료"</span>)
+    <span class="k">yield</span>
+    <span class="c"># 🔴 shutdown — yield 이후</span>
+    <span class="k">await</span> engine.<span class="f">dispose</span>()       <span class="c"># 풀의 모든 연결을 닫는다</span>
+    <span class="k">print</span>(<span class="s">"서버 종료: 커넥션 정리 완료"</span>)
+
+app = <span class="f">FastAPI</span>(lifespan=lifespan)</pre></div>
+
+  <p><code>yield</code>를 기준으로 <strong>위는 startup, 아래는 shutdown</strong>입니다. <code>async with</code> 컨텍스트 매니저와 똑같은 구조죠. 서버가 살아있는 동안은 <code>yield</code> 지점에 "멈춰" 있다가, 종료 신호가 오면 그 아래 정리 코드가 실행됩니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">@app.on_event("startup") 은 구식 — Lifespan을 써라</span>
+    <p>예전 튜토리얼에 나오는 <code>@app.on_event("startup")</code> / <code>@app.on_event("shutdown")</code>은 <strong>deprecated</strong>입니다. 지금은 위처럼 <code>@asynccontextmanager</code> + <code>lifespan</code> 하나로 시작·종료를 같은 함수에 묶는 방식이 권장됩니다. 시작에서 만든 변수를 종료에서 그대로 쓸 수 있어 더 안전하고요.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> async 엔드포인트에서 동기 DB 드라이버를 쓰면 뭐가 문제인가요?</summary>
+    <div class="answer"><p>동기 DB 호출은 결과가 올 때까지 스레드를 블로킹합니다. 그 스레드가 곧 이벤트 루프이므로, DB가 응답하는 수십 ms 동안 <strong>다른 모든 요청이 멈춥니다</strong>. 비동기의 장점(대기 중 다른 일 처리)이 통째로 사라지죠. 그래서 <code>asyncpg</code> 같은 비동기 드라이버 + <code>await</code>가 필요합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 동기 코드를 비동기로 바꿀 때 await는 어디에 붙이나요?</summary>
+    <div class="answer"><p><strong>DB와 실제로 통신하는 호출</strong>에만 붙입니다: <code>await session.execute(...)</code>, <code>await session.commit()</code>, <code>await session.refresh(...)</code>. 반면 <code>result.scalars().all()</code>처럼 이미 받은 결과를 가공하는 코드에는 <code>await</code>가 없습니다. 함수는 <code>async def</code>, 세션은 <code>async with</code>로 엽니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Lifespan은 왜 쓰고, 거기서 engine.dispose()는 왜 하나요?</summary>
+    <div class="answer"><p>Lifespan은 앱의 시작·종료 시점에 한 번씩 실행되는 코드 자리입니다. 엔진(커넥션 풀)은 앱 전체에서 하나만 두고 공유하는데, 서버가 꺼질 때 <code>await engine.dispose()</code>로 풀에 열린 연결들을 깔끔히 닫지 않으면 연결 누수가 생깁니다. <code>@asynccontextmanager</code>의 <code>yield</code> 이후가 종료 정리 자리입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week06-json-api-structure/03-exception-handler-pytest.html"><span class="dir">← 이전</span><span class="ttl">Week 6 · Exception Handler &amp; pytest</span></a>
+    <a class="next" href="02-httpx-external-api.html"><span class="dir">다음 →</span><span class="ttl">httpx로 외부 API 호출</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 7 · Lesson 01 · 비동기 DB (asyncpg)</footer>
+</body>
+</html>

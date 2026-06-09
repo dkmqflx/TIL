@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 7·03 — CORS &amp; 미들웨어</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 7 · 비동기 DB &amp; 외부 통신</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 7 — Lesson 03</span>
+  <h1>CORS &amp; 미들웨어<br>모든 요청을 가로채는 계층</h1>
+  <p class="subtitle">프론트(:5173)에서 API(:8000)를 부르면 십중팔구 만나는 <strong>CORS 에러</strong>. 그 정체와 해결법, 그리고 모든 요청을 전·후로 감싸는 <strong>미들웨어</strong>를 배웁니다. Week 2에서 예고했던 쿠키/credentials 이야기도 여기서 매듭짓습니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>CORS 에러는 <b>서버 버그가 아니라 브라우저의 보안 정책</b>이다. 다른 출처의 프론트가 호출하면 브라우저가 막는다. 서버가 <code>CORSMiddleware</code>로 "이 출처는 허용"이라고 응답 헤더에 명시하면 풀린다. 미들웨어는 <b>모든 요청을 전·후로 가로채는 공통 계층</b>이다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>CORS가 왜·언제 발생하는지 동일 출처 정책으로 설명한다</li>
+    <li>CORSMiddleware의 핵심 옵션(origins·credentials·methods·headers)을 설정한다</li>
+    <li>프론트 CORS 에러 메시지를 읽고 디버깅한다</li>
+    <li>커스텀 미들웨어로 모든 요청을 전·후 처리한다 (처리시간 헤더 예제)</li>
+  </ul>
+
+  <h2><span class="num">1</span>CORS란 — 출처가 다르면 브라우저가 막는다</h2>
+  <p><strong>출처(Origin)</strong>는 "스킴 + 호스트 + 포트"입니다. <code>http://localhost:5173</code>과 <code>http://localhost:8000</code>은 포트가 달라 <strong>다른 출처</strong>죠. 브라우저는 보안을 위해 "다른 출처로 보내는 JS 요청의 응답은, 서버가 명시적으로 허락하지 않으면 읽지 못하게" 막습니다. 이것이 <strong>동일 출처 정책(Same-Origin Policy)</strong>입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🛂</span>
+    <span class="label">비유 — 출입 허가 명단</span>
+    <p>API 서버는 출입 통제가 있는 건물입니다. 같은 회사 직원(동일 출처)은 그냥 들어가지만, <strong>다른 건물(다른 출처)에서 온 방문자</strong>는 경비(브라우저)가 막습니다. 서버가 "이 방문자(<code>http://localhost:5173</code>)는 허용"이라고 <strong>명단(<code>Access-Control-Allow-Origin</code> 헤더)</strong>을 경비에게 보여줘야 통과됩니다. 명단에 없으면 응답이 와 있어도 경비가 손님에게 안 넘겨줍니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 200" role="img" aria-label="동일 출처 vs 교차 출처">
+      <text x="20" y="26" font-family="Pretendard" font-size="12.5" font-weight="700" fill="#0a4f48">출처 = 스킴 + 호스트 + 포트</text>
+
+      <!-- same origin -->
+      <rect x="20" y="44" width="290" height="60" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="36" y="68" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">localhost:8000 → localhost:8000</text>
+      <text x="36" y="92" font-family="Pretendard" font-size="11" fill="#0a4f48">✅ 동일 출처 — 그냥 통과</text>
+
+      <!-- cross origin -->
+      <rect x="20" y="118" width="290" height="60" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="36" y="142" font-family="JetBrains Mono, monospace" font-size="11" fill="#b8332e">localhost:5173 → localhost:8000</text>
+      <text x="36" y="166" font-family="Pretendard" font-size="11" fill="#b8332e">⛔ 교차 출처 — 포트 다름 → 차단</text>
+
+      <line x1="312" y1="148" x2="372" y2="148" stroke="#807a6c" stroke-width="2.2" marker-end="url(#cc)"/>
+
+      <rect x="376" y="110" width="264" height="76" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="508" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9a6a05">CORSMiddleware</text>
+      <text x="508" y="158" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#9a6a05">allow_origins 에 :5173 추가 →</text>
+      <text x="508" y="174" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#9a6a05">허용 헤더 붙여서 통과시킴 ✅</text>
+      <defs><marker id="cc" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker></defs>
+    </svg>
+    <figcaption>포트만 달라도 교차 출처라 차단된다. CORSMiddleware가 그 출처를 허용 명단에 넣어 풀어준다.</figcaption>
+  </figure>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">CORS는 '브라우저'만의 규칙이다</span>
+    <p>중요한 포인트: CORS는 <strong>브라우저</strong>가 강제하는 규칙입니다. <code>curl</code>이나 다른 서버(Lesson 02처럼 우리 백엔드가 외부 API를 호출하는 경우)에서는 CORS 에러가 절대 안 납니다. 그래서 "Postman/curl은 되는데 브라우저만 안 돼요"가 전형적인 CORS 증상입니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>CORSMiddleware 설정</h2>
+  <p>FastAPI는 <code>CORSMiddleware</code>를 기본 제공합니다. 허용할 출처·메서드·헤더·credentials를 등록하면, 미들웨어가 응답에 알맞은 CORS 헤더를 자동으로 붙여줍니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> FastAPI
+<span class="k">from</span> fastapi.middleware.cors <span class="k">import</span> CORSMiddleware
+
+app = <span class="f">FastAPI</span>()
+
+app.<span class="f">add_middleware</span>(
+    CORSMiddleware,
+    allow_origins=[<span class="s">"http://localhost:5173"</span>],  <span class="c"># 정확한 출처 목록</span>
+    allow_credentials=<span class="k">True</span>,                      <span class="c"># 쿠키·인증 허용</span>
+    allow_methods=[<span class="s">"*"</span>],                         <span class="c"># GET, POST, ...</span>
+    allow_headers=[<span class="s">"*"</span>],                         <span class="c"># Authorization 등</span>
+)</pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>옵션</th><th>의미</th></tr></thead>
+    <tbody>
+      <tr><td><code>allow_origins</code></td><td>허용할 프론트 출처 목록 (정확히 일치해야 함)</td></tr>
+      <tr><td><code>allow_credentials</code></td><td>쿠키·Authorization 헤더 등 인증 정보 전송 허용</td></tr>
+      <tr><td><code>allow_methods</code></td><td>허용 HTTP 메서드 (<code>["*"]</code>로 전체)</td></tr>
+      <tr><td><code>allow_headers</code></td><td>허용 요청 헤더 (<code>["*"]</code>로 전체)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">credentials를 쓸 땐 allow_origins=["*"] 불가</span>
+    <p>Week 2에서 예고했던 쿠키/credentials 이야기가 여기 연결됩니다. <code>allow_credentials=True</code>(쿠키·인증 전송)와 <code>allow_origins=["*"]</code>(모든 출처)는 <strong>동시에 쓸 수 없습니다</strong>. 보안상 브라우저가 거부합니다. 인증을 쓴다면 반드시 <strong>정확한 출처</strong>를 하나하나 적어야 합니다. 흔히 빠지는 함정이니 꼭 기억하세요.</p>
+  </div>
+
+  <h2><span class="num">3</span>프론트 CORS 에러 읽는 법 &amp; 디버깅</h2>
+  <p>브라우저 콘솔의 그 빨간 메시지를 해독해 봅시다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">browser console</span></div><pre><span class="c"># 전형적인 CORS 에러</span>
+Access to fetch at <span class="s">'http://localhost:8000/items'</span>
+from origin <span class="s">'http://localhost:5173'</span> has been blocked
+by CORS policy: No <span class="s">'Access-Control-Allow-Origin'</span>
+header is present on the requested resource.</pre></div>
+
+  <p>해석: "<code>:5173</code>에서 <code>:8000</code>으로 보낸 요청의 응답에 <strong>허용 헤더가 없어서</strong> 막았다." 즉 <strong>서버가 그 출처를 허용 명단에 안 넣었다</strong>는 뜻입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>증상</th><th>원인 / 체크</th></tr></thead>
+    <tbody>
+      <tr><td>No 'Access-Control-Allow-Origin'</td><td><code>allow_origins</code>에 프론트 출처가 없음 → 정확히 추가</td></tr>
+      <tr><td>credentials 관련 에러</td><td><code>allow_credentials=True</code>인데 <code>origins=["*"]</code> → 정확한 출처로</td></tr>
+      <tr><td>OPTIONS만 보이고 본 요청 안 감</td><td>Preflight 실패 → <code>allow_methods/headers</code> 확인</td></tr>
+      <tr><td>curl은 되는데 브라우저만 안 됨</td><td>정상 — CORS는 브라우저 전용. 서버 헤더 설정 문제</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Preflight(사전 요청)란</span>
+    <p>인증 헤더나 PUT/DELETE 같은 요청은 브라우저가 본 요청 전에 <code>OPTIONS</code> 요청을 먼저 보내 "이런 요청 보내도 돼?"라고 묻습니다. 이게 <strong>Preflight</strong>입니다. <code>CORSMiddleware</code>가 이 OPTIONS에 자동 응답해 주므로, 직접 OPTIONS 핸들러를 만들 필요는 없습니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>미들웨어 — 모든 요청을 감싸는 계층</h2>
+  <p><code>CORSMiddleware</code>도 사실 미들웨어의 한 종류였습니다. <strong>미들웨어</strong>는 라우트 함수에 도달하기 <em>전</em>과 응답이 나가기 <em>후</em>를, <strong>모든 요청에 공통으로</strong> 가로채는 계층입니다. 로깅·인증·처리시간 측정 같은 공통 관심사를 한 곳에 모읍니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 220" role="img" aria-label="미들웨어 체인 통과 흐름">
+      <text x="20" y="26" font-family="Pretendard" font-size="13" font-weight="700" fill="#0a4f48">요청 → 미들웨어 체인 → 라우트 → 응답</text>
+      <!-- request path -->
+      <rect x="20" y="50" width="80" height="44" rx="8" fill="#16140f" stroke="#2c281f"/>
+      <text x="60" y="77" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#ece6d6">요청</text>
+
+      <rect x="130" y="50" width="120" height="44" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="190" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#b8332e">CORS / 처리시간</text>
+      <text x="190" y="86" text-anchor="middle" font-family="Pretendard" font-size="9.5" fill="#b8332e">전처리 ↓</text>
+
+      <rect x="280" y="50" width="120" height="44" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="340" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9a6a05">인증 / 로깅</text>
+      <text x="340" y="86" text-anchor="middle" font-family="Pretendard" font-size="9.5" fill="#9a6a05">전처리 ↓</text>
+
+      <rect x="430" y="42" width="140" height="60" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="500" y="68" text-anchor="middle" font-family="Pretendard" font-size="11" font-weight="700" fill="#0a4f48">라우트 함수</text>
+      <text x="500" y="85" text-anchor="middle" font-family="Pretendard" font-size="9.5" fill="#0a4f48">실제 비즈니스 로직</text>
+
+      <line x1="100" y1="72" x2="128" y2="72" stroke="#807a6c" stroke-width="2" marker-end="url(#m1)"/>
+      <line x1="250" y1="72" x2="278" y2="72" stroke="#807a6c" stroke-width="2" marker-end="url(#m1)"/>
+      <line x1="400" y1="72" x2="428" y2="72" stroke="#807a6c" stroke-width="2" marker-end="url(#m1)"/>
+
+      <!-- response path (return) -->
+      <path d="M500,104 q0,40 -160,40 q-150,0 -150,2" fill="none" stroke="#0d6e64" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#m2)"/>
+      <text x="340" y="170" text-anchor="middle" font-family="Pretendard" font-size="10.5" fill="#0a4f48">응답은 역순으로 통과하며 후처리(헤더 추가 등) ← </text>
+      <rect x="20" y="148" width="80" height="44" rx="8" fill="#16140f" stroke="#2c281f"/>
+      <text x="60" y="175" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#ece6d6">응답</text>
+      <line x1="190" y1="148" x2="105" y2="160" stroke="#0d6e64" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#m2)"/>
+      <defs>
+        <marker id="m1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="m2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>요청은 미들웨어를 차례로 통과해 라우트에 닿고, 응답은 역순으로 되돌아 나오며 후처리된다.</figcaption>
+  </figure>
+
+  <h2><span class="num">5</span>커스텀 미들웨어 — 처리시간 헤더 추가</h2>
+  <p><code>@app.middleware("http")</code>로 직접 만들 수 있습니다. <code>call_next(request)</code>가 "다음 계층(결국 라우트)으로 넘기고 응답을 받아오는" 호출입니다. 그 <strong>전후로</strong> 우리 코드를 끼웁니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">import</span> time
+<span class="k">from</span> fastapi <span class="k">import</span> Request
+
+<span class="d">@app.middleware</span>(<span class="s">"http"</span>)
+<span class="k">async def</span> <span class="f">add_process_time</span>(request: <span class="t">Request</span>, call_next):
+    start = time.<span class="f">perf_counter</span>()      <span class="c"># 전처리</span>
+    response = <span class="k">await</span> <span class="f">call_next</span>(request)  <span class="c"># 라우트 실행</span>
+    elapsed = time.<span class="f">perf_counter</span>() - start
+    response.headers[<span class="s">"X-Process-Time"</span>] = <span class="s">f"{elapsed:.4f}"</span>  <span class="c"># 후처리</span>
+    <span class="k">return</span> response</pre></div>
+
+  <p>이제 모든 응답에 <code>X-Process-Time</code> 헤더가 자동으로 붙습니다. 라우트를 한 줄도 안 건드리고요. 이게 미들웨어의 힘입니다 — <strong>공통 관심사를 한 곳에서</strong>.</p>
+
+  <h2><span class="num">6</span>NestJS와 비교 — Middleware / Interceptor</h2>
+  <p>NestJS 경험자라면 익숙한 개념입니다. FastAPI의 미들웨어는 NestJS의 <strong>Middleware + Interceptor를 합친</strong> 느낌입니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — Interceptor</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">timing.interceptor.ts</span></div><pre><span class="d">@Injectable</span>()
+<span class="k">class</span> <span class="t">TimingInterceptor</span> {
+  <span class="f">intercept</span>(ctx, next) {
+    <span class="k">const</span> s = <span class="t">Date</span>.<span class="f">now</span>();
+    <span class="k">return</span> next.<span class="f">handle</span>().<span class="f">pipe</span>(
+      <span class="f">tap</span>(() => <span class="f">log</span>(<span class="t">Date</span>.<span class="f">now</span>() - s)),
+    );
+  }
+}</pre></div>
+      <p>RxJS 파이프로 전후를 감쌈.</p>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — middleware</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.middleware</span>(<span class="s">"http"</span>)
+<span class="k">async def</span> <span class="f">timing</span>(req, call_next):
+    s = time.<span class="f">perf_counter</span>()
+    res = <span class="k">await</span> <span class="f">call_next</span>(req)
+    <span class="f">log</span>(time.<span class="f">perf_counter</span>() - s)
+    <span class="k">return</span> res</pre></div>
+      <p><code>call_next</code> 전후로 감쌈.</p>
+    </div>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>NestJS</th><th>역할</th><th>FastAPI 대응</th></tr></thead>
+    <tbody>
+      <tr><td>Middleware</td><td>요청 전처리 (라우트 도달 전)</td><td><code>@app.middleware("http")</code></td></tr>
+      <tr><td>Interceptor</td><td>응답 전·후 변형</td><td><code>@app.middleware("http")</code> (call_next 전후)</td></tr>
+      <tr><td>Guard</td><td>접근 허용/차단</td><td>의존성(Depends) 또는 미들웨어</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">미들웨어 vs 의존성(Depends)</span>
+    <p>모든 요청에 공통(로깅·CORS·처리시간)이면 <strong>미들웨어</strong>가 맞습니다. 하지만 "이 라우트들만 인증 필요" 같은 <strong>선택적·세밀한 제어</strong>는 Week 8에서 배울 <code>Depends</code>(의존성 주입)가 더 적합합니다. 둘은 경쟁이 아니라 역할 분담입니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">7</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 프론트(:5173)에서 API(:8000) 호출이 CORS로 막혔습니다. 어디를 고치나요?</summary>
+    <div class="answer"><p><strong>서버 쪽</strong>입니다. <code>CORSMiddleware</code>의 <code>allow_origins</code>에 <code>"http://localhost:5173"</code>을 정확히 추가합니다. CORS는 서버가 응답 헤더로 출처를 허용해야 풀리는 문제라, 프론트 코드로는 해결되지 않습니다. (curl로는 잘 되는데 브라우저만 막힌다면 거의 확실히 이 경우입니다.)</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> allow_credentials=True와 allow_origins=["*"]를 같이 쓰면?</summary>
+    <div class="answer"><p>동작하지 않습니다. 보안상 브라우저는 "쿠키·인증을 모든 출처에 허용"을 금지합니다. 쿠키나 Authorization 헤더를 쓰는 인증 API라면 <code>allow_origins</code>에 <strong>정확한 출처를 하나하나</strong> 적어야 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 모든 응답에 처리시간 헤더를 넣으려면 어떻게 하나요?</summary>
+    <div class="answer"><p><code>@app.middleware("http")</code>로 커스텀 미들웨어를 만들고, <code>call_next(request)</code> 호출 전후로 시간을 재서 <code>response.headers["X-Process-Time"]</code>에 넣은 뒤 그 response를 반환합니다. 라우트 함수는 전혀 수정할 필요가 없습니다 — 모든 요청에 공통 적용되니까요.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-httpx-external-api.html"><span class="dir">← 이전</span><span class="ttl">httpx로 외부 API 호출</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 · Week 8 준비</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 7 · Lesson 03 · CORS &amp; 미들웨어</footer>
+</body>
+</html>

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 7·02 — httpx로 외부 API 호출</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 7 · 비동기 DB &amp; 외부 통신</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 7 — Lesson 02</span>
+  <h1>외부 API 호출<br>이번엔 우리가 클라이언트다</h1>
+  <p class="subtitle">백엔드는 혼자 일하지 않습니다. 결제·알림·다른 마이크로서비스를 <strong>HTTP로 호출</strong>하죠. 그 순간 <strong>우리 서버가 또 다른 서버의 클라이언트</strong>가 됩니다. 비동기 환경의 표준 도구 <code>httpx.AsyncClient</code>를 익힙니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>비동기 엔드포인트에서 외부 API를 부를 땐 <b>반드시 <code>httpx.AsyncClient</code></b>를 쓴다. <code>requests</code>는 동기라 이벤트 루프를 막는다. 클라이언트는 <code>async with</code>로 열고, <code>await client.get(...)</code>으로 호출하고, <b>타임아웃과 상태코드 검사</b>를 빼먹지 않는다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>백엔드가 다른 서비스를 호출하는 상황(MSA·결제·알림)을 이해한다</li>
+    <li>httpx.AsyncClient로 비동기 HTTP 요청을 보낸다</li>
+    <li>requests를 async 엔드포인트에서 쓰면 안 되는 이유를 안다</li>
+    <li>타임아웃·상태코드 확인·예외 처리로 외부 호출을 안전하게 만든다</li>
+  </ul>
+
+  <h2><span class="num">1</span>백엔드가 클라이언트가 되는 순간</h2>
+  <p>지금까지 우리 서버는 프론트엔드의 요청을 <strong>받기만</strong> 했습니다. 하지만 실무에서는 우리가 직접 다른 서버에 요청을 <strong>보내야</strong> 할 일이 많습니다.</p>
+  <ul class="goals">
+    <li>결제: 우리 API → 결제 게이트웨이(토스·스트라이프) 호출</li>
+    <li>알림: 우리 API → 카카오·슬랙·SMS 발송 API 호출</li>
+    <li>MSA: 주문 서비스 → 재고 서비스 → 배송 서비스로 이어지는 호출</li>
+  </ul>
+
+  <div class="box analogy">
+    <span class="ic">🔁</span>
+    <span class="label">비유 — 식당의 식자재 주문</span>
+    <p>당신의 백엔드는 손님(프론트)에게 음식을 내는 <strong>식당</strong>입니다. 그런데 그 식당도 고기를 직접 키우진 않죠. 정육점(결제 API)·채소가게(알림 API)에 <strong>전화로 주문</strong>합니다. 이때 식당은 손님을 받는 <em>가게</em>인 동시에, 정육점에게는 <strong>주문하는 손님(클라이언트)</strong>입니다. 프론트가 우리에게 했던 일을, 이번엔 우리가 외부 API에게 합니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 200" role="img" aria-label="외부 API 호출 흐름">
+      <rect x="20" y="70" width="120" height="60" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="80" y="98" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#ece6d6">프론트</text>
+      <text x="80" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9ad9a0">:5173</text>
+
+      <rect x="220" y="60" width="160" height="80" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="300" y="90" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#0a4f48">우리 백엔드</text>
+      <text x="300" y="108" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">FastAPI :8000</text>
+      <text x="300" y="125" text-anchor="middle" font-family="Pretendard" font-size="10" fill="#0a4f48">서버이자 클라이언트</text>
+
+      <rect x="470" y="60" width="170" height="80" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="555" y="90" text-anchor="middle" font-family="Pretendard" font-size="12" font-weight="700" fill="#9a6a05">외부 API</text>
+      <text x="555" y="108" text-anchor="middle" font-family="Pretendard" font-size="10" fill="#9a6a05">결제 · 알림 · MSA</text>
+
+      <line x1="140" y1="92" x2="218" y2="92" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#h1)"/>
+      <text x="179" y="84" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#0a4f48">① 요청</text>
+      <line x1="380" y1="86" x2="468" y2="86" stroke="#c98a16" stroke-width="2.2" marker-end="url(#h2)"/>
+      <text x="424" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#9a6a05">② await get</text>
+      <line x1="468" y1="116" x2="382" y2="116" stroke="#c98a16" stroke-width="2.2" stroke-dasharray="4 3" marker-end="url(#h3)"/>
+      <text x="424" y="135" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#9a6a05">③ 응답</text>
+      <line x1="218" y1="122" x2="140" y2="122" stroke="#0d6e64" stroke-width="2.2" stroke-dasharray="4 3" marker-end="url(#h4)"/>
+      <text x="179" y="142" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#0a4f48">④ 가공 후 응답</text>
+      <defs>
+        <marker id="h1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="h2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="h3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="h4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>프론트 → 우리 서버 → 외부 API → 응답 가공 → 프론트. 가운데에서 우리는 클라이언트가 된다.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span>httpx.AsyncClient — 기본 사용법</h2>
+  <p><code>httpx</code>는 <code>requests</code>와 거의 같은 API를 제공하면서, <strong>비동기(<code>async/await</code>)를 정식 지원</strong>합니다. 핵심은 <code>AsyncClient</code>를 <code>async with</code>로 열고, 메서드 앞에 <code>await</code>를 붙이는 것입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/weather.py</span></div><pre><span class="k">import</span> httpx
+<span class="k">from</span> fastapi <span class="k">import</span> APIRouter
+
+router = <span class="f">APIRouter</span>()
+
+<span class="d">@router.get</span>(<span class="s">"/weather/{city}"</span>)
+<span class="k">async def</span> <span class="f">get_weather</span>(city: <span class="t">str</span>):
+    url = <span class="s">f"https://api.example.com/weather?q={city}"</span>
+    <span class="k">async with</span> httpx.<span class="f">AsyncClient</span>() <span class="k">as</span> client:
+        r = <span class="k">await</span> client.<span class="f">get</span>(url)
+    data = r.<span class="f">json</span>()
+    <span class="k">return</span> {<span class="s">"city"</span>: city, <span class="s">"temp"</span>: data[<span class="s">"temp"</span>]}</pre></div>
+
+  <p><code>async with</code>로 열면 블록을 벗어날 때 연결이 자동으로 정리됩니다. POST·헤더·바디도 <code>requests</code>와 똑같습니다: <code>await client.post(url, json={...}, headers={...})</code>.</p>
+
+  <h2><span class="num">3</span>⚠️ 함정 — requests는 async에서 금물</h2>
+  <p>가장 흔한 실수입니다. 익숙하다고 <code>requests</code>를 <code>async def</code> 안에서 쓰면, Week 1의 그 함정이 그대로 재현됩니다.</p>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Bad</span> ❌ requests — 동기 (루프 차단)</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">bad.py</span></div><pre><span class="k">import</span> requests
+
+<span class="d">@router.get</span>(<span class="s">"/bad"</span>)
+<span class="k">async def</span> <span class="f">bad</span>():
+    <span class="c"># 🔒 응답 올 때까지 루프 정지!</span>
+    r = requests.<span class="f">get</span>(url)
+    <span class="k">return</span> r.<span class="f">json</span>()</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Good</span> ✅ httpx — 비동기 (양보)</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">good.py</span></div><pre><span class="k">import</span> httpx
+
+<span class="d">@router.get</span>(<span class="s">"/good"</span>)
+<span class="k">async def</span> <span class="f">good</span>():
+    <span class="k">async with</span> httpx.<span class="f">AsyncClient</span>() <span class="k">as</span> c:
+        r = <span class="k">await</span> c.<span class="f">get</span>(url)   <span class="c"># 대기 중 양보</span>
+    <span class="k">return</span> r.<span class="f">json</span>()</pre></div>
+    </div>
+  </div>
+  <p><code>requests.get()</code>은 <code>await</code>가 없는(걸 수도 없는) 동기 호출입니다. <code>async def</code> 안에 있어도 그 줄에서 <strong>이벤트 루프가 통째로 멈춰</strong> 외부 응답을 기다립니다. Lesson 01의 동기 DB와 똑같은 문제죠. 비동기 엔드포인트에서는 <strong>HTTP도 <code>httpx</code></strong>입니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 200" role="img" aria-label="requests 차단 vs httpx 양보 타임라인">
+      <text x="20" y="26" font-family="Pretendard" font-size="13" font-weight="700" fill="#b8332e">requests — 외부 응답 동안 루프 정지</text>
+      <rect x="20" y="38" width="90" height="32" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="65" y="59" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">A 시작</text>
+      <rect x="112" y="38" width="280" height="32" rx="6" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="252" y="59" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#b8332e">외부 API 대기 (루프 🔒)</text>
+      <rect x="394" y="38" width="90" height="32" rx="6" fill="#f0eadd" stroke="#807a6c" stroke-width="1.5"/>
+      <text x="439" y="59" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#4a463d">B 처리</text>
+
+      <line x1="20" y1="100" x2="640" y2="100" stroke="#d8cfba" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+      <text x="20" y="134" font-family="Pretendard" font-size="13" font-weight="700" fill="#0a4f48">httpx — 외부 대기 중 다른 요청 처리</text>
+      <rect x="20" y="146" width="100" height="32" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="70" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">A: await get</text>
+      <rect x="124" y="146" width="130" height="32" rx="6" fill="#dcebe6" stroke="#0d9e8c" stroke-width="1.5"/>
+      <text x="189" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">B 처리 (양보)</text>
+      <rect x="258" y="146" width="130" height="32" rx="6" fill="#dcebe6" stroke="#0d9e8c" stroke-width="1.5"/>
+      <text x="323" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">C 처리 (양보)</text>
+      <rect x="392" y="146" width="110" height="32" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="447" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">A: 응답 도착</text>
+    </svg>
+    <figcaption>requests는 외부 대기 동안 루프를 막지만, httpx는 그 시간에 다른 요청을 처리한다.</figcaption>
+  </figure>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">정 requests를 써야 한다면</span>
+    <p>레거시 코드 등 불가피하게 동기 라이브러리를 호출해야 하면, <code>await run_in_threadpool(requests.get, url)</code>(Starlette 제공)로 <strong>별도 스레드에 떠넘겨</strong> 루프를 막지 않게 할 수 있습니다. 하지만 새 코드라면 그냥 <code>httpx</code>를 쓰는 게 훨씬 깔끔합니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>타임아웃 &amp; 클라이언트 재사용</h2>
+  <p>외부 호출에서 가장 무서운 건 <strong>상대가 응답을 안 주는 경우</strong>입니다. 타임아웃을 안 걸면 우리 요청 처리도 무한정 매달립니다. 또한 클라이언트를 매 요청마다 새로 만들면 TCP/TLS 핸드셰이크 비용이 반복되죠.</p>
+
+  <table class="tbl">
+    <thead><tr><th>설정</th><th>왜 필요한가</th></tr></thead>
+    <tbody>
+      <tr><td><code>timeout=5.0</code></td><td>외부가 느릴 때 무한 대기 방지 (초 단위)</td></tr>
+      <tr><td>클라이언트 재사용</td><td>커넥션 풀·keep-alive로 핸드셰이크 비용 절약</td></tr>
+      <tr><td>Lifespan에 보관</td><td>앱 전체에서 클라이언트 하나를 공유</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">클라이언트는 Lifespan에 두고 재사용하라</span>
+    <p>Lesson 01의 DB 엔진과 똑같은 패턴입니다. <code>lifespan</code> 시작에서 <code>httpx.AsyncClient(timeout=5.0)</code>를 한 번 만들어 <code>app.state.http</code> 같은 곳에 보관하고, 종료에서 <code>await app.state.http.aclose()</code>로 닫습니다. 매 요청 <code>async with</code>로 새로 여는 것보다 커넥션을 재활용해 빠릅니다.</p>
+  </div>
+
+  <h2><span class="num">5</span>에러 처리 — 상태코드 &amp; 예외</h2>
+  <p>외부 API는 4xx·5xx를 줄 수도, 아예 응답을 안 줄 수도 있습니다. 이 실패를 우리 API의 <strong>적절한 응답으로 번역</strong>해야 합니다. Week 6의 <code>HTTPException</code>과 자연스럽게 이어집니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/weather.py</span></div><pre><span class="k">import</span> httpx
+<span class="k">from</span> fastapi <span class="k">import</span> APIRouter, HTTPException
+
+<span class="d">@router.get</span>(<span class="s">"/weather/{city}"</span>)
+<span class="k">async def</span> <span class="f">get_weather</span>(city: <span class="t">str</span>):
+    <span class="k">try</span>:
+        <span class="k">async with</span> httpx.<span class="f">AsyncClient</span>(timeout=<span class="n">5.0</span>) <span class="k">as</span> c:
+            r = <span class="k">await</span> c.<span class="f">get</span>(url)
+        r.<span class="f">raise_for_status</span>()        <span class="c"># 4xx·5xx 면 예외 발생</span>
+    <span class="k">except</span> httpx.<span class="t">TimeoutException</span>:
+        <span class="k">raise</span> <span class="t">HTTPException</span>(<span class="n">504</span>, <span class="s">"외부 API 응답 시간 초과"</span>)
+    <span class="k">except</span> httpx.<span class="t">HTTPStatusError</span> <span class="k">as</span> e:
+        <span class="k">raise</span> <span class="t">HTTPException</span>(<span class="n">502</span>, <span class="s">f"외부 API 오류: {e.response.status_code}"</span>)
+    <span class="k">return</span> r.<span class="f">json</span>()</pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>httpx 예외 / 메서드</th><th>의미</th><th>권장 응답</th></tr></thead>
+    <tbody>
+      <tr><td><code>raise_for_status()</code></td><td>4xx·5xx면 예외를 던짐</td><td>—</td></tr>
+      <tr><td><code>TimeoutException</code></td><td>타임아웃 초과</td><td><code>504 Gateway Timeout</code></td></tr>
+      <tr><td><code>HTTPStatusError</code></td><td>외부가 에러 상태코드 반환</td><td><code>502 Bad Gateway</code></td></tr>
+      <tr><td><code>ConnectError</code></td><td>연결 자체 실패</td><td><code>503 Service Unavailable</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">외부 실패를 500으로 흘려보내지 마라</span>
+    <p>외부 API가 죽었는데 우리가 그냥 <code>500 Internal Server Error</code>를 내면, 프론트는 "우리 서버 버그"로 오해합니다. "외부 의존성 문제"라는 의미를 담은 <code>502</code>/<code>503</code>/<code>504</code>로 번역해 주는 게 디버깅과 모니터링에 훨씬 유리합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> async 엔드포인트에서 requests를 쓰면 왜 안 되나요?</summary>
+    <div class="answer"><p><code>requests</code>는 동기 라이브러리라 응답이 올 때까지 스레드를 블로킹합니다. 그 스레드가 이벤트 루프이므로, 외부 응답을 기다리는 동안 <strong>다른 모든 요청이 멈춥니다</strong>. 비동기 환경에서는 <code>await</code>를 걸 수 있는 <code>httpx.AsyncClient</code>를 써야 대기 중에 다른 요청을 처리할 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 클라이언트를 매 요청마다 새로 만들지 말라는 이유는?</summary>
+    <div class="answer"><p>매번 새 <code>AsyncClient</code>를 만들면 요청마다 TCP 연결과 TLS 핸드셰이크를 새로 합니다. 클라이언트 하나를 Lifespan에 만들어 <code>app.state</code>에 보관하고 재사용하면, 커넥션 풀과 keep-alive로 같은 연결을 재활용해 지연과 비용이 줄어듭니다. DB 엔진을 하나만 두는 것과 같은 이유입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 외부 API가 타임아웃 나면 클라이언트엔 몇 번 코드를 줘야 하나요?</summary>
+    <div class="answer"><p><code>504 Gateway Timeout</code>이 적절합니다. 외부가 에러 상태코드를 주면 <code>502 Bad Gateway</code>, 연결 자체가 안 되면 <code>503</code>을 쓰는 게 관례입니다. 핵심은 "외부 의존성 문제"를 <code>500</code>으로 뭉뚱그리지 말고 5xx 중 의미 있는 코드로 번역하는 것입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-async-db-asyncpg.html"><span class="dir">← 이전</span><span class="ttl">비동기 DB (asyncpg)</span></a>
+    <a class="next" href="03-cors-middleware.html"><span class="dir">다음 →</span><span class="ttl">CORS &amp; 미들웨어</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 7 · Lesson 02 · httpx 외부 API</footer>
+</body>
+</html>

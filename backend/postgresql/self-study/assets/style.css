@@ -1,5 +1,5 @@
 /* =========================================================================
-   FastAPI 셀프 스터디 — 공유 디자인 시스템
+   PostgreSQL 셀프 스터디 — 공유 디자인 시스템
    컨셉: "엔지니어의 필드 노트" (warm paper · deep ink · teal · coral)
    ========================================================================= */
 
@@ -303,6 +303,7 @@ code:not(pre code) {
 @media (max-width: 640px) {
   .compare { grid-template-columns: 1fr; }
   .compare__nest { border-right: none; border-bottom: 1.5px solid var(--line); }
+  .compare__mysql { border-right: none; border-bottom: 1.5px solid var(--line); }
 }
 
 /* ---------- figure / diagram ---------- */
@@ -409,6 +410,10 @@ ul.goals li::before {
 .wrap > h2 { animation: none; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
 
-/* MySQL ↔ PostgreSQL 비교 패널 alias (의미 명확화용; 스타일은 기존과 동일) */
-.compare__mysql { /* 좌측: MySQL */ }
-.compare__pg    { /* 우측: PostgreSQL */ }
+/* ---------- MySQL ↔ PostgreSQL compare (이 코스 전용; nest/fast 스타일을 의미 있는 이름으로) ---------- */
+.compare__mysql { background: #f0eadd; border-right: 1.5px solid var(--line); }
+.compare__pg    { background: #e3f0ec; }
+.compare__mysql .compare__head { color: #b8332e; }
+.compare__pg .compare__head { color: var(--teal-deep); }
+.compare__mysql .tag { background: #b8332e; }
+.compare__pg .tag { background: var(--teal); }

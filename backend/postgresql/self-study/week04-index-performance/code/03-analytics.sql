@@ -52,13 +52,15 @@ INSERT INTO sales (region, ymd, amount) VALUES
   ('Busan', '2024-01-02', 180),
   ('Busan', '2024-01-03', 220);
 
--- ROW_NUMBER / RANK / DENSE_RANK + 지역별 누계(running total) + LAG(전일 대비)
+-- ROW_NUMBER / RANK / DENSE_RANK + 누계(running total) + LAG/LEAD(전후 비교)
 SELECT
   region, ymd, amount,
   ROW_NUMBER() OVER (PARTITION BY region ORDER BY amount DESC) AS rn,
   RANK()       OVER (PARTITION BY region ORDER BY amount DESC) AS rnk,
+  DENSE_RANK() OVER (PARTITION BY region ORDER BY amount DESC) AS d_rnk,
   SUM(amount)  OVER (PARTITION BY region ORDER BY ymd)         AS running_total,
-  amount - LAG(amount) OVER (PARTITION BY region ORDER BY ymd) AS vs_prev
+  amount - LAG(amount)  OVER (PARTITION BY region ORDER BY ymd) AS vs_prev,
+  LEAD(amount)          OVER (PARTITION BY region ORDER BY ymd) AS next_amt
 FROM sales
 ORDER BY region, ymd;
 

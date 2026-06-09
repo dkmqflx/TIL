@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1·03 — 데이터 타입 (uuidv7, timestamptz)</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 · 환경 · 데이터 타입</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 1 — Lesson 03</span>
+  <h1>데이터 타입 총정리<br>IDENTITY · uuidv7() · timestamptz</h1>
+  <p class="subtitle">Postgres의 풍부한 타입 중 <strong>앱 개발자가 매일 쓰는 것</strong>만 골라 봅니다. 자동증가 키는 <code>IDENTITY</code>, UUID는 PG18 내장 <code>uuidv7()</code>, 시간은 <strong>무조건 <code>timestamptz</code></strong>.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>Postgres의 풍부한 타입 중 앱 개발자가 매일 쓰는 것만: <b>IDENTITY 키</b>, PG18 네이티브 <b><code>uuidv7()</code></b>, 그리고 무조건 <b><code>timestamptz</code></b>.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>SERIAL</code> vs <code>IDENTITY</code> — 왜 IDENTITY가 표준이자 권장인지 안다</li>
+    <li>PG18 내장 <code>uuidv7()</code>로 <strong>정렬 가능한 UUID 키</strong>를 만든다</li>
+    <li><code>timestamp</code> vs <code>timestamptz</code> 함정을 피하고, 돈은 <code>numeric</code>으로 다룬다</li>
+  </ul>
+
+  <h2><span class="num">1</span>자동증가 키 — SERIAL vs IDENTITY</h2>
+  <p>"새 행마다 1, 2, 3… 자동으로 증가하는 기본 키"는 거의 모든 테이블에 필요합니다. Postgres에는 두 가지 방법이 있는데, 오래된 <code>SERIAL</code>과 SQL 표준인 <code>GENERATED ALWAYS AS IDENTITY</code>입니다. 아래는 같은 의도를 두 방식으로 쓴 것입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 두 가지 자동증가 키</span></div><pre><span class="c">-- 구식: SERIAL (뒤에서 시퀀스를 몰래 만들어 연결)</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> old_way (id <span class="t">serial</span> <span class="k">PRIMARY KEY</span>, name <span class="t">text</span>);
+
+<span class="c">-- 권장: SQL 표준 IDENTITY</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> std_way (id <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>, name <span class="t">text</span>);</pre></div>
+
+  <p><code>SERIAL</code>은 진짜 타입이 아니라 <strong>"int 컬럼 + 시퀀스 + 기본값 연결"의 축약</strong>입니다. 그래서 시퀀스가 별도 객체로 남아 소유권·권한이 컬럼과 따로 놀고, 컬럼을 지워도 시퀀스가 남는 등 자잘한 함정이 있습니다. <code>GENERATED ALWAYS AS IDENTITY</code>는 같은 일을 하되 <strong>시퀀스를 컬럼이 소유</strong>하도록 묶어 두고, <code>ALWAYS</code>는 사용자가 실수로 id를 직접 끼워 넣는 것까지 막아 줍니다. 새 테이블이라면 IDENTITY를 쓰세요.</p>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">자동증가 키 <span class="tag">MySQL</span></div>
+      <p>MySQL은 컬럼에 <code>AUTO_INCREMENT</code>를 붙입니다. 테이블당 하나, 보통 PK에 답니다. 별도의 시퀀스 객체라는 개념이 없습니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">자동증가 키 <span class="tag">PostgreSQL</span></div>
+      <p>Postgres는 SQL 표준 <code>GENERATED ALWAYS AS IDENTITY</code>를 권장합니다(내부적으로 시퀀스를 쓰지만 컬럼이 소유). <code>SERIAL</code>은 같은 일을 하는 <strong>레거시 축약</strong>이라 신규 코드에선 피합니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">2</span>UUIDv7 (PG18) ⭐</h2>
+  <p>분산 시스템이나 클라이언트 생성 ID가 필요하면 정수 대신 <strong>UUID</strong>를 키로 씁니다. 그런데 어떤 UUID냐가 성능을 가릅니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🧬</span>
+    <span class="label">비유 — 무작위 UUID vs 시간이 박힌 UUID</span>
+    <p><strong>UUIDv4는 완전 무작위</strong>입니다. 키가 인덱스(B-tree) 트리의 여기저기로 흩뿌려져 꽂히니, 새 행이 들어올 때마다 가운데 페이지를 쪼개는 <strong>페이지 분할(page split)</strong>이 잦고 캐시도 잘 안 맞습니다. <strong>UUIDv7은 앞부분에 생성 시각이 박혀</strong> 있어, "새로 만든 행은 항상 값이 더 큼" — 즉 인덱스의 <strong>맨 뒤에 순서대로</strong> 꽂힙니다. 새 책을 항상 책장 맨 끝에 꽂는 것과 같아, 분할이 줄고 캐시 지역성이 올라갑니다.</p>
+  </div>
+
+  <p>PG18에서는 함수 하나로 v7 UUID를 얻습니다. 아래는 실제로 실행한 결과입니다 — 같은 시각에 만든 세 행의 id가 <strong>생성 순서대로</strong> 정렬되는 데 주목하세요(앞쪽 <code>019eac0e-3cef</code> 시각 접두사가 공유됨).</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — uuidv7() (PG18 내장)</span></div><pre><span class="k">SELECT</span> <span class="f">uuidv7</span>();
+<span class="c">                uuidv7</span>
+<span class="c">--------------------------------------</span>
+<span class="c"> 019eac0e-3ce8-7ebd-b830-32e512124867</span>
+
+<span class="c">-- 기본값으로 박아 두면 INSERT마다 자동 생성</span>
+<span class="k">CREATE</span> <span class="k">TABLE</span> evt (
+  id <span class="t">uuid</span> <span class="k">PRIMARY KEY</span> <span class="k">DEFAULT</span> <span class="f">uuidv7</span>(),
+  payload <span class="t">text</span>
+);
+<span class="k">INSERT</span> <span class="k">INTO</span> evt (payload) <span class="k">VALUES</span> (<span class="s">'a'</span>), (<span class="s">'b'</span>), (<span class="s">'c'</span>);
+<span class="k">SELECT</span> id <span class="k">FROM</span> evt <span class="k">ORDER BY</span> id;     <span class="c">-- 생성 순서대로!</span>
+<span class="c">                  id</span>
+<span class="c">--------------------------------------</span>
+<span class="c"> 019eac0e-3cef-75b9-9412-5d0a03f0c78a</span>
+<span class="c"> 019eac0e-3cef-772c-bd86-5ed97c96eb05</span>
+<span class="c"> 019eac0e-3cef-773e-8599-ae7d598cefe1</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">PG18 이전엔 어떻게 했나</span>
+    <p><span class="chip">PG18</span> <code>uuidv7()</code>는 <strong>PG18부터 코어에 내장</strong>됐습니다. 그 전에는 확장(<code>pgcrypto</code>)이나 애플리케이션 코드에서 UUID를 만들었습니다. 단, 코어의 <code>gen_random_uuid()</code>는 <strong>v4(완전 무작위)</strong>라 정렬이 안 됩니다 — 정렬 가능한 키가 필요하면 v4가 아니라 <code>uuidv7()</code>를 쓰세요. (이름이 비슷해 헷갈리기 쉬운 함정입니다.)</p>
+  </div>
+
+  <h2><span class="num">3</span>timestamptz 함정 ⚠️</h2>
+  <p>시간 컬럼을 만들 때 무심코 <code>timestamp</code>라고 적기 쉽지만, 이건 <strong>타임존을 모르는</strong> 타입입니다. 거의 모든 앱에서는 <code>timestamptz</code>를 써야 합니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">timestamp(without time zone)는 시간을 어긋나게 만든다</span>
+    <p><code>timestamp</code>는 "2026-06-09 11:04"처럼 <strong>타임존 정보가 없는 벽시계 값</strong>일 뿐입니다. 서버와 클라이언트의 타임존이 다르면 같은 값이 다른 순간을 가리켜 시간이 어긋납니다. 반면 <code>timestamptz</code>는 입력을 <strong>내부적으로 UTC로 변환해 저장</strong>하고, 조회할 때 <strong>세션 타임존</strong>으로 표시합니다. (주의: 이름과 달리 타임존을 "저장"하는 게 아니라, UTC로 정규화해 저장하고 표시 시점에 변환합니다.)</p>
+  </div>
+
+  <p>아래는 실제 실행 결과입니다. 세션 타임존은 컨테이너 기본값인 <code>Etc/UTC</code>이고, <code>at_right</code>에는 오프셋 <code>+00</code>이 붙어 "이 값은 UTC 기준"임을 알 수 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — timestamp vs timestamptz</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> log (
+  at_wrong <span class="t">timestamp</span>,      <span class="c">-- 타임존 정보 없음 (지뢰)</span>
+  at_right <span class="t">timestamptz</span>     <span class="c">-- UTC로 저장, 세션 타임존으로 표시</span>
+);
+<span class="k">SHOW</span> timezone;
+<span class="c"> TimeZone</span>
+<span class="c">----------</span>
+<span class="c"> Etc/UTC</span>
+
+<span class="k">INSERT</span> <span class="k">INTO</span> log <span class="k">VALUES</span> (<span class="f">now</span>(), <span class="f">now</span>());
+<span class="k">SELECT</span> * <span class="k">FROM</span> log;
+<span class="c">          at_wrong          |           at_right</span>
+<span class="c">----------------------------+-------------------------------</span>
+<span class="c"> 2026-06-09 11:04:34.802719 | 2026-06-09 11:04:34.802719+00</span></pre></div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">시간 타입 <span class="tag">MySQL</span></div>
+      <p>MySQL에는 <code>DATETIME</code>(타임존 변환 없음, 넣은 값 그대로)과 <code>TIMESTAMP</code>(저장 시 UTC로 변환·조회 시 세션 타임존으로)가 있어, 둘 중 무엇을 썼는지가 동작을 가릅니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">시간 타입 <span class="tag">PostgreSQL</span></div>
+      <p>Postgres는 <code>timestamp</code>(타임존 모름)와 <code>timestamptz</code>(UTC 저장·세션 타임존 표시)로 나뉩니다. 앱에서는 <strong>거의 항상 <code>timestamptz</code></strong>가 정답입니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">4</span>numeric vs float — 돈은 numeric</h2>
+  <p>마지막 함정은 소수입니다. <code>float8</code>/<code>real</code>은 <strong>이진 부동소수점 근사값</strong>이라, 우리가 보기엔 딱 떨어지는 값도 정확히 표현하지 못합니다. 그 유명한 <code>0.1 + 0.2</code>를 두 타입으로 더해 봤습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — float의 오차 vs numeric의 정확성</span></div><pre><span class="k">SELECT</span> <span class="n">0.1</span>::<span class="t">float8</span> + <span class="n">0.2</span>::<span class="t">float8</span> <span class="k">AS</span> float_bad,
+       <span class="n">0.1</span>::<span class="t">numeric</span> + <span class="n">0.2</span>::<span class="t">numeric</span> <span class="k">AS</span> numeric_ok;
+<span class="c">      float_bad      | numeric_ok</span>
+<span class="c">---------------------+------------</span>
+<span class="c"> 0.30000000000000004 |        0.3</span></pre></div>
+
+  <p><code>float_bad</code>는 <code>0.30000000000000004</code> — 근사 오차가 그대로 드러납니다. <code>numeric</code>(임의 정밀도)은 정확히 <code>0.3</code>입니다. 그래서 <strong>금액·정밀 계산은 반드시 <code>numeric</code></strong>을 쓰고, 측정값처럼 약간의 오차가 허용되는 과학 계산에만 <code>float8</code>을 씁니다.</p>
+
+  <h2><span class="num">5</span>자주 쓰는 타입 매핑 (MySQL ↔ PostgreSQL)</h2>
+  <p>MySQL을 쓰던 사람이 Postgres로 넘어올 때 헷갈리는 매핑을 정리합니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>MySQL</th><th>PostgreSQL</th><th>메모</th></tr></thead>
+    <tbody>
+      <tr><td><code>INT</code> / <code>BIGINT</code></td><td><code>int</code> / <code>bigint</code></td><td>사실상 동일</td></tr>
+      <tr><td><code>VARCHAR(n)</code></td><td><code>text</code> 선호</td><td>Postgres는 길이 제한이 성능 이득 없음 — 보통 <code>text</code></td></tr>
+      <tr><td><code>TINYINT(1)</code></td><td><code>boolean</code></td><td>진짜 불리언 타입</td></tr>
+      <tr><td><code>DATETIME</code></td><td><code>timestamptz</code></td><td>타임존 인지(섹션 3)</td></tr>
+      <tr><td><code>JSON</code></td><td><code>jsonb</code></td><td>인덱싱 가능한 이진 JSON (Week 3)</td></tr>
+      <tr><td><code>ENUM</code></td><td>enum 타입</td><td><code>CREATE TYPE … AS ENUM</code> (Week 3)</td></tr>
+      <tr><td><code>AUTO_INCREMENT</code></td><td><code>IDENTITY</code> / <code>uuidv7()</code></td><td>정수 키는 IDENTITY, UUID 키는 uuidv7()</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">6</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 새 테이블의 자동증가 PK, SERIAL과 IDENTITY 중 무엇을?</summary>
+    <div class="answer"><p><code>GENERATED ALWAYS AS IDENTITY</code>입니다. SQL 표준이고, 시퀀스를 <strong>컬럼이 소유</strong>해 소유권·권한이 깔끔합니다. <code>SERIAL</code>은 같은 일을 하는 <strong>레거시 축약</strong>이라 신규 코드에선 피합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> UUIDv4 대신 UUIDv7을 PK로 쓰면 좋은 이유는?</summary>
+    <div class="answer"><p>v7은 앞부분에 시각이 박혀 <strong>시간순으로 정렬</strong>되므로, 인덱스에 <strong>순차적으로 삽입</strong>됩니다 → 페이지 분할↓·캐시 지역성↑. PG18은 <code>uuidv7()</code>가 내장돼 있습니다. (<code>gen_random_uuid()</code>는 <strong>v4(무작위)</strong>라 정렬이 안 됨에 주의.)</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>timestamp</code>와 <code>timestamptz</code> 중 기본 선택은?</summary>
+    <div class="answer"><p><code>timestamptz</code>입니다. 타임존을 인지해 입력을 <strong>UTC로 정규화해 저장</strong>하고 조회 시 세션 타임존으로 표시하므로, 다중 타임존 환경에서 안전합니다. <code>timestamp</code>는 타임존을 모르는 벽시계 값이라 어긋날 수 있습니다.</p></div>
+  </details>
+
+  <h2><span class="num">7</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/datatype.html">Data Types — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/functions-uuid.html">UUID Functions (uuidv7, gen_random_uuid) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/datatype-datetime.html">Date/Time Types (timestamp · timestamptz) — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="02-docker-psql-basics.html"><span class="dir">← 이전</span><span class="ttl">Docker &amp; psql 기초</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼 홈 · Week 2 준비 중</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 1 · Lesson 03 · 데이터 타입</footer>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 3·03 — APIRouter로 모듈 분할</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 3 · Pydantic &amp; 응답 설계</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 3 — Lesson 03</span>
+  <h1>APIRouter<br>도메인별로 코드를 나누기</h1>
+  <p class="subtitle">모든 라우트를 <code>main.py</code> 하나에 욱여넣으면 금방 수백 줄이 됩니다. <code>APIRouter</code>로 업무 도메인별 파일을 나누는 법 — NestJS의 <strong>Module</strong> 구조에 정확히 대응합니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p><code>APIRouter</code>는 라우트들을 <b>도메인 단위로 묶는 미니 앱</b>이다. <code>todos</code> 라우터, <code>users</code> 라우터를 따로 만들고 메인 앱에 <b>include_router</b>로 꽂는다. NestJS의 Module/Controller 분리와 같은 발상.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>APIRouter로 라우트를 도메인별 파일로 분리한다</li>
+    <li>prefix와 tags로 공통 경로·문서 그룹을 지정한다</li>
+    <li>실무에서 통하는 폴더 구조를 잡는다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 나누는가</h2>
+  <div class="box analogy">
+    <span class="ic">🏢</span>
+    <span class="label">비유 — 부서로 나눈 회사</span>
+    <p>직원 한 명이 회계·인사·영업을 다 하면 회사가 굴러갈까요? 규모가 커지면 <strong>부서(도메인)</strong>로 나눕니다. <code>APIRouter</code>는 "할 일 부서(todos)", "회원 부서(users)"처럼 라우트를 갈라 담는 부서 칸막이입니다. 메인 앱은 각 부서를 <strong>한데 모으는 본사</strong> 역할만 합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>라우터 만들고 꽂기</h2>
+  <p>① 도메인별 파일에서 <code>APIRouter</code>를 만들고 라우트를 등록한 뒤, ② <code>main.py</code>에서 <code>include_router</code>로 합칩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">routers/todos.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> APIRouter
+
+router = <span class="t">APIRouter</span>(prefix=<span class="s">"/todos"</span>, tags=[<span class="s">"todos"</span>])
+
+<span class="d">@router.get</span>(<span class="s">""</span>)          <span class="c"># 실제 경로: GET /todos</span>
+<span class="k">def</span> <span class="f">list_todos</span>():
+    <span class="k">return</span> [...]
+
+<span class="d">@router.get</span>(<span class="s">"/{id}"</span>)      <span class="c"># 실제 경로: GET /todos/{id}</span>
+<span class="k">def</span> <span class="f">get_todo</span>(id: <span class="t">int</span>):
+    <span class="k">return</span> {...}</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi <span class="k">import</span> FastAPI
+<span class="k">from</span> routers <span class="k">import</span> todos, users
+
+app = <span class="t">FastAPI</span>()
+
+app.<span class="f">include_router</span>(todos.router)   <span class="c"># 할 일 부서 연결</span>
+app.<span class="f">include_router</span>(users.router)   <span class="c"># 회원 부서 연결</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">prefix와 tags의 역할</span>
+    <p><code>prefix="/todos"</code>를 주면 그 라우터의 모든 경로 앞에 <code>/todos</code>가 자동으로 붙습니다 — 라우트마다 반복해서 적을 필요가 없죠. <code>tags=["todos"]</code>는 <strong>Swagger 문서에서 같은 그룹으로 묶어</strong> 보여줍니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>NestJS Module과 나란히</h2>
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">todos.module.ts</span></div><pre><span class="d">@Module</span>({
+  controllers: [<span class="t">TodosController</span>],
+  providers: [<span class="t">TodosService</span>],
+})
+<span class="k">export class</span> <span class="t">TodosModule</span> {}
+
+<span class="c">// app.module.ts</span>
+<span class="d">@Module</span>({
+  imports: [<span class="t">TodosModule</span>, <span class="t">UsersModule</span>],
+})
+<span class="k">export class</span> <span class="t">AppModule</span> {}</pre></div>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="c"># 각 도메인 = routers/*.py</span>
+app.<span class="f">include_router</span>(todos.router)
+app.<span class="f">include_router</span>(users.router)</pre></div>
+      <p><code>@Module imports</code> ↔ <code>include_router</code>. 더 가볍고 명시적입니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">4</span>실무 폴더 구조</h2>
+  <p>도메인이 늘어날 때를 대비한, 흔히 쓰는 구조입니다. (Week 6에서 이 구조 위에 서비스 계층을 얹습니다.)</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">project tree</span></div><pre>app/
+├── main.py            <span class="c"># FastAPI() 생성 + include_router</span>
+├── routers/
+│   ├── todos.py       <span class="c"># /todos 라우트</span>
+│   └── users.py       <span class="c"># /users 라우트</span>
+├── schemas.py         <span class="c"># Pydantic 모델 (요청/응답)</span>
+└── ...                <span class="c"># Week 5~ DB, 서비스 계층 추가</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">라우터에도 공통 의존성을 걸 수 있다</span>
+    <p><code>APIRouter(dependencies=[...])</code>로 그 라우터 전체에 공통 처리(예: 인증)를 걸 수 있습니다. NestJS에서 모듈/컨트롤러 단위로 Guard를 거는 것과 비슷한데, 이건 <strong>Week 6의 Depends</strong>와 <strong>Week 8의 인증</strong>에서 본격적으로 활용합니다.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">prefix 중복 주의</span>
+    <p><code>APIRouter(prefix="/todos")</code>를 줬다면 라우트 데코레이터엔 <code>@router.get("")</code> 또는 <code>@router.get("/{id}")</code>처럼 쓰세요. 여기에 또 <code>@router.get("/todos")</code>라고 하면 경로가 <code>/todos/todos</code>가 되어버립니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> APIRouter는 NestJS의 무엇에 대응하나요?</summary>
+    <div class="answer"><p>도메인별로 라우트를 묶는다는 점에서 NestJS의 Module + Controller 묶음에 대응합니다. <code>include_router</code>가 <code>@Module</code>의 <code>imports</code>처럼 메인 앱에 라우터를 등록합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>prefix</code>를 쓰면 좋은 점은?</summary>
+    <div class="answer"><p>그 라우터의 모든 경로 앞에 공통 경로가 자동으로 붙어, 라우트마다 <code>/todos</code>를 반복하지 않아도 됩니다. 도메인 경로를 한 곳에서 관리하니 변경도 쉽습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 경로가 <code>/todos/todos</code>로 잘못 나옵니다. 원인은?</summary>
+    <div class="answer"><p>라우터에 <code>prefix="/todos"</code>를 줬는데 라우트 데코레이터에도 <code>"/todos"</code>를 또 적었기 때문입니다. prefix가 있으면 데코레이터엔 나머지 경로(<code>""</code>, <code>"/{id}"</code>)만 적어야 합니다.</p></div>
+  </details>
+
+  <div class="box tip">
+    <span class="ic">🎯</span>
+    <span class="label">Week 3 마무리</span>
+    <p>Pydantic 검증 → response_model 응답 설계 → APIRouter 구조화까지, 이제 <strong>잘 정돈된 API의 뼈대</strong>를 세울 수 있습니다. 다음 주는 가장 중요한 주제 중 하나 — <strong>비동기(async)의 원리와 내부 동작</strong>입니다. "왜 FastAPI가 빠른가"를 원리로 설명할 수 있게 됩니다.</p>
+  </div>
+
+  <nav class="pager">
+    <a class="prev" href="02-response-model.html"><span class="dir">← 이전</span><span class="ttl">response_model &amp; Response 클래스</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 · Week 4 준비</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 3 · Lesson 03 · APIRouter</footer>
+</body>
+</html>

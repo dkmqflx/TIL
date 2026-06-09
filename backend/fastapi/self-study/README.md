@@ -137,7 +137,7 @@ backend/fastapi/self-study/
 
 - [x] Week 1 — 큰 그림 & 타입힌트
 - [x] Week 2 — Request & HTTP
-- [ ] Week 3 — Pydantic & 응답 설계
+- [x] Week 3 — Pydantic & 응답 설계
 - [ ] Week 4 — 비동기 원리 & 내부 동작
 - [ ] Week 5 — PostgreSQL & SQLAlchemy
 - [ ] Week 6 — JSON API 구축 & 구조화

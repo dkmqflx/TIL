@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 3·02 — response_model &amp; Response 클래스</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 3 · Pydantic &amp; 응답 설계</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 3 — Lesson 02</span>
+  <h1>response_model<br>나가는 데이터도 검사한다</h1>
+  <p class="subtitle">들어오는 요청만큼 <strong>나가는 응답</strong>도 중요합니다. <code>response_model</code>은 "이 API는 정확히 이 모양만 돌려준다"를 선언해, 실수로 <strong>비밀번호 같은 민감 정보가 새어나가는 것</strong>을 막습니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>요청 검사가 <b>입국 심사</b>라면, <code>response_model</code>은 <b>출국 검색대</b>다. 정해둔 모양에 없는 필드(예: password)는 <b>밖으로 못 나간다</b>. 입력 모델과 출력 모델을 분리하는 것이 실무의 기본기다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>response_model로 응답의 형태를 선언하고 필터링한다</li>
+    <li>입력용·출력용 모델을 분리하는 이유와 패턴을 안다</li>
+    <li>JSONResponse 등 Response 클래스로 응답을 세밀하게 제어한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>왜 응답에도 모델이 필요한가</h2>
+  <p>회원 정보를 돌려주는 API를 생각해봅시다. DB의 User 객체에는 <code>hashed_password</code>가 들어 있습니다. 아무 생각 없이 그 객체를 반환하면? <strong>비밀번호 해시가 그대로 클라이언트에 노출</strong>됩니다. 끔찍하죠.</p>
+
+  <div class="box analogy">
+    <span class="ic">🛃</span>
+    <span class="label">비유 — 출국 검색대</span>
+    <p>입국 심사대(요청 검증)만 있고 <strong>출국 검색대</strong>가 없으면, 가져가면 안 되는 물건(민감 정보)이 그대로 빠져나갑니다. <code>response_model</code>은 "이 게이트로는 <em>이 목록에 있는 것만</em> 통과"라고 못 박는 출국 검색대입니다. 목록에 없는 <code>hashed_password</code>는 자동으로 걸러집니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>입력 모델 ≠ 출력 모델</h2>
+  <p>실무의 핵심 패턴: <strong>받을 때(Create)</strong>와 <strong>돌려줄 때(Public)</strong> 모델을 나눕니다. 회원가입을 예로 보죠.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">schemas.py</span></div><pre><span class="k">from</span> pydantic <span class="k">import</span> BaseModel
+
+<span class="c"># 받을 때: password 포함</span>
+<span class="k">class</span> <span class="t">UserCreate</span>(<span class="t">BaseModel</span>):
+    username: <span class="t">str</span>
+    email: <span class="t">str</span>
+    password: <span class="t">str</span>
+
+<span class="c"># 돌려줄 때: password 없음! (id는 추가)</span>
+<span class="k">class</span> <span class="t">UserPublic</span>(<span class="t">BaseModel</span>):
+    id: <span class="t">int</span>
+    username: <span class="t">str</span>
+    email: <span class="t">str</span></pre></div>
+
+  <p>이제 라우트에 <code>response_model=UserPublic</code>을 지정합니다. 함수가 비밀번호를 포함한 객체를 반환해도, FastAPI가 <strong>UserPublic 모양으로 걸러서</strong> 내보냅니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.post</span>(<span class="s">"/users"</span>, response_model=<span class="t">UserPublic</span>, status_code=<span class="n">201</span>)
+<span class="k">def</span> <span class="f">create_user</span>(user: <span class="t">UserCreate</span>):
+    saved = {<span class="s">"id"</span>: <span class="n">1</span>, **user.<span class="f">model_dump</span>()}  <span class="c"># password 포함된 dict</span>
+    <span class="k">return</span> saved   <span class="c"># 그래도 응답엔 password가 안 나간다! 🎉</span></pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 660 180" role="img" aria-label="response_model 필터링">
+      <rect x="20" y="55" width="200" height="80" rx="10" fill="#16140f" stroke="#2c281f"/>
+      <text x="40" y="80" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">id, username,</text>
+      <text x="40" y="100" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">email,</text>
+      <text x="40" y="120" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ff6b6b">password ✗</text>
+      <text x="120" y="155" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">함수가 반환한 객체</text>
+
+      <rect x="270" y="62" width="120" height="66" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="330" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9a6a05">response_model</text>
+      <text x="330" y="110" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#9a6a05">= UserPublic</text>
+
+      <rect x="440" y="55" width="200" height="80" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="460" y="83" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#0a4f48">id, username,</text>
+      <text x="460" y="103" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#0a4f48">email ✓</text>
+      <text x="540" y="155" text-anchor="middle" font-family="Pretendard" font-size="11" fill="#807a6c">실제 응답 (password 제거)</text>
+
+      <line x1="222" y1="95" x2="268" y2="95" stroke="#e0552f" stroke-width="2.2" marker-end="url(#ra)"/>
+      <line x1="392" y1="95" x2="438" y2="95" stroke="#0d6e64" stroke-width="2.2" marker-end="url(#rb)"/>
+      <defs>
+        <marker id="ra" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="rb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>response_model이 출국 검색대처럼 password를 걸러낸다.</figcaption>
+  </figure>
+
+  <div class="compare">
+    <div class="compare__nest">
+      <div class="compare__head"><span class="tag">Nest</span> NestJS — class-transformer</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.entity.ts</span></div><pre><span class="k">class</span> <span class="t">User</span> {
+  id: <span class="t">number</span>;
+  <span class="d">@Exclude</span>()        <span class="c">// 직렬화 제외</span>
+  password: <span class="t">string</span>;
+}</pre></div>
+      <p><code>@Exclude</code> + ClassSerializerInterceptor.</p>
+    </div>
+    <div class="compare__fast">
+      <div class="compare__head"><span class="tag">Fast</span> FastAPI — response_model</div>
+      <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="d">@app.get</span>(
+  <span class="s">"/users/{id}"</span>,
+  response_model=<span class="t">UserPublic</span>,
+)
+<span class="k">def</span> <span class="f">get</span>(id): ...</pre></div>
+      <p>출력 모델을 통째로 선언.</p>
+    </div>
+  </div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">response_model의 3가지 이득</span>
+    <p>① <strong>보안</strong> — 민감 필드 자동 제거 · ② <strong>문서</strong> — Swagger에 정확한 응답 스키마 표시 · ③ <strong>검증</strong> — 응답조차 모델에 맞는지 확인(잘못된 응답이면 서버 에러로 잡힘). 입력 검증만큼 출력 계약도 명확해집니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>유용한 옵션 몇 가지</h2>
+  <table class="tbl">
+    <thead><tr><th>옵션</th><th>효과</th></tr></thead>
+    <tbody>
+      <tr><td><code>response_model_exclude_unset=True</code></td><td>설정 안 한(기본값인) 필드는 응답에서 생략</td></tr>
+      <tr><td><code>response_model_exclude={"email"}</code></td><td>특정 필드 제외</td></tr>
+      <tr><td><code>response_model_include={"id","username"}</code></td><td>특정 필드만 포함</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">4</span>Response 클래스 — 응답을 직접 빚기</h2>
+  <p>대부분은 dict나 모델을 반환하면 FastAPI가 알아서 JSON으로 만들어주지만, 가끔 <strong>응답 형식·헤더·상태를 직접 제어</strong>해야 할 때가 있습니다. 그때 Response 클래스를 씁니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>클래스</th><th>용도</th></tr></thead>
+    <tbody>
+      <tr><td><code>JSONResponse</code></td><td>기본 JSON 응답 (직접 상태·헤더 제어)</td></tr>
+      <tr><td><code>ORJSONResponse</code></td><td>orjson 기반 초고속 JSON (대용량에 유리)</td></tr>
+      <tr><td><code>PlainTextResponse</code></td><td>순수 텍스트</td></tr>
+      <tr><td><code>RedirectResponse</code></td><td>리다이렉트(3xx)</td></tr>
+      <tr><td><code>StreamingResponse</code></td><td>스트리밍(대용량 파일·실시간)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.py</span></div><pre><span class="k">from</span> fastapi.responses <span class="k">import</span> JSONResponse, RedirectResponse
+
+<span class="d">@app.get</span>(<span class="s">"/custom"</span>)
+<span class="k">def</span> <span class="f">custom</span>():
+    <span class="k">return</span> <span class="t">JSONResponse</span>(
+        content={<span class="s">"ok"</span>: <span class="k">True</span>},
+        status_code=<span class="n">200</span>,
+        headers={<span class="s">"X-Custom"</span>: <span class="s">"hello"</span>},
+    )
+
+<span class="d">@app.get</span>(<span class="s">"/old-path"</span>)
+<span class="k">def</span> <span class="f">moved</span>():
+    <span class="k">return</span> <span class="t">RedirectResponse</span>(<span class="s">"/new-path"</span>, status_code=<span class="n">307</span>)</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">Response를 직접 반환하면 response_model이 적용 안 된다</span>
+    <p><code>JSONResponse(...)</code>처럼 완성된 Response 객체를 반환하면, FastAPI는 "이미 다 만들었구나" 하고 <strong>response_model 필터링·문서 생성을 건너뜁니다</strong>. 평소엔 모델/dict를 반환하고, 정말 세밀한 제어가 필요할 때만 Response 클래스를 쓰세요.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 함수가 password를 포함해 반환했는데도 응답에 안 나오는 이유는?</summary>
+    <div class="answer"><p>라우트에 <code>response_model=UserPublic</code>을 지정했기 때문입니다. FastAPI가 반환값을 UserPublic 모양으로 다시 직렬화하면서, 그 모델에 없는 <code>password</code> 필드를 자동으로 제거합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 왜 입력 모델(UserCreate)과 출력 모델(UserPublic)을 나누나요?</summary>
+    <div class="answer"><p>받는 데이터와 돌려주는 데이터의 형태가 다르기 때문입니다. 입력엔 password가 필요하지만 출력엔 없어야 하고, 출력엔 서버가 만든 id가 추가됩니다. 분리하면 보안·문서·유지보수가 모두 명확해집니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>JSONResponse</code>를 직접 반환할 때 주의점은?</summary>
+    <div class="answer"><p>response_model 필터링과 자동 문서 생성이 적용되지 않습니다. 완성된 Response를 반환하면 FastAPI가 후처리를 건너뛰기 때문입니다. 꼭 필요한 경우에만 쓰고, 평소엔 모델/dict 반환을 권장합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-pydantic-models-validation.html"><span class="dir">← 이전</span><span class="ttl">Pydantic 모델 &amp; 검증</span></a>
+    <a class="next" href="03-apirouter.html"><span class="dir">다음 →</span><span class="ttl">APIRouter로 모듈 분할</span></a>
+  </nav>
+</main>
+
+<footer class="foot">FastAPI 셀프 스터디 · Week 3 · Lesson 02 · response_model</footer>
+</body>
+</html>

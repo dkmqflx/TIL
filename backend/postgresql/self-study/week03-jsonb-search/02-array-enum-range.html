@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 3·02 — 배열 · enum · range</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 3 · JSONB &amp; 반정형 데이터 · 검색</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 3 — Lesson 02</span>
+  <h1>배열 · enum · range<br>표현력 높은 타입을 알맞게</h1>
+  <p class="subtitle">관계형 안에서도 <strong>배열·열거형(enum)·범위(range)</strong> 같은 표현력 높은 타입을 쓸 수 있습니다. 남용은 금물이지만, 알맞게 쓰면 스키마가 훨씬 또렷해집니다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>관계형 안에서도 <b>배열·열거형·범위</b> 같은 표현력 높은 타입을 쓸 수 있다 — 남용은 금물이지만 알맞게 쓰면 강력하다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>배열(<code>text[]</code>·<code>int[]</code>) 타입과 연산(<code>ANY</code>·<code>@&gt;</code>·<code>&amp;&amp;</code>·<code>unnest</code>)을 안다</li>
+    <li><code>enum</code> 타입을 만들고, 정렬·값 추가의 주의점을 안다</li>
+    <li><code>range</code> 타입으로 포함(<code>@&gt;</code>)·겹침(<code>&amp;&amp;</code>)을 표현한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>배열(array) — <code>text[]</code> · <code>int[]</code></h2>
+  <p>Postgres는 거의 모든 타입을 <strong>배열</strong>로 쓸 수 있습니다. 컬럼 타입 뒤에 <code>[]</code>를 붙이면 됩니다(예: <code>text[]</code>). 리터럴은 <code>'{a,b}'</code> 형태나 <code>ARRAY['a','b']</code> 두 방식 모두 가능합니다. 태그처럼 단순한 다중 값에 잘 맞습니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">배열 인덱싱은 1부터 시작한다</span>
+    <p>대부분의 언어와 MySQL의 사고방식과 달리, Postgres 배열은 <strong>1-based</strong>입니다 — 첫 원소는 <code>tags[1]</code>입니다(<code>tags[0]</code>이 아님). 자주 실수하는 지점이니 기억하세요.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 배열 컬럼과 기본 함수</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> articles (
+  id    <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
+  title <span class="t">text</span> <span class="k">NOT NULL</span>,
+  tags  <span class="t">text</span>[] <span class="k">NOT NULL</span> <span class="k">DEFAULT</span> <span class="s">'{}'</span>     <span class="c">-- 빈 배열 기본값</span>
+);
+<span class="k">INSERT</span> <span class="k">INTO</span> articles (title, tags) <span class="k">VALUES</span>
+  (<span class="s">'Postgres 입문'</span>, <span class="s">'{db,sql,postgres}'</span>),
+  (<span class="s">'JSONB 검색'</span>,    <span class="k">ARRAY</span>[<span class="s">'db'</span>,<span class="s">'postgres'</span>,<span class="s">'jsonb'</span>]),
+  (<span class="s">'CSS 그리드'</span>,    <span class="s">'{css,frontend}'</span>);
+
+<span class="k">SELECT</span> title, tags[<span class="n">1</span>] <span class="k">AS</span> first_tag, <span class="f">array_length</span>(tags, <span class="n">1</span>) <span class="k">AS</span> n_tags <span class="k">FROM</span> articles <span class="k">ORDER BY</span> id;
+<span class="c">     title     | first_tag | n_tags</span>
+<span class="c">---------------+-----------+--------</span>
+<span class="c"> Postgres 입문 | db        |      3</span>
+<span class="c"> JSONB 검색    | db        |      3</span>
+<span class="c"> CSS 그리드    | css       |      2</span></pre></div>
+
+  <p>배열 검색의 핵심 연산은 셋입니다. <code>= ANY(tags)</code>는 "값이 들어 있는가", <code>@&gt;</code>는 "이 부분집합을 포함하는가", <code>&amp;&amp;</code>는 "겹치는 원소가 하나라도 있는가"입니다. 그리고 <code>unnest</code>로 배열을 행으로 펼쳐 집계할 수 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — ANY · @&gt; · &amp;&amp; · unnest</span></div><pre><span class="c">-- ANY: 배열 안에 특정 값이 있는가</span>
+<span class="k">SELECT</span> title <span class="k">FROM</span> articles <span class="k">WHERE</span> <span class="s">'postgres'</span> = <span class="k">ANY</span>(tags);
+
+<span class="c">-- @&gt;: 포함(부분집합) / &amp;&amp;: 겹침(하나라도)</span>
+<span class="k">SELECT</span> title <span class="k">FROM</span> articles <span class="k">WHERE</span> tags @&gt; <span class="k">ARRAY</span>[<span class="s">'db'</span>,<span class="s">'sql'</span>];     <span class="c">-- 둘 다 포함</span>
+<span class="k">SELECT</span> title <span class="k">FROM</span> articles <span class="k">WHERE</span> tags &amp;&amp; <span class="k">ARRAY</span>[<span class="s">'css'</span>,<span class="s">'jsonb'</span>];  <span class="c">-- 하나라도 겹침</span>
+
+<span class="c">-- unnest: 배열을 행으로 펼쳐 집계</span>
+<span class="k">SELECT</span> tag, <span class="f">count</span>(*) <span class="k">AS</span> n <span class="k">FROM</span> articles, <span class="f">unnest</span>(tags) <span class="k">AS</span> tag <span class="k">GROUP BY</span> tag <span class="k">ORDER BY</span> n <span class="k">DESC</span>, tag;
+<span class="c">   tag    | n</span>
+<span class="c">----------+---</span>
+<span class="c"> db       | 2</span>
+<span class="c"> postgres | 2</span>
+<span class="c"> css      | 1</span>
+<span class="c"> ...</span>
+
+<span class="c">-- 배열도 GIN 인덱스로 @&gt;, &amp;&amp;, = ANY 검색을 가속</span>
+<span class="k">CREATE</span> <span class="k">INDEX</span> idx_articles_tags <span class="k">ON</span> articles <span class="k">USING</span> gin (tags);</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">배열 vs 별도 테이블 — 트레이드오프</span>
+    <p>배열은 <strong>단순 태그</strong>처럼 그 자체로 의미가 닫혀 있을 때 편합니다. 하지만 각 원소가 <strong>독립된 엔티티</strong>여서 다른 테이블과 <strong>조인</strong>하거나, 원소별 속성(생성일, 작성자…)·제약이 필요하다면, 배열이 아니라 <strong>별도 테이블 + 외래키</strong>로 정규화하는 편이 옳습니다. "이 값에 조인이나 추가 속성이 필요한가?"가 갈림길입니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>enum — 재사용 가능한 열거형 '타입'</h2>
+  <p>정해진 몇 개의 값만 허용하고 싶을 때 <code>enum</code>을 씁니다. 핵심은 정렬이 <strong>알파벳순이 아니라 정의한 순서</strong>를 따른다는 점입니다(<code>low &lt; mid &lt; high</code>). 값 추가는 <code>ALTER TYPE ... ADD VALUE</code>로 합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — enum 정의 · 정렬 · 값 추가</span></div><pre><span class="k">CREATE</span> <span class="k">TYPE</span> mood <span class="k">AS</span> <span class="k">ENUM</span> (<span class="s">'low'</span>, <span class="s">'mid'</span>, <span class="s">'high'</span>);
+<span class="k">ALTER</span> <span class="k">TYPE</span> mood <span class="k">ADD</span> <span class="k">VALUE</span> <span class="k">IF NOT EXISTS</span> <span class="s">'peak'</span>;   <span class="c">-- 맨 끝에 값 추가</span>
+
+<span class="k">INSERT</span> <span class="k">INTO</span> mood_log (note, level) <span class="k">VALUES</span>
+  (<span class="s">'피곤'</span>, <span class="s">'low'</span>), (<span class="s">'보통'</span>, <span class="s">'mid'</span>), (<span class="s">'최고'</span>, <span class="s">'peak'</span>), (<span class="s">'좋음'</span>, <span class="s">'high'</span>);
+
+<span class="c">-- 정렬은 '정의 순서': low &lt; mid &lt; high &lt; peak (알파벳이 아님!)</span>
+<span class="k">SELECT</span> note, level <span class="k">FROM</span> mood_log <span class="k">ORDER BY</span> level;
+<span class="c"> note | level</span>
+<span class="c">------+-------</span>
+<span class="c"> 피곤 | low</span>
+<span class="c"> 보통 | mid</span>
+<span class="c"> 좋음 | high</span>
+<span class="c"> 최고 | peak</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label"><code>ADD VALUE</code>는 트랜잭션 안에서 곧바로 못 쓴다</span>
+    <p><code>ALTER TYPE ... ADD VALUE</code>로 추가한 값은, <strong>같은 트랜잭션 안에서는 그 값을 곧장 사용할 수 없습니다</strong>(별도 커밋 후에 가능). 또한 enum 값은 <strong>중간 위치 삽입·삭제가 번거롭습니다</strong>. 값이 자주 바뀌고 추가/삭제가 잦다면, enum보다 <strong>참조(lookup) 테이블 + 외래키</strong>가 더 유연합니다.</p>
+  </div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">열거형 <span class="tag">MySQL</span></div>
+      <p>MySQL의 <code>ENUM('low','mid','high')</code>은 <strong>컬럼에 종속된</strong> 정의입니다. 같은 열거형을 다른 테이블에서도 쓰려면 컬럼마다 다시 적어야 하고, 정의가 흩어지기 쉽습니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">열거형 <span class="tag">PostgreSQL</span></div>
+      <p>Postgres는 <code>CREATE TYPE mood AS ENUM (...)</code>로 <strong>독립된 타입</strong>을 만듭니다. 한 번 정의하면 여러 테이블·함수에서 <strong>재사용</strong>할 수 있고, 정렬 순서도 정의에 담깁니다.</p>
+    </div>
+  </div>
+
+  <h2><span class="num">3</span>range — 범위를 한 값으로</h2>
+  <p>"1부터 10까지", "오전 10시~11시" 같은 <strong>범위</strong>를 두 컬럼으로 쪼개지 않고 한 값으로 다루는 타입입니다. <code>int4range</code>·<code>numrange</code>·<code>tstzrange</code> 등이 있고, 경계는 <code>[)</code>(시작 포함, 끝 미포함)가 기본이자 권장입니다. 포함은 <code>@&gt;</code>, 겹침은 <code>&amp;&amp;</code>로 묻습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — range 포함(@&gt;) · 겹침(&amp;&amp;)</span></div><pre><span class="k">SELECT</span>
+  <span class="f">int4range</span>(<span class="n">1</span>, <span class="n">10</span>)                <span class="k">AS</span> r1,          <span class="c">-- [1,10)</span>
+  <span class="f">numrange</span>(<span class="n">0</span>, <span class="n">100</span>) @&gt; <span class="n">50</span>::<span class="t">numeric</span> <span class="k">AS</span> contains_50,  <span class="c">-- 포함?</span>
+  <span class="f">int4range</span>(<span class="n">1</span>,<span class="n">10</span>) &amp;&amp; <span class="f">int4range</span>(<span class="n">5</span>,<span class="n">20</span>) <span class="k">AS</span> overlaps;     <span class="c">-- 겹침?</span>
+<span class="c">   r1   | contains_50 | overlaps</span>
+<span class="c">--------+-------------+----------</span>
+<span class="c"> [1,10) | t           | t</span></pre></div>
+
+  <p>범위 타입의 진가는 <strong>겹침 방지</strong>입니다. <a href="../week02-schema-write-power/01-ddl-constraints-keys.html">Week 2 · Lesson 01</a>에서 본 <code>EXCLUDE USING gist</code>와 결합하면, "같은 회의실에서 시간대가 겹치는 예약 금지"를 DB가 직접 보장합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">📅</span>
+    <span class="label">비유 — 예약 시간대 겹침 막기</span>
+    <p>예약 시간을 <code>start</code>/<code>end</code> 두 컬럼으로 두면 "겹침"을 매번 손으로 계산해야 합니다. <code>during tstzrange</code> 한 컬럼으로 두고 <code>EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)</code>를 걸면, <strong>"같은 방(<code>=</code>)이면서 시간대가 겹치면(<code>&amp;&amp;</code>) 거부"</strong>를 DB가 강제합니다. 인접(끝=다음 시작)은 <code>[)</code> 경계 덕에 겹치지 않아 통과합니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — range + EXCLUDE로 예약 겹침 방지</span></div><pre><span class="k">CREATE</span> <span class="k">EXTENSION</span> <span class="k">IF NOT EXISTS</span> btree_gist;
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> room_booking (
+  id     <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
+  room   <span class="t">text</span> <span class="k">NOT NULL</span>,
+  during <span class="t">tstzrange</span> <span class="k">NOT NULL</span>,
+  <span class="k">EXCLUDE</span> <span class="k">USING</span> gist (room <span class="k">WITH</span> =, during <span class="k">WITH</span> &amp;&amp;)
+);
+<span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during) <span class="k">VALUES</span>
+  (<span class="s">'A'</span>, <span class="s">'[2026-06-09 10:00+09, 2026-06-09 11:00+09)'</span>),   <span class="c">-- OK</span>
+  (<span class="s">'A'</span>, <span class="s">'[2026-06-09 11:00+09, 2026-06-09 12:00+09)'</span>);   <span class="c">-- 인접, 안 겹침 → OK</span>
+
+<span class="c">-- 같은 방 A의 겹치는 시간대는 막힌다 (의도적 에러)</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during)
+  <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 10:30+09, 2026-06-09 11:30+09)'</span>);
+<span class="c">ERROR:  conflicting key value violates exclusion constraint</span></pre></div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 배열을 쓸 때와 별도 테이블로 정규화할 때는?</summary>
+    <div class="answer"><p>배열은 <strong>단순 태그</strong>처럼 값이 그 자체로 닫혀 있고 조인이 필요 없을 때 적합합니다. 각 원소를 다른 테이블과 <strong>조인</strong>하거나 원소별 속성·제약(작성자, 생성일…)이 필요하면 <strong>별도 테이블 + 외래키</strong>로 정규화해야 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> enum에 값을 추가할 때 주의할 점은?</summary>
+    <div class="answer"><p><code>ALTER TYPE ... ADD VALUE</code>로 추가한 값은 <strong>같은 트랜잭션 안에서 곧바로 사용할 수 없습니다</strong>(커밋 후 가능). 중간 삽입·삭제도 번거롭습니다. 값이 자주 바뀌면 enum보다 <strong>참조 테이블 + 외래키</strong>가 유연합니다. 정렬은 알파벳이 아니라 정의 순서를 따른다는 점도 기억하세요.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> range의 <code>&amp;&amp;</code>는 무엇을 하나?</summary>
+    <div class="answer"><p><code>&amp;&amp;</code>는 두 범위가 <strong>겹치는지(overlap)</strong>를 판별합니다. <code>EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)</code>처럼 쓰면 "같은 방의 시간대가 겹치는 예약"을 DB가 거부합니다. 포함 여부는 <code>@&gt;</code>로 판별합니다.</p></div>
+  </details>
+
+  <h2><span class="num">5</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/arrays.html">Arrays — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/datatype-enum.html">Enumerated Types — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/rangetypes.html">Range Types — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="01-jsonb.html"><span class="dir">← 이전</span><span class="ttl">JSON vs JSONB · 연산자 · GIN</span></a>
+    <a class="next" href="03-fulltext-search.html"><span class="dir">다음 →</span><span class="ttl">전문검색 · pg_trgm</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 3 · Lesson 02 · 배열 · enum · range</footer>
+</body>
+</html>

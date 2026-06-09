@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5·03 — 락 · FOR UPDATE · 데드락 · advisory lock</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · 트랜잭션 · 동시성 · MVCC</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 5 — Lesson 03</span>
+  <h1>락 · FOR UPDATE<br>데드락 · advisory lock</h1>
+  <p class="subtitle">동시에 같은 행을 고치려는 둘을 어떻게 조율할까요. 행 잠금(<code>FOR UPDATE</code>), 데드락, 그리고 큐 패턴을 만드는 <code>SKIP LOCKED</code>·advisory lock.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>동시에 같은 행을 고치려는 둘을 어떻게 조율하나. 행 잠금(<b><code>FOR UPDATE</code></b>), 데드락, 그리고 큐 패턴을 만드는 <b><code>SKIP LOCKED</code></b>·advisory lock.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>행 수준 락(<code>FOR UPDATE</code>/<code>FOR SHARE</code>)과 <code>NOWAIT</code>·<code>SKIP LOCKED</code>를 안다</li>
+    <li><strong>데드락</strong>을 이해하고 <strong>회피</strong>하는 법(같은 순서로 잠그기)을 안다</li>
+    <li><strong>advisory lock</strong>과 <strong>SKIP LOCKED 큐 패턴</strong>으로 동시성 문제를 푼다</li>
+  </ul>
+
+  <h2><span class="num">1</span>행 잠금 — FOR UPDATE · FOR SHARE · NOWAIT · SKIP LOCKED</h2>
+  <p>🍔 탈의실 문을 안에서 잠그는 것을 떠올려 보세요 — 한 사람이 쓰는 동안 다른 사람은 그 칸을 못 씁니다. <code>SELECT ... FOR UPDATE</code>는 고른 행에 <strong>"내가 곧 고칠 거다"라는 잠금</strong>을 걸어, 다른 트랜잭션이 같은 행을 <code>UPDATE</code>/<code>FOR UPDATE</code>하려 하면 <strong>이 트랜잭션이 끝날 때까지 대기</strong>시킵니다. <code>FOR SHARE</code>는 더 약해서 "남이 읽는 건 괜찮지만 고치진 마라"입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — FOR UPDATE / NOWAIT (단일 세션이라 충돌 없이 통과)</span></div><pre><span class="c">-- 이 행을 "고칠 거다"라고 잠금. 다른 세션의 대기 장면은 아래 타임라인 참조.</span>
+<span class="k">BEGIN</span>;
+  <span class="k">SELECT</span> id, payload <span class="k">FROM</span> jobs <span class="k">WHERE</span> id = <span class="n">1</span> <span class="k">FOR UPDATE</span>;
+<span class="k">COMMIT</span>;
+<span class="c"> id |   payload</span>
+<span class="c">----+--------------</span>
+<span class="c">  1 | send-email-1</span>
+
+<span class="c">-- NOWAIT: 잠겨 있으면 기다리지 말고 즉시 에러(단일 세션이라 충돌 없이 통과)</span>
+<span class="k">BEGIN</span>;
+  <span class="k">SELECT</span> id <span class="k">FROM</span> jobs <span class="k">WHERE</span> id = <span class="n">2</span> <span class="k">FOR UPDATE</span> NOWAIT;
+<span class="k">COMMIT</span>;</pre></div>
+
+  <p>두 세션이 <strong>실제로 같은 행을 두고 충돌</strong>하면 어떻게 보이는지는 단일 psql로 재현할 수 없습니다(한 세션은 자기 락과 충돌하지 않으니까요). 타임라인으로 봅시다 — Session A가 행을 잠그고 커밋하기 전까지 Session B는 <strong>대기</strong>합니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>시각</th><th>Session A</th><th>Session B</th></tr></thead>
+    <tbody>
+      <tr><td>t1</td><td><code>BEGIN;</code> <code>SELECT ... WHERE id=1 FOR UPDATE;</code> → 행 1 잠금 획득</td><td></td></tr>
+      <tr><td>t2</td><td>(작업 처리 중…)</td><td><code>BEGIN;</code> <code>SELECT ... WHERE id=1 FOR UPDATE;</code> → <strong>대기(blocked)</strong> ⏳</td></tr>
+      <tr><td>t3</td><td><code>UPDATE jobs SET status='done' WHERE id=1;</code> <code>COMMIT;</code> → 락 해제</td><td>(여전히 대기 중)</td></tr>
+      <tr><td>t4</td><td></td><td>대기 풀림 → 갱신된 행 1을 잠그고 진행 ✅</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">락은 짧게 — 사용자 입력을 기다리며 락을 잡지 마라</span>
+    <p>행 락은 <strong>트랜잭션이 끝날 때 풀립니다</strong>. <code>FOR UPDATE</code>로 행을 잠근 채 사용자 확인·외부 API 응답을 기다리면, 그동안 다른 모든 요청이 그 행에서 줄을 섭니다. <strong>잠그기 → 빠르게 갱신 → 즉시 커밋</strong>이 원칙입니다. 오래 기다려야 한다면 락을 잡지 말고, 낙관적 잠금(버전 컬럼 비교)이나 큐를 쓰세요.</p>
+  </div>
+
+  <h2><span class="num">2</span>데드락 — 서로의 락을 기다리다 멈춤</h2>
+  <p><strong>데드락(deadlock)</strong>은 두 트랜잭션이 <strong>서로가 가진 락을 기다리며</strong> 영원히 멈추는 상황입니다. A는 row1을 잡고 row2를 원하고, B는 row2를 잡고 row1을 원하면 — 둘 다 영영 진행 못 합니다. PostgreSQL은 이를 <strong>자동으로 감지</strong>해 한쪽 트랜잭션을 <code>ERROR: deadlock detected</code>로 abort하고, 나머지 한쪽은 진행시킵니다(앱은 abort된 트랜잭션을 재시도).</p>
+
+  <table class="tbl">
+    <thead><tr><th>시각</th><th>Session A</th><th>Session B</th></tr></thead>
+    <tbody>
+      <tr><td>t1</td><td><code>BEGIN;</code> <code>UPDATE jobs SET ... WHERE id=1;</code> → 행 1 잠금</td><td><code>BEGIN;</code> <code>UPDATE jobs SET ... WHERE id=2;</code> → 행 2 잠금</td></tr>
+      <tr><td>t2</td><td><code>UPDATE ... WHERE id=2;</code> → B가 쥔 행 2 대기 ⏳</td><td><code>UPDATE ... WHERE id=1;</code> → A가 쥔 행 1 대기 ⏳</td></tr>
+      <tr><td>t3</td><td>PG가 순환 대기 감지 → <strong>한쪽을</strong> <code>ERROR: deadlock detected</code>로 abort</td><td>나머지 한쪽은 락을 얻어 진행</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">데드락 회피의 황금률: 항상 같은 순서로 잠그기</span>
+    <p>여러 행·테이블을 잠가야 한다면 <strong>모든 트랜잭션이 동일한 순서</strong>(예: 항상 <code>id</code> 오름차순)로 잠그세요. 그러면 순환 대기가 생길 수 없어 데드락이 원천 차단됩니다. 그 밖에: 트랜잭션을 짧게 유지하고, 한 번에 잠그는 행 수를 줄이며, 그래도 드물게 나는 데드락은 <strong>재시도 가능한 에러</strong>로 다루세요(<code>40P01</code>).</p>
+  </div>
+
+  <h2><span class="num">3</span>advisory lock — 행이 아니라 '앱이 정한 키'로 잠그기</h2>
+  <p>때로는 특정 행이 아니라 <strong>추상적인 자원</strong>을 잠그고 싶습니다 — "이 크론 작업은 한 번에 한 인스턴스만 돌게", "이 사용자에 대한 정산을 동시에 두 번 하지 않게". <strong>advisory lock</strong>은 행과 무관하게 <strong>임의의 정수 키</strong>로 잠금을 겁니다. DB는 키의 의미를 모르고, 잠금 규칙은 <strong>전적으로 앱의 약속</strong>입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — pg_try_advisory_lock: 기다리지 않고 성공 여부 반환</span></div><pre><span class="c">-- try_ 계열은 기다리지 않고 t/f 를 즉시 반환(스크립트가 멈추지 않는다)</span>
+<span class="k">SELECT</span> <span class="f">pg_try_advisory_lock</span>(<span class="n">42</span>) <span class="k">AS</span> got_lock;    <span class="c">-- 이 세션이 키 42 를 잡음</span>
+<span class="c"> got_lock</span>
+<span class="c">----------</span>
+<span class="c"> t</span>
+
+<span class="c">-- 같은 세션은 재진입 가능(카운트 증가). 다른 세션이었다면 f 를 받는다.</span>
+<span class="k">SELECT</span> <span class="f">pg_try_advisory_lock</span>(<span class="n">42</span>) <span class="k">AS</span> got_again;   <span class="c"> -- t</span>
+
+<span class="c">-- 잡은 만큼 풀어 준다(두 번 잡았으니 두 번 unlock)</span>
+<span class="k">SELECT</span> <span class="f">pg_advisory_unlock</span>(<span class="n">42</span>) <span class="k">AS</span> released_1;  <span class="c"> -- t</span>
+<span class="k">SELECT</span> <span class="f">pg_advisory_unlock</span>(<span class="n">42</span>) <span class="k">AS</span> released_2;  <span class="c"> -- t</span>
+
+<span class="c">-- 현재 들고 있는 advisory lock 확인(모두 풀었으니 0)</span>
+<span class="k">SELECT</span> <span class="f">count</span>(*) <span class="k">AS</span> held_advisory_locks
+<span class="k">FROM</span> pg_locks <span class="k">WHERE</span> locktype = <span class="s">'advisory'</span>;
+<span class="c"> held_advisory_locks</span>
+<span class="c">---------------------</span>
+<span class="c">                   0</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">세션 범위 vs 트랜잭션 범위</span>
+    <p><code>pg_advisory_lock(key)</code>(블로킹)·<code>pg_try_advisory_lock(key)</code>(즉시 반환)는 <strong>세션 범위</strong> — 명시적으로 <code>pg_advisory_unlock</code>하거나 세션이 끊겨야 풀립니다. 반면 <code>pg_advisory_xact_lock(key)</code> 계열은 <strong>트랜잭션 범위</strong>로, 커밋/롤백 시 <strong>자동 해제</strong>됩니다(풀기를 잊을 위험이 없어 더 안전한 기본 선택). 분산 락처럼 쓰지만, 잠금이 <strong>이 DB 인스턴스 한정</strong>임을 기억하세요.</p>
+  </div>
+
+  <h2><span class="num">4</span>SKIP LOCKED 큐 패턴 — 워커가 안 겹치게 작업을 집어간다</h2>
+  <p>작업 큐(jobs 테이블)에서 <strong>여러 워커가 동시에 다음 작업을 집어갈 때</strong>, 같은 행을 두 워커가 잡으면 안 됩니다. 그렇다고 <code>FOR UPDATE</code>만 쓰면 워커들이 같은 맨 앞 행에서 줄을 서 직렬화됩니다. 해법이 <strong><code>FOR UPDATE SKIP LOCKED</code></strong>입니다 — <strong>이미 잠긴 행은 건너뛰고</strong> 잠기지 않은 다음 행을 가져오므로, 각 워커가 서로 다른 작업을 충돌 없이 집어갑니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — FOR UPDATE SKIP LOCKED 로 큐에서 작업 하나 집기</span></div><pre><span class="c">-- 잠긴 행은 건너뛰고 안 잠긴 다음 행을 가져온다(단일 세션이라 맨 앞 행)</span>
+<span class="k">BEGIN</span>;
+  <span class="k">SELECT</span> id, payload
+  <span class="k">FROM</span> jobs
+  <span class="k">WHERE</span> status = <span class="s">'queued'</span>
+  <span class="k">ORDER BY</span> id
+  <span class="k">FOR UPDATE</span> SKIP LOCKED
+  <span class="k">LIMIT</span> <span class="n">1</span>;
+  <span class="k">UPDATE</span> jobs <span class="k">SET</span> status = <span class="s">'done'</span> <span class="k">WHERE</span> id = <span class="n">1</span>;  <span class="c">-- 처리 후 상태 변경</span>
+<span class="k">COMMIT</span>;
+<span class="c"> id |   payload</span>
+<span class="c">----+--------------</span>
+<span class="c">  1 | send-email-1</span>
+
+<span class="k">SELECT</span> id, payload, status <span class="k">FROM</span> jobs <span class="k">ORDER BY</span> id;
+<span class="c"> id |    payload     | status</span>
+<span class="c">----+----------------+--------</span>
+<span class="c">  1 | send-email-1   | done</span>
+<span class="c">  2 | send-email-2   | queued</span>
+<span class="c">  3 | resize-image-3 | queued</span>
+<span class="c">  4 | build-report-4 | queued</span>
+<span class="c">  5 | charge-card-5  | queued</span></pre></div>
+
+  <p>실제 운영에서 워커 A와 워커 B가 동시에 위 쿼리를 실행하면, A는 행 1을 잠그고 B는 그 행을 <strong>건너뛰어 행 2</strong>를 집어갑니다 — 락 대기 없이 병렬로 큐를 비웁니다. 락을 무한정 기다리고 싶지 않을 때는 <code>lock_timeout</code>으로 상한을 둘 수도 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — lock_timeout: 락을 너무 오래 기다리면 포기</span></div><pre><span class="c">-- 락을 1초 넘게 기다리면 포기하고 에러(충돌이 없으면 즉시 성공)</span>
+<span class="k">SET</span> lock_timeout = <span class="s">'1s'</span>;
+<span class="k">SHOW</span> lock_timeout;
+<span class="c"> lock_timeout</span>
+<span class="c">--------------</span>
+<span class="c"> 1s</span>
+
+<span class="k">BEGIN</span>;
+  <span class="k">SELECT</span> id <span class="k">FROM</span> jobs <span class="k">WHERE</span> id = <span class="n">3</span> <span class="k">FOR UPDATE</span>;  <span class="c">-- 충돌 없음 → 즉시 성공</span>
+<span class="k">COMMIT</span>;
+<span class="c">-- 다른 세션이 행 3 을 잡고 있었다면 1초 뒤:</span>
+<span class="c">-- ERROR:  canceling statement due to lock timeout  (이 장면은 두 세션에서만 재현)</span></pre></div>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">행 잠금 · 큐 <span class="tag">MySQL</span></div>
+      <p>MySQL InnoDB도 <code>SELECT ... FOR UPDATE</code>·<code>FOR SHARE</code>를 지원하고, <strong>8.0부터 <code>NOWAIT</code>·<code>SKIP LOCKED</code></strong>가 추가돼 같은 큐 패턴을 쓸 수 있습니다. 데드락도 자동 감지해 한쪽을 롤백합니다. 다만 잠금 단위·갭 락 동작 등 세부는 InnoDB 특유라, PG와 동일하게 가정하지 말고 확인하세요. advisory lock에 해당하는 것은 <code>GET_LOCK(name, timeout)</code>·<code>RELEASE_LOCK(name)</code>입니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">행 잠금 · 큐 <span class="tag">PostgreSQL</span></div>
+      <p>PostgreSQL은 <code>FOR UPDATE</code>/<code>FOR SHARE</code>에 <code>NOWAIT</code>·<code>SKIP LOCKED</code>를 제공하고, <strong>데드락을 자동 감지</strong>해 한쪽을 <code>40P01</code>로 abort합니다. <code>SKIP LOCKED</code> 큐 패턴과 정수 키 기반 <strong>advisory lock</strong>(<code>pg_advisory_lock</code> 계열)이 잘 갖춰져 있어, 외부 큐 시스템 없이도 가벼운 작업 큐·분산 락을 DB 안에서 구현하기 좋습니다.</p>
+    </div>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>SELECT ... FOR UPDATE</code>는 무엇에 쓰나?</summary>
+    <div class="answer"><p>고른 행에 <strong>쓰기 의도 잠금</strong>을 걸어, 다른 트랜잭션이 같은 행을 <code>UPDATE</code>/<code>FOR UPDATE</code>하지 못하게 막습니다(이 트랜잭션이 끝날 때까지 대기). "읽은 값을 보고 갱신"하는 동안 그 사이 다른 트랜잭션이 끼어들지 못하게 하는 <strong>읽고-고치기(read-modify-write)</strong>의 안전장치입니다. 락은 트랜잭션 종료 시 풀리므로 <strong>짧게 잡고 빨리 커밋</strong>해야 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 데드락을 어떻게 회피하나?</summary>
+    <div class="answer"><p>가장 확실한 방법은 <strong>모든 트랜잭션이 자원을 같은 순서로 잠그는 것</strong>입니다(예: 항상 <code>id</code> 오름차순). 그러면 순환 대기가 생길 수 없습니다. 더해서 트랜잭션을 짧게 유지하고, 잠그는 행 수를 줄이며, 그래도 드물게 나는 데드락(<code>40P01</code>)은 <strong>재시도 가능한 에러</strong>로 처리합니다. PG는 데드락을 자동 감지해 한쪽만 abort합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>SKIP LOCKED</code> 큐 패턴은 어떤 문제를 푸나?</summary>
+    <div class="answer"><p>여러 워커가 같은 작업 큐에서 다음 작업을 집어갈 때, <strong>같은 행을 둘이 잡거나 서로 줄을 서서 직렬화되는 문제</strong>를 풉니다. <code>SELECT ... FOR UPDATE SKIP LOCKED LIMIT 1</code>은 <strong>이미 잠긴 행을 건너뛰어</strong> 각 워커가 서로 다른 작업을 락 대기 없이 병렬로 가져가게 합니다 — 외부 큐 없이 DB만으로 작업 큐를 만드는 실무 단골 패턴입니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/explicit-locking.html">Explicit Locking (행 락 · 데드락) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS">Advisory Lock Functions — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-select.html#SQL-FOR-UPDATE-SHARE">SELECT — FOR UPDATE / SKIP LOCKED — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="02-mvcc-vacuum.html"><span class="dir">← 이전</span><span class="ttl">MVCC · VACUUM</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 5 · Lesson 03 · 락 · 데드락 · advisory lock</footer>
+</body>
+</html>

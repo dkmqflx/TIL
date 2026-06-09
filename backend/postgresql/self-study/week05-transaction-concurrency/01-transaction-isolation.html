@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5·01 — 트랜잭션 · 격리 수준</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · 트랜잭션 · 동시성 · MVCC</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 5 — Lesson 01</span>
+  <h1>트랜잭션<br>격리 수준</h1>
+  <p class="subtitle">트랜잭션은 <strong>'전부 아니면 전무'</strong>. 격리 수준은 <strong>동시에 도는 트랜잭션이 서로를 얼마나 보는가</strong>를 정합니다 — Postgres 기본은 <code>READ COMMITTED</code>.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>트랜잭션은 '전부 아니면 전무'. 격리 수준은 <b>'동시에 도는 트랜잭션이 서로를 얼마나 보는가'</b>를 정한다 — Postgres 기본은 <b><code>READ COMMITTED</code></b>.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>BEGIN</code>/<code>COMMIT</code>/<code>ROLLBACK</code>과 <strong>SAVEPOINT</strong>로 트랜잭션을 다룬다</li>
+    <li>격리 수준 <strong>4단계</strong>와 막아 주는 <strong>이상현상</strong>을 구분한다</li>
+    <li>Postgres의 기본 동작(<code>READ COMMITTED</code>)과 <strong>MySQL과의 차이</strong>를 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>트랜잭션 기본 — ACID · BEGIN/COMMIT/ROLLBACK · SAVEPOINT</h2>
+  <p>🍔 송금을 떠올려 보세요. "Alice 계좌에서 200을 <strong>빼고</strong>, Bob 계좌에 200을 <strong>더한다</strong>" — 이 둘은 <strong>같이 성공하거나, 같이 취소돼야</strong> 합니다. 인출만 되고 입금이 실패하면 돈이 증발합니다. 트랜잭션은 여러 문장을 <strong>하나의 '전부 아니면 전무' 단위</strong>로 묶는 장치입니다.</p>
+  <p>트랜잭션의 보증을 네 글자로 <strong>ACID</strong>라 부릅니다. <strong>A</strong>tomicity(원자성): 전부 적용되거나 전부 취소된다. <strong>C</strong>onsistency(일관성): 제약·규칙을 깨지 않는다. <strong>I</strong>solation(격리성): 동시 트랜잭션이 서로를 방해하지 않는다(이 레슨의 주제). <strong>D</strong>urability(영속성): <code>COMMIT</code>한 결과는 장애가 나도 살아남는다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — BEGIN/COMMIT(송금) 과 ROLLBACK(취소)</span></div><pre><span class="c">-- 송금: 인출과 입금을 한 트랜잭션으로 묶는다(둘 다 성공 또는 둘 다 취소)</span>
+<span class="k">BEGIN</span>;
+  <span class="k">UPDATE</span> accounts <span class="k">SET</span> balance = balance - <span class="n">200</span> <span class="k">WHERE</span> owner = <span class="s">'Alice'</span>;
+  <span class="k">UPDATE</span> accounts <span class="k">SET</span> balance = balance + <span class="n">200</span> <span class="k">WHERE</span> owner = <span class="s">'Bob'</span>;
+<span class="k">COMMIT</span>;
+<span class="c"> owner | balance</span>
+<span class="c">-------+---------</span>
+<span class="c"> Alice |  800.00</span>
+<span class="c"> Bob   |  700.00</span>
+
+<span class="c">-- ROLLBACK: 중간에 취소하면 변경이 없던 일이 된다</span>
+<span class="k">BEGIN</span>;
+  <span class="k">UPDATE</span> accounts <span class="k">SET</span> balance = balance - <span class="n">300</span> <span class="k">WHERE</span> owner = <span class="s">'Alice'</span>;
+<span class="k">ROLLBACK</span>;
+<span class="c"> owner | balance</span>
+<span class="c">-------+---------</span>
+<span class="c"> Alice |  800.00</span>     <span class="c">-- 그대로 (롤백됨)</span>
+<span class="c"> Bob   |  700.00</span></pre></div>
+
+  <p>긴 트랜잭션 안에서 <strong>일부만 되돌리고 싶을 때</strong>는 <code>SAVEPOINT</code>를 찍고 <code>ROLLBACK TO</code>로 그 지점까지만 취소합니다. 책갈피를 꽂아 두고 거기로만 되감는 셈입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — SAVEPOINT / ROLLBACK TO (부분 취소)</span></div><pre><span class="k">BEGIN</span>;
+  <span class="k">UPDATE</span> accounts <span class="k">SET</span> balance = balance + <span class="n">50</span> <span class="k">WHERE</span> owner = <span class="s">'Alice'</span>;
+  <span class="k">SAVEPOINT</span> sp1;
+  <span class="k">UPDATE</span> accounts <span class="k">SET</span> balance = balance + <span class="n">9999</span> <span class="k">WHERE</span> owner = <span class="s">'Bob'</span>;  <span class="c">-- 실수</span>
+  <span class="k">ROLLBACK TO</span> sp1;   <span class="c">-- Bob 변경만 취소, Alice +50 은 살아 있음</span>
+  <span class="k">UPDATE</span> accounts <span class="k">SET</span> balance = balance + <span class="n">10</span> <span class="k">WHERE</span> owner = <span class="s">'Bob'</span>;    <span class="c">-- 다시 정상 처리</span>
+<span class="k">COMMIT</span>;
+<span class="c"> owner | balance</span>
+<span class="c">-------+---------</span>
+<span class="c"> Alice |  850.00</span>     <span class="c">-- +50 유지</span>
+<span class="c"> Bob   |  710.00</span>     <span class="c">-- +10 만 (잘못된 +9999 는 취소됨)</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">앱에서의 트랜잭션</span>
+    <p>대부분의 드라이버·ORM은 <code>BEGIN</code>/<code>COMMIT</code>을 직접 쓰기보다 <strong>트랜잭션 블록</strong>(예: <code>with conn.transaction():</code>, <code>@Transactional</code>)으로 감쌉니다. 블록을 정상 통과하면 커밋, 예외가 던져지면 자동 롤백입니다. psql에서 <code>BEGIN</code> 없이 실행한 단일 문장은 <strong>각각이 곧 하나의 트랜잭션</strong>(autocommit)입니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>이상현상 — 동시 트랜잭션이 만드는 네 가지 사고</h2>
+  <p>격리 수준이 낮으면 동시에 도는 트랜잭션이 서로의 미완성 작업을 들여다보며 <strong>이상현상(anomaly)</strong>을 일으킵니다. SQL 표준은 네 가지를 정의합니다.</p>
+  <ul class="goals">
+    <li><strong>Dirty read</strong>: 아직 <strong>커밋되지 않은</strong> 다른 트랜잭션의 변경을 읽는다(곧 롤백될 수도 있는 값).</li>
+    <li><strong>Non-repeatable read</strong>: 같은 행을 두 번 읽었는데, 그 사이 다른 트랜잭션이 커밋해 <strong>값이 바뀐다</strong>.</li>
+    <li><strong>Phantom read</strong>: 같은 조건으로 두 번 조회했는데, 그 사이 행이 추가/삭제돼 <strong>결과 행 수가 바뀐다</strong>.</li>
+    <li><strong>Serialization anomaly</strong>: 각각은 성공했지만 <strong>동시에 돈 결과가 어떤 순차 실행으로도 설명되지 않는다</strong>(예: write skew).</li>
+  </ul>
+  <p>아래 표는 <strong>PostgreSQL의 실제 동작</strong>입니다(공식 문서 Table 13.1 기준). 표준이 "허용될 수 있다"고 둔 칸도 PG에서는 더 강하게 막는 경우가 있습니다 — 다음 절에서 설명합니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>격리 수준</th><th>Dirty read</th><th>Non-repeatable</th><th>Phantom</th><th>Serialization anomaly</th></tr></thead>
+    <tbody>
+      <tr><td>READ UNCOMMITTED</td><td>막힘 <span class="chip">PG</span></td><td>가능</td><td>가능</td><td>가능</td></tr>
+      <tr><td><strong>READ COMMITTED</strong> (기본)</td><td>막힘</td><td>가능</td><td>가능</td><td>가능</td></tr>
+      <tr><td>REPEATABLE READ</td><td>막힘</td><td>막힘</td><td>막힘 <span class="chip">PG</span></td><td>가능</td></tr>
+      <tr><td>SERIALIZABLE</td><td>막힘</td><td>막힘</td><td>막힘</td><td><strong>막힘</strong></td></tr>
+    </tbody>
+  </table>
+  <p class="lead"><span class="chip">PG</span> 표시 칸이 표준과 다른 부분입니다. PG는 <strong>READ UNCOMMITTED에서도 dirty read를 절대 허용하지 않고</strong>, REPEATABLE READ가 <strong>phantom까지 막습니다</strong>.</p>
+
+  <h2><span class="num">3</span>격리 수준 4단계 — 그리고 PostgreSQL의 강화</h2>
+  <p>격리 수준은 "동시성 안전"과 "성능·재시도 부담" 사이의 다이얼입니다. 위로 갈수록 안전하지만 충돌·재시도가 늘어납니다. <code>SET TRANSACTION ISOLATION LEVEL ...</code> 또는 <code>BEGIN ISOLATION LEVEL ...</code>로 트랜잭션 단위로 지정합니다.</p>
+  <ul class="goals">
+    <li><strong>READ UNCOMMITTED</strong> — 표준에선 dirty read 허용. <strong>PG에선 사실상 READ COMMITTED와 동일</strong>(dirty read를 구현하지 않음).</li>
+    <li><strong>READ COMMITTED</strong> (PG 기본) — <strong>각 문장이 시작될 때</strong>의 스냅샷을 본다. 커밋된 값만 읽지만, 한 트랜잭션 안에서도 문장마다 스냅샷이 갱신돼 non-repeatable·phantom이 생길 수 있다.</li>
+    <li><strong>REPEATABLE READ</strong> — <strong>트랜잭션 시작 시점</strong>의 스냅샷을 끝까지 본다(스냅샷 격리). PG에서는 이 한 가지로 non-repeatable과 <strong>phantom까지 함께 막습니다</strong>. 단, 충돌 쓰기를 만나면 <code>could not serialize access</code>로 실패할 수 있다.</li>
+    <li><strong>SERIALIZABLE</strong> — REPEATABLE READ에 <strong>SSI(Serializable Snapshot Isolation)</strong>를 더해 serialization anomaly까지 막는다. 가장 안전하지만 직렬화 실패 시 재시도가 필요하다.</li>
+  </ul>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 기본값 확인 & 트랜잭션 단위 설정</span></div><pre><span class="c">-- Postgres 기본 격리 수준</span>
+<span class="k">SHOW</span> default_transaction_isolation;
+<span class="c"> default_transaction_isolation</span>
+<span class="c">-------------------------------</span>
+<span class="c"> read committed</span>
+
+<span class="c">-- 이번 트랜잭션만 REPEATABLE READ 로 (스냅샷 격리)</span>
+<span class="k">BEGIN</span>;
+  <span class="k">SET TRANSACTION ISOLATION LEVEL</span> <span class="k">REPEATABLE READ</span>;
+  <span class="k">SELECT</span> <span class="f">current_setting</span>(<span class="s">'transaction_isolation'</span>) <span class="k">AS</span> lvl;
+<span class="k">COMMIT</span>;
+<span class="c">       lvl</span>
+<span class="c">-----------------</span>
+<span class="c"> repeatable read</span>
+
+<span class="c">-- SERIALIZABLE 도 같은 방식 (직렬화 실패 시 앱이 재시도해야 함)</span>
+<span class="k">BEGIN</span> <span class="k">ISOLATION LEVEL</span> <span class="k">SERIALIZABLE</span>;
+  <span class="k">SELECT</span> <span class="f">current_setting</span>(<span class="s">'transaction_isolation'</span>) <span class="k">AS</span> lvl;
+<span class="k">COMMIT</span>;
+<span class="c">     lvl</span>
+<span class="c">--------------</span>
+<span class="c"> serializable</span></pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">PostgreSQL의 격리 수준은 '표준 이름'과 다르게 동작한다</span>
+    <p><strong>① REPEATABLE READ가 표준보다 강하다.</strong> PG는 스냅샷 격리라 RR에서도 <strong>phantom read가 거의 생기지 않습니다</strong>(표준은 RR에서 phantom을 허용). 다만 RR/SERIALIZABLE에서는 충돌하는 쓰기를 만나면 트랜잭션이 <code>could not serialize access due to concurrent update</code>로 <strong>실패</strong>할 수 있습니다. <strong>② SERIALIZABLE은 재시도 전제.</strong> SSI는 직렬화 불가를 감지하면 한쪽을 <code>40001</code> 에러로 abort합니다 — 앱은 이 에러를 잡아 <strong>같은 트랜잭션을 다시 실행</strong>하도록 설계해야 합니다(락이 아니라 낙관적 방식이라 평소엔 빠르지만 충돌 시 재시도 책임이 앱에 있음).</p>
+  </div>
+
+  <h2><span class="num">4</span>두 세션 타임라인 — non-repeatable read를 눈으로</h2>
+  <p>이상현상은 <strong>두 트랜잭션이 동시에</strong> 돌 때만 보입니다(단일 psql 세션으로는 재현 불가 → 그래서 코드가 아니라 타임라인으로 봅니다). Session A가 같은 행을 두 번 읽는 사이, Session B가 값을 바꾸고 커밋하는 시나리오입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>시각</th><th>Session A <span class="tag">READ COMMITTED</span></th><th>Session B</th></tr></thead>
+    <tbody>
+      <tr><td>t1</td><td><code>BEGIN;</code></td><td></td></tr>
+      <tr><td>t2</td><td><code>SELECT balance ... WHERE owner='Alice';</code> → <strong>800</strong></td><td></td></tr>
+      <tr><td>t3</td><td></td><td><code>UPDATE accounts SET balance=900 WHERE owner='Alice';</code> <code>COMMIT;</code></td></tr>
+      <tr><td>t4</td><td><code>SELECT balance ... WHERE owner='Alice';</code> → <strong>900</strong> 😱</td><td></td></tr>
+      <tr><td>t5</td><td><code>COMMIT;</code> — 같은 트랜잭션인데 값이 바뀜(non-repeatable read)</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <p>같은 시나리오를 Session A가 <code>REPEATABLE READ</code>였다면, t4의 두 번째 <code>SELECT</code>도 <strong>800</strong>을 돌려줍니다 — A는 <strong>시작 시점 스냅샷</strong>을 끝까지 보기 때문에 B의 커밋이 보이지 않습니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>시각</th><th>Session A <span class="tag">REPEATABLE READ</span></th><th>Session B</th></tr></thead>
+    <tbody>
+      <tr><td>t1</td><td><code>BEGIN ISOLATION LEVEL REPEATABLE READ;</code></td><td></td></tr>
+      <tr><td>t2</td><td><code>SELECT balance ... WHERE owner='Alice';</code> → <strong>800</strong></td><td></td></tr>
+      <tr><td>t3</td><td></td><td><code>UPDATE ... =900;</code> <code>COMMIT;</code></td></tr>
+      <tr><td>t4</td><td><code>SELECT balance ...;</code> → <strong>800</strong> ✅ (스냅샷 고정)</td><td></td></tr>
+      <tr><td>t5</td><td><code>COMMIT;</code> — 트랜잭션 내내 일관된 값</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="compare">
+    <div class="compare__mysql">
+      <div class="compare__head">기본 격리 수준 <span class="tag">MySQL</span></div>
+      <p>MySQL InnoDB의 기본은 <strong><code>REPEATABLE READ</code></strong>입니다. 일반 <code>SELECT</code>는 트랜잭션 시작 스냅샷(consistent read)을 보고, phantom은 <strong>갭 락(gap lock)/넥스트키 락</strong>으로 막습니다. 그래서 MySQL에서 익숙해진 "한 트랜잭션 안에서 읽기가 안 변한다"는 감각이 기본값에서 성립합니다.</p>
+    </div>
+    <div class="compare__pg">
+      <div class="compare__head">기본 격리 수준 <span class="tag">PostgreSQL</span></div>
+      <p>PostgreSQL의 기본은 <strong><code>READ COMMITTED</code></strong>입니다. <strong>각 문장</strong>이 시작될 때의 스냅샷을 보므로, 한 트랜잭션 안에서도 문장 사이에 다른 커밋이 보입니다(non-repeatable·phantom 가능). MySQL에서 넘어온 팀이 가장 자주 헛디디는 <strong>실무 차이</strong>입니다 — "읽기 일관성"이 필요하면 명시적으로 <code>REPEATABLE READ</code>를 켜세요.</p>
+    </div>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크</h2>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>READ COMMITTED</code>와 <code>REPEATABLE READ</code>의 차이는?</summary>
+    <div class="answer"><p><code>READ COMMITTED</code>는 <strong>문장마다</strong> 새 스냅샷을 떠서, 한 트랜잭션 안에서도 다른 트랜잭션의 커밋이 다음 문장에 보입니다(non-repeatable read 가능). <code>REPEATABLE READ</code>는 <strong>트랜잭션 시작 시점</strong>의 스냅샷을 끝까지 유지해, 그 트랜잭션이 보는 데이터가 변하지 않습니다(PG에선 phantom까지 방지). 대신 충돌 쓰기 시 직렬화 실패로 끝날 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> PostgreSQL의 기본 격리 수준은? MySQL과 무엇이 다른가?</summary>
+    <div class="answer"><p>PostgreSQL 기본은 <strong><code>READ COMMITTED</code></strong>, MySQL InnoDB 기본은 <strong><code>REPEATABLE READ</code></strong>입니다. 그래서 MySQL에서 당연하던 "한 트랜잭션 내 읽기 불변"이 PG 기본값에서는 성립하지 않습니다. PG에서 같은 보장을 원하면 트랜잭션을 명시적으로 <code>REPEATABLE READ</code>로 시작해야 합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>SERIALIZABLE</code>을 쓸 때 앱이 반드시 대비할 것은?</summary>
+    <div class="answer"><p><strong>재시도(retry)</strong>입니다. SERIALIZABLE은 SSI로 직렬화 불가를 감지하면 한쪽 트랜잭션을 <code>40001</code>(serialization failure) 에러로 abort합니다. 앱은 이 에러를 잡아 <strong>같은 트랜잭션을 처음부터 다시 실행</strong>하는 루프를 갖춰야 합니다. 락이 아니라 낙관적 방식이라 평소엔 빠르지만, 충돌 처리 책임이 애플리케이션에 있습니다.</p></div>
+  </details>
+
+  <h2><span class="num">6</span>🔗 참고 링크</h2>
+  <ul class="refs">
+    <li><a href="https://www.postgresql.org/docs/current/tutorial-transactions.html">Transactions (튜토리얼) — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/transaction-iso.html">Transaction Isolation — PostgreSQL 공식 문서</a></li>
+    <li><a href="https://www.postgresql.org/docs/current/sql-set-transaction.html">SET TRANSACTION — PostgreSQL 공식 문서</a></li>
+  </ul>
+
+  <nav class="pager">
+    <a class="prev" href="../week04-index-performance/03-cte-window-pagination.html"><span class="dir">← 이전</span><span class="ttl">CTE · 윈도우 · keyset</span></a>
+    <a class="next" href="02-mvcc-vacuum.html"><span class="dir">다음 →</span><span class="ttl">MVCC · VACUUM</span></a>
+  </nav>
+</main>
+
+<footer class="foot">PostgreSQL 셀프 스터디 · Week 5 · Lesson 01 · 트랜잭션 · 격리 수준</footer>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 2·03 — 기본 CRUD + 내장 Exception</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · Controller · 라우팅 &amp; 요청 데이터</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 2 — Lesson 03</span>
+  <h1>기본 CRUD +<br>내장 Exception</h1>
+  <p class="subtitle">인메모리 배열로 완전한 CRUD를 구현하고, 자원이 없을 때 <strong><code>NotFoundException</code></strong>을 던져 NestJS가 HTTP 오류 응답을 만드는 과정을 직접 본다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>DB 없이도 컨트롤러의 <b>CRUD 모양</b>은 완성할 수 있다. 그리고 자원이 없을 때 <code>throw new NotFoundException()</code> 한 줄이면, Nest 내장 <b>Exception Filter</b>가 알아서 404 JSON 응답을 만들어 준다. 예외를 HTTP 코드로 변환하는 것도 프레임워크의 일이다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>인메모리 배열로 CRUD(목록·단건·생성·수정·삭제)를 완성한다</li>
+    <li><code>NotFoundException</code> 등 NestJS 내장 HTTP 예외를 던지는 법을 안다</li>
+    <li>예외 → HTTP 응답(상태코드 + JSON 바디) 변환 흐름을 이해한다</li>
+    <li>인메모리 저장의 한계와 Week 4 DB 연동의 필요성을 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>인메모리 배열로 CRUD 구현</h2>
+  <p class="lead">실제 DB 없이 <strong>클래스 내부 배열</strong>에 게시글을 쌓으면, 컨트롤러의 역할과 CRUD 흐름을 군더더기 없이 이해할 수 있습니다. Week 4에서 TypeORM+PostgreSQL로 교체하기 전까지 이 구조로 작동합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — 인메모리 CRUD</span></div><pre><span class="k">import</span> {
+  <span class="t">Controller</span>, <span class="t">Get</span>, <span class="t">Post</span>, <span class="t">Patch</span>, <span class="t">Delete</span>,
+  <span class="t">Param</span>, <span class="t">Query</span>, <span class="t">Body</span>,
+  <span class="t">NotFoundException</span>,
+} <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+
+<span class="c">/** 게시글 타입 (임시 인메모리용) */</span>
+<span class="k">interface</span> <span class="t">Post</span> {
+  id:      <span class="t">number</span>;
+  content: <span class="t">string</span>;
+}
+
+<span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+  <span class="k">private</span> posts: <span class="t">Post</span>[] = [];
+  <span class="k">private</span> nextId = <span class="n">1</span>;
+
+  <span class="c">// GET /posts?page=1</span>
+  <span class="d">@Get</span>()
+  <span class="f">findAll</span>(<span class="d">@Query</span>(<span class="s">'page'</span>) page = <span class="s">'1'</span>) {
+    <span class="k">return</span> { page: +page, data: <span class="k">this</span>.posts };
+  }
+
+  <span class="c">// GET /posts/:id</span>
+  <span class="d">@Get</span>(<span class="s">':id'</span>)
+  <span class="f">findOne</span>(<span class="d">@Param</span>(<span class="s">'id'</span>) id: <span class="t">string</span>) {
+    <span class="k">const</span> post = <span class="k">this</span>.posts.<span class="f">find</span>(p => p.id === +id);
+    <span class="k">if</span> (!post) <span class="k">throw new</span> <span class="t">NotFoundException</span>(<span class="s">`Post #${id} not found`</span>);
+    <span class="k">return</span> post;
+  }
+
+  <span class="c">// POST /posts</span>
+  <span class="d">@Post</span>()
+  <span class="f">create</span>(<span class="d">@Body</span>() body: { content: <span class="t">string</span> }) {
+    <span class="k">const</span> post: <span class="t">Post</span> = { id: <span class="k">this</span>.nextId++, content: body.content };
+    <span class="k">this</span>.posts.<span class="f">push</span>(post);
+    <span class="k">return</span> post;
+  }
+
+  <span class="c">// PATCH /posts/:id</span>
+  <span class="d">@Patch</span>(<span class="s">':id'</span>)
+  <span class="f">update</span>(<span class="d">@Param</span>(<span class="s">'id'</span>) id: <span class="t">string</span>, <span class="d">@Body</span>() body: { content: <span class="t">string</span> }) {
+    <span class="k">const</span> post = <span class="k">this</span>.posts.<span class="f">find</span>(p => p.id === +id);
+    <span class="k">if</span> (!post) <span class="k">throw new</span> <span class="t">NotFoundException</span>(<span class="s">`Post #${id} not found`</span>);
+    post.content = body.content;
+    <span class="k">return</span> post;
+  }
+
+  <span class="c">// DELETE /posts/:id</span>
+  <span class="d">@Delete</span>(<span class="s">':id'</span>)
+  <span class="f">remove</span>(<span class="d">@Param</span>(<span class="s">'id'</span>) id: <span class="t">string</span>) {
+    <span class="k">const</span> idx = <span class="k">this</span>.posts.<span class="f">findIndex</span>(p => p.id === +id);
+    <span class="k">if</span> (idx === -<span class="n">1</span>) <span class="k">throw new</span> <span class="t">NotFoundException</span>(<span class="s">`Post #${id} not found`</span>);
+    <span class="k">this</span>.posts.<span class="f">splice</span>(idx, <span class="n">1</span>);
+    <span class="k">return</span> { deleted: +id };
+  }
+}</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">인메모리 저장의 한계 — Week 4 예고</span>
+    <p>배열로 저장하면 <strong>서버를 재시작할 때마다 데이터가 사라집니다</strong>. 또 서버 인스턴스가 여러 개면 각자 독립된 배열을 가져 데이터가 불일치합니다. 실제 서비스에서는 <strong>PostgreSQL 같은 영속 DB</strong>가 반드시 필요합니다. Week 4에서 Docker로 PostgreSQL을 띄우고 TypeORM으로 연결하면 이 배열을 DB 테이블로 교체합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>NestJS 내장 HTTP 예외</h2>
+  <p>NestJS는 자주 쓰이는 HTTP 에러 상황마다 <strong>미리 만들어진 예외 클래스</strong>를 제공합니다. <code>throw new NotFoundException()</code> 한 줄이면 내장 Exception Filter가 알아서 JSON 응답을 만들어 돌려줍니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>예외 클래스</th><th>HTTP 상태코드</th><th>대표 사용 상황</th></tr></thead>
+    <tbody>
+      <tr><td><code>NotFoundException</code></td><td>404 Not Found</td><td>자원을 찾을 수 없을 때</td></tr>
+      <tr><td><code>BadRequestException</code></td><td>400 Bad Request</td><td>잘못된 입력값</td></tr>
+      <tr><td><code>UnauthorizedException</code></td><td>401 Unauthorized</td><td>인증되지 않은 요청</td></tr>
+      <tr><td><code>ForbiddenException</code></td><td>403 Forbidden</td><td>권한 없음</td></tr>
+      <tr><td><code>ConflictException</code></td><td>409 Conflict</td><td>중복 데이터(이미 존재)</td></tr>
+      <tr><td><code>InternalServerErrorException</code></td><td>500 Internal Server Error</td><td>예상치 못한 서버 오류</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">모두 <code>HttpException</code>을 상속</span>
+    <p>위 클래스들은 전부 <code>@nestjs/common</code>의 <code>HttpException</code>을 상속합니다. 표에 없는 상황은 <code>throw new HttpException('Custom message', 418)</code>처럼 직접 상태코드를 지정할 수 있습니다. 전체 내장 예외 목록은 <a href="https://docs.nestjs.com/exception-filters#built-in-http-exceptions" target="_blank" rel="noopener">공식 문서 Built-in HTTP exceptions</a>에서 확인하세요.</p>
+  </div>
+
+  <h2><span class="num">3</span>예외 → HTTP 응답 변환 흐름</h2>
+  <p>핸들러에서 예외를 던지면, Nest의 <strong>내장 Exception Filter</strong>가 잡아서 일정한 형식의 JSON 응답으로 바꿉니다. 개발자가 직접 <code>res.status(404).json({...})</code>를 쓸 필요가 없습니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 240" role="img" aria-label="throw NotFoundException이 404 JSON 응답으로 변환되는 흐름">
+      <!-- Handler box -->
+      <rect x="20" y="80" width="180" height="80" rx="12" fill="#16140f" stroke="#e0552f" stroke-width="2"/>
+      <text x="110" y="108" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#ff9d6e">findOne()</text>
+      <text x="110" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#ece6d6">throw new</text>
+      <text x="110" y="143" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#e0552f">NotFoundException</text>
+
+      <!-- arrow to filter -->
+      <line x1="202" y1="120" x2="268" y2="120" stroke="#e0552f" stroke-width="2.5" marker-end="url(#w2l3-a)"/>
+      <text x="235" y="111" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#807a6c">예외 전파</text>
+
+      <!-- Exception Filter box -->
+      <rect x="270" y="68" width="180" height="104" rx="12" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="360" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">Exception Filter</text>
+      <text x="360" y="110" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#7a3018">(Nest 내장)</text>
+      <text x="360" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#4a463d">상태코드 추출</text>
+      <text x="360" y="148" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#4a463d">→ 404</text>
+      <text x="360" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#4a463d">JSON 바디 생성</text>
+
+      <!-- arrow to response -->
+      <line x1="452" y1="120" x2="518" y2="120" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#w2l3-b)"/>
+      <text x="485" y="111" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#807a6c">HTTP 응답</text>
+
+      <!-- Response box -->
+      <rect x="520" y="68" width="150" height="104" rx="12" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="595" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#0a4f48">404</text>
+      <text x="595" y="110" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#4a463d">Not Found</text>
+      <text x="595" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1c1a16">{</text>
+      <text x="595" y="147" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#1c1a16">"statusCode": 404,</text>
+      <text x="595" y="161" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">"message": "…"</text>
+      <text x="595" y="175" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1c1a16">}</text>
+
+      <text x="340" y="224" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#807a6c">개발자는 throw만. 응답 변환은 Nest가.</text>
+
+      <defs>
+        <marker id="w2l3-a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w2l3-b" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption><code>throw new NotFoundException()</code> → 내장 Exception Filter → <code>{ "statusCode": 404, "message": "…", "error": "Not Found" }</code> 자동 생성.</figcaption>
+  </figure>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 주방 → 안내 데스크</span>
+    <p>주방(핸들러)에서 "이 메뉴는 없습니다"라고 알리면, 안내 데스크(Exception Filter)가 손님에게 정해진 양식으로 "<strong>404: 해당 메뉴를 찾을 수 없습니다</strong>"라고 안내합니다. 주방은 무슨 알림판을 쓸지 몰라도 됩니다 — 알림 규격은 안내 데스크가 통일해서 처리합니다.</p>
+  </div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">메시지 커스터마이즈</span>
+    <p><code>throw new NotFoundException('Post #42 not found')</code>처럼 문자열을 넘기면 응답 JSON의 <code>message</code> 필드가 그 값으로 채워집니다. 두 번째 인자로 설명(description)을 넣을 수도 있습니다: <code>new NotFoundException('찾을 수 없음', 'POSTS_NOT_FOUND')</code>. 클라이언트가 에러 원인을 정확히 파악할 수 있도록 <strong>구체적인 메시지</strong>를 담는 것이 좋습니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>throw new NotFoundException()</code>이 만드는 응답 형태는?</summary>
+    <div class="answer"><p>NestJS 내장 Exception Filter가 다음과 같은 JSON을 응답합니다.
+<pre style="margin:8px 0;background:#f7f4ee;padding:8px;border-radius:6px;font-size:12px">{
+  "statusCode": 404,
+  "message": "Not Found",     // 또는 throw 시 넘긴 커스텀 메시지
+  "error": "Not Found"
+}</pre>
+HTTP 상태코드는 <strong>404</strong>, <code>Content-Type: application/json</code>이 붙습니다. 메시지를 지정하지 않으면 Nest 기본값인 <code>"Not Found"</code>가 들어가고, 문자열을 넘기면 그 문자열로 <code>message</code>가 채워집니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> NestJS 내장 예외 클래스 전체 목록은 어디서 확인하나요?</summary>
+    <div class="answer"><p><strong>공식 문서</strong> <a href="https://docs.nestjs.com/exception-filters#built-in-http-exceptions" target="_blank" rel="noopener">docs.nestjs.com → Exception Filters → Built-in HTTP exceptions</a>에서 확인할 수 있습니다. 또는 IDE에서 <code>@nestjs/common</code>의 타입 선언을 열고 <code>HttpException</code>을 상속한 클래스들을 보면 됩니다 — <code>BadRequestException</code>, <code>UnauthorizedException</code>, <code>ForbiddenException</code>, <code>NotFoundException</code>, <code>MethodNotAllowedException</code>, <code>NotAcceptableException</code>, <code>RequestTimeoutException</code>, <code>ConflictException</code>, <code>GoneException</code>, <code>PayloadTooLargeException</code>, <code>UnsupportedMediaTypeException</code>, <code>UnprocessableEntityException</code>, <code>InternalServerErrorException</code>, <code>NotImplementedException</code>, <code>BadGatewayException</code>, <code>ServiceUnavailableException</code>, <code>GatewayTimeoutException</code> 등이 있습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-query-param-body.html"><span class="dir">← 이전</span><span class="ttl">Query · Param · Body 받기</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 (Week 3 준비 중)</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 2 · Lesson 03 · 기본 CRUD + 내장 Exception</footer>
+</body>
+</html>

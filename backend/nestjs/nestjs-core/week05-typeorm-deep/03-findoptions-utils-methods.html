@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5·03 — FindManyOptions · 유틸 · 메서드</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · TypeORM 심화 이론</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 5 — Lesson 03</span>
+  <h1>FindManyOptions<br>유틸 · 메서드</h1>
+  <p class="subtitle"><code>find()</code>에 전달하는 <code>FindManyOptions</code>(<code>where</code>, <code>select</code>, <code>order</code>, <code>relations</code>, <code>take</code>/<code>skip</code>)를 완전 정리하고, TypeORM 연산자 유틸리티와 <code>count</code>/<code>exists</code>/<code>findAndCount</code> 메서드를 익힌다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p><code>find({ where: { id } })</code>가 전부인 줄 알았다면 — 아직 절반도 못 쓴 것이다. <code>where</code> 안에 <b>연산자(<code>MoreThan</code>, <code>Like</code>, <code>In</code>…)</b>를 조합하면 복잡한 SQL 조건도 TypeScript 객체 하나로 표현된다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>FindManyOptions</code>의 핵심 키(<code>where</code>, <code>select</code>, <code>order</code>, <code>relations</code>, <code>take</code>, <code>skip</code>)를 설명할 수 있다</li>
+    <li><code>MoreThan</code>, <code>Like</code>, <code>ILike</code>, <code>In</code>, <code>Between</code>, <code>IsNull</code> 등 TypeORM 연산자를 상황에 맞게 쓸 수 있다</li>
+    <li><code>count</code>, <code>exists</code>, <code>findAndCount</code>의 차이와 용도를 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>FindManyOptions 핵심 키</h2>
+  <p class="lead"><code>repository.find(options)</code>에 전달하는 객체가 <code>FindManyOptions</code>입니다. <code>findOne()</code>에는 <code>FindOneOptions</code>(같은 구조에서 <code>take</code>/<code>skip</code>만 없음)를 씁니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 도서관 검색 조건</span>
+    <p>도서관에서 책을 찾을 때 사서에게 조건을 전달합니다. "<strong>2023년 이후</strong>에 출간된(<code>where: { publishedAt: MoreThan(...) }</code>) 'JavaScript' 관련 책 중에서(<code>where: { title: ILike('%JavaScript%') }</code>), <strong>제목과 저자만</strong> 알려주고(<code>select</code>), <strong>최신순</strong>으로(<code>order</code>), <strong>10권씩 2페이지</strong>를 주세요(<code>take: 10, skip: 10</code>)." <code>FindManyOptions</code>는 이 검색 조건 전체를 하나의 객체로 묶은 것입니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — FindManyOptions 핵심 키</span></div><pre><span class="k">import</span> { <span class="t">Repository</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+
+<span class="k">const</span> posts = <span class="k">await</span> postsRepo.<span class="f">find</span>({
+  <span class="c">// 조회할 컬럼만 선택 (SQL: SELECT id, title FROM ...)</span>
+  select: { id: <span class="n">true</span>, title: <span class="n">true</span> },
+
+  <span class="c">// 필터 조건 (SQL: WHERE ... )</span>
+  where: { isPublished: <span class="n">true</span> },
+
+  <span class="c">// 연관 Entity를 함께 불러오기 (SQL: JOIN)</span>
+  relations: { author: <span class="n">true</span>, comments: <span class="n">true</span> },
+
+  <span class="c">// 정렬 (SQL: ORDER BY createdAt DESC)</span>
+  order: { createdAt: <span class="s">'DESC'</span> },
+
+  <span class="c">// 페이지네이션: 최대 10개, 앞 20개 건너뜀</span>
+  take: <span class="n">10</span>,   <span class="c">// SQL: LIMIT 10</span>
+  skip: <span class="n">20</span>,   <span class="c">// SQL: OFFSET 20</span>
+});</pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>키</th><th>SQL 대응</th><th>설명</th></tr></thead>
+    <tbody>
+      <tr><td><code>where</code></td><td><code>WHERE</code></td><td>필터 조건. 객체 또는 연산자 함수 사용</td></tr>
+      <tr><td><code>select</code></td><td><code>SELECT 컬럼...</code></td><td>가져올 컬럼만 지정</td></tr>
+      <tr><td><code>relations</code></td><td><code>JOIN</code></td><td>연결된 Entity를 함께 조회</td></tr>
+      <tr><td><code>order</code></td><td><code>ORDER BY</code></td><td>정렬 기준과 방향(<code>'ASC'</code>/<code>'DESC'</code>)</td></tr>
+      <tr><td><code>take</code></td><td><code>LIMIT</code></td><td>최대 조회 개수 (페이지 크기)</td></tr>
+      <tr><td><code>skip</code></td><td><code>OFFSET</code></td><td>건너뛸 행 수 (페이지 오프셋)</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">2</span>TypeORM 연산자 유틸리티</h2>
+  <p><code>where</code> 절에서 단순 동등 비교 이외의 조건이 필요할 때, TypeORM이 제공하는 연산자 함수를 사용합니다. <code>typeorm</code> 패키지에서 직접 임포트합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — 연산자 활용 예시</span></div><pre><span class="k">import</span> {
+  <span class="t">MoreThan</span>, <span class="t">LessThan</span>, <span class="t">Like</span>, <span class="t">ILike</span>,
+  <span class="t">In</span>, <span class="t">Between</span>, <span class="t">IsNull</span>,
+} <span class="k">from</span> <span class="s">'typeorm'</span>;
+
+<span class="c">// 조회수 100 초과</span>
+postsRepo.<span class="f">find</span>({ where: { viewCount: <span class="f">MoreThan</span>(<span class="n">100</span>) } });
+
+<span class="c">// 제목에 'NestJS' 포함 (대소문자 구분, SQL LIKE)</span>
+postsRepo.<span class="f">find</span>({ where: { title: <span class="f">Like</span>(<span class="s">'%NestJS%'</span>) } });
+
+<span class="c">// 제목에 'nestjs' 포함 (대소문자 무시, PostgreSQL ILIKE)</span>
+postsRepo.<span class="f">find</span>({ where: { title: <span class="f">ILike</span>(<span class="s">'%nestjs%'</span>) } });
+
+<span class="c">// 상태가 'DRAFT' 또는 'PUBLISHED' 중 하나</span>
+postsRepo.<span class="f">find</span>({ where: { status: <span class="f">In</span>([<span class="s">'DRAFT'</span>, <span class="s">'PUBLISHED'</span>]) } });
+
+<span class="c">// 조회수가 10~100 사이</span>
+postsRepo.<span class="f">find</span>({ where: { viewCount: <span class="f">Between</span>(<span class="n">10</span>, <span class="n">100</span>) } });
+
+<span class="c">// 삭제일시가 NULL인 행만 (소프트 삭제 미적용 행)</span>
+postsRepo.<span class="f">find</span>({ where: { deletedAt: <span class="f">IsNull</span>() } });</pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>연산자</th><th>SQL 대응</th><th>용도</th></tr></thead>
+    <tbody>
+      <tr><td><code>MoreThan(n)</code></td><td><code>&gt; n</code></td><td>n보다 큰 값</td></tr>
+      <tr><td><code>MoreThanOrEqual(n)</code></td><td><code>&gt;= n</code></td><td>n 이상인 값</td></tr>
+      <tr><td><code>LessThan(n)</code></td><td><code>&lt; n</code></td><td>n보다 작은 값</td></tr>
+      <tr><td><code>LessThanOrEqual(n)</code></td><td><code>&lt;= n</code></td><td>n 이하인 값</td></tr>
+      <tr><td><code>Like(pattern)</code></td><td><code>LIKE pattern</code></td><td>패턴 매칭 (대소문자 구분)</td></tr>
+      <tr><td><code>ILike(pattern)</code></td><td><code>ILIKE pattern</code></td><td>패턴 매칭 (대소문자 무시, PG 전용)</td></tr>
+      <tr><td><code>In([...])</code></td><td><code>IN (...)</code></td><td>배열 중 하나</td></tr>
+      <tr><td><code>Between(a, b)</code></td><td><code>BETWEEN a AND b</code></td><td>범위 내</td></tr>
+      <tr><td><code>IsNull()</code></td><td><code>IS NULL</code></td><td>NULL인 값</td></tr>
+      <tr><td><code>Not(value)</code></td><td><code>!= value</code></td><td>같지 않은 값 (다른 연산자와 조합 가능)</td></tr>
+    </tbody>
+  </table>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 230" role="img" aria-label="복합 FindManyOptions 객체가 각각의 SQL 절로 변환되는 흐름">
+      <!-- FindManyOptions box -->
+      <rect x="20" y="20" width="290" height="190" rx="12" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="165" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">FindManyOptions 객체</text>
+
+      <rect x="36" y="56" width="258" height="24" rx="5" fill="#1c1a16" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.6"/>
+      <text x="50" y="73" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#c98a16">where: { title: ILike('%nest%') }</text>
+
+      <rect x="36" y="86" width="258" height="24" rx="5" fill="#1c1a16" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.6"/>
+      <text x="50" y="103" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0d6e64">relations: { author: true }</text>
+
+      <rect x="36" y="116" width="258" height="24" rx="5" fill="#1c1a16" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.6"/>
+      <text x="50" y="133" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#e0552f">order: { createdAt: 'DESC' }</text>
+
+      <rect x="36" y="146" width="124" height="24" rx="5" fill="#1c1a16" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.6"/>
+      <text x="50" y="163" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#ece6d6">take: 10</text>
+
+      <rect x="170" y="146" width="124" height="24" rx="5" fill="#1c1a16" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.6"/>
+      <text x="184" y="163" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#ece6d6">skip: 20</text>
+
+      <!-- Arrow -->
+      <line x1="314" y1="115" x2="364" y2="115" stroke="#807a6c" stroke-width="2.5" marker-end="url(#w5l3-arr)"/>
+      <text x="339" y="107" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#807a6c">ORM 변환</text>
+
+      <!-- SQL Result box -->
+      <rect x="368" y="20" width="290" height="190" rx="12" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="513" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#a8401f">생성되는 SQL</text>
+
+      <rect x="384" y="56" width="258" height="24" rx="5" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.4"/>
+      <text x="398" y="73" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">WHERE title ILIKE '%nest%'</text>
+
+      <rect x="384" y="86" width="258" height="24" rx="5" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.4"/>
+      <text x="398" y="103" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">LEFT JOIN authors ON ...</text>
+
+      <rect x="384" y="116" width="258" height="24" rx="5" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.4"/>
+      <text x="398" y="133" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">ORDER BY created_at DESC</text>
+
+      <rect x="384" y="146" width="124" height="24" rx="5" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.4"/>
+      <text x="398" y="163" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">LIMIT 10</text>
+
+      <rect x="518" y="146" width="124" height="24" rx="5" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.4"/>
+      <text x="532" y="163" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">OFFSET 20</text>
+
+      <defs>
+        <marker id="w5l3-arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#807a6c"/></marker>
+      </defs>
+    </svg>
+    <figcaption><code>FindManyOptions</code> 객체(왼쪽)의 각 키가 SQL 절(오른쪽)로 1:1 대응된다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>자주 쓰는 메서드 — <code>count</code> · <code>exists</code> · <code>findAndCount</code></h2>
+  <p><code>find()</code> 외에도 개수 확인과 페이지네이션에 자주 쓰는 Repository 메서드가 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — count / exists / findAndCount</span></div><pre><span class="k">import</span> { <span class="t">ILike</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+
+<span class="c">// 1. count — 조건에 맞는 행 개수만 반환 (SQL: SELECT COUNT(*))</span>
+<span class="k">const</span> total: <span class="t">number</span> = <span class="k">await</span> postsRepo.<span class="f">count</span>({
+  where: { status: <span class="s">'PUBLISHED'</span> },
+});
+
+<span class="c">// 2. exists — 조건에 맞는 행이 하나라도 있으면 true (TypeORM 0.3.x+)</span>
+<span class="k">const</span> hasDraft: <span class="t">boolean</span> = <span class="k">await</span> postsRepo.<span class="f">exists</span>({
+  where: { status: <span class="s">'DRAFT'</span>, authorId: <span class="n">5</span> },
+});
+
+<span class="c">// 3. findAndCount — [데이터 배열, 총 개수] 튜플 반환</span>
+<span class="k">const</span> [posts, totalCount]: [<span class="t">Post</span>[], <span class="t">number</span>] =
+  <span class="k">await</span> postsRepo.<span class="f">findAndCount</span>({
+    where: { title: <span class="f">ILike</span>(<span class="s">'%NestJS%'</span>) },
+    order: { createdAt: <span class="s">'DESC'</span> },
+    take: <span class="n">10</span>,
+    skip: <span class="n">0</span>,
+  });
+
+console.<span class="f">log</span>(`총 ${totalCount}건 중 ${posts.length}건 조회`);</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label"><code>findAndCount</code>는 페이지네이션의 핵심</span>
+    <p><code>findAndCount(options)</code>는 <strong>[데이터 배열, 조건에 맞는 총 개수]</strong> 튜플을 한 번의 쿼리로(내부적으로 두 번의 SQL) 반환합니다. 페이지네이션 API 응답에서 "현재 페이지 데이터"와 "전체 몇 건인지"를 동시에 클라이언트에 내려줄 수 있어 매우 유용합니다. 페이지네이션 일반화는 Week 10에서 깊이 다룹니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>메서드</th><th>반환 타입</th><th>SQL</th><th>주용도</th></tr></thead>
+    <tbody>
+      <tr><td><code>count(options?)</code></td><td><code>number</code></td><td><code>SELECT COUNT(*)</code></td><td>총 개수 확인</td></tr>
+      <tr><td><code>exists(options?)</code></td><td><code>boolean</code></td><td><code>SELECT EXISTS(...)</code></td><td>존재 여부만 확인</td></tr>
+      <tr><td><code>findAndCount(options?)</code></td><td><code>[T[], number]</code></td><td><code>SELECT + COUNT</code></td><td>페이지네이션</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label"><code>relations</code> 옵션 주의 — 필요할 때만 로드하세요</span>
+    <p><code>relations: { author: true }</code>처럼 연관 Entity를 로드하면 내부적으로 <code>LEFT JOIN</code>이 실행됩니다. 불필요하게 relations를 로드하면 <strong>N+1 문제</strong>나 과도한 JOIN으로 성능이 저하될 수 있습니다. 연관 데이터가 실제로 필요한 쿼리에만 <code>relations</code>를 주고, 그렇지 않으면 생략하는 것이 좋습니다. Week 6에서 관계(Relation)를 상세히 다룹니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>relations</code> 옵션은 어떤 역할을 하나요?</summary>
+    <div class="answer"><p><code>relations</code> 옵션은 현재 Entity와 <strong>연결된 다른 Entity를 함께 불러오는</strong> 기능입니다. 내부적으로 SQL <code>LEFT JOIN</code>이 실행됩니다. 예를 들어 <code>find({ relations: { author: true } })</code>를 쓰면 각 Post에 연결된 <code>author</code>(User) 데이터도 함께 조회됩니다. 단, 불필요하게 쓰면 JOIN 비용과 N+1 문제가 생길 수 있어 실제로 연관 데이터가 필요할 때만 명시합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>findAndCount</code>가 반환하는 것은 무엇인가요? 언제 씁니까?</summary>
+    <div class="answer"><p><code>findAndCount(options)</code>는 <strong>[조건에 맞는 데이터 배열, 조건에 맞는 전체 행 수]</strong> 형태의 튜플을 반환합니다. 예: <code>[Post[], 42]</code>. 페이지네이션 API를 만들 때 가장 많이 씁니다 — <code>take: 10, skip: 0</code>으로 첫 페이지 10건을 가져오면서 동시에 "총 42건이 있다"는 정보도 함께 얻어 클라이언트에 내려줄 수 있습니다. <code>find()</code> + <code>count()</code>를 따로 두 번 호출하는 것보다 코드가 간결합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>Like</code>와 <code>ILike</code>의 차이를 설명하세요.</summary>
+    <div class="answer"><p><code>Like('%nest%')</code>는 SQL의 <code>LIKE</code> 연산자에 대응합니다 — <strong>대소문자를 구분</strong>합니다. <code>ILike('%nest%')</code>는 PostgreSQL의 <code>ILIKE</code> 연산자에 대응합니다 — <strong>대소문자를 무시</strong>합니다. 따라서 <code>ILike('%nest%')</code>는 <code>'NestJS'</code>, <code>'NESTJS'</code>, <code>'nestjs'</code> 모두 매칭합니다. 사용자 검색처럼 대소문자 구분 없이 찾아야 할 때는 <code>ILike</code>를, 정확한 케이스로 매칭해야 할 때는 <code>Like</code>를 씁니다. 단, <code>ILike</code>는 PostgreSQL 전용입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-inheritance-basemodel.html"><span class="dir">← 이전</span><span class="ttl">Table Inheritance · BaseModel 상속</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 5 · Lesson 03 · FindManyOptions · 유틸 · 메서드</footer>
+</body>
+</html>

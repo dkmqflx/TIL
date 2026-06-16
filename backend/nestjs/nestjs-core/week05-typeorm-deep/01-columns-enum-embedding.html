@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5·01 — Column 옵션 · Enum · Embedding</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · TypeORM 심화 이론</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 5 — Lesson 01</span>
+  <h1>Column 옵션<br>Enum · Embedding</h1>
+  <p class="subtitle"><code>@Column()</code>에 숨겨진 옵션들 — <code>type</code>, <code>nullable</code>, <code>default</code>, <code>unique</code>, <code>length</code> — 을 완전히 정리하고, Enum 컬럼과 Entity Embedding으로 공통 필드를 묶는 법을 배운다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p><code>@Column()</code>은 단순한 표시가 아니다 — 옵션을 얼마나 정확히 선언하느냐가 <b>DB 스키마 품질</b>을 결정한다. 빈 <code>@Column()</code>과 <code>@Column({ type: 'varchar', length: 100, nullable: false, default: '' })</code>은 완전히 다른 테이블을 만든다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>@Column()</code>의 주요 옵션(<code>type</code>, <code>nullable</code>, <code>default</code>, <code>unique</code>, <code>length</code>, <code>select</code>, <code>update</code>)을 설명할 수 있다</li>
+    <li>Enum 컬럼을 만들고, TypeScript enum과 연결하는 방법을 안다</li>
+    <li>Entity Embedding으로 여러 Entity에 걸친 공통 필드를 하나의 클래스로 묶을 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>@Column</code> 옵션 완전 정리</h2>
+  <p class="lead"><code>@Column()</code>에 옵션 객체를 전달하면 해당 컬럼의 DB 타입, 제약 조건, 기본값을 세밀하게 제어할 수 있습니다. 옵션을 생략하면 TypeORM이 TypeScript 타입에서 추론하지만, <strong>명시적으로 선언하는 것이 더 안전</strong>합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 입력 칸의 규칙</span>
+    <p>온라인 가입 폼을 생각해 보세요. 각 입력 칸에는 <strong>규칙</strong>이 있습니다 — "이 칸은 필수입니다(<code>nullable: false</code>)", "이 칸은 비워두면 '게스트'가 자동으로 들어갑니다(<code>default: 'guest'</code>)", "이 칸은 중복 이메일을 허용하지 않습니다(<code>unique: true</code>)", "이 칸은 최대 50자까지만 됩니다(<code>length: 50</code>)". <code>@Column()</code>의 옵션이 바로 <strong>DB 수준에서 그 칸의 규칙을 정의</strong>하는 것입니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>옵션</th><th>타입</th><th>설명</th><th>예시</th></tr></thead>
+    <tbody>
+      <tr><td><code>type</code></td><td>string</td><td>DB 컬럼 타입 명시</td><td><code>'varchar'</code>, <code>'int'</code>, <code>'text'</code>, <code>'boolean'</code></td></tr>
+      <tr><td><code>nullable</code></td><td>boolean</td><td>NULL 허용 여부 (기본 <code>false</code>)</td><td><code>nullable: true</code></td></tr>
+      <tr><td><code>default</code></td><td>any</td><td>DB 수준 기본값</td><td><code>default: 0</code>, <code>default: 'guest'</code></td></tr>
+      <tr><td><code>unique</code></td><td>boolean</td><td>UNIQUE 제약 추가</td><td><code>unique: true</code></td></tr>
+      <tr><td><code>length</code></td><td>number</td><td>varchar 최대 길이</td><td><code>length: 100</code></td></tr>
+      <tr><td><code>select</code></td><td>boolean</td><td><code>false</code>면 기본 조회에서 제외</td><td><code>select: false</code></td></tr>
+      <tr><td><code>update</code></td><td>boolean</td><td><code>false</code>면 최초 INSERT 이후 수정 불가</td><td><code>update: false</code></td></tr>
+      <tr><td><code>name</code></td><td>string</td><td>DB 컬럼 이름 직접 지정</td><td><code>name: 'created_at'</code></td></tr>
+      <tr><td><code>comment</code></td><td>string</td><td>DB 컬럼 주석</td><td><code>comment: '이메일 주소'</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.entity.ts — @Column 옵션 예시</span></div><pre><span class="k">import</span> { <span class="t">Entity</span>, <span class="t">PrimaryGeneratedColumn</span>, <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+
+<span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">User</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>()
+  id: <span class="t">number</span>;
+
+  <span class="c">// 최대 100자 varchar, NULL 불가, UNIQUE</span>
+  <span class="d">@Column</span>({ type: <span class="s">'varchar'</span>, length: <span class="n">100</span>, nullable: <span class="n">false</span>, unique: <span class="n">true</span> })
+  email: <span class="t">string</span>;
+
+  <span class="c">// 기본 SELECT에서 제외 (비밀번호 해시 등 민감 정보)</span>
+  <span class="d">@Column</span>({ select: <span class="n">false</span> })
+  password: <span class="t">string</span>;
+
+  <span class="c">// 기본값 0, 한 번 저장되면 update 불가</span>
+  <span class="d">@Column</span>({ type: <span class="s">'int'</span>, default: <span class="n">0</span>, update: <span class="n">false</span> })
+  loginCount: <span class="t">number</span>;
+
+  <span class="c">// NULL 허용, DB 이름은 'nick_name'으로</span>
+  <span class="d">@Column</span>({ type: <span class="s">'varchar'</span>, length: <span class="n">50</span>, nullable: <span class="n">true</span>, name: <span class="s">'nick_name'</span> })
+  nickname: <span class="t">string</span> | <span class="t">null</span>;
+}</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label"><code>select: false</code>와 <code>update: false</code>의 동작을 정확히 이해하세요</span>
+    <p><code>select: false</code>인 컬럼은 <code>find()</code> 등 일반 조회에서 <strong>자동으로 빠집니다</strong>. 반드시 필요할 때는 QueryBuilder에서 <code>.addSelect('user.password')</code>를 명시해야 합니다. <code>update: false</code>는 TypeORM ORM 레이어에서만 보호합니다 — 직접 SQL을 실행하거나 QueryBuilder를 쓰면 여전히 변경이 가능합니다. "DB 수준 잠금"이 아닌 "ORM 수준 가이드"임을 기억하세요.</p>
+  </div>
+
+  <h2><span class="num">2</span>Enum 컬럼 — <code>@Column({ type: 'enum', enum: ... })</code></h2>
+  <p>Enum 컬럼은 컬럼에 들어올 수 있는 값을 미리 제한합니다. TypeScript의 <code>enum</code>과 연결하면 타입 안전성까지 확보할 수 있습니다. PostgreSQL에서는 실제로 <code>ENUM</code> 타입이 생성됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">post.entity.ts — Enum 컬럼</span></div><pre><span class="k">import</span> { <span class="t">Entity</span>, <span class="t">PrimaryGeneratedColumn</span>, <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+
+<span class="c">// TypeScript enum 정의</span>
+<span class="k">export enum</span> <span class="t">PostStatus</span> {
+  DRAFT     = <span class="s">'DRAFT'</span>,
+  PUBLISHED = <span class="s">'PUBLISHED'</span>,
+  ARCHIVED  = <span class="s">'ARCHIVED'</span>,
+}
+
+<span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">Post</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>()
+  id: <span class="t">number</span>;
+
+  <span class="d">@Column</span>()
+  title: <span class="t">string</span>;
+
+  <span class="c">// type: 'enum' + enum: 열거형 클래스 지정</span>
+  <span class="d">@Column</span>({
+    type: <span class="s">'enum'</span>,
+    <span class="k">enum</span>: <span class="t">PostStatus</span>,
+    <span class="k">default</span>: <span class="t">PostStatus</span>.DRAFT,
+  })
+  status: <span class="t">PostStatus</span>;
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Enum 컬럼이 유용한 이유</span>
+    <p>상태값처럼 "정해진 값 중 하나만 허용"되는 필드에 Enum을 쓰면 세 가지 이점이 있습니다. ① DB 수준에서 유효하지 않은 값이 들어오는 것을 막아줍니다. ② TypeScript 타입으로 자동완성과 오류 감지가 됩니다. ③ 코드 전체에서 <code>'PUBLISHED'</code> 같은 문자열 리터럴 대신 <code>PostStatus.PUBLISHED</code>를 써서 오타를 방지합니다. 단, PostgreSQL Enum은 이미 존재하는 값을 삭제하거나 이름을 바꾸면 마이그레이션이 복잡해질 수 있으므로 주의하세요.</p>
+  </div>
+
+  <h2><span class="num">3</span>Entity Embedding — 공통 필드를 묶어 재사용</h2>
+  <p>여러 Entity에 똑같은 컬럼 묶음(예: <code>address</code> 관련 필드)이 반복된다면, <strong>Embedded Entity</strong>로 공통 필드를 하나의 클래스로 추출하고 <code>@Column(() => Embedded)</code>로 삽입할 수 있습니다. DB에서는 같은 테이블에 일반 컬럼으로 합쳐집니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">address.embedded.ts + user.entity.ts — Embedding 예시</span></div><pre><span class="c">// --- 공통 필드를 담은 임베딩 클래스 ---</span>
+<span class="k">import</span> { <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+
+<span class="k">export class</span> <span class="t">Address</span> {
+  <span class="d">@Column</span>({ type: <span class="s">'varchar'</span>, length: <span class="n">100</span>, nullable: <span class="n">true</span> })
+  city: <span class="t">string</span>;
+
+  <span class="d">@Column</span>({ type: <span class="s">'varchar'</span>, length: <span class="n">200</span>, nullable: <span class="n">true</span> })
+  street: <span class="t">string</span>;
+}
+
+<span class="c">// --- Address를 포함하는 Entity ---</span>
+<span class="k">import</span> { <span class="t">Entity</span>, <span class="t">PrimaryGeneratedColumn</span>, <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+<span class="k">import</span> { <span class="t">Address</span> } <span class="k">from</span> <span class="s">'./address.embedded'</span>;
+
+<span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">User</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>()
+  id: <span class="t">number</span>;
+
+  <span class="d">@Column</span>()
+  name: <span class="t">string</span>;
+
+  <span class="c">// () => Address: 이 프로퍼티 아래로 Address의 컬럼들이 펼쳐짐</span>
+  <span class="d">@Column</span>(() => <span class="t">Address</span>)
+  address: <span class="t">Address</span>;
+}
+<span class="c">// 결과 DB 컬럼: id, name, address_city, address_street</span></pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 290" role="img" aria-label="Post Entity에서 일반 컬럼, Enum 컬럼, Embedded 묶음이 하나의 DB 테이블로 합쳐지는 구조">
+      <!-- Entity class box -->
+      <rect x="20" y="20" width="280" height="240" rx="12" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="160" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#6fd6c7">Post (Entity 클래스)</text>
+
+      <!-- id -->
+      <rect x="38" y="58" width="244" height="30" rx="6" fill="#1c1a16" stroke="#c98a16" stroke-width="1"/>
+      <text x="50" y="78" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#c98a16">@PrimaryGeneratedColumn()  id</text>
+
+      <!-- title (일반) -->
+      <rect x="38" y="95" width="244" height="30" rx="6" fill="#1c1a16" stroke="#0d6e64" stroke-width="1"/>
+      <text x="50" y="115" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#0d6e64">@Column()  title: string</text>
+
+      <!-- status (enum) -->
+      <rect x="38" y="132" width="244" height="42" rx="6" fill="#1c1a16" stroke="#e0552f" stroke-width="1"/>
+      <text x="50" y="150" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#e0552f">@Column({ type: 'enum', enum: PostStatus })</text>
+      <text x="50" y="167" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">status: PostStatus</text>
+
+      <!-- address (embedded) -->
+      <rect x="38" y="181" width="244" height="62" rx="6" fill="#1c1a16" stroke="#c98a16" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="50" y="199" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#c98a16">@Column(() => Address)</text>
+      <text x="50" y="215" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">address.city: string</text>
+      <text x="50" y="231" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#ece6d6">address.street: string</text>
+
+      <!-- Arrow -->
+      <line x1="304" y1="145" x2="370" y2="145" stroke="#e0552f" stroke-width="2.5" marker-end="url(#w5l1-arr)"/>
+      <text x="337" y="137" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#e0552f">ORM 번역</text>
+
+      <!-- DB table box -->
+      <rect x="374" y="20" width="284" height="240" rx="12" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="516" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#a8401f">post (DB 테이블)</text>
+
+      <!-- id col -->
+      <rect x="390" y="58" width="250" height="30" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="406" y="78" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#1c1a16">id  SERIAL PRIMARY KEY</text>
+
+      <!-- title col -->
+      <rect x="390" y="95" width="250" height="30" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="406" y="115" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#1c1a16">title  TEXT NOT NULL</text>
+
+      <!-- status col (enum) -->
+      <rect x="390" y="132" width="250" height="42" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="406" y="152" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#807a6c">ENUM('DRAFT','PUBLISHED','ARCHIVED')</text>
+      <text x="406" y="167" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#1c1a16">status  DEFAULT 'DRAFT'</text>
+
+      <!-- embedded cols (펼쳐짐) -->
+      <rect x="390" y="181" width="250" height="30" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="406" y="201" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#1c1a16">address_city  VARCHAR(100)</text>
+      <rect x="390" y="218" width="250" height="28" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="406" y="237" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#1c1a16">address_street  VARCHAR(200)</text>
+
+      <text x="340" y="278" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#807a6c">Embedded 컬럼은 접두사(address_)와 함께 같은 테이블 안에 펼쳐진다</text>
+
+      <defs>
+        <marker id="w5l1-arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>일반 컬럼(teal), Enum 컬럼(coral), Embedded 묶음(amber 점선)이 하나의 테이블로 합쳐진다.</figcaption>
+  </figure>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">Embedding vs 상속의 차이</span>
+    <p>Entity Embedding은 <strong>공통 필드를 같은 테이블에 펼쳐 합치는</strong> 방식입니다. 상속(다음 레슨)은 기본 클래스를 extends해서 코드를 재사용합니다. Embedding은 "주소"처럼 논리적 묶음이 있는 필드에, 상속은 <code>createdAt/updatedAt</code>처럼 모든 Entity에 공통으로 들어가는 메타 필드에 어울립니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>nullable: false</code>와 <code>default: ''</code>를 동시에 주면 어떻게 되나요?</summary>
+    <div class="answer"><p><code>nullable: false</code>는 컬럼이 NULL을 허용하지 않는다는 뜻입니다. <code>default: ''</code>는 값을 주지 않을 때 빈 문자열을 기본값으로 씁니다. 둘을 함께 쓰면, 값을 명시하지 않아도 <strong>빈 문자열이 자동으로 채워져</strong> NOT NULL 제약을 지킵니다. 반면 <code>nullable: true</code>에 <code>default</code>가 없으면 값을 생략할 경우 <code>NULL</code>이 저장됩니다. "필수 필드이지만 빈 값은 허용"이라면 <code>nullable: false</code> + <code>default: ''</code> 조합이 적합합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Enum 컬럼을 쓸 때의 장점과 주의점을 설명하세요.</summary>
+    <div class="answer"><p><strong>장점</strong>: ① DB에서 허용 값을 제한해 데이터 무결성을 보장합니다. ② TypeScript enum 타입으로 자동완성과 컴파일 오류 감지가 됩니다. ③ <code>'PUBLISHED'</code> 같은 문자열 리터럴 오타를 막습니다. <strong>주의점</strong>: PostgreSQL ENUM은 값을 이미 생성한 후 삭제하거나 이름을 바꾸는 마이그레이션이 복잡합니다. 가능하면 Enum 값은 추가만 하고 수정·삭제는 신중하게 해야 합니다. 또한 <code>synchronize: true</code>로 자동 동기화할 때 Enum 변경이 예상대로 반영되지 않는 경우가 있으니 마이그레이션으로 직접 관리하는 것이 안전합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>select: false</code>인 컬럼을 조회하는 방법은?</summary>
+    <div class="answer"><p><code>select: false</code>로 선언된 컬럼은 <code>find()</code>와 같은 일반 조회에서 결과에 포함되지 않습니다. 그 값이 꼭 필요할 때는 QueryBuilder를 사용해서 <code>.select(['user.id', 'user.email']).addSelect('user.password')</code>처럼 해당 컬럼을 명시적으로 추가해야 합니다. 비밀번호 해시 같은 민감한 필드를 기본 조회에서 자동으로 제외시키는 데 주로 활용합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week04-sql-docker-typeorm/03-repository-crud.html"><span class="dir">← 이전</span><span class="ttl">Repository CRUD: Find/Create/Save/Delete</span></a>
+    <a class="next" href="02-inheritance-basemodel.html"><span class="dir">다음 →</span><span class="ttl">Table Inheritance · BaseModel 상속</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 5 · Lesson 01 · Column 옵션 · Enum · Embedding</footer>
+</body>
+</html>

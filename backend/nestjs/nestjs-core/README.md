@@ -131,7 +131,7 @@ backend/nestjs/nestjs-core/
 - [x] Week 2 — Controller · 라우팅 · 요청 데이터
 - [x] Week 3 — ★ Service · Module · Provider · DI/IoC
 - [x] Week 4 — SQL · Docker · TypeORM 시작
-- [ ] Week 5 — ★ TypeORM 심화 이론
+- [x] Week 5 — ★ TypeORM 심화 이론
 - [ ] Week 6 — ★ Table Relations (관계)
 - [ ] Week 7 — ★ Authentication (인증)
 - [ ] Week 8 — ★ Guard · Pipe · Custom Decorator (요청 파이프라인)

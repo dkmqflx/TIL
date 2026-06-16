@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 1·03 — 프로젝트 셋업 · SNS 컨셉 · 요청 라이프사이클</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 &amp; NestJS 아키텍처</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 1 — Lesson 03</span>
+  <h1>프로젝트 셋업 · SNS 컨셉<br>요청 라이프사이클</h1>
+  <p class="subtitle"><code>nest new</code>로 골격을 만들고, 우리가 12주 동안 만들 <strong>인스타그램 SNS 도메인</strong>을 정의하고, 요청이 컨트롤러에 닿기까지 거치는 단계를 외운다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">“</span>
+    <p>nest CLI로 <b>골격을 생성</b>하고 → 인스타그램 SNS 도메인(<b>User · Post · Comment · Follow</b>)을 그려 보고 → 모든 요청이 컨트롤러 앞에서 거치는 <b>Request Life Cycle</b>(Middleware → Guard → Interceptor → Pipe → Handler → …)을 머릿속에 새긴다. 이 셋이 앞으로 12주의 좌표축이다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>Nest CLI로 프로젝트를 만들고 기본 폴더 구조를 읽는다</li>
+    <li>우리가 만들 인스타그램 SNS의 도메인 모델(엔티티·관계)을 개관한다</li>
+    <li>요청이 거치는 Request Life Cycle의 <strong>순서</strong>를 외운다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>nest new</code> — 골격과 폴더 구조</h2>
+  <p class="lead">Nest는 <strong>CLI가 골격을 대신 만들어 줍니다</strong>. 빈 폴더에서 시작해 손으로 설정 파일을 만들 필요가 없습니다 — <code>nest new</code> 한 번이면 실행 가능한 최소 앱이 떨어집니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># CLI 전역 설치 후 프로젝트 생성</span>
+npm i -g @nestjs/cli
+nest new my-sns          <span class="c"># 패키지 매니저 고르면 골격 생성</span>
+
+cd my-sns
+npm run start:dev        <span class="c"># watch 모드 → http://localhost:3000</span></pre></div>
+
+  <p>생성된 <code>src/</code> 안에는 아래 핵심 파일들이 들어 있습니다. 세 덩어리(<strong>진입점 · 루트 모듈 · 컨트롤러</strong>)가 골격의 전부입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">src/ — nest new가 만들어 준 골격(요약)</span></div><pre><span class="c">// ── main.ts ── 진입점: AppModule을 루트로 앱을 만들고 포트를 연다</span>
+<span class="k">import</span> { <span class="t">NestFactory</span> } <span class="k">from</span> <span class="s">"@nestjs/core"</span>;
+<span class="k">import</span> { <span class="t">AppModule</span> } <span class="k">from</span> <span class="s">"./app.module"</span>;
+
+<span class="k">async function</span> <span class="f">bootstrap</span>() {
+  <span class="k">const</span> app = <span class="k">await</span> NestFactory.<span class="f">create</span>(<span class="t">AppModule</span>);
+  <span class="k">await</span> app.<span class="f">listen</span>(<span class="n">3000</span>);
+}
+<span class="f">bootstrap</span>();
+
+<span class="c">// ── app.module.ts ── 루트 모듈: 컨트롤러·프로바이더를 묶는 "조립 설명서"</span>
+<span class="d">@Module</span>({
+  imports: [],
+  controllers: [<span class="t">AppController</span>],
+  providers: [<span class="t">AppService</span>],   <span class="c">// ← DI 컨테이너가 연결 (Week 3 심화)</span>
+})
+<span class="k">export class</span> <span class="t">AppModule</span> {}</pre></div>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 밀키트(meal kit)</span>
+    <p><code>nest new</code>는 <strong>밀키트</strong>를 받는 것과 같습니다. 손질된 재료(폴더 구조), 레시피 카드(설정 파일), 조립 설명서(<code>app.module.ts</code>)가 박스째 도착하죠. 당신은 처음부터 장을 보지 않고, <strong>바로 요리(기능 추가)부터</strong> 시작할 수 있습니다. <code>@Module</code>은 "이 키트에 무슨 재료(컨트롤러·서비스)가 들어가는지" 적은 그 조립 설명서입니다.</p>
+  </div>
+
+  <div class="box note">
+    <span class="ic">📝</span>
+    <span class="label">순수 툴링은 콜아웃으로</span>
+    <p>환경설정·디버거·PgAdmin·Postman 같은 <strong>순수 툴링</strong>은 이 자료에서 별도 레슨으로 다루지 않습니다. 대신 해당 도구가 실제로 필요해지는 주차(예: PostgreSQL은 Week 4, 엔드포인트 테스트는 Week 2)에서 <strong>짧은 콜아웃</strong>으로 그때그때 안내합니다. 지금은 "골격이 어떻게 생겼나"만 눈에 익히면 충분합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>인스타그램 SNS 컨셉 — 우리가 만들 것</h2>
+  <p>12주 동안 우리는 단편 예제가 아니라 <strong>하나의 인스타그램형 SNS 백엔드</strong>를 향해 갑니다. 도메인을 먼저 그려 두면, 매 주차의 기능이 이 그림의 어느 부분을 채우는지 한눈에 보입니다. 핵심 엔티티는 넷 — <strong>User · Post · Comment · Follow</strong>입니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 320" role="img" aria-label="인스타그램 SNS 도메인 모델: User-Post 1:N, Post-Comment 1:N, User-Follow-User N:M">
+      <!-- User -->
+      <rect x="270" y="30" width="140" height="56" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="340" y="54" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#0a4f48">User</text>
+      <text x="340" y="73" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#4a463d">id · email · nickname</text>
+      <!-- Post -->
+      <rect x="120" y="160" width="140" height="56" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="190" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#a8401f">Post</text>
+      <text x="190" y="203" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#7a3018">id · content · image</text>
+      <!-- Comment -->
+      <rect x="120" y="250" width="140" height="56" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="190" y="274" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#9a6a05">Comment</text>
+      <text x="190" y="293" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#7d5604">id · content</text>
+      <!-- Follow (join) -->
+      <rect x="460" y="160" width="140" height="56" rx="10" fill="#ece7f4" stroke="#5b4b8a" stroke-width="2"/>
+      <text x="530" y="184" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#473869">Follow</text>
+      <text x="530" y="203" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#473869">follower ↔ following</text>
+
+      <!-- User -> Post (1:N) -->
+      <line x1="300" y1="86" x2="200" y2="158" stroke="#0d6e64" stroke-width="2" marker-end="url(#a3-arr)"/>
+      <text x="222" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48" font-weight="700">1 : N</text>
+      <text x="208" y="135" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#807a6c">작성한다</text>
+      <!-- Post -> Comment (1:N) -->
+      <line x1="190" y1="216" x2="190" y2="248" stroke="#c98a16" stroke-width="2" marker-end="url(#a3-arr2)"/>
+      <text x="226" y="237" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#9a6a05" font-weight="700">1 : N</text>
+      <!-- User -> Follow (N:M self-relation) -->
+      <line x1="400" y1="78" x2="500" y2="158" stroke="#5b4b8a" stroke-width="2" marker-end="url(#a3-arr3)"/>
+      <text x="475" y="115" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#473869" font-weight="700">N : M</text>
+      <text x="468" y="130" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#807a6c">팔로우</text>
+      <line x1="530" y1="158" x2="412" y2="70" stroke="#5b4b8a" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="540" y="245" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#473869">User ↔ User 자기참조 N:M</text>
+
+      <defs>
+        <marker id="a3-arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="a3-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="a3-arr3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#5b4b8a"/></marker>
+      </defs>
+    </svg>
+    <figcaption>한 User는 여러 Post(1:N), 한 Post는 여러 Comment(1:N), User끼리는 Follow로 N:M.</figcaption>
+  </figure>
+
+  <table class="tbl">
+    <thead><tr><th>관계</th><th>의미</th><th>다루는 주차</th></tr></thead>
+    <tbody>
+      <tr><td>User → Post (1:N)</td><td>한 사용자가 여러 게시글을 작성</td><td>Week 6</td></tr>
+      <tr><td>Post → Comment (1:N)</td><td>한 게시글에 여러 댓글</td><td>Week 6 · 12</td></tr>
+      <tr><td>User ↔ User (N:M)</td><td>팔로우/팔로워 (자기참조)</td><td>Week 12</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">지금은 "지도"만</span>
+    <p>관계를 TypeORM으로 실제 구현하는 건 Week 5~6, 인증으로 User에 로그인을 붙이는 건 Week 7, 팔로우 시스템 완성은 Week 12입니다. 지금은 <strong>전체 지형</strong>만 머리에 넣어 두세요 — 매 주차가 이 그림의 빈칸을 하나씩 채워 갑니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>Request Life Cycle — 요청이 거치는 관문들</h2>
+  <p>클라이언트의 요청은 컨트롤러 핸들러에 곧장 도착하지 않습니다. <strong>여러 관문을 순서대로</strong> 통과합니다. 이 순서를 외워 두면, 앞으로 "검증은 어디서? 인증은 어디서? 로깅은 어디서?"를 정확히 어느 단계에 끼울지 바로 답할 수 있습니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 360" role="img" aria-label="NestJS 요청 라이프사이클: Middleware → Guard → Interceptor(전) → Pipe → Route Handler → Interceptor(후) → Exception Filter">
+      <!-- request in -->
+      <text x="60" y="34" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f" font-weight="700">Request</text>
+      <line x1="60" y1="42" x2="60" y2="58" stroke="#e0552f" stroke-width="2" marker-end="url(#lc-down)"/>
+
+      <!-- stages -->
+      <!-- 1 Middleware -->
+      <rect x="40" y="60" width="220" height="40" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="58" y="78" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">1 · Middleware</text>
+      <text x="58" y="93" font-family="Pretendard, sans-serif" font-size="10" fill="#4a463d">전처리·로깅·CORS (req/res 접근)</text>
+      <!-- 2 Guard -->
+      <rect x="40" y="108" width="220" height="40" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="58" y="126" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">2 · Guard</text>
+      <text x="58" y="141" font-family="Pretendard, sans-serif" font-size="10" fill="#4a463d">인증/인가 — 통과? 막기? (true/false)</text>
+      <!-- 3 Interceptor (before) -->
+      <rect x="40" y="156" width="220" height="40" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="58" y="174" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#9a6a05">3 · Interceptor (before)</text>
+      <text x="58" y="189" font-family="Pretendard, sans-serif" font-size="10" fill="#7d5604">핸들러 호출 직전 가로채기</text>
+      <!-- 4 Pipe -->
+      <rect x="40" y="204" width="220" height="40" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="58" y="222" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#9a6a05">4 · Pipe</text>
+      <text x="58" y="237" font-family="Pretendard, sans-serif" font-size="10" fill="#7d5604">입력 검증·변환 (DTO·ParseInt)</text>
+      <!-- 5 Handler -->
+      <rect x="40" y="256" width="220" height="44" rx="8" fill="#16140f" stroke="#e0552f" stroke-width="2"/>
+      <text x="58" y="275" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#ff9d6e">5 · Route Handler</text>
+      <text x="58" y="291" font-family="Pretendard, sans-serif" font-size="10" fill="#ece6d6">@Controller 메서드 — 진짜 로직</text>
+
+      <!-- flow arrows down (left column) -->
+      <line x1="150" y1="100" x2="150" y2="108" stroke="#807a6c" stroke-width="1.8" marker-end="url(#lc-down)"/>
+      <line x1="150" y1="148" x2="150" y2="156" stroke="#807a6c" stroke-width="1.8" marker-end="url(#lc-down)"/>
+      <line x1="150" y1="196" x2="150" y2="204" stroke="#807a6c" stroke-width="1.8" marker-end="url(#lc-down)"/>
+      <line x1="150" y1="244" x2="150" y2="256" stroke="#807a6c" stroke-width="1.8" marker-end="url(#lc-down)"/>
+
+      <!-- return path (right column) -->
+      <line x1="262" y1="278" x2="400" y2="278" stroke="#807a6c" stroke-width="1.8" marker-end="url(#lc-r)"/>
+      <text x="332" y="271" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#807a6c">응답 흐름</text>
+      <!-- 6 Interceptor (after) -->
+      <rect x="420" y="156" width="220" height="40" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="438" y="174" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#9a6a05">6 · Interceptor (after)</text>
+      <text x="438" y="189" font-family="Pretendard, sans-serif" font-size="10" fill="#7d5604">응답 변형·직렬화·로깅</text>
+      <line x1="530" y1="278" x2="530" y2="196" stroke="#807a6c" stroke-width="1.8" marker-end="url(#lc-up)"/>
+      <!-- response out -->
+      <line x1="530" y1="156" x2="530" y2="120" stroke="#0d6e64" stroke-width="2" marker-end="url(#lc-up-g)"/>
+      <text x="530" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64" font-weight="700">Response</text>
+
+      <!-- exception filter -->
+      <rect x="420" y="256" width="220" height="44" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="438" y="275" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">⚡ Exception Filter</text>
+      <text x="438" y="291" font-family="Pretendard, sans-serif" font-size="10" fill="#7a3018">어디서든 예외 발생 시 → 응답으로</text>
+      <line x1="262" y1="294" x2="418" y2="294" stroke="#e0552f" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#lc-r-c)"/>
+
+      <defs>
+        <marker id="lc-down" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="lc-r" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="lc-r-c" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="lc-up" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,6 L7,3 L0,0 Z" fill="#807a6c"/></marker>
+        <marker id="lc-up-g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,6 L7,3 L0,0 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Middleware → Guard → Interceptor(전) → Pipe → Handler → Interceptor(후) → 응답. 예외는 어디서 나든 Exception Filter로 모인다.</figcaption>
+  </figure>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">순서를 외우는 한 문장</span>
+    <p>"<strong>미들웨어가 문을 열고 → 가드가 신분증을 검사하고 → 인터셉터가 가로채고 → 파이프가 짐을 검색한 뒤 → 핸들러가 일을 한다.</strong>" 각 단계는 앞으로 별도 주차에서 깊게 다룹니다 — Pipe·Guard·Decorator는 Week 8, Interceptor·Exception Filter·Middleware는 Week 11. 지금은 <strong>순서</strong>만 확실히 잡아 두세요.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">Guard와 Pipe의 자리를 헷갈리지 말 것</span>
+    <p>"통과 여부"(인증/인가)는 <strong>Guard</strong>가 핸들러 이전에 결정하고, "입력의 모양"(검증·변환)은 <strong>Pipe</strong>가 핸들러 직전에 다듬습니다. 인증을 Pipe에서, 검증을 Guard에서 하려 하면 자리가 어긋나 동작이 꼬입니다. <strong>막을지 말지 → Guard, 바꿀지 말지 → Pipe</strong>로 기억하세요.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Request Life Cycle의 순서를 나열해 보세요.</summary>
+    <div class="answer"><p><strong>Middleware → Guard → Interceptor(before) → Pipe → Route Handler → Interceptor(after) → (응답)</strong> 순서입니다. 그리고 이 흐름 어디서든 예외가 발생하면 <strong>Exception Filter</strong>가 잡아 응답으로 변환합니다. 한 줄 요약: "문 열고(Middleware) → 신분 검사(Guard) → 가로채고(Interceptor) → 입력 검사(Pipe) → 처리(Handler) → 응답 가공(Interceptor)".</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Guard와 Middleware의 차이는?</summary>
+    <div class="answer"><p>둘 다 핸들러 이전 단계지만 목적과 정보량이 다릅니다. <strong>Middleware</strong>는 가장 앞단의 범용 전처리(로깅·CORS·바디 파싱 등)로, raw <code>req</code>/<code>res</code>에 접근하지만 "어떤 핸들러로 갈지(라우트 컨텍스트)"는 아직 모릅니다. <strong>Guard</strong>는 더 뒤에서 실행되며 <code>ExecutionContext</code>를 받아 "지금 어떤 컨트롤러·핸들러로 가는지"를 알고, <code>true/false</code>(또는 예외)로 <strong>접근을 허용/차단</strong>합니다 — 즉 인증·인가에 특화돼 있습니다. 요약하면 Middleware는 "범용 전처리", Guard는 "라우트를 아는 통과 검문소"입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>nest new</code>가 만들어 주는 핵심 파일은?</summary>
+    <div class="answer"><p><code>src/</code> 안의 세 덩어리가 핵심입니다. ① <strong><code>main.ts</code></strong> — 진입점으로 <code>NestFactory.create(AppModule)</code>로 앱을 만들고 <code>app.listen()</code>으로 포트를 엽니다. ② <strong><code>app.module.ts</code></strong> — 루트 모듈로 <code>@Module({ controllers, providers })</code>에 구성요소를 등록합니다. ③ <strong><code>app.controller.ts</code></strong>(+ <code>app.service.ts</code>) — 라우트 핸들러와 로직. 그 밖에 <code>tsconfig</code>·<code>nest-cli.json</code>·<code>package.json</code> 같은 설정과 기본 테스트 파일도 함께 생성됩니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-why-nest-wraps-express.html"><span class="dir">← 이전</span><span class="ttl">왜 NestJS는 Express를 감싸나</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 (Week 2 준비 중)</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 1 · Lesson 03 · 셋업 · SNS 컨셉 · 라이프사이클</footer>
+</body>
+</html>

@@ -127,7 +127,7 @@ backend/nestjs/nestjs-core/
 
 ## ✅ 진행 체크리스트
 
-- [ ] Week 1 — 큰 그림 & NestJS 아키텍처
+- [x] Week 1 — 큰 그림 & NestJS 아키텍처
 - [ ] Week 2 — Controller · 라우팅 · 요청 데이터
 - [ ] Week 3 — ★ Service · Module · Provider · DI/IoC
 - [ ] Week 4 — SQL · Docker · TypeORM 시작

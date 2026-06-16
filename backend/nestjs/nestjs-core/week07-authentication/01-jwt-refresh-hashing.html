@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 7·01 — Session vs JWT · 토큰 이론 · 해싱</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 7 · Authentication (인증)</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 7 — Lesson 01</span>
+  <h1>Session vs JWT<br>토큰 이론 · 해싱</h1>
+  <p class="subtitle">두 가지 인증 방식의 트레이드오프를 비교하고, Access / Refresh Token의 역할과 수명을 이해한다. 비밀번호는 왜 반드시 해시로 저장해야 하는지, bcrypt가 어떻게 salt를 다루는지 익힌다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>인증의 핵심은 <b>"서버가 사용자를 기억하는 방법"</b>이다. 세션은 서버 메모리에 기록하고, JWT는 <b>서명된 토큰</b>을 클라이언트에 넘겨 서버가 아무것도 저장하지 않는다. 비밀번호는 <b>절대 평문으로 저장하지 않고</b>, bcrypt 해시로만 보관한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>세션과 JWT의 차이를 "서버 저장 여부"와 "확장성"으로 설명할 수 있다</li>
+    <li>Access Token과 Refresh Token의 역할·수명을 구분하여 설명할 수 있다</li>
+    <li>bcrypt가 salt를 해시 안에 내장한다는 것을 이해하고, <code>bcrypt.hash/compare</code> 흐름을 설명할 수 있다</li>
+    <li>비밀번호를 평문(또는 단순 MD5)으로 저장하면 안 되는 이유를 구체적으로 설명할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span>세션 vs JWT — 서버 저장 여부가 갈린다</h2>
+  <p class="lead"><strong>세션(Session)</strong>은 로그인 성공 시 서버가 세션 저장소(메모리·Redis)에 사용자 정보를 기록하고, 클라이언트에게는 <span class="chip">session ID</span>만 쿠키로 전달합니다. 반면 <strong>JWT(JSON Web Token)</strong>는 클라이언트에게 <span class="chip">서명된 토큰</span>을 발급하고, 서버는 아무것도 저장하지 않습니다. 이 차이가 확장성과 구현 복잡도 전반에 영향을 줍니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 입장 팔찌</span>
+    <p>페스티벌 입장을 생각해 보세요. <strong>세션 방식</strong>은 입장 시 직원이 명단에 이름을 적고 번호표를 줍니다 — 재입장할 때마다 직원이 명단을 보고 확인합니다. <strong>JWT 방식</strong>은 직원이 처음 한 번 확인 후 <b>위조 불가능한 팔찌(서명된 토큰)</b>를 채워 줍니다. 이후 재입장할 때는 팔찌를 보여주기만 하면 됩니다 — 명단을 뒤지거나 직원에게 물어볼 필요가 없습니다. 서버가 "명단(세션 저장소)"을 유지하지 않는 것이 JWT가 <strong>stateless(무상태)</strong>라고 불리는 이유입니다.</p>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>항목</th><th>세션(Session)</th><th>JWT</th></tr></thead>
+    <tbody>
+      <tr><td>서버 저장</td><td>세션 저장소(메모리·Redis) 필요</td><td>저장 없음 (stateless)</td></tr>
+      <tr><td>상태</td><td>stateful</td><td>stateless</td></tr>
+      <tr><td>수평 확장</td><td>세션 공유 필요(Redis 등)</td><td>서버 어디서든 검증 가능</td></tr>
+      <tr><td>토큰 만료 제어</td><td>서버에서 즉시 무효화 가능</td><td>만료 시까지 유효 (블랙리스트 따로 필요)</td></tr>
+      <tr><td>페이로드 크기</td><td>쿠키에 ID만</td><td>토큰에 클레임(sub/email 등) 내장</td></tr>
+    </tbody>
+  </table>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 260" role="img" aria-label="로그인 후 서버가 JWT 토큰을 서명·발급하고 클라이언트가 이후 요청 헤더에 토큰을 동봉하는 흐름">
+      <!-- Client -->
+      <rect x="20" y="70" width="130" height="60" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="85" y="97" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#0a4f48">CLIENT</text>
+      <text x="85" y="115" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#4a463d">브라우저 · 앱</text>
+      <!-- Server -->
+      <rect x="350" y="40" width="160" height="130" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="430" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#6fd6c7">SERVER</text>
+      <text x="430" y="88" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a9382">① 자격증명 검증</text>
+      <text x="430" y="108" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a9382">② 비밀키로 서명</text>
+      <text x="430" y="128" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a9382">③ 토큰 발급</text>
+      <text x="430" y="152" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#807a6c">(서버는 저장하지 않음)</text>
+      <!-- Arrow: login request -->
+      <line x1="152" y1="88" x2="348" y2="88" stroke="#e0552f" stroke-width="2.5" marker-end="url(#w7l1-req)"/>
+      <text x="250" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f" font-weight="700">POST /auth/login</text>
+      <!-- Arrow: token response -->
+      <line x1="348" y1="118" x2="152" y2="118" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#w7l1-res)"/>
+      <text x="250" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64" font-weight="700">← 200 {accessToken, refreshToken}</text>
+      <!-- Client stores token -->
+      <rect x="20" y="185" width="130" height="50" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="85" y="207" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#7a3018">토큰 저장</text>
+      <text x="85" y="224" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">localStorage / memory</text>
+      <!-- Arrow: subsequent request -->
+      <line x1="152" y1="195" x2="348" y2="195" stroke="#c98a16" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#w7l1-api)"/>
+      <text x="250" y="185" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#c98a16">Authorization: Bearer &lt;token&gt;</text>
+      <!-- Server verify -->
+      <rect x="350" y="180" width="160" height="50" rx="8" fill="#1c1a16" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="430" y="202" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#e6c96a">서명 검증만으로</text>
+      <text x="430" y="220" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#e6c96a">인증 완료 (DB 조회 없음)</text>
+      <defs>
+        <marker id="w7l1-req" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w7l1-res" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w7l1-api" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>로그인 → 서명된 토큰 발급 → 이후 요청마다 헤더에 토큰 동봉. 서버는 DB를 다시 조회하지 않고 서명만 검증한다.</figcaption>
+  </figure>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">JWT가 "stateless"라는 의미</span>
+    <p>서버가 세션 저장소를 유지하지 않는다는 뜻입니다. 대신 토큰 안에 클레임(sub, email, type 등)이 내장되어 있고, 서버는 <strong>비밀키로 서명을 검증</strong>하는 것만으로 토큰의 진위와 만료 여부를 판단합니다. 수평 확장(서버 인스턴스 추가)이 쉬운 이유가 바로 이것입니다 — 어떤 서버 인스턴스에 요청이 도달해도, 같은 비밀키가 있으면 검증이 가능합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>Access Token vs Refresh Token — 역할과 수명</h2>
+  <p>JWT를 두 종류로 분리하는 이유는 <strong>보안</strong>과 <strong>사용성</strong>의 균형 때문입니다. 하나의 토큰만 쓰면, 유효 기간이 길면 탈취 위험이 높고 짧으면 자주 로그인해야 합니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>구분</th><th>Access Token</th><th>Refresh Token</th></tr></thead>
+    <tbody>
+      <tr><td>역할</td><td>API 요청 인증 (매 요청 헤더)</td><td>Access Token 재발급 전용</td></tr>
+      <tr><td>수명</td><td>짧게 (예: 1시간 ~ 수분)</td><td>길게 (예: 7일 ~ 30일)</td></tr>
+      <tr><td>전송 빈도</td><td>모든 API 요청마다</td><td>Access Token 만료 시에만</td></tr>
+      <tr><td>탈취 위험</td><td>짧은 수명으로 피해 최소화</td><td>안전한 곳에 보관 필요</td></tr>
+      <tr><td>payload.type</td><td><code>"access"</code></td><td><code>"refresh"</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">두 토큰은 payload의 <code>type</code> 필드로 구분한다</span>
+    <p>Access Token과 Refresh Token은 <strong>발급 시 payload에 <code>type: "access"</code> / <code>type: "refresh"</code>를 명시</strong>합니다. 재발급 엔드포인트에서는 받은 토큰의 <code>type</code>을 확인해 <code>"refresh"</code>일 때만 새 access token을 발급합니다. access token을 refresh 엔드포인트에 넘겨도 거부되어야 합니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>비밀번호 해싱 — bcrypt와 salt</h2>
+  <p class="lead">비밀번호는 <strong>절대 평문으로 저장해서는 안 됩니다</strong>. DB가 유출되어도 원본 비밀번호를 알 수 없도록 <strong>단방향 해시</strong>로 변환해 저장합니다. NestJS 생태계에서는 <code>bcrypt</code>가 사실상 표준입니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">비밀번호 평문 저장 절대 금지</span>
+    <p>"DB가 해킹당하면 어차피 끝 아닌가?"라는 생각은 잘못된 것입니다. 대부분의 사람이 여러 사이트에 같은 비밀번호를 씁니다. 평문 유출 → 타 사이트 피해(credential stuffing)로 이어집니다. <strong>MD5나 SHA-1도 너무 빠르기 때문에 사용 금지</strong>입니다 — rainbow table과 GPU 대량 연산으로 쉽게 역산됩니다. bcrypt의 cost factor(saltRounds)가 높을수록 해시 계산이 느려져 대량 시도 공격을 막습니다.</p>
+  </div>
+
+  <p>bcrypt는 해시할 때 <strong>무작위 salt를 생성</strong>하고, 그 salt를 <strong>해시 결과물 안에 내장</strong>합니다. 별도의 salt 컬럼을 저장할 필요가 없고, <code>bcrypt.compare</code>가 내장된 salt를 자동으로 추출해 비교합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — bcrypt 해싱 · 비교</span></div><pre><span class="k">import</span> * <span class="k">as</span> bcrypt <span class="k">from</span> <span class="s">'bcrypt'</span>;
+
+<span class="k">const</span> ROUNDS = <span class="n">10</span>;  <span class="c">// cost factor — 높을수록 느리고 안전</span>
+
+<span class="c">// 회원가입: 비밀번호 해싱 후 저장</span>
+<span class="k">const</span> hashedPw = <span class="k">await</span> bcrypt.<span class="f">hash</span>(password, ROUNDS);
+<span class="c">// hashedPw 안에 salt가 내장됨 → DB에 hashedPw만 저장</span>
+
+<span class="c">// 로그인: 입력 비밀번호 vs 저장된 해시 비교</span>
+<span class="k">const</span> isMatch = <span class="k">await</span> bcrypt.<span class="f">compare</span>(inputPassword, storedHashedPw);
+<span class="c">// bcrypt.compare 가 해시에서 salt를 자동 추출해 재해싱 후 비교</span>
+<span class="k">if</span> (!isMatch) <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'비밀번호가 올바르지 않습니다'</span>);</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 220" role="img" aria-label="bcrypt 해싱과 비교 흐름: 해시 시 salt 내장, 비교 시 salt 추출 후 재해싱">
+      <!-- HASH flow -->
+      <text x="10" y="24" font-family="Fraunces, serif" font-size="14" font-weight="700" fill="#e0552f">해싱 (회원가입)</text>
+      <!-- plain pw -->
+      <rect x="10" y="36" width="130" height="44" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="75" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7a3018">평문 비밀번호</text>
+      <text x="75" y="72" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1c1a16">"mySecret"</text>
+      <!-- bcrypt.hash -->
+      <rect x="190" y="36" width="130" height="44" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="255" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#7d5604">bcrypt.hash</text>
+      <text x="255" y="72" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">salt 생성 + 내장</text>
+      <line x1="142" y1="58" x2="188" y2="58" stroke="#e0552f" stroke-width="2" marker-end="url(#w7l1-h1)"/>
+      <!-- hashed -->
+      <rect x="372" y="28" width="186" height="60" rx="8" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="465" y="48" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">해시 결과 (DB 저장)</text>
+      <text x="465" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#ece6d6">$2b$10$<tspan fill="#6fd6c7">salt내장</tspan>hashedValue</text>
+      <line x1="322" y1="58" x2="370" y2="58" stroke="#0d6e64" stroke-width="2" marker-end="url(#w7l1-h2)"/>
+
+      <!-- COMPARE flow -->
+      <text x="10" y="130" font-family="Fraunces, serif" font-size="14" font-weight="700" fill="#0d6e64">비교 (로그인)</text>
+      <!-- input pw -->
+      <rect x="10" y="144" width="130" height="44" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="75" y="162" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7a3018">입력 비밀번호</text>
+      <text x="75" y="179" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1c1a16">"mySecret"</text>
+      <!-- stored hash -->
+      <rect x="10" y="196" width="186" height="20" rx="5" fill="#1c1a16" stroke="#807a6c" stroke-width="1"/>
+      <text x="103" y="210" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#ece6d6">DB 저장 해시 ($2b$10$...)</text>
+      <!-- bcrypt.compare -->
+      <rect x="220" y="144" width="150" height="72" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="295" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#7d5604">bcrypt.compare</text>
+      <text x="295" y="182" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">① salt 추출</text>
+      <text x="295" y="200" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">② 재해싱 후 비교</text>
+      <line x1="142" y1="166" x2="218" y2="166" stroke="#e0552f" stroke-width="2" marker-end="url(#w7l1-h3)"/>
+      <line x1="198" y1="206" x2="218" y2="190" stroke="#807a6c" stroke-width="1.5" marker-end="url(#w7l1-h4)"/>
+      <!-- result -->
+      <rect x="420" y="156" width="130" height="44" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="485" y="175" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#0a4f48">true / false</text>
+      <text x="485" y="192" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#4a463d">일치 여부 반환</text>
+      <line x1="372" y1="178" x2="418" y2="178" stroke="#0d6e64" stroke-width="2" marker-end="url(#w7l1-h5)"/>
+      <defs>
+        <marker id="w7l1-h1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w7l1-h2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w7l1-h3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w7l1-h4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w7l1-h5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>bcrypt 해시 결과물 안에 salt가 내장된다. 비교 시 <code>bcrypt.compare</code>가 salt를 자동 추출해 재해싱 후 비교하므로, 별도 salt 컬럼이 필요 없다.</figcaption>
+  </figure>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> JWT가 "stateless"라는 게 무슨 뜻인가요?</summary>
+    <div class="answer"><p>서버가 로그인 상태를 어디에도 저장하지 않는다는 뜻입니다. 세션 방식은 서버 메모리나 Redis에 세션 데이터를 기록해야 하지만, JWT는 <strong>서명된 토큰을 클라이언트에게 발급</strong>하고 서버는 아무것도 저장하지 않습니다. 이후 요청이 들어오면 서버는 <strong>비밀키로 서명만 검증</strong>해 진위를 확인합니다. 서버 인스턴스가 몇 개이든 같은 비밀키를 공유하면 어느 인스턴스에서도 검증할 수 있어 수평 확장이 용이합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Refresh Token이 따로 필요한 이유는 무엇인가요?</summary>
+    <div class="answer"><p>보안과 사용성을 동시에 확보하기 위해서입니다. Access Token만 쓴다면 ① 만료 기간을 짧게 설정하면 사용자가 자주 로그인해야 하고 ② 길게 설정하면 탈취 시 오랫동안 악용될 수 있습니다. Refresh Token을 도입하면, <strong>Access Token은 짧게(수분~수십 분)</strong> 유지해 탈취 피해를 최소화하고, <strong>Refresh Token은 길게(수 일~수 주)</strong> 유지해 사용자 경험을 유지합니다. Access Token이 만료되면 Refresh Token으로 조용히 새 Access Token을 발급받으면 되기 때문입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> bcrypt.compare는 어떻게 salt 없이도 비교할 수 있나요?</summary>
+    <div class="answer"><p>bcrypt 해시 결과물(<code>$2b$10$<salt>...</code>) 안에 salt가 내장되어 있기 때문입니다. <code>bcrypt.compare(입력PW, 저장된해시)</code>를 호출하면 내부적으로 ① 해시에서 salt를 추출 → ② 입력 비밀번호를 같은 salt로 재해싱 → ③ 결과를 저장된 해시와 비교합니다. 따라서 별도의 salt 컬럼을 저장할 필요가 없고, 코드도 간결해집니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week06-relations/03-relation-options-query.html"><span class="dir">← 이전</span><span class="ttl">Relation Options · 쿼리 · Author 적용</span></a>
+    <a class="next" href="02-register-login-signing.html"><span class="dir">다음 →</span><span class="ttl">회원가입/로그인 · signing</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 7 · Lesson 01 · Session vs JWT · 토큰 이론 · 해싱</footer>
+</body>
+</html>

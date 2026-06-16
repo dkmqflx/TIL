@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 7·03 — 토큰 추출 · 재발급(refresh)</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 7 · Authentication (인증)</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 7 — Lesson 03</span>
+  <h1>토큰 추출<br>재발급(refresh) 로직</h1>
+  <p class="subtitle"><code>Authorization</code> 헤더에서 <code>Basic</code> / <code>Bearer</code> 토큰을 파싱하고, <code>jwtService.verify</code>로 검증한 뒤, Refresh Token으로 새 Access Token을 발급하는 재발급 흐름을 구현한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>토큰을 헤더에서 꺼내는 것도, 재발급도 <b>타입 확인</b>이 핵심이다. Refresh Token으로만 Access Token을 재발급하고, <b>Access Token으로 재발급을 요청하면 거부</b>해야 한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>Authorization: Basic xxx</code>와 <code>Authorization: Bearer xxx</code>의 형식을 파싱하는 로직을 설명할 수 있다</li>
+    <li><code>jwtService.verify(token, options)</code>로 서명 검증 + 만료 확인을 한 번에 한다는 것을 안다</li>
+    <li>재발급 시 payload의 <code>type</code>이 <code>"refresh"</code>인지 반드시 확인해야 하는 이유를 설명할 수 있다</li>
+    <li>Access Token 만료 → Refresh Token으로 재발급 → 새 Access Token 수신 흐름을 그릴 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>Authorization</code> 헤더 파싱 — <code>extractTokenFromHeader</code></h2>
+  <p class="lead">클라이언트는 토큰을 <code>Authorization</code> 헤더에 담아 보냅니다. 형식은 두 가지입니다. <strong>Basic</strong>은 이메일/비밀번호를 Base64 인코딩한 것이고, <strong>Bearer</strong>는 JWT 토큰 자체입니다. 두 형식 모두 <code>"&lt;type&gt; &lt;credential&gt;"</code> 구조이므로, 공백으로 분리해 각 부분을 추출합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 봉투 형식 규칙</span>
+    <p>인가 헤더는 <strong>"종류 + 자격증명"</strong> 형식입니다. "Bearer jwt.token.here"는 "팔찌(Bearer) 방식으로 이 토큰(jwt.token.here)을 제시한다"는 뜻입니다. 서버는 먼저 봉투 앞에 붙은 <strong>종류 레이블</strong>을 확인하고, 그 다음 봉투 안의 내용을 처리합니다. 종류가 다르면(Basic인데 Bearer로 처리) 파싱 방법이 달라집니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — extractTokenFromHeader</span></div><pre><span class="f">extractTokenFromHeader</span>(header: <span class="t">string</span>, isBearer: <span class="t">boolean</span>): <span class="t">string</span> {
+  <span class="c">// Authorization 헤더 형식: "Bearer jwt..." or "Basic base64..."</span>
+  <span class="k">const</span> [type, token] = header.split(<span class="s">' '</span>);
+  <span class="k">const</span> expectedType = isBearer ? <span class="s">'Bearer'</span> : <span class="s">'Basic'</span>;
+
+  <span class="k">if</span> (type !== expectedType || !token) {
+    <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'잘못된 Authorization 헤더 형식입니다'</span>);
+  }
+
+  <span class="k">return</span> token;
+}
+
+<span class="c">// Basic 헤더 → 이메일/비밀번호 디코딩</span>
+<span class="f">decodeBasicToken</span>(base64: <span class="t">string</span>): { email: <span class="t">string</span>; password: <span class="t">string</span> } {
+  <span class="k">const</span> decoded = Buffer.<span class="f">from</span>(base64, <span class="s">'base64'</span>).<span class="f">toString</span>(<span class="s">'utf8'</span>);
+  <span class="k">const</span> [email, ...rest] = decoded.split(<span class="s">':'</span>);
+  <span class="k">return</span> { email, password: rest.<span class="f">join</span>(<span class="s">':'</span>) };
+}</pre></div>
+
+  <table class="tbl">
+    <thead><tr><th>헤더 형식</th><th>예시</th><th>사용 시점</th></tr></thead>
+    <tbody>
+      <tr><td><code>Basic &lt;base64&gt;</code></td><td><code>Basic dXNlcjpwYXNz</code></td><td>이메일/비밀번호 로그인</td></tr>
+      <tr><td><code>Bearer &lt;token&gt;</code></td><td><code>Bearer eyJhbGci...</code></td><td>JWT 인증 / 토큰 재발급</td></tr>
+    </tbody>
+  </table>
+
+  <h2><span class="num">2</span>토큰 검증 — <code>jwtService.verify</code></h2>
+  <p><code>jwtService.verify(token, { secret })</code>는 두 가지를 한 번에 합니다: <strong>① 서명 검증</strong>(위조 여부)과 <strong>② 만료 확인</strong>(exp 클레임). 하나라도 실패하면 예외를 던집니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — verifyToken</span></div><pre><span class="f">verifyToken</span>(token: <span class="t">string</span>) {
+  <span class="k">try</span> {
+    <span class="k">return this</span>.jwtService.<span class="f">verify</span>(token, {
+      secret: JWT_SECRET,  <span class="c">// 서명 검증용 비밀키</span>
+    });
+    <span class="c">// 성공 시 payload 반환 { sub, email, type, iat, exp }</span>
+  } <span class="k">catch</span> (e) {
+    <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'토큰이 유효하지 않거나 만료되었습니다'</span>);
+  }
+}</pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label"><code>jwtService.verify</code> vs <code>jwtService.decode</code></span>
+    <p><code>verify</code>는 서명 검증 + 만료 확인을 모두 합니다 — 검증 실패 시 예외를 던집니다. <code>decode</code>는 서명 검증 없이 payload를 읽기만 합니다 — 위조된 토큰도 디코딩됩니다. 인증 흐름에서는 반드시 <code>verify</code>를 사용해야 합니다. <code>decode</code>는 만료된 토큰의 payload를 읽어야 하는 특수 상황에서만 사용합니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>Access Token 재발급 — refresh 흐름</h2>
+  <p>Access Token이 만료되면 클라이언트는 Refresh Token을 제시해 새 Access Token을 발급받습니다. 재발급 시 반드시 <strong>payload.type === "refresh"</strong>를 확인해야 합니다 — Access Token으로 재발급을 요청하는 것을 막기 위해서입니다.</p>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">Refresh Token 재발급 시 반드시 <code>type</code> 확인</span>
+    <p>재발급 엔드포인트에 Access Token이 들어오면 서명 자체는 유효할 수 있습니다. 그러므로 <code>jwtService.verify</code> 후 payload의 <code>type</code>이 <code>"refresh"</code>인지를 명시적으로 확인해야 합니다. <code>type !== "refresh"</code>이면 즉시 <code>UnauthorizedException</code>을 던집니다. 이 타입 체크 없이는 Access Token으로도 재발급이 가능해지는 보안 취약점이 생깁니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — rotateAccessToken (refresh → new access)</span></div><pre><span class="k">async</span> <span class="f">rotateAccessToken</span>(refreshToken: <span class="t">string</span>): <span class="t">Promise</span>&lt;{ accessToken: <span class="t">string</span> }&gt; {
+  <span class="c">// 1. 서명 검증 + 만료 확인</span>
+  <span class="k">const</span> payload = <span class="k">this</span>.<span class="f">verifyToken</span>(refreshToken);
+
+  <span class="c">// 2. Refresh Token 타입 확인 (핵심 보안 체크)</span>
+  <span class="k">if</span> (payload.type !== <span class="s">'refresh'</span>) {
+    <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'Refresh Token으로만 재발급이 가능합니다'</span>);
+  }
+
+  <span class="c">// 3. 새 Access Token 발급 (Refresh Token은 갱신하지 않음)</span>
+  <span class="k">const</span> newAccessToken = <span class="k">this</span>.<span class="f">signToken</span>(
+    { id: payload.sub, email: payload.email },
+    <span class="n">false</span>,  <span class="c">// isRefresh = false → access token</span>
+  );
+
+  <span class="k">return</span> { accessToken: newAccessToken };
+}
+
+<span class="c">// auth.controller.ts</span>
+<span class="d">@Post</span>(<span class="s">'token/access'</span>)
+<span class="k">async</span> <span class="f">refreshAccessToken</span>(<span class="d">@Headers</span>(<span class="s">'authorization'</span>) authHeader: <span class="t">string</span>) {
+  <span class="k">const</span> refreshToken = <span class="k">this</span>.authService.<span class="f">extractTokenFromHeader</span>(authHeader, <span class="n">true</span>);
+  <span class="k">return this</span>.authService.<span class="f">rotateAccessToken</span>(refreshToken);
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 280" role="img" aria-label="Access Token 만료 후 Refresh Token으로 새 Access Token을 재발급받는 흐름">
+      <!-- CLIENT -->
+      <rect x="10" y="20" width="120" height="240" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1" fill-opacity="0.3"/>
+      <text x="70" y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">CLIENT</text>
+
+      <!-- SERVER -->
+      <rect x="160" y="20" width="540" height="240" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1" fill-opacity="0.3"/>
+      <text x="430" y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">SERVER (AUTH SERVICE)</text>
+
+      <!-- Step 1: Request with expired access token -->
+      <line x1="132" y1="70" x2="158" y2="70" stroke="#e0552f" stroke-width="2" marker-end="url(#w7l3-a1)"/>
+      <text x="70" y="64" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#a8401f">API 요청</text>
+      <text x="70" y="78" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#a8401f">(access 만료)</text>
+      <!-- 401 back -->
+      <line x1="158" y1="90" x2="132" y2="90" stroke="#e0552f" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#w7l3-a2)"/>
+      <text x="144" y="84" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#e0552f">← 401</text>
+
+      <!-- Step 2: Send refresh token -->
+      <line x1="132" y1="130" x2="158" y2="130" stroke="#c98a16" stroke-width="2" marker-end="url(#w7l3-a3)"/>
+      <text x="70" y="122" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#7d5604">POST /token/access</text>
+      <text x="70" y="137" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#7d5604">Bearer &lt;refreshToken&gt;</text>
+
+      <!-- Step 3: verify -->
+      <rect x="175" y="148" width="160" height="36" rx="6" fill="#16140f" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="255" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">① jwtService.verify</text>
+      <text x="255" y="178" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">서명 검증 + 만료 확인</text>
+
+      <!-- Step 4: type check -->
+      <rect x="355" y="148" width="160" height="36" rx="6" fill="#16140f" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="435" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#e6c96a">② type 확인</text>
+      <text x="435" y="178" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">payload.type === 'refresh'</text>
+
+      <!-- Step 5: sign new access -->
+      <rect x="535" y="148" width="150" height="36" rx="6" fill="#16140f" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="610" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">③ 새 access 발급</text>
+      <text x="610" y="178" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">signToken(user, false)</text>
+
+      <!-- arrows between steps -->
+      <line x1="337" y1="166" x2="353" y2="166" stroke="#0d6e64" stroke-width="1.5" marker-end="url(#w7l3-a4)"/>
+      <line x1="517" y1="166" x2="533" y2="166" stroke="#c98a16" stroke-width="1.5" marker-end="url(#w7l3-a5)"/>
+
+      <!-- Response: new access token -->
+      <line x1="158" y1="230" x2="132" y2="230" stroke="#0d6e64" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#w7l3-a6)"/>
+      <text x="380" y="222" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">{ accessToken: "eyJhbGci..." }</text>
+
+      <!-- type fail path -->
+      <text x="435" y="204" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#e0552f">type ≠ 'refresh' → 401 거부</text>
+
+      <defs>
+        <marker id="w7l3-a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w7l3-a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w7l3-a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="w7l3-a4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w7l3-a5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="w7l3-a6" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Access Token 만료 → 401 수신 → Refresh Token으로 재발급 요청 → 서명 검증 + type 확인 → 새 Access Token 발급. type이 'refresh'가 아니면 401로 거부한다.</figcaption>
+  </figure>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>Authorization: Bearer &lt;token&gt;</code> 헤더의 형식을 설명해 보세요.</summary>
+    <div class="answer"><p>형식은 <strong>"인증 방식 + 공백 + 자격증명"</strong>입니다. <code>Bearer</code>는 인증 방식(토큰 소지자 인증), 그 뒤 공백 이후가 JWT 토큰 자체입니다. 파싱 시 <code>header.split(' ')</code>로 분리하면 <code>['Bearer', 'eyJhbGci...']</code>가 됩니다. 첫 번째 요소로 타입을 확인하고(<code>type === 'Bearer'</code>), 두 번째 요소가 실제 토큰입니다. <code>Basic</code>의 경우에는 두 번째 부분이 <code>email:password</code>를 Base64로 인코딩한 값입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 재발급 요청 시 서버는 무엇을 검증하나요?</summary>
+    <div class="answer"><p>두 가지를 순서대로 검증합니다. ① <strong>서명 유효성 + 만료 여부</strong> — <code>jwtService.verify(token, { secret })</code>로 토큰이 위조되지 않았고 만료되지 않았음을 확인합니다. 실패하면 즉시 401. ② <strong>payload.type === "refresh" 확인</strong> — Refresh Token으로 발급된 것인지 타입을 검사합니다. Access Token을 재발급 엔드포인트에 가져오면 서명은 유효하더라도 이 타입 체크에서 거부됩니다. 두 단계 모두 통과해야만 새 Access Token을 발급합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>jwtService.verify</code>와 <code>jwtService.decode</code>의 차이는 무엇인가요?</summary>
+    <div class="answer"><p><code>verify</code>는 <strong>서명 검증 + 만료 확인</strong>을 모두 수행합니다 — 검증 실패 시 예외를 던지고, 성공 시 payload를 반환합니다. <code>decode</code>는 서명 검증 없이 payload만 추출합니다 — 위조되거나 만료된 토큰도 디코딩됩니다. 따라서 인증 흐름에서는 반드시 <code>verify</code>를 사용해야 합니다. <code>decode</code>는 예를 들어 만료된 토큰의 <code>sub</code>를 읽어야 하는 특수 상황(예: 만료된 토큰으로 로그아웃 처리)에서만 제한적으로 사용합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-register-login-signing.html"><span class="dir">← 이전</span><span class="ttl">회원가입/로그인 · signing</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 7 · Lesson 03 · 토큰 추출 · 재발급(refresh)</footer>
+</body>
+</html>

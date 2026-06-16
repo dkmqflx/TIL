@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 7·02 — 회원가입/로그인 · Signing</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 7 · Authentication (인증)</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 7 — Lesson 02</span>
+  <h1>회원가입 · 로그인<br>토큰 signing</h1>
+  <p class="subtitle">회원가입 시 bcrypt로 비밀번호를 해싱하고, 로그인 시 <code>bcrypt.compare</code>로 검증한 뒤 <code>jwtService.sign</code>으로 Access/Refresh Token을 발급하는 전체 흐름을 구현한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>로그인은 <b>세 단계</b>다: ① 이메일로 유저 찾기 → ② bcrypt로 비밀번호 검증 → ③ 토큰 서명·발급. 비밀번호는 검증 후 <b>즉시 잊는다</b> — JWT payload에는 절대 넣지 않는다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>registerWithEmail</code>이 비밀번호를 bcrypt 해싱 후 저장한다는 흐름을 설명할 수 있다</li>
+    <li><code>authenticateWithEmailAndPassword</code>의 두 단계(유저 조회·비밀번호 검증)를 설명할 수 있다</li>
+    <li><code>jwtService.sign(payload, options)</code>으로 토큰을 발급하는 코드를 작성할 수 있다</li>
+    <li>JWT payload에 넣어야 할 것과 넣으면 안 되는 것을 구분할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span>회원가입 — <code>registerWithEmail</code></h2>
+  <p class="lead">회원가입의 핵심 규칙은 단 하나 — <strong>비밀번호는 절대 평문으로 저장하지 않는다</strong>. 저장 전 반드시 bcrypt로 해싱해서 해시값만 DB에 보관합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 금고에 지문 보관</span>
+    <p>은행이 비밀번호를 그대로 파일에 적어 두지 않듯, 우리도 비밀번호를 그대로 저장하지 않습니다. 대신 <strong>지문처럼 복원할 수 없는 방식(bcrypt 해시)</strong>으로 변환해서 보관합니다. 나중에 본인이 왔을 때 "지문이 일치하는지"만 확인하면 됩니다 — 원본을 알 필요가 없습니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — registerWithEmail</span></div><pre><span class="k">import</span> * <span class="k">as</span> bcrypt <span class="k">from</span> <span class="s">'bcrypt'</span>;
+
+<span class="k">const</span> ROUNDS = <span class="n">10</span>;
+
+<span class="k">async</span> <span class="f">registerWithEmail</span>(user: {
+  email: <span class="t">string</span>;
+  nickname: <span class="t">string</span>;
+  password: <span class="t">string</span>;
+}) {
+  <span class="c">// 1. 비밀번호 해싱 (salt는 bcrypt가 자동 생성·내장)</span>
+  <span class="k">const</span> hashedPw = <span class="k">await</span> bcrypt.<span class="f">hash</span>(user.password, ROUNDS);
+
+  <span class="c">// 2. 해시된 비밀번호로 유저 생성 — 평문은 이 시점에 버려짐</span>
+  <span class="k">const</span> newUser = <span class="k">await this</span>.usersRepository.<span class="f">save</span>({
+    email: user.email,
+    nickname: user.nickname,
+    password: hashedPw,  <span class="c">// 해시만 저장</span>
+  });
+
+  <span class="c">// 3. 토큰 발급 (회원가입 즉시 로그인 처리)</span>
+  <span class="k">return this</span>.<span class="f">loginWithEmail</span>(newUser);
+}</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">이미 가입된 이메일 중복 처리</span>
+    <p>실제 구현에서는 <code>save()</code> 전에 <code>usersRepository.findOne({ where: { email } })</code>으로 이미 가입된 이메일인지 확인하고, 중복이면 <code>ConflictException</code>을 던져야 합니다. DB에 unique 제약이 있더라도 명시적 체크로 사용자에게 명확한 오류 메시지를 제공하는 것이 좋습니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>로그인 검증 — <code>authenticateWithEmailAndPassword</code></h2>
+  <p>로그인 검증은 <strong>이메일로 유저 조회 → <code>bcrypt.compare</code>로 비밀번호 확인</strong>의 두 단계입니다. 이 함수는 검증만 담당하고, 토큰 발급은 별도 함수에 위임합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — authenticateWithEmailAndPassword + loginWithEmail</span></div><pre><span class="k">async</span> <span class="f">authenticateWithEmailAndPassword</span>(user: {
+  email: <span class="t">string</span>;
+  password: <span class="t">string</span>;
+}) {
+  <span class="c">// 1. 이메일로 유저 조회</span>
+  <span class="k">const</span> existingUser = <span class="k">await this</span>.usersRepository.<span class="f">findOne</span>({
+    where: { email: user.email },
+    <span class="c">// select: { password: true } — 필요에 따라 비밀번호 필드 명시 조회</span>
+  });
+
+  <span class="k">if</span> (!existingUser) {
+    <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'존재하지 않는 사용자입니다'</span>);
+  }
+
+  <span class="c">// 2. 입력 비밀번호 vs 저장된 해시 비교</span>
+  <span class="k">const</span> isMatch = <span class="k">await</span> bcrypt.<span class="f">compare</span>(user.password, existingUser.password);
+
+  <span class="k">if</span> (!isMatch) {
+    <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'비밀번호가 올바르지 않습니다'</span>);
+  }
+
+  <span class="k">return</span> existingUser;  <span class="c">// 검증 통과 — 유저 객체 반환</span>
+}
+
+<span class="k">async</span> <span class="f">loginWithEmail</span>(user: { email: <span class="t">string</span>; id: <span class="t">number</span> }) {
+  <span class="k">return</span> {
+    accessToken: <span class="k">this</span>.<span class="f">signToken</span>(user, <span class="n">false</span>),
+    refreshToken: <span class="k">this</span>.<span class="f">signToken</span>(user, <span class="n">true</span>),
+  };
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 280" role="img" aria-label="로그인 시퀀스: 클라이언트 → 컨트롤러 → 서비스(유저조회 → bcrypt검증 → 토큰서명) → 응답">
+      <!-- Lane labels -->
+      <rect x="10" y="10" width="110" height="260" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1" fill-opacity="0.3"/>
+      <text x="65" y="32" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">CLIENT</text>
+      <rect x="140" y="10" width="130" height="260" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1" fill-opacity="0.3"/>
+      <text x="205" y="32" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#7d5604">CONTROLLER</text>
+      <rect x="290" y="10" width="410" height="260" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1" fill-opacity="0.3"/>
+      <text x="495" y="32" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">AUTH SERVICE</text>
+
+      <!-- Step 1: Client sends credentials -->
+      <line x1="122" y1="60" x2="138" y2="60" stroke="#e0552f" stroke-width="2" marker-end="url(#w7l2-a1)"/>
+      <text x="65" y="56" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#a8401f">POST /auth/login</text>
+      <text x="65" y="70" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#a8401f">{email, password}</text>
+
+      <!-- Step 2: Controller → Service authenticate -->
+      <line x1="272" y1="80" x2="288" y2="80" stroke="#c98a16" stroke-width="2" marker-end="url(#w7l2-a2)"/>
+      <text x="205" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7d5604">authenticate</text>
+      <text x="205" y="88" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#7d5604">WithEmailAndPassword()</text>
+
+      <!-- Step 3: DB lookup -->
+      <rect x="310" y="100" width="180" height="36" rx="6" fill="#16140f" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="400" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">① 이메일로 유저 조회</text>
+      <text x="400" y="130" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">usersRepo.findOne(email)</text>
+
+      <!-- Step 4: bcrypt.compare -->
+      <rect x="310" y="150" width="180" height="36" rx="6" fill="#16140f" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="400" y="166" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#e6c96a">② bcrypt.compare</text>
+      <text x="400" y="180" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">입력PW vs 저장 해시</text>
+
+      <!-- Step 5: sign token -->
+      <rect x="310" y="200" width="180" height="36" rx="6" fill="#16140f" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="400" y="216" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">③ jwtService.sign</text>
+      <text x="400" y="230" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">access + refresh 토큰 서명</text>
+
+      <!-- Flow arrows inside service -->
+      <line x1="400" y1="138" x2="400" y2="148" stroke="#0d6e64" stroke-width="1.5" marker-end="url(#w7l2-a3)"/>
+      <line x1="400" y1="188" x2="400" y2="198" stroke="#c98a16" stroke-width="1.5" marker-end="url(#w7l2-a4)"/>
+
+      <!-- Response back -->
+      <line x1="308" y1="256" x2="142" y2="256" stroke="#0d6e64" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#w7l2-a5)"/>
+      <text x="225" y="250" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">{accessToken, refreshToken}</text>
+      <line x1="138" y1="256" x2="122" y2="256" stroke="#0d6e64" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#w7l2-a6)"/>
+
+      <defs>
+        <marker id="w7l2-a1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w7l2-a2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="w7l2-a3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w7l2-a4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="w7l2-a5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w7l2-a6" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>로그인 시퀀스. 컨트롤러는 요청을 서비스에 전달하고, 서비스 내부에서 유저 조회 → 비번 검증 → 토큰 서명이 순서대로 실행된다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>토큰 서명 — <code>signToken</code> + 엔드포인트</h2>
+  <p><code>jwtService.sign(payload, options)</code>으로 토큰을 발급합니다. payload에는 <strong>최소한의 클레임</strong>만 넣고, <code>isRefresh</code> 플래그로 수명을 구분합니다.</p>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">JWT payload에는 최소 정보만 — 비밀번호 절대 금지</span>
+    <p>payload는 <strong>서명은 되지만 암호화되지 않습니다</strong>. Base64로 디코딩하면 누구나 읽을 수 있습니다. 비밀번호(해시 포함)는 절대 넣으면 안 되고, <code>sub</code>(유저 ID), <code>email</code>, <code>type</code>("access"/"refresh") 정도의 최소 정보만 넣는 것이 원칙입니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — signToken + 엔드포인트</span></div><pre><span class="c">// auth.service.ts</span>
+<span class="f">signToken</span>(user: { email: <span class="t">string</span>; id: <span class="t">number</span> }, isRefresh: <span class="t">boolean</span>): <span class="t">string</span> {
+  <span class="k">const</span> payload = {
+    sub: user.id,     <span class="c">// 유저 식별자 (subject)</span>
+    email: user.email,
+    type: isRefresh ? <span class="s">'refresh'</span> : <span class="s">'access'</span>,
+    <span class="c">// ⚠️ 비밀번호(평문·해시 모두)는 절대 payload에 포함하지 않는다</span>
+  };
+
+  <span class="k">return this</span>.jwtService.<span class="f">sign</span>(payload, {
+    secret: JWT_SECRET,
+    expiresIn: isRefresh ? <span class="s">'7d'</span> : <span class="s">'1h'</span>,  <span class="c">// refresh: 7일 / access: 1시간</span>
+  });
+}
+
+<span class="c">// auth.controller.ts</span>
+<span class="d">@Post</span>(<span class="s">'register/email'</span>)
+<span class="k">async</span> <span class="f">registerEmail</span>(<span class="d">@Body</span>() body: RegisterEmailDto) {
+  <span class="k">return this</span>.authService.<span class="f">registerWithEmail</span>(body);
+}
+
+<span class="d">@Post</span>(<span class="s">'login/email'</span>)
+<span class="k">async</span> <span class="f">loginEmail</span>(<span class="d">@Body</span>() body: LoginEmailDto) {
+  <span class="k">const</span> user = <span class="k">await this</span>.authService.<span class="f">authenticateWithEmailAndPassword</span>(body);
+  <span class="k">return this</span>.authService.<span class="f">loginWithEmail</span>(user);
+}</pre></div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 로그인 검증 단계는 어떻게 되나요?</summary>
+    <div class="answer"><p>두 단계입니다. ① <strong>이메일로 유저 조회</strong> — <code>usersRepository.findOne({ where: { email } })</code>으로 DB에서 유저를 찾습니다. 없으면 즉시 <code>UnauthorizedException</code>을 던집니다. ② <strong><code>bcrypt.compare</code>로 비밀번호 검증</strong> — 입력한 비밀번호와 DB에 저장된 해시를 비교합니다. 일치하지 않으면 역시 <code>UnauthorizedException</code>을 던집니다. 두 단계 모두 통과하면 유저 객체를 반환하고, 이후 토큰을 발급합니다. 보안상 "이메일이 없다" / "비밀번호가 틀렸다"를 구분해 응답하지 않는 것이 좋습니다 — 공격자에게 정보를 주지 않기 위해서입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>jwtService.sign</code>의 payload에 무엇을 넣어야 하나요?</summary>
+    <div class="answer"><p>payload에는 <strong>최소한의 식별 정보</strong>만 넣습니다: <code>sub</code>(유저 ID), <code>email</code>, <code>type</code>("access" 또는 "refresh"). <strong>절대 넣으면 안 되는 것</strong>은 비밀번호(평문은 물론 해시도)입니다. JWT payload는 서명되어 있을 뿐 암호화되지 않아 Base64 디코딩으로 누구나 읽을 수 있습니다. 또한 민감한 개인정보(주민번호·카드번호 등)도 넣지 않습니다. payload가 크면 매 요청 헤더 크기도 커지므로, "이 요청이 누구의 것인지"를 알 수 있는 최소 정보만 담습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 회원가입 직후 토큰을 즉시 발급하는 이유는 무엇인가요?</summary>
+    <div class="answer"><p>회원가입 자체가 "이 사람이 맞다"는 검증을 완료한 시점이기 때문입니다. 회원가입 후 별도로 다시 로그인 폼을 채우는 것은 사용자 경험을 불필요하게 방해합니다. <code>registerWithEmail</code>이 성공하면 내부적으로 <code>loginWithEmail</code>을 호출해 Access/Refresh Token을 즉시 반환합니다. 이렇게 하면 프론트엔드는 회원가입 응답으로 받은 토큰을 바로 저장하고 인증 상태로 전환할 수 있습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-jwt-refresh-hashing.html"><span class="dir">← 이전</span><span class="ttl">Session vs JWT · 해싱</span></a>
+    <a class="next" href="03-token-extract-refresh.html"><span class="dir">다음 →</span><span class="ttl">토큰 추출 · 재발급(refresh)</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 7 · Lesson 02 · 회원가입/로그인 · Signing</footer>
+</body>
+</html>

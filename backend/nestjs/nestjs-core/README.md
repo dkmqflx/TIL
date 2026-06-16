@@ -129,7 +129,7 @@ backend/nestjs/nestjs-core/
 
 - [x] Week 1 — 큰 그림 & NestJS 아키텍처
 - [x] Week 2 — Controller · 라우팅 · 요청 데이터
-- [ ] Week 3 — ★ Service · Module · Provider · DI/IoC
+- [x] Week 3 — ★ Service · Module · Provider · DI/IoC
 - [ ] Week 4 — SQL · Docker · TypeORM 시작
 - [ ] Week 5 — ★ TypeORM 심화 이론
 - [ ] Week 6 — ★ Table Relations (관계)

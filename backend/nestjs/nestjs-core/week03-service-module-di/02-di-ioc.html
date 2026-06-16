@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 3·02 — DI &amp; IoC 원리</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 3 · Service · Module · DI/IoC</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 3 — Lesson 02</span>
+  <h1>DI &amp; IoC<br>원리</h1>
+  <p class="subtitle"><code>new PostsService()</code>를 직접 쓰지 않는다. NestJS IoC 컨테이너가 인스턴스를 만들고, 필요한 곳에 <strong>주입(inject)</strong>해 준다. 이 역전이 테스트와 유연성을 만든다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>의존성을 직접 생성(new)하는 대신, 프레임워크(컨테이너)가 생성·관리·주입하게 맡기는 것 — 이게 <b>IoC(제어의 역전)</b>다. NestJS는 생성자 파라미터의 <b>타입</b>을 읽어 어떤 인스턴스를 주입할지 결정한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>의존성을 직접 <code>new</code>하지 않고 주입받는 이유를 설명할 수 있다</li>
+    <li>IoC(제어의 역전) 개념을 한 문장으로 설명할 수 있다</li>
+    <li>생성자 주입(constructor injection) 문법을 작성할 수 있다</li>
+    <li>생성자 주입이 단위 테스트를 쉽게 만드는 이유를 말할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span>의존성을 "직접 new 하지 않는다"</h2>
+  <p class="lead">컨트롤러가 서비스를 쓰려면 서비스 인스턴스가 필요합니다. 가장 단순한 방법은 <code>new PostsService()</code>를 컨트롤러 안에서 호출하는 것이지만, NestJS는 이 방식을 권장하지 않습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">❌ 직접 new — 하지 말 것</span></div><pre><span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+  <span class="c">// ❌ 직접 생성: 어떤 PostsService를 쓸지 컨트롤러가 결정</span>
+  <span class="k">private</span> postsService = <span class="k">new</span> <span class="t">PostsService</span>();  <span class="c">// 강한 결합</span>
+}</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">✅ 생성자 주입 — NestJS 방식</span></div><pre><span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+  <span class="c">// ✅ 생성자에서 받기만 한다 — 컨테이너가 만들어서 넣어 준다</span>
+  <span class="k">constructor</span>(<span class="k">private readonly</span> postsService: <span class="t">PostsService</span>) {}
+}</pre></div>
+
+  <p>차이는 단순해 보이지만 의미가 큽니다 — <strong>누가 인스턴스를 만드는가</strong>의 제어권이 컨트롤러에서 컨테이너로 넘어갑니다. 이것이 IoC(Inversion of Control, 제어의 역전)입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 재료를 직접 사러 가지 않는 요리사</span>
+    <p>과거에는 요리사가 직접 시장에 가서 재료를 골라 사왔습니다(직접 <code>new</code>). 이제는 재료 담당 팀(IoC 컨테이너)이 "오늘 메뉴에 필요한 재료를 미리 준비해 두었습니다"라며 요리대에 올려놓습니다. 요리사는 받아서 요리만 합니다. 재료 공급처(구현체)를 바꾸고 싶을 때도 요리사 코드를 건드리지 않고, 재료 담당 팀의 목록만 수정합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>IoC 컨테이너가 인스턴스를 만들고 주입</h2>
+  <p>NestJS는 애플리케이션이 시작될 때 모든 <code>providers</code>를 분석하고, TypeScript의 타입 정보(emitDecoratorMetadata)를 이용해 어디에 무엇을 주입해야 하는지 계산합니다. 이후 인스턴스를 생성하고 생성자 파라미터에 넣어 줍니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 260" role="img" aria-label="IoC 컨테이너가 PostsService를 만들어 PostsController 생성자에 주입하는 그림">
+      <!-- Container box -->
+      <rect x="200" y="20" width="280" height="220" rx="14" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="340" y="48" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">IoC 컨테이너</text>
+      <text x="340" y="64" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a9382">(NestJS Runtime)</text>
+
+      <!-- PostsService inside container -->
+      <rect x="228" y="80" width="224" height="56" rx="9" fill="#0d6e64"/>
+      <text x="340" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#fff">PostsService</text>
+      <text x="340" y="122" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#b2ede8">인스턴스 생성 완료 · 싱글턴</text>
+
+      <!-- arrow down inside container -->
+      <line x1="340" y1="138" x2="340" y2="156" stroke="#c98a16" stroke-width="2" marker-end="url(#w3l2-d)"/>
+      <text x="370" y="150" font-family="Pretendard, sans-serif" font-size="9" fill="#c98a16">주입</text>
+
+      <!-- PostsController inside container -->
+      <rect x="228" y="158" width="224" height="64" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="340" y="180" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">PostsController</text>
+      <text x="340" y="196" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#4a463d">constructor(</text>
+      <text x="340" y="213" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#e0552f">  private postsService</text>
+
+      <!-- left: HTTP Request -->
+      <rect x="20" y="158" width="150" height="64" rx="12" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="95" y="183" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">HTTP Request</text>
+      <text x="95" y="201" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#7a3018">GET /posts</text>
+      <line x1="172" y1="190" x2="226" y2="190" stroke="#e0552f" stroke-width="2" marker-end="url(#w3l2-a)"/>
+
+      <!-- right: Response -->
+      <rect x="510" y="158" width="150" height="64" rx="12" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="585" y="183" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">Response</text>
+      <text x="585" y="201" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#0a4f48">200 OK + JSON</text>
+      <line x1="454" y1="190" x2="508" y2="190" stroke="#0d6e64" stroke-width="2" marker-end="url(#w3l2-b)"/>
+
+      <text x="340" y="248" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#807a6c">컨테이너가 인스턴스를 만들어 생성자에 넣어 준다 — 개발자는 받아서 쓰기만.</text>
+
+      <defs>
+        <marker id="w3l2-a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w3l2-b" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w3l2-d" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>컨테이너가 <code>PostsService</code> 인스턴스를 만들고, <code>PostsController</code> 생성자에 자동으로 주입한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>생성자 주입 — constructor injection</h2>
+  <p>NestJS에서 가장 권장하는 주입 방식은 <strong>생성자 주입</strong>입니다. TypeScript의 <code>private readonly</code> 단축 문법을 쓰면 생성자 파라미터 선언과 클래스 프로퍼티 할당이 동시에 이루어집니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">생성자 주입 전체 예시</span></div><pre><span class="k">import</span> { <span class="t">Controller</span>, <span class="t">Get</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">PostsService</span> } <span class="k">from</span> <span class="s">'./posts.service'</span>;
+
+<span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+  <span class="c">/**
+   * PostsService 타입을 보고 컨테이너가 인스턴스를 찾아 주입.
+   * private readonly = 선언 + 할당 동시. 외부에서 변경 불가.
+   */</span>
+  <span class="k">constructor</span>(<span class="k">private readonly</span> postsService: <span class="t">PostsService</span>) {}
+
+  <span class="d">@Get</span>()
+  <span class="f">findAll</span>() {
+    <span class="k">return</span> <span class="k">this</span>.postsService.<span class="f">findAll</span>();
+  }
+}
+
+<span class="c">// 테스트할 때: 가짜(Mock) 서비스를 생성자에 직접 넘길 수 있다</span>
+<span class="c">// const ctrl = new PostsController(new FakePostsService());</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">생성자 주입이 테스트를 쉽게 만드는 이유</span>
+    <p>생성자 주입을 쓰면 테스트 코드에서 <strong>가짜(Mock) 서비스를 직접 넘길 수 있습니다</strong>. <code>new PostsController(new MockPostsService())</code>처럼 DB 연결 없이도 컨트롤러만 고립시켜 테스트할 수 있습니다. 반면 <code>new PostsService()</code>를 내부에서 직접 생성하면, 그 구현체에 강하게 묶여 가짜 객체를 끼워 넣을 방법이 없습니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>프로바이더 토큰 — 타입이 키다</h2>
+  <p>컨테이너는 <strong>토큰(token)</strong>으로 어떤 인스턴스를 주입할지 결정합니다. 가장 기본적이고 흔한 경우는 <strong>클래스 자체가 토큰</strong>이 되는 방식입니다. 생성자 파라미터에 <code>PostsService</code> 타입을 쓰면, 컨테이너가 해당 클래스로 등록된 인스턴스를 찾아 주입합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">클래스가 토큰 — 가장 기본 형태</span></div><pre><span class="c">// 모듈의 providers 배열에 PostsService를 등록하면:</span>
+<span class="d">@Module</span>({ providers: [<span class="t">PostsService</span>] })
+
+<span class="c">// 이것은 아래의 축약 표현이다:</span>
+<span class="d">@Module</span>({
+  providers: [{
+    provide:  <span class="t">PostsService</span>,   <span class="c">// 토큰 (키)</span>
+    useClass: <span class="t">PostsService</span>,   <span class="c">// 실제 구현체</span>
+  }]
+})
+
+<span class="c">// provide: PostsService 토큰으로 useClass: PostsService 인스턴스가 주입된다.</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">useValue / useFactory는 Week 후반에</span>
+    <p>프로바이더는 클래스 외에도 <code>useValue</code>(상수값), <code>useFactory</code>(팩토리 함수)를 토큰에 연결할 수 있습니다. 이 방식은 환경 설정이나 외부 클라이언트 주입 때 활용합니다. 지금은 "클래스 = 토큰 = 주입 대상"이라는 90% 케이스만 확실히 잡아두세요.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> IoC(제어의 역전)를 한 문장으로 설명해 보세요.</summary>
+    <div class="answer"><p>"객체가 자신의 의존성을 직접 생성하는 대신, <strong>외부(컨테이너·프레임워크)가 생성하고 주입해 주도록 제어권을 넘기는 것</strong>"입니다. 컨트롤러가 <code>new PostsService()</code>를 직접 부르지 않고, NestJS 컨테이너가 대신 만들어 생성자에 넘겨주는 것이 그 예입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 생성자 주입이 단위 테스트를 쉽게 만드는 이유는?</summary>
+    <div class="answer"><p>생성자 주입을 쓰면 <strong>테스트 코드에서 가짜(Mock) 인스턴스를 직접 넘길 수 있기 때문</strong>입니다. <code>new PostsController(new MockPostsService())</code>처럼 DB 없이도 컨트롤러의 HTTP 처리 로직만 독립적으로 테스트할 수 있습니다. 반면 내부에서 <code>new PostsService()</code>를 직접 호출하면 구현체에 강하게 묶여 테스트 시 대체할 방법이 없습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> NestJS가 어떤 인스턴스를 주입할지 어떻게 결정하나요?</summary>
+    <div class="answer"><p>TypeScript의 <strong>데코레이터 메타데이터(emitDecoratorMetadata)</strong>를 통해 생성자 파라미터의 타입 정보를 읽습니다. 예를 들어 <code>constructor(private postsService: PostsService)</code>를 보면 <code>PostsService</code>라는 클래스(토큰)를 키로 컨테이너에서 대응하는 인스턴스를 찾아 주입합니다. 모듈의 <code>providers</code> 배열에 등록된 클래스만 주입받을 수 있습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-service-layer.html"><span class="dir">← 이전</span><span class="ttl">Service로 로직 분리</span></a>
+    <a class="next" href="03-module-provider-appmodule.html"><span class="dir">다음 →</span><span class="ttl">Module · Provider · AppModule · main.ts</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 3 · Lesson 02 · DI &amp; IoC 원리</footer>
+</body>
+</html>

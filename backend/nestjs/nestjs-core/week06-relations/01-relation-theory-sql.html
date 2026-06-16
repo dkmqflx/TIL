@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 6·01 — 관계 이론 · SQL Relations</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · Table Relations (관계)</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 6 — Lesson 01</span>
+  <h1>관계 이론<br>SQL Relations</h1>
+  <p class="subtitle">Foreign Key로 테이블이 서로를 참조하는 방법, JOIN으로 흩어진 데이터를 합치는 법, 그리고 1:1 · 1:N · N:M 세 가지 관계 모델을 직관으로 이해한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>한 테이블에 모든 것을 몰아넣으면 중복이 폭발한다. <b>관계형 DB</b>의 핵심 아이디어는 단순하다 — 데이터는 <b>나눠서</b> 저장하고, 필요할 때 <b>JOIN으로 다시 연결</b>한다. FK(Foreign Key)가 그 연결 고리다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>Foreign Key(FK)가 무엇이고, 참조 무결성을 어떻게 보장하는지 설명할 수 있다</li>
+    <li>INNER JOIN · LEFT JOIN SQL을 작성하고 결과 행을 예측할 수 있다</li>
+    <li>1:1 · 1:N · N:M 관계가 각각 어떤 상황에서 쓰이는지 설명할 수 있다</li>
+    <li>N:M 관계에 왜 중간(조인) 테이블이 필요한지 이해한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>Foreign Key — 테이블 간의 연결 고리</h2>
+  <p class="lead"><strong>Foreign Key(외래 키, FK)</strong>는 한 테이블의 컬럼이 다른 테이블의 PK(기본 키)를 참조하도록 선언하는 제약입니다. 이를 통해 DB가 <strong>참조 무결성(Referential Integrity)</strong>을 강제합니다 — 존재하지 않는 행을 가리키는 FK를 삽입하려 하면 오류가 발생합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 명함첩의 참조</span>
+    <p>명함첩에는 각 사람의 <strong>카드(users 테이블)</strong>가 있고, 게시판엔 각 글의 <strong>쪽지(posts 테이블)</strong>가 있습니다. 쪽지에는 작성자 칸에 "<strong>카드 번호</strong>"만 적혀 있죠. 실제로 글을 누가 썼는지 알고 싶으면 그 번호로 명함첩을 찾아봅니다. 이 "카드 번호"가 FK입니다. FK가 보장하는 것은 단 하나 — <strong>카드 번호에 해당하는 카드가 반드시 명함첩에 존재</strong>한다는 것입니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 280" role="img" aria-label="users 테이블과 posts 테이블을 FK로 연결한 다이어그램">
+      <!-- users table -->
+      <rect x="20" y="30" width="240" height="190" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="140" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#0a4f48">users</text>
+      <line x1="20" y1="64" x2="260" y2="64" stroke="#0d6e64" stroke-width="1.5"/>
+      <!-- header row -->
+      <text x="36" y="83" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">id</text>
+      <text x="90" y="83" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">email</text>
+      <text x="190" y="83" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">nickname</text>
+      <line x1="20" y1="92" x2="260" y2="92" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.5"/>
+      <!-- data rows -->
+      <text x="36" y="113" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16" font-weight="700">1</text>
+      <text x="90" y="113" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">alice@e.com</text>
+      <text x="190" y="113" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">Alice</text>
+      <text x="36" y="138" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16" font-weight="700">2</text>
+      <text x="90" y="138" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">bob@e.com</text>
+      <text x="190" y="138" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">Bob</text>
+      <text x="36" y="163" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16" font-weight="700">3</text>
+      <text x="90" y="163" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">carol@e.com</text>
+      <text x="190" y="163" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">Carol</text>
+      <!-- PK label -->
+      <text x="36" y="210" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">🔑 PK</text>
+
+      <!-- posts table -->
+      <rect x="380" y="30" width="300" height="220" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="530" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#a8401f">posts</text>
+      <line x1="380" y1="64" x2="680" y2="64" stroke="#e0552f" stroke-width="1.5"/>
+      <!-- header row -->
+      <text x="396" y="83" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">id</text>
+      <text x="430" y="83" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">title</text>
+      <text x="570" y="83" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#e0552f">authorId</text>
+      <line x1="380" y1="92" x2="680" y2="92" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <!-- data rows -->
+      <text x="396" y="113" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16" font-weight="700">10</text>
+      <text x="430" y="113" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">NestJS 시작</text>
+      <text x="570" y="113" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f" font-weight="700">1</text>
+      <text x="396" y="138" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16" font-weight="700">11</text>
+      <text x="430" y="138" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">TypeORM 관계</text>
+      <text x="570" y="138" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f" font-weight="700">1</text>
+      <text x="396" y="163" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16" font-weight="700">12</text>
+      <text x="430" y="163" font-family="JetBrains Mono, monospace" font-size="11" fill="#1c1a16">Docker 입문</text>
+      <text x="570" y="163" font-family="JetBrains Mono, monospace" font-size="11" fill="#e0552f" font-weight="700">2</text>
+      <!-- FK label -->
+      <text x="570" y="218" font-family="JetBrains Mono, monospace" font-size="10" fill="#e0552f">🔗 FK → users.id</text>
+      <!-- arrow from authorId col to users id col -->
+      <line x1="380" y1="113" x2="270" y2="113" stroke="#e0552f" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#w6l1-fk)"/>
+      <line x1="380" y1="138" x2="270" y2="120" stroke="#e0552f" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#w6l1-fk2)"/>
+      <line x1="380" y1="163" x2="270" y2="138" stroke="#e0552f" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#w6l1-fk3)"/>
+
+      <defs>
+        <marker id="w6l1-fk" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w6l1-fk2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w6l1-fk3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption><code>posts.authorId</code>가 <code>users.id</code>를 참조하는 FK. 화살표 방향 = "이 테이블이 저 테이블을 참조한다."</figcaption>
+  </figure>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">SQL — FK 제약 선언</span></div><pre><span class="c">-- posts 테이블에 author_id 컬럼과 FK 제약 추가</span>
+<span class="k">ALTER TABLE</span> posts
+  <span class="k">ADD COLUMN</span> author_id <span class="t">INT</span>,
+  <span class="k">ADD CONSTRAINT</span> fk_posts_author
+    <span class="k">FOREIGN KEY</span> (author_id)
+    <span class="k">REFERENCES</span> users(id)
+    <span class="k">ON DELETE CASCADE</span>;
+
+<span class="c">-- 존재하지 않는 user(id=999)를 참조하려 하면 오류 발생</span>
+<span class="k">INSERT INTO</span> posts (title, author_id) <span class="k">VALUES</span> (<span class="s">'Test'</span>, <span class="n">999</span>);
+<span class="c">-- ERROR: insert or update on table "posts" violates foreign key constraint</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">FK가 보장하는 것 — 참조 무결성</span>
+    <p>FK 제약이 선언되면 DB는 두 가지를 강제합니다. ① <code>posts.authorId</code>에 삽입하는 값은 <code>users.id</code>에 반드시 존재해야 합니다. ② <code>ON DELETE CASCADE</code>처럼 연쇄 동작을 선언하면, 참조 대상 행이 삭제될 때 자동으로 처리(연쇄 삭제·NULL 처리)됩니다. 이 보장을 <strong>참조 무결성</strong>이라고 합니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>JOIN — 흩어진 데이터를 연결하기</h2>
+  <p>FK로 나눠 저장한 데이터를 다시 합칠 때 <strong>JOIN</strong>을 사용합니다. 가장 자주 쓰는 두 가지는 INNER JOIN(양쪽 모두 존재하는 행만)과 LEFT JOIN(왼쪽 행은 모두, 오른쪽은 없으면 NULL)입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">SQL — JOIN 예시</span></div><pre><span class="c">-- INNER JOIN: 작성자가 있는 게시글만 (author_id IS NOT NULL)</span>
+<span class="k">SELECT</span>
+  p.id        <span class="k">AS</span> post_id,
+  p.title,
+  u.nickname  <span class="k">AS</span> author_name
+<span class="k">FROM</span>  posts p
+<span class="k">INNER JOIN</span> users u <span class="k">ON</span> p.author_id = u.id;
+
+<span class="c">-- LEFT JOIN: 작성자 없는 게시글도 포함 (author_name = NULL)</span>
+<span class="k">SELECT</span>
+  p.id        <span class="k">AS</span> post_id,
+  p.title,
+  u.nickname  <span class="k">AS</span> author_name
+<span class="k">FROM</span>  posts p
+<span class="k">LEFT JOIN</span> users u <span class="k">ON</span> p.author_id = u.id;</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 260" role="img" aria-label="INNER JOIN과 LEFT JOIN 결과 차이 시각화">
+      <!-- INNER JOIN box -->
+      <rect x="20" y="20" width="300" height="220" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="170" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#0a4f48">INNER JOIN 결과</text>
+      <text x="170" y="64" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#4a463d">양쪽에 모두 존재하는 행만</text>
+      <line x1="20" y1="74" x2="320" y2="74" stroke="#0d6e64" stroke-width="1"/>
+      <text x="36" y="94" font-family="JetBrains Mono, monospace" font-size="10.5" font-weight="700" fill="#0a4f48">post_id</text>
+      <text x="116" y="94" font-family="JetBrains Mono, monospace" font-size="10.5" font-weight="700" fill="#0a4f48">title</text>
+      <text x="226" y="94" font-family="JetBrains Mono, monospace" font-size="10.5" font-weight="700" fill="#0a4f48">author_name</text>
+      <line x1="20" y1="102" x2="320" y2="102" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="36" y="122" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">10</text>
+      <text x="116" y="122" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">NestJS 시작</text>
+      <text x="226" y="122" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">Alice</text>
+      <text x="36" y="147" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">11</text>
+      <text x="116" y="147" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">TypeORM 관계</text>
+      <text x="226" y="147" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">Alice</text>
+      <text x="36" y="172" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">12</text>
+      <text x="116" y="172" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">Docker 입문</text>
+      <text x="226" y="172" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">Bob</text>
+      <text x="170" y="220" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#4a463d">→ 3행 (작성자 없는 글 제외)</text>
+
+      <!-- LEFT JOIN box -->
+      <rect x="380" y="20" width="300" height="220" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="530" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#a8401f">LEFT JOIN 결과</text>
+      <text x="530" y="64" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#7a3018">왼쪽(posts) 전체, 오른쪽은 NULL 허용</text>
+      <line x1="380" y1="74" x2="680" y2="74" stroke="#e0552f" stroke-width="1"/>
+      <text x="396" y="94" font-family="JetBrains Mono, monospace" font-size="10.5" font-weight="700" fill="#a8401f">post_id</text>
+      <text x="476" y="94" font-family="JetBrains Mono, monospace" font-size="10.5" font-weight="700" fill="#a8401f">title</text>
+      <text x="586" y="94" font-family="JetBrains Mono, monospace" font-size="10.5" font-weight="700" fill="#a8401f">author_name</text>
+      <line x1="380" y1="102" x2="680" y2="102" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="396" y="122" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">10</text>
+      <text x="476" y="122" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">NestJS 시작</text>
+      <text x="586" y="122" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">Alice</text>
+      <text x="396" y="147" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">11</text>
+      <text x="476" y="147" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">TypeORM 관계</text>
+      <text x="586" y="147" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">Alice</text>
+      <text x="396" y="172" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">13</text>
+      <text x="476" y="172" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1c1a16">미공개 초안</text>
+      <text x="586" y="172" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#807a6c">NULL</text>
+      <text x="530" y="220" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#7a3018">→ 4행 (작성자 없는 글도 포함)</text>
+    </svg>
+    <figcaption>INNER JOIN은 매칭되는 행만, LEFT JOIN은 왼쪽 테이블 전체를 보존한다. TypeORM의 <code>relations</code> 옵션은 내부적으로 LEFT JOIN을 실행한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>관계 종류 모델링 — 1:1 · 1:N · N:M</h2>
+  <p>테이블 간 관계는 <strong>카디널리티(한쪽이 몇 개와 연결될 수 있는가)</strong>에 따라 세 가지로 분류합니다. 상황에 맞는 관계 모델을 선택하는 것이 설계의 핵심입니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 360" role="img" aria-label="1:1, 1:N, N:M 관계 모델 다이어그램">
+      <!-- 1:1 -->
+      <rect x="20" y="20" width="660" height="90" rx="10" fill="#f6f3ee" stroke="#807a6c" stroke-width="1.5"/>
+      <text x="36" y="46" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1c1a16">1 : 1</text>
+      <text x="36" y="64" font-family="Pretendard, sans-serif" font-size="11" fill="#4a463d">예: User ↔ Profile  — 한 유저는 프로필 하나만 가지고, 한 프로필은 유저 하나에만 속한다</text>
+      <rect x="36" y="72" width="120" height="28" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="96" y="91" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">users</text>
+      <line x1="160" y1="86" x2="222" y2="86" stroke="#0d6e64" stroke-width="2" marker-end="url(#w6l1-arr1)"/>
+      <text x="191" y="80" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#0d6e64">1</text>
+      <rect x="226" y="72" width="120" height="28" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="286" y="91" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">profiles</text>
+      <text x="380" y="73" font-family="Pretendard, sans-serif" font-size="10.5" fill="#4a463d">FK: profiles.userId → users.id</text>
+      <text x="380" y="91" font-family="Pretendard, sans-serif" font-size="10.5" fill="#4a463d">@JoinColumn은 FK를 가진 쪽(profiles)에 선언</text>
+
+      <!-- 1:N -->
+      <rect x="20" y="130" width="660" height="90" rx="10" fill="#f6f3ee" stroke="#807a6c" stroke-width="1.5"/>
+      <text x="36" y="156" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1c1a16">1 : N</text>
+      <text x="36" y="174" font-family="Pretendard, sans-serif" font-size="11" fill="#4a463d">예: User ↔ Post  — 한 유저는 여러 게시글을 쓰고, 한 게시글은 작성자 한 명에 속한다</text>
+      <rect x="36" y="182" width="120" height="28" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="96" y="201" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">users (1)</text>
+      <line x1="160" y1="196" x2="222" y2="196" stroke="#e0552f" stroke-width="2" marker-end="url(#w6l1-arr2)"/>
+      <text x="191" y="187" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#e0552f">1 → N</text>
+      <rect x="226" y="182" width="120" height="28" rx="6" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="286" y="201" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">posts (N)</text>
+      <text x="380" y="183" font-family="Pretendard, sans-serif" font-size="10.5" fill="#4a463d">FK: posts.authorId → users.id</text>
+      <text x="380" y="201" font-family="Pretendard, sans-serif" font-size="10.5" fill="#e0552f">FK는 항상 N쪽(posts) 테이블에 생성된다</text>
+
+      <!-- N:M -->
+      <rect x="20" y="240" width="660" height="105" rx="10" fill="#f6f3ee" stroke="#807a6c" stroke-width="1.5"/>
+      <text x="36" y="266" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1c1a16">N : M</text>
+      <text x="36" y="284" font-family="Pretendard, sans-serif" font-size="11" fill="#4a463d">예: Post ↔ Tag  — 게시글은 여러 태그를 가지고, 태그는 여러 게시글에 붙을 수 있다</text>
+      <rect x="36" y="292" width="100" height="28" rx="6" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="86" y="311" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">posts</text>
+      <line x1="140" y1="306" x2="186" y2="306" stroke="#c98a16" stroke-width="2" marker-end="url(#w6l1-arr3)"/>
+      <rect x="190" y="292" width="130" height="28" rx="6" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="255" y="311" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#9a6a05">posts_tags_tag</text>
+      <line x1="324" y1="306" x2="368" y2="306" stroke="#c98a16" stroke-width="2" marker-end="url(#w6l1-arr4)"/>
+      <rect x="372" y="292" width="100" height="28" rx="6" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="422" y="311" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#9a6a05">tags</text>
+      <text x="36" y="340" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">중간 테이블에 postId + tagId FK 두 개 → N:M을 두 개의 1:N으로 분해</text>
+
+      <defs>
+        <marker id="w6l1-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w6l1-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w6l1-arr3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="w6l1-arr4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>관계 카디널리티 한눈에. FK는 항상 "N쪽" 혹은 "소유쪽" 테이블에 생긴다.</figcaption>
+  </figure>
+
+  <table class="tbl">
+    <thead><tr><th>관계</th><th>예시</th><th>FK 위치</th><th>N:M 특이사항</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1:1</strong></td><td>User ↔ Profile</td><td>FK 소유 쪽(보통 두 번째)</td><td>—</td></tr>
+      <tr><td><strong>1:N</strong></td><td>User → Post</td><td>N쪽(posts.authorId)</td><td>—</td></tr>
+      <tr><td><strong>N:M</strong></td><td>Post ↔ Tag</td><td>중간 테이블 양쪽 FK</td><td>중간(조인) 테이블 필수</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">N:M에 중간 테이블이 필요한 이유</span>
+    <p>한 컬럼에 여러 값(배열)을 저장할 수 없는 관계형 DB의 특성상, "Post의 tag_ids = [1, 2, 3]" 같은 형태는 불가능합니다. 대신 <strong>조인 테이블</strong>을 두어 (postId, tagId) 쌍을 행 하나씩으로 저장합니다. 이렇게 하면 N:M이 두 개의 1:N 관계로 분해되어 FK 제약을 유지할 수 있습니다. TypeORM의 <code>@ManyToMany</code> + <code>@JoinTable</code>이 이 중간 테이블을 자동으로 생성해 줍니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Foreign Key가 보장하는 것은 무엇인가요?</summary>
+    <div class="answer"><p><strong>참조 무결성(Referential Integrity)</strong>입니다. FK가 선언된 컬럼에 삽입하는 값은 참조 대상 테이블의 해당 컬럼에 반드시 존재해야 합니다. 예를 들어 <code>posts.authorId = 999</code>를 삽입하려 할 때, <code>users.id = 999</code>가 없으면 DB가 오류를 반환합니다. 이로써 "존재하지 않는 사용자가 쓴 게시글" 같은 불일치 데이터가 생기는 것을 방지합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> N:M 관계에서 왜 중간(조인) 테이블이 필요한가요?</summary>
+    <div class="answer"><p>관계형 DB는 한 컬럼에 배열 형태로 여러 외래 키를 저장하는 것을 지원하지 않습니다. <code>posts.tagIds = [1, 2, 3]</code> 같은 형태는 FK 제약을 걸 수 없고 정규화도 되지 않습니다. 대신 <strong>중간 테이블</strong>에 <code>(postId, tagId)</code> 쌍을 행 하나씩으로 저장합니다. 이렇게 하면 N:M이 사실상 두 개의 1:N 관계로 분해되어 FK 제약을 그대로 유지하면서 연결 정보를 표현할 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> INNER JOIN과 LEFT JOIN의 차이는 무엇인가요?</summary>
+    <div class="answer"><p><strong>INNER JOIN</strong>은 두 테이블 모두에 매칭 행이 있을 때만 결과를 반환합니다. 매칭되지 않는 왼쪽 행은 제외됩니다. <strong>LEFT JOIN</strong>은 왼쪽 테이블의 모든 행을 보존하되, 오른쪽에 매칭 행이 없으면 오른쪽 컬럼값을 <code>NULL</code>로 채웁니다. TypeORM에서 <code>relations: { author: true }</code> 옵션을 사용하면 내부적으로 LEFT JOIN이 실행됩니다 — 작성자가 없는 게시글도 조회 결과에 포함되기 때문입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week05-typeorm-deep/03-findoptions-utils-methods.html"><span class="dir">← 이전</span><span class="ttl">FindManyOptions · 유틸 · 메서드</span></a>
+    <a class="next" href="02-relations-impl.html"><span class="dir">다음 →</span><span class="ttl">관계 TypeORM 구현</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 6 · Lesson 01 · 관계 이론 · SQL Relations</footer>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 8·03 — Custom Decorator — @User 파라미터 데코레이터</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 8 · Guard · Pipe · Custom Decorator</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 8 — Lesson 03</span>
+  <h1>Custom Decorator<br>@User 파라미터 데코레이터</h1>
+  <p class="subtitle"><code>createParamDecorator</code>로 <code>request.user</code>를 핸들러 파라미터에 바로 주입하는 <code>@User()</code> 데코레이터를 구현한다. <code>data</code> 인자로 특정 필드만 골라 받는 패턴도 함께.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>Guard가 <code>request.user</code>를 채워두면, <code>@User()</code> 데코레이터가 그걸 꺼내 핸들러에 바로 꽂아준다. 두 개가 <b>인증과 추출을 분업</b>하는 구조다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>createParamDecorator((data, ctx) => ...)</code> 기본 구조를 작성할 수 있다</li>
+    <li><code>@User()</code> 파라미터 데코레이터로 <code>request.user</code> 전체를 핸들러에 주입할 수 있다</li>
+    <li><code>@User('email')</code>처럼 <code>data</code> 인자로 특정 필드만 추출하는 패턴을 구현할 수 있다</li>
+    <li>Guard → <code>request.user</code> 세팅 → Custom Decorator 추출 흐름을 그릴 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>createParamDecorator</code> 기본</h2>
+  <p class="lead"><code>@Body()</code>, <code>@Param()</code>처럼 핸들러 파라미터에 값을 주입하는 데코레이터를 직접 만들 수 있습니다. <code>createParamDecorator</code>에 콜백을 전달하면 되고, 콜백의 반환값이 파라미터로 주입됩니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 택배 상자에서 필요한 것만 꺼내기</span>
+    <p><code>request.user</code>는 Guard가 배달해 놓은 <strong>택배 상자</strong>입니다. 상자 안에는 이메일, 닉네임, 역할 등 여러 정보가 들어 있습니다. <code>@User()</code>는 "상자 전체를 꺼내라"이고, <code>@User('email')</code>는 "상자 안에서 이메일만 꺼내라"입니다. 핸들러는 매번 <code>req.user.email</code>처럼 길게 쓰는 대신, <strong>원하는 항목을 콕 집어 파라미터로 받을 수 있습니다.</strong></p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.decorator.ts — createParamDecorator 기본</span></div><pre><span class="k">import</span> { createParamDecorator, ExecutionContext } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+
+<span class="c">// data: @User('email') 처럼 전달한 인자 ('email' 또는 undefined)</span>
+<span class="c">// ctx: ExecutionContext — request 객체 접근에 사용</span>
+<span class="k">export const</span> <span class="t">User</span> = <span class="f">createParamDecorator</span>(
+  (data: <span class="t">string</span> | <span class="t">undefined</span>, ctx: <span class="t">ExecutionContext</span>) => {
+    <span class="k">const</span> req = ctx.<span class="f">switchToHttp</span>().<span class="f">getRequest</span>();
+    <span class="k">return</span> req.user; <span class="c">// request.user 전체 반환</span>
+  },
+);</pre></div>
+
+  <h2><span class="num">2</span><code>@User()</code> 데코레이터 구현 — <code>request.user</code> 추출</h2>
+  <p>Guard가 <code>request.user</code>에 인증된 사용자 정보를 저장해 두었다면, <code>@User()</code>는 그 객체를 꺼내 핸들러 파라미터로 바로 주입합니다. 실제 코드는 <a href="code/user.decorator.ts"><code>code/user.decorator.ts</code></a>에서 확인하세요.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — @User() 사용</span></div><pre><span class="k">import</span> { Controller, Get, Post, UseGuards } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { AccessTokenGuard } <span class="k">from</span> <span class="s">'./auth/guard/access-token.guard'</span>;
+<span class="k">import</span> { User } <span class="k">from</span> <span class="s">'./auth/decorator/user.decorator'</span>;
+<span class="k">import</span> { UserModel } <span class="k">from</span> <span class="s">'./users/entity/users.entity'</span>;
+
+<span class="d">@UseGuards</span>(AccessTokenGuard)
+<span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+
+  <span class="d">@Post</span>()
+  <span class="f">createPost</span>(
+    <span class="d">@User</span>() user: <span class="t">UserModel</span>,        <span class="c">// request.user 전체</span>
+  ) {
+    <span class="k">return</span> { authorId: user.id };
+  }
+
+  <span class="d">@Get</span>(<span class="s">'my'</span>)
+  <span class="f">getMyPosts</span>(
+    <span class="d">@User</span>(<span class="s">'email'</span>) email: <span class="t">string</span>,   <span class="c">// request.user.email 만</span>
+  ) {
+    <span class="k">return</span> { email };
+  }
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 220" role="img" aria-label="Guard가 request.user를 세팅하고 @User 데코레이터가 꺼내 핸들러 파라미터에 주입하는 흐름">
+      <!-- Guard box -->
+      <rect x="20" y="60" width="150" height="100" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="95" y="88" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#0a4f48">Guard</text>
+      <text x="95" y="108" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#0a4f48">JWT 검증 후</text>
+      <text x="95" y="124" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5a8f87">req.user =</text>
+      <text x="95" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5a8f87">{ id, email, ... }</text>
+
+      <!-- Arrow to decorator -->
+      <line x1="172" y1="110" x2="242" y2="110" stroke="#0d6e64" stroke-width="2" marker-end="url(#w8l3-arr1)"/>
+      <text x="207" y="102" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#0d6e64">통과</text>
+
+      <!-- Decorator box -->
+      <rect x="244" y="50" width="200" height="120" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="344" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#7d5604">@User(data?)</text>
+      <text x="344" y="98" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#7d5604">createParamDecorator</text>
+      <text x="344" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7d5604">data? → user[data]</text>
+      <text x="344" y="138" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7d5604">없음 → user 전체</text>
+      <text x="344" y="158" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a7020">@User('email') → user.email</text>
+
+      <!-- Arrow to handler -->
+      <line x1="446" y1="110" x2="526" y2="110" stroke="#c98a16" stroke-width="2" marker-end="url(#w8l3-arr2)"/>
+      <text x="486" y="100" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#c98a16">주입</text>
+
+      <!-- Handler box -->
+      <rect x="528" y="64" width="132" height="92" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="594" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">핸들러</text>
+      <text x="594" y="110" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a9382">createPost(</text>
+      <text x="594" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">user: UserModel</text>
+      <text x="594" y="142" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a9382">)</text>
+
+      <defs>
+        <marker id="w8l3-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w8l3-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Guard(틸)가 request.user를 채우고, @User 데코레이터(앰버)가 꺼내 핸들러 파라미터에 바로 주입한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span><code>data</code> 인자로 특정 필드만 뽑기</h2>
+  <p>데코레이터에 인자를 전달하면 <code>data</code> 파라미터로 받을 수 있습니다. <code>@User('email')</code>처럼 필드 이름을 넘기면 <code>user[data]</code>를 반환하고, 인자 없이 <code>@User()</code>만 쓰면 <code>user</code> 전체를 반환하는 패턴이 가장 흔합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.decorator.ts — data 인자로 필드 선택 (전체 구현)</span></div><pre><span class="k">import</span> { createParamDecorator, ExecutionContext } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { UserModel } <span class="k">from</span> <span class="s">'../users/entity/users.entity'</span>;
+
+<span class="k">export const</span> <span class="t">User</span> = <span class="f">createParamDecorator</span>(
+  (data: <span class="k">keyof</span> <span class="t">UserModel</span> | <span class="t">undefined</span>, ctx: <span class="t">ExecutionContext</span>) => {
+    <span class="k">const</span> req = ctx.<span class="f">switchToHttp</span>().<span class="f">getRequest</span>();
+    <span class="k">const</span> user = req.user <span class="k">as</span> <span class="t">UserModel</span>;
+
+    <span class="c">// data가 있으면 해당 필드만, 없으면 user 전체 반환</span>
+    <span class="k">return</span> data ? user?.[data] : user;
+  },
+);
+
+<span class="c">// 사용 예시</span>
+<span class="c">// @User()            → UserModel 전체 객체</span>
+<span class="c">// @User('id')        → user.id (number)</span>
+<span class="c">// @User('email')     → user.email (string)</span>
+<span class="c">// @User('nickname')  → user.nickname (string)</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Guard와 Custom Decorator는 한 팀</span>
+    <p>Custom Decorator 혼자서는 <code>request.user</code>가 비어 있으면 아무것도 꺼낼 수 없습니다. <strong>Guard가 JWT를 검증하고 <code>request.user</code>를 채워두는 것이 선행</strong>되어야 합니다. 이 두 개의 분업이 NestJS 인증 흐름의 핵심 패턴입니다 — Guard: "누구인지 확인해서 기록", Custom Decorator: "기록된 걸 꺼내서 전달".</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 파라미터 데코레이터가 핸들러에 무엇을 넣어주나요?</summary>
+    <div class="answer"><p><code>createParamDecorator</code>의 콜백 함수가 <strong>반환하는 값</strong>이 핸들러 파라미터로 주입됩니다. <code>@User()</code>의 경우 콜백이 <code>req.user</code>를 반환하므로, 핸들러는 <code>user: UserModel</code> 파라미터로 인증된 사용자 객체를 바로 받습니다. 콜백에서 <code>undefined</code>를 반환하면 파라미터가 <code>undefined</code>가 됩니다. 이 메커니즘은 NestJS 내장 <code>@Body()</code>, <code>@Query()</code>, <code>@Param()</code>도 동일하게 동작합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>data</code> 인자는 어디에 쓰나요?</summary>
+    <div class="answer"><p><code>data</code>는 데코레이터를 사용할 때 전달하는 인자입니다. <code>@User('email')</code>이라고 쓰면 <code>data === 'email'</code>이 됩니다. <code>@User()</code>처럼 인자 없이 쓰면 <code>data === undefined</code>입니다. 이를 활용해 <code>return data ? user?.[data] : user</code>처럼 조건 분기를 만들면, <strong>하나의 데코레이터로 전체 객체 또는 특정 필드를 선택적으로 꺼낼 수 있습니다</strong>. TypeScript에서 <code>keyof UserModel</code> 타입을 <code>data</code>에 지정하면 자동완성과 타입 안전성을 함께 얻을 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Guard 없이 <code>@User()</code>를 사용하면 어떻게 되나요?</summary>
+    <div class="answer"><p><code>request.user</code>가 <code>undefined</code>이므로 <code>@User()</code>의 반환값도 <code>undefined</code>가 됩니다. Guard는 JWT를 검증한 뒤 <code>req.user = payload</code>처럼 요청 객체에 사용자 정보를 직접 저장합니다. 이 선행 작업 없이 데코레이터만 쓰면 핸들러가 <code>undefined</code>를 받아 <code>TypeError</code>가 발생하거나 잘못된 동작을 할 수 있습니다. 따라서 <code>@User()</code>를 쓰는 라우트에는 반드시 <code>@UseGuards(AccessTokenGuard)</code> 등 Guard가 함께 있어야 합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-guards.html"><span class="dir">← 이전</span><span class="ttl">Guard — CanActivate · 인증 가드</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 8 · Lesson 03 · Custom Decorator — @User 파라미터 데코레이터</footer>
+</body>
+</html>

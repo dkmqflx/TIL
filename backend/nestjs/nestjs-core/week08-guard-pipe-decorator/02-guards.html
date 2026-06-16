@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 8·02 — Guard — CanActivate · 인증 가드</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 8 · Guard · Pipe · Custom Decorator</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 8 — Lesson 02</span>
+  <h1>Guard<br>CanActivate · 인증 가드</h1>
+  <p class="subtitle"><code>CanActivate</code> 인터페이스를 구현해 요청이 핸들러에 도달하기 전 <strong>통과 여부를 판단</strong>하는 Guard를 만든다. BasicTokenGuard부터 BearerTokenGuard·AccessTokenGuard 적용 흐름까지.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>Guard는 <b>단 하나의 질문</b>만 한다 — "이 요청이 핸들러에 들어갈 자격이 있는가?" <code>true</code>면 통과, <code>false</code>거나 예외면 차단. <b>무엇을 처리할지가 아니라 들여보낼지</b>를 결정하는 것이 Guard의 역할이다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>CanActivate</code> 인터페이스와 <code>canActivate(context: ExecutionContext)</code>의 반환값 의미를 설명할 수 있다</li>
+    <li><code>ExecutionContext</code>를 통해 HTTP 요청 객체를 꺼내는 방법(<code>context.switchToHttp().getRequest()</code>)을 안다</li>
+    <li>BasicTokenGuard가 <code>Authorization: Basic</code> 헤더를 파싱하는 흐름을 설명할 수 있다</li>
+    <li>BearerTokenGuard / AccessTokenGuard를 컨트롤러나 라우트 레벨에 적용할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>CanActivate</code> 인터페이스 — 통과 / 차단</h2>
+  <p class="lead">Guard는 <code>CanActivate</code> 인터페이스를 구현합니다. 핵심은 단 하나의 메서드 — <code>canActivate(context: ExecutionContext)</code>. 이 메서드가 <code>true</code>(또는 <code>Promise&lt;true&gt;</code>)를 반환하면 요청이 <strong>통과</strong>되고, <code>false</code>나 예외를 던지면 <strong>403 Forbidden</strong>으로 차단됩니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 클럽 입구 보안요원</span>
+    <p>클럽 입구의 보안요원은 음악을 틀거나 음식을 내오지 않습니다. 오직 <strong>입장 가능 여부만 판단</strong>합니다. 초대장이 있으면 <code>true</code> — 통과. 없으면 <code>false</code> — 차단. 보안요원은 "안에서 무슨 일이 벌어지는지(핸들러 로직)"에 관심이 없고, 입장 자격만 봅니다. NestJS Guard도 마찬가지로, <strong>인증·인가만 담당</strong>하고 비즈니스 로직은 건드리지 않습니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">basic-token.guard.ts — CanActivate 기본 구조</span></div><pre><span class="k">import</span> { CanActivate, ExecutionContext, Injectable, UnauthorizedException } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">BasicTokenGuard</span> <span class="k">implements</span> <span class="t">CanActivate</span> {
+  <span class="k">async</span> <span class="f">canActivate</span>(context: <span class="t">ExecutionContext</span>): <span class="t">Promise</span>&lt;<span class="t">boolean</span>&gt; {
+    <span class="c">// 1. HTTP 요청 객체 꺼내기</span>
+    <span class="k">const</span> req = context.<span class="f">switchToHttp</span>().<span class="f">getRequest</span>();
+
+    <span class="c">// 2. Authorization 헤더 확인</span>
+    <span class="k">const</span> rawToken = req.headers[<span class="s">'authorization'</span>];
+    <span class="k">if</span> (!rawToken) {
+      <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'Authorization 헤더가 없습니다'</span>);
+    }
+
+    <span class="c">// 3. "Basic base64encoded" 형식 파싱</span>
+    <span class="k">const</span> [type, token] = rawToken.split(<span class="s">' '</span>);
+    <span class="k">if</span> (type !== <span class="s">'Basic'</span> || !token) {
+      <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'올바르지 않은 Basic 토큰 형식입니다'</span>);
+    }
+
+    <span class="c">// 4. Base64 디코딩 → email:password 추출</span>
+    <span class="k">const</span> decoded = <span class="t">Buffer</span>.<span class="f">from</span>(token, <span class="s">'base64'</span>).<span class="f">toString</span>(<span class="s">'utf8'</span>);
+    <span class="k">const</span> [email, password] = decoded.split(<span class="s">':'</span>);
+
+    <span class="c">// 5. 요청 객체에 credentials 저장 (이후 핸들러에서 사용 가능)</span>
+    req.user = { email, password };
+
+    <span class="k">return true</span>; <span class="c">// 통과</span>
+  }
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 220" role="img" aria-label="Guard가 요청을 통과시키거나 403으로 차단하는 흐름">
+      <!-- Request -->
+      <rect x="20" y="70" width="110" height="80" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="75" y="102" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#a8401f">요청</text>
+      <text x="75" y="120" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#a8401f">Authorization</text>
+      <text x="75" y="136" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#a8401f">헤더 포함</text>
+
+      <!-- Arrow to guard -->
+      <line x1="132" y1="110" x2="210" y2="110" stroke="#807a6c" stroke-width="2" marker-end="url(#w8l2-arr1)"/>
+
+      <!-- Guard box -->
+      <rect x="212" y="48" width="220" height="124" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2.5"/>
+      <text x="322" y="76" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#0a4f48">Guard</text>
+      <text x="322" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#0a4f48">canActivate(context)</text>
+      <text x="322" y="116" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#0a4f48">ExecutionContext로</text>
+      <text x="322" y="132" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#0a4f48">라우트 정보·req 접근</text>
+      <text x="322" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5a8f87">BearerTokenGuard</text>
+
+      <!-- Pass arrow -->
+      <line x1="434" y1="90" x2="524" y2="90" stroke="#0d6e64" stroke-width="2" marker-end="url(#w8l2-arr2)"/>
+      <text x="479" y="80" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#0d6e64">true → 통과</text>
+
+      <!-- Handler box -->
+      <rect x="526" y="64" width="134" height="92" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="593" y="98" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">핸들러</text>
+      <text x="593" y="118" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a9382">req.user 세팅됨</text>
+      <text x="593" y="136" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a9382">비즈니스 로직 실행</text>
+
+      <!-- Fail arrow down -->
+      <line x1="322" y1="174" x2="322" y2="205" stroke="#e0552f" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#w8l2-arr3)"/>
+      <text x="322" y="218" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#e0552f">false → 403 Forbidden / throw → 401 Unauthorized</text>
+
+      <defs>
+        <marker id="w8l2-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w8l2-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w8l2-arr3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Guard는 요청을 통과시키거나(true) 차단한다(false/예외). 차단 시 핸들러는 실행되지 않는다.</figcaption>
+  </figure>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">Guard vs Middleware — 결정적 차이</span>
+    <p>Middleware는 Guard보다 <strong>먼저</strong> 실행되지만, 라우트·핸들러 정보를 알지 못합니다(<code>req, res, next</code>만 있음). Guard는 Middleware 이후에 실행되지만 <strong><code>ExecutionContext</code>를 통해 현재 핸들러가 어떤 컨트롤러·메서드인지 알 수 있습니다</strong>. 이 정보로 "이 라우트에 어떤 Role이 필요한가" 같은 메타데이터 기반 인가 로직을 구현할 수 있습니다. 인증/인가 로직은 Middleware보다 Guard가 적합한 이유입니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>BearerTokenGuard — JWT Bearer 검증</h2>
+  <p>실제 프로젝트에서 가장 많이 쓰는 패턴입니다. <code>Authorization: Bearer &lt;token&gt;</code> 헤더를 파싱하고, JWT를 검증해 <code>request.user</code>에 사용자 정보를 주입합니다. 코드는 <a href="code/bearer-token.guard.ts"><code>code/bearer-token.guard.ts</code></a>에서 확인하세요.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">guard 적용 — 컨트롤러/라우트 레벨</span></div><pre><span class="k">import</span> { Controller, Get, UseGuards } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { AccessTokenGuard } <span class="k">from</span> <span class="s">'./auth/guard/access-token.guard'</span>;
+
+<span class="c">// 컨트롤러 전체에 적용</span>
+<span class="d">@UseGuards</span>(AccessTokenGuard)
+<span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+
+  <span class="d">@Get</span>()
+  <span class="f">getPosts</span>() {
+    <span class="c">// Guard를 통과했으므로 req.user가 보장된다</span>
+    <span class="k">return</span> [];
+  }
+
+  <span class="c">// 특정 라우트만 다른 Guard 적용 (오버라이드)</span>
+  <span class="d">@Post</span>(<span class="s">'register'</span>)
+  <span class="d">@UseGuards</span>(BasicTokenGuard)
+  <span class="f">register</span>() {
+    <span class="k">return</span> {};
+  }
+}</pre></div>
+
+  <h2><span class="num">3</span>AccessTokenGuard — 토큰 타입까지 검증</h2>
+  <p>BearerTokenGuard는 토큰 자체의 서명 유효성만 확인합니다. <strong>AccessTokenGuard</strong>는 여기서 한 단계 더 나아가, payload의 <code>type</code> 필드가 <code>"access"</code>인지까지 검사합니다. Refresh Token으로 일반 API를 호출하면 거부됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">access-token.guard.ts — BearerTokenGuard 확장</span></div><pre><span class="k">import</span> { CanActivate, ExecutionContext, Injectable, UnauthorizedException } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">AccessTokenGuard</span> <span class="k">implements</span> <span class="t">CanActivate</span> {
+  <span class="k">async</span> <span class="f">canActivate</span>(context: <span class="t">ExecutionContext</span>): <span class="t">Promise</span>&lt;<span class="t">boolean</span>&gt; {
+    <span class="k">const</span> req = context.<span class="f">switchToHttp</span>().<span class="f">getRequest</span>();
+
+    <span class="c">// BearerTokenGuard와 동일한 헤더 파싱 + jwtService.verify 과정 생략</span>
+    <span class="c">// (실제 구현에서는 BearerTokenGuard를 상속하거나 AuthService 주입)</span>
+
+    <span class="k">const</span> payload = req.tokenPayload; <span class="c">// BearerTokenGuard가 미리 세팅한 값</span>
+
+    <span class="k">if</span> (payload?.type !== <span class="s">'access'</span>) {
+      <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'Access Token이 아닙니다'</span>);
+    }
+
+    <span class="k">return true</span>;
+  }
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">Guard 등록 방법 세 가지</span>
+    <p>① <strong>라우트 레벨</strong>: <code>@UseGuards(Guard)</code>를 메서드 위에. ② <strong>컨트롤러 레벨</strong>: <code>@UseGuards(Guard)</code>를 클래스 위에(전체 적용). ③ <strong>전역(Global)</strong>: <code>app.useGlobalGuards(new Guard())</code> — 단, 이 방식은 DI가 안 되므로 실무에서는 <code>APP_GUARD</code> 토큰을 이용한 프로바이더 등록을 선호합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Guard와 Middleware의 차이점은 무엇인가요?</summary>
+    <div class="answer"><p>두 가지 핵심 차이가 있습니다. ① <strong>실행 시점</strong>: Middleware가 먼저 실행되고, Guard가 그 이후에 실행됩니다. ② <strong>컨텍스트 접근</strong>: Middleware는 <code>req, res, next</code>만 알고, 어떤 컨트롤러·메서드가 처리할지 모릅니다. Guard는 <code>ExecutionContext</code>를 통해 현재 핸들러의 클래스명·메서드명·메타데이터(예: <code>@Roles()</code> 데코레이터 값)까지 접근할 수 있습니다. 따라서 "역할(Role) 기반 접근 제어"처럼 <strong>라우트 정보가 필요한 인가 로직</strong>은 Middleware가 아닌 Guard로 구현합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>canActivate</code>가 <code>false</code>를 반환하면 어떻게 되나요?</summary>
+    <div class="answer"><p><code>false</code>를 반환하면 NestJS가 자동으로 <strong>403 Forbidden</strong> 응답을 반환합니다. 단, 실무에서는 보통 <code>false</code> 반환보다 <code>UnauthorizedException</code>을 직접 던지는 방식을 선호합니다 — 더 명확한 401 상태코드와 커스텀 메시지를 함께 전달할 수 있기 때문입니다. <code>canActivate</code>는 <code>boolean</code> 외에도 <code>Promise&lt;boolean&gt;</code>, <code>Observable&lt;boolean&gt;</code>을 반환할 수 있습니다 — 비동기 JWT 검증처럼 I/O가 필요한 경우 <code>async/await</code>를 활용합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> BasicTokenGuard와 BearerTokenGuard는 어느 엔드포인트에 각각 적용하나요?</summary>
+    <div class="answer"><p><strong>BasicTokenGuard</strong>는 로그인/회원가입 엔드포인트처럼 <strong>아직 토큰이 없는 상태</strong>에서 사용자를 식별할 때 적용합니다. <code>Authorization: Basic base64(email:password)</code> 헤더로 자격증명을 전달합니다. <strong>BearerTokenGuard / AccessTokenGuard</strong>는 이미 로그인한 사용자가 JWT를 가지고 있는 상태, 즉 <strong>인증이 필요한 일반 API 엔드포인트</strong>에 적용합니다. <code>Authorization: Bearer jwt.token.here</code> 형식입니다. 재발급 엔드포인트에는 Refresh Token을 검증하는 별도 Guard를 사용해야 합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-pipes.html"><span class="dir">← 이전</span><span class="ttl">Pipe — 검증·변환 파이프라인</span></a>
+    <a class="next" href="03-custom-decorator.html"><span class="dir">다음 →</span><span class="ttl">Custom Decorator — @User 데코레이터</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 8 · Lesson 02 · Guard — CanActivate · 인증 가드</footer>
+</body>
+</html>

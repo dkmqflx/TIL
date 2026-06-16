@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 8·01 — Pipe — 검증·변환 파이프라인</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 8 · Guard · Pipe · Custom Decorator</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 8 — Lesson 01</span>
+  <h1>Pipe<br>검증 · 변환 파이프라인</h1>
+  <p class="subtitle">핸들러(컨트롤러 메서드)가 실행되기 직전, 들어오는 파라미터를 <strong>검증(validation)</strong>하거나 <strong>변환(transformation)</strong>하는 것이 Pipe의 역할이다. NestJS 내장 파이프부터 직접 만드는 Custom Pipe까지 완전히 이해한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>Pipe는 <b>두 가지만 한다</b> — 들어온 값이 올바른가 <b>검증</b>하거나, 필요한 타입으로 <b>변환</b>하거나. 핸들러는 파이프를 통과한 "깨끗한" 값만 받는다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>NestJS가 내장 제공하는 <code>ParseIntPipe</code>, <code>ParseUUIDPipe</code> 등 주요 파이프를 파라미터 데코레이터에 적용할 수 있다</li>
+    <li><code>PipeTransform</code> 인터페이스의 <code>transform(value, metadata)</code>를 구현해 Custom Pipe를 만들 수 있다</li>
+    <li><code>DefaultValuePipe</code>로 기본값을 부여하고, 여러 파이프를 동시에 파라미터에 적용할 수 있다</li>
+    <li>Pipe가 요청 라이프사이클에서 Guard 이후, 핸들러 직전에 실행된다는 순서를 안다</li>
+  </ul>
+
+  <h2><span class="num">1</span>내장 파이프 — <code>ParseIntPipe</code> · <code>ParseUUIDPipe</code></h2>
+  <p class="lead">URL 파라미터나 쿼리스트링은 항상 <strong>문자열</strong>로 들어옵니다. <code>@Param('id')</code>가 수신하는 값은 <code>"42"</code>지, 숫자 <code>42</code>가 아닙니다. NestJS 내장 파이프는 이 변환을 선언적으로 처리해 줍니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 정수기 필터</span>
+    <p>수도꼭지에서 나오는 물(요청 값)에는 불순물(잘못된 타입·형식)이 섞여 있을 수 있습니다. <strong>정수기 필터(Pipe)</strong>가 중간에서 물을 걸러, 통과시키거나(검증 통과) 막거나(예외 throw) 변환(문자열 → 숫자)해서 핸들러에 전달합니다. 핸들러는 "깨끗한 물"만 받을 수 있고, 필터를 우회할 방법이 없습니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — 내장 파이프 적용</span></div><pre><span class="k">import</span> { Controller, Get, Param, ParseIntPipe, ParseUUIDPipe } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+
+<span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+
+  <span class="c">// ParseIntPipe: "42" → 42, "abc" → 400 Bad Request 자동</span>
+  <span class="d">@Get</span>(<span class="s">':id'</span>)
+  <span class="f">getPost</span>(<span class="d">@Param</span>(<span class="s">'id'</span>, ParseIntPipe) id: <span class="t">number</span>) {
+    <span class="k">return</span> { id }; <span class="c">// id는 이미 number 타입으로 보장됨</span>
+  }
+
+  <span class="c">// ParseUUIDPipe: UUID 형식 검증 (v4 기본), 형식 틀리면 400</span>
+  <span class="d">@Get</span>(<span class="s">'by-uuid/:uuid'</span>)
+  <span class="f">getByUuid</span>(<span class="d">@Param</span>(<span class="s">'uuid'</span>, ParseUUIDPipe) uuid: <span class="t">string</span>) {
+    <span class="k">return</span> { uuid };
+  }
+}</pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">주요 내장 파이프 목록</span>
+    <p><code>ParseIntPipe</code> / <code>ParseFloatPipe</code> / <code>ParseBoolPipe</code> — 숫자·불린 변환. <code>ParseUUIDPipe</code> — UUID 형식 검증. <code>ParseArrayPipe</code> — 쿼리 배열 파싱. <code>ParseEnumPipe</code> — Enum 값 검증. <code>ValidationPipe</code> — DTO 전체 검증(Week 9에서 상세히). 이 파이프들은 검증 실패 시 <code>BadRequestException(400)</code>을 자동으로 던집니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 200" role="img" aria-label="요청값이 Pipe를 통과해 핸들러로 전달되는 흐름">
+      <!-- Request box -->
+      <rect x="20" y="64" width="130" height="72" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="85" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#a8401f">요청 파라미터</text>
+      <text x="85" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8401f">@Param('id')</text>
+      <text x="85" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8401f">"42" (string)</text>
+
+      <!-- Arrow to pipe -->
+      <line x1="152" y1="100" x2="230" y2="100" stroke="#807a6c" stroke-width="2" marker-end="url(#w8l1-arr1)"/>
+
+      <!-- Pipe box -->
+      <rect x="232" y="50" width="200" height="100" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2.5"/>
+      <text x="332" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#0a4f48">Pipe</text>
+      <text x="332" y="98" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#0a4f48">① 검증 — 형식이 맞는가?</text>
+      <text x="332" y="114" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#0a4f48">② 변환 — string → number</text>
+      <text x="332" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#5a8f87">ParseIntPipe</text>
+
+      <!-- Arrow pass -->
+      <line x1="434" y1="88" x2="524" y2="88" stroke="#0d6e64" stroke-width="2" marker-end="url(#w8l1-arr2)"/>
+      <text x="479" y="80" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#0d6e64">통과</text>
+
+      <!-- Handler box -->
+      <rect x="526" y="64" width="134" height="72" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="593" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">핸들러</text>
+      <text x="593" y="110" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#9a9382">id: number</text>
+      <text x="593" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#6fd6c7">42</text>
+
+      <!-- Fail arrow down -->
+      <line x1="332" y1="152" x2="332" y2="180" stroke="#e0552f" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#w8l1-arr3)"/>
+      <text x="332" y="197" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#e0552f">검증 실패 → 400 BadRequestException (핸들러 미실행)</text>
+
+      <defs>
+        <marker id="w8l1-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w8l1-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w8l1-arr3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>요청 파라미터는 Pipe를 반드시 통과한다. 검증 실패 시 핸들러에 도달하지 않고 400을 반환한다.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span>Custom Pipe — <code>PipeTransform</code> 구현</h2>
+  <p>내장 파이프로 해결이 안 되는 검증·변환이 필요할 때 <strong>Custom Pipe</strong>를 직접 만듭니다. <code>PipeTransform</code> 인터페이스를 구현하고 <code>transform(value, metadata)</code> 메서드만 작성하면 됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">positive-int.pipe.ts — Custom Pipe 예제</span></div><pre><span class="k">import</span> { PipeTransform, Injectable, ArgumentMetadata, BadRequestException } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">PositiveIntPipe</span> <span class="k">implements</span> <span class="t">PipeTransform</span> {
+  <span class="f">transform</span>(value: <span class="t">any</span>, metadata: <span class="t">ArgumentMetadata</span>) {
+    <span class="c">// value: 파이프에 들어온 실제 값</span>
+    <span class="c">// metadata.type: 'body' | 'query' | 'param' | 'custom'</span>
+    <span class="c">// metadata.data: 데코레이터에 전달된 키 이름 (예: 'id')</span>
+
+    <span class="k">const</span> num = <span class="t">Number</span>(value);
+
+    <span class="k">if</span> (!<span class="t">Number</span>.isInteger(num) || num <= <span class="n">0</span>) {
+      <span class="k">throw new</span> <span class="t">BadRequestException</span>(<span class="s">`'${metadata.data}'는 양의 정수여야 합니다`</span>);
+    }
+
+    <span class="k">return</span> num; <span class="c">// 변환된 값을 반환 — 핸들러는 이 값을 받는다</span>
+  }
+}
+
+<span class="c">// 사용 — 컨트롤러에서</span>
+<span class="d">@Get</span>(<span class="s">':id'</span>)
+<span class="f">getPost</span>(<span class="d">@Param</span>(<span class="s">'id'</span>, PositiveIntPipe) id: <span class="t">number</span>) {
+  <span class="k">return</span> { id };
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label"><code>transform</code>의 반환값이 핸들러가 받는 값</span>
+    <p><code>transform</code>에서 <code>return</code>한 값이 핸들러 파라미터로 주입됩니다. 검증만 하고 원본을 그대로 쓰고 싶다면 <code>return value</code>, 변환이 필요하면 변환 후 반환합니다. 예외를 던지면 핸들러는 실행되지 않습니다.</p>
+  </div>
+
+  <h2><span class="num">3</span><code>DefaultValuePipe</code> + 다중 파이프 동시 적용</h2>
+  <p>쿼리 파라미터처럼 <strong>없을 수도 있는 값</strong>에 기본값을 주려면 <code>DefaultValuePipe</code>를 먼저 적용하고, 그 뒤에 변환 파이프를 붙입니다. 파이프는 <strong>배열 순서대로 왼쪽부터</strong> 순차 실행됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — DefaultValuePipe + 다중 파이프</span></div><pre><span class="k">import</span> { Controller, Get, Query, DefaultValuePipe, ParseIntPipe } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+
+<span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+
+  <span class="d">@Get</span>()
+  <span class="f">getPosts</span>(
+    <span class="c">// page가 없으면 → DefaultValuePipe가 '1' 적용 → ParseIntPipe가 1로 변환</span>
+    <span class="d">@Query</span>(<span class="s">'page'</span>, <span class="k">new</span> <span class="t">DefaultValuePipe</span>(<span class="n">1</span>), ParseIntPipe) page: <span class="t">number</span>,
+    <span class="d">@Query</span>(<span class="s">'limit'</span>, <span class="k">new</span> <span class="t">DefaultValuePipe</span>(<span class="n">20</span>), ParseIntPipe) limit: <span class="t">number</span>,
+  ) {
+    <span class="k">return</span> { page, limit }; <span class="c">// ?page=2 → page=2, limit=20</span>
+  }
+}</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">파이프는 Guard 이후에 실행된다</span>
+    <p>NestJS 요청 라이프사이클 순서: <strong>Middleware → Guard → Interceptor(pre) → Pipe → Handler</strong>. Guard가 요청을 차단하면 파이프는 아예 실행되지 않습니다. 따라서 "인증이 필요한 라우트"에서 Guard가 먼저 401을 던지면, 파이프의 파라미터 검증까지 도달하지 않습니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> NestJS Pipe의 두 가지 역할은 무엇인가요?</summary>
+    <div class="answer"><p>두 가지입니다. ① <strong>검증(Validation)</strong> — 들어온 값이 올바른 형식·범위인지 확인하고, 맞지 않으면 예외(<code>BadRequestException</code>)를 던집니다. ② <strong>변환(Transformation)</strong> — 들어온 값을 원하는 타입·형태로 바꿔서 핸들러에 전달합니다(예: <code>"42"</code> → <code>42</code>). <code>ParseIntPipe</code>는 두 역할을 동시에 수행합니다 — 문자열이 정수로 변환 가능한지 검증하고, 동시에 숫자로 바꿔서 반환합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Pipe는 요청 라이프사이클의 어디에서 동작하나요?</summary>
+    <div class="answer"><p>Pipe는 <strong>핸들러(컨트롤러 메서드) 직전</strong>에 실행됩니다. 정확한 순서는 <strong>Middleware → Guard → Interceptor(pre) → Pipe → Handler</strong>입니다. Guard가 먼저 요청의 통과 여부를 판단하고, Pipe는 통과된 요청의 파라미터를 핸들러에 넘기기 직전 검증·변환합니다. Pipe가 예외를 던지면 핸들러는 실행되지 않습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>transform(value, metadata)</code>에서 <code>metadata</code>는 어떤 정보를 담고 있나요?</summary>
+    <div class="answer"><p><code>metadata</code>는 <code>ArgumentMetadata</code> 타입으로, 세 필드를 가집니다. <code>type</code>: 파라미터의 출처 — <code>'body'</code>, <code>'query'</code>, <code>'param'</code>, <code>'custom'</code> 중 하나입니다. <code>metatype</code>: TypeScript 타입 메타데이터(예: <code>Number</code>, <code>String</code>). <code>data</code>: 데코레이터에 전달한 키 이름(예: <code>@Param('id')</code>라면 <code>'id'</code>). 이 정보를 활용하면 파라미터 출처나 이름에 따라 다른 검증 로직을 적용하는 범용 파이프를 만들 수 있습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week07-authentication/03-token-extract-refresh.html"><span class="dir">← 이전</span><span class="ttl">토큰 추출 · 재발급(refresh)</span></a>
+    <a class="next" href="02-guards.html"><span class="dir">다음 →</span><span class="ttl">Guard — CanActivate · 인증 가드</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 8 · Lesson 01 · Pipe — 검증·변환 파이프라인</footer>
+</body>
+</html>

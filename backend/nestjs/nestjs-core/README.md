@@ -134,7 +134,7 @@ backend/nestjs/nestjs-core/
 - [x] Week 5 — ★ TypeORM 심화 이론
 - [x] Week 6 — ★ Table Relations (관계)
 - [x] Week 7 — ★ Authentication (인증)
-- [ ] Week 8 — ★ Guard · Pipe · Custom Decorator (요청 파이프라인)
+- [x] Week 8 — ★ Guard · Pipe · Custom Decorator (요청 파이프라인)
 - [ ] Week 9 — DTO 검증·변환 (Class Validator & Transformer)
 - [ ] Week 10 — ★ Pagination (기본 → 일반화)
 - [ ] Week 11 — ★ 횡단 관심사 + 파일/설정

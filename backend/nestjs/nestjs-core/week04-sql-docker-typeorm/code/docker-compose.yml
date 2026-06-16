@@ -1,0 +1,17 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: nestjs_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: nestjs_db
+    ports:
+      - "5432:5432"       # 호스트:컨테이너
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # 데이터 영속화
+
+volumes:
+  postgres_data:

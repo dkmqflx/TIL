@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·03 — Repository CRUD: Find/Create/Save/Delete</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · SQL · Docker · TypeORM</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 03</span>
+  <h1>Repository CRUD<br>Find / Create / Save / Delete</h1>
+  <p class="subtitle">TypeORM Repository의 핵심 메서드를 통해 CRUD를 구현한다. 특히 <code>create()</code>와 <code>save()</code>의 역할 분리를 정확히 이해하는 것이 중요하다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p><code>create()</code>는 메모리에 인스턴스를 만들 뿐이고, <strong>실제 DB에 저장하는 건 <code>save()</code></strong>다. 이 둘을 구분하는 것이 TypeORM을 처음 쓸 때 가장 자주 실수하는 지점이다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>find()</code>와 <code>findOne()</code>의 차이 및 <code>where</code> 옵션 사용법을 안다</li>
+    <li><code>create()</code>가 메모리 인스턴스를 만들고, <code>save()</code>가 DB에 반영함을 설명할 수 있다</li>
+    <li><code>save()</code>로 기존 레코드를 업데이트하는 방법을 안다</li>
+    <li><code>delete()</code>와 <code>remove()</code>의 차이를 설명할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>find</code> / <code>findOne</code> — 조회</h2>
+  <p class="lead"><code>find()</code>는 조건에 맞는 <strong>모든 행을 배열</strong>로 반환합니다. <code>findOne()</code>은 조건에 맞는 <strong>첫 번째 행 하나</strong>(또는 없으면 <code>null</code>)를 반환합니다. 둘 다 <code>{ where: ... }</code> 옵션으로 필터링합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — find / findOne</span></div><pre><span class="c">// 전체 조회 — 배열 반환</span>
+<span class="k">async</span> <span class="f">findAll</span>(): <span class="t">Promise</span>&lt;<span class="t">Post</span>[]&gt; {
+  <span class="k">return</span> <span class="k">this</span>.postsRepo.<span class="f">find</span>();
+}
+
+<span class="c">// 단건 조회 — where 옵션으로 조건 지정</span>
+<span class="k">async</span> <span class="f">findOne</span>(id: <span class="t">number</span>): <span class="t">Promise</span>&lt;<span class="t">Post</span>&gt; {
+  <span class="k">return</span> <span class="k">this</span>.postsRepo.<span class="f">findOne</span>({ where: { id } });
+}
+
+<span class="c">// 복합 조건 — title로 조회</span>
+<span class="k">async</span> <span class="f">findByTitle</span>(title: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">Post</span>[]&gt; {
+  <span class="k">return</span> <span class="k">this</span>.postsRepo.<span class="f">find</span>({ where: { title } });
+}</pre></div>
+
+  <h2><span class="num">2</span><code>create</code> + <code>save</code> — 생성</h2>
+  <p><code>create()</code>는 Entity 인스턴스를 <strong>메모리에만</strong> 만듭니다. 이 시점에는 DB에 아무 일도 일어나지 않습니다. <code>save()</code>를 호출해야 비로소 SQL <code>INSERT</code>가 실행되어 DB에 저장됩니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 주문서 작성(create)과 주방 전달(save)</span>
+    <p><code>create()</code>는 손님이 <strong>주문서를 작성</strong>하는 것입니다 — 아직 카운터에 내지 않은 상태라 주방(DB)은 아무것도 모릅니다. <code>save()</code>는 그 주문서를 <strong>카운터에 제출</strong>하는 것 — 이제 주방이 요리(INSERT/UPDATE)를 시작합니다. 주문서만 쓰고 내지 않으면 음식이 나올 리 없습니다.</p>
+  </div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label"><code>create()</code>는 메모리 인스턴스만 만들고, 실제 DB 반영은 <code>save()</code>가 한다</span>
+    <p><code>const post = this.postsRepo.create({ title: '새 글' })</code>만 실행하면 <strong>DB에는 아무것도 저장되지 않습니다</strong>. 반드시 <code>await this.postsRepo.save(post)</code>를 호출해야 <code>INSERT</code>가 실행됩니다. 이 순서를 빠뜨리면 "저장했는데 DB에 없는" 버그가 생깁니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — create + save</span></div><pre><span class="k">async</span> <span class="f">create</span>(title: <span class="t">string</span>, content: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">Post</span>&gt; {
+  <span class="c">// 1단계: 메모리에 Post 인스턴스 생성 (DB 미반영)</span>
+  <span class="k">const</span> post = <span class="k">this</span>.postsRepo.<span class="f">create</span>({ title, content });
+
+  <span class="c">// 2단계: DB에 INSERT 실행 → id 포함한 Post 반환</span>
+  <span class="k">return</span> <span class="k">this</span>.postsRepo.<span class="f">save</span>(post);
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 180" role="img" aria-label="create() → 메모리 인스턴스 생성, save() → DB INSERT 실행 흐름">
+      <!-- Step 1: create() -->
+      <rect x="30" y="50" width="180" height="80" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="120" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#9a6a05">create()</text>
+      <text x="120" y="100" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#7d5604">메모리 인스턴스</text>
+      <text x="120" y="118" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a7040">DB 미반영</text>
+      <!-- Arrow 1 -->
+      <line x1="214" y1="90" x2="280" y2="90" stroke="#807a6c" stroke-width="2.5" marker-end="url(#w4l3-a1)"/>
+      <!-- Step 2: save() -->
+      <rect x="284" y="50" width="180" height="80" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="374" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#0a4f48">save()</text>
+      <text x="374" y="100" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#0a4f48">INSERT 실행</text>
+      <text x="374" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">SQL → DB</text>
+      <!-- Arrow 2 -->
+      <line x1="468" y1="90" x2="534" y2="90" stroke="#807a6c" stroke-width="2.5" marker-end="url(#w4l3-a2)"/>
+      <!-- Step 3: DB -->
+      <rect x="538" y="50" width="120" height="80" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="598" y="84" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">DB</text>
+      <text x="598" y="104" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a9382">id 자동 할당</text>
+      <text x="598" y="120" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a9382">행 저장 완료</text>
+      <!-- Labels -->
+      <text x="120" y="155" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#c98a16">① 인스턴스만</text>
+      <text x="374" y="155" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#0d6e64">② DB 반영</text>
+      <text x="598" y="155" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#6fd6c7">③ 저장 완료</text>
+      <defs>
+        <marker id="w4l3-a1" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w4l3-a2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#807a6c"/></marker>
+      </defs>
+    </svg>
+    <figcaption><code>create()</code>는 메모리에만 존재. <code>save()</code> 호출 후에야 DB에 반영된다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span><code>save</code>로 업데이트</h2>
+  <p><code>save()</code>는 <strong>INSERT와 UPDATE 둘 다</strong> 담당합니다. 전달한 객체에 <code>id</code>가 있으면 해당 행을 UPDATE하고, 없으면 INSERT합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — save로 업데이트</span></div><pre><span class="k">async</span> <span class="f">update</span>(id: <span class="t">number</span>, title: <span class="t">string</span>): <span class="t">Promise</span>&lt;<span class="t">Post</span>&gt; {
+  <span class="c">// 1. 기존 행 조회</span>
+  <span class="k">const</span> post = <span class="k">await</span> <span class="k">this</span>.postsRepo.<span class="f">findOne</span>({ where: { id } });
+
+  <span class="c">// 2. 메모리에서 값 변경</span>
+  post.title = title;
+
+  <span class="c">// 3. save() — id가 있으므로 UPDATE 실행</span>
+  <span class="k">return</span> <span class="k">this</span>.postsRepo.<span class="f">save</span>(post);
+}</pre></div>
+
+  <h2><span class="num">4</span><code>delete</code> / <code>remove</code> — 삭제</h2>
+  <p><code>delete()</code>는 조건(id 또는 where 객체)을 받아 SQL <code>DELETE</code>를 실행합니다. 결과 객체를 반환할 뿐, Entity 인스턴스를 필요로 하지 않습니다. <code>remove()</code>는 Entity 인스턴스를 받아 삭제하고, 삭제된 인스턴스를 반환합니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>Repository 메서드</th><th>SQL</th><th>특징</th></tr></thead>
+    <tbody>
+      <tr><td><code>find(options?)</code></td><td><code>SELECT *</code></td><td>배열 반환</td></tr>
+      <tr><td><code>findOne(options)</code></td><td><code>SELECT * LIMIT 1</code></td><td>단건 또는 <code>null</code></td></tr>
+      <tr><td><code>create(dto)</code></td><td>(없음)</td><td>메모리 인스턴스만 생성</td></tr>
+      <tr><td><code>save(entity)</code></td><td><code>INSERT</code> 또는 <code>UPDATE</code></td><td>id 없으면 INSERT, 있으면 UPDATE</td></tr>
+      <tr><td><code>delete(id/where)</code></td><td><code>DELETE</code></td><td>조건만 주면 됨. 인스턴스 불필요</td></tr>
+      <tr><td><code>remove(entity)</code></td><td><code>DELETE</code></td><td>인스턴스 필요. 삭제된 entity 반환</td></tr>
+    </tbody>
+  </table>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — delete</span></div><pre><span class="c">// delete: id만 알면 됨 (인스턴스 불필요)</span>
+<span class="k">async</span> <span class="f">remove</span>(id: <span class="t">number</span>): <span class="t">Promise</span>&lt;<span class="k">void</span>&gt; {
+  <span class="k">await</span> <span class="k">this</span>.postsRepo.<span class="f">delete</span>(id);
+}</pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">실무에서는 <code>delete()</code>를 더 많이 씁니다</span>
+    <p><code>remove()</code>는 먼저 <code>findOne()</code>으로 인스턴스를 가져와야 합니다 — DB 조회가 한 번 더 발생합니다. <code>delete(id)</code>는 id만 있으면 바로 <code>DELETE</code>를 실행하므로 더 효율적입니다. 단, Cascade 삭제(관계 Entity 함께 삭제)가 필요하면 <code>remove()</code>를 써야 합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>create()</code>와 <code>save()</code>의 차이를 설명해 보세요.</summary>
+    <div class="answer"><p><code>create()</code>는 주어진 데이터로 <strong>메모리에 Entity 인스턴스만 생성</strong>합니다. 이 시점에는 DB에 아무런 SQL도 실행되지 않습니다. <code>save()</code>를 호출해야 비로소 TypeORM이 <code>INSERT</code>(새 레코드) 또는 <code>UPDATE</code>(기존 레코드)를 실행해 <strong>DB에 실제로 반영</strong>합니다. <code>create()</code>만 부르고 <code>save()</code>를 빠뜨리면 데이터가 저장되지 않는 버그가 생깁니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>findOne({ where: { id } })</code>에서 <code>where</code> 옵션은 어떻게 활용하나요?</summary>
+    <div class="answer"><p><code>where</code> 옵션은 SQL의 <code>WHERE</code> 절에 해당합니다. 객체의 키-값 쌍으로 조건을 지정합니다. 예를 들어 <code>{ where: { id: 1 } }</code>는 <code>WHERE id = 1</code>, <code>{ where: { title: '제목', id: 5 } }</code>는 <code>WHERE title = '제목' AND id = 5</code>입니다. TypeORM의 <code>In</code>, <code>Like</code>, <code>MoreThan</code> 같은 연산자를 함께 쓰면 더 복잡한 조건도 표현할 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>save()</code>는 언제 INSERT를 하고 언제 UPDATE를 하나요?</summary>
+    <div class="answer"><p><code>save()</code>에 전달하는 Entity 인스턴스에 <strong>PK(id)가 없거나 DB에 존재하지 않으면 <code>INSERT</code></strong>, <strong>이미 DB에 존재하는 id가 있으면 <code>UPDATE</code></strong>를 실행합니다. 내부적으로 TypeORM은 PK 값을 기준으로 <code>SELECT</code>를 먼저 실행해 존재 여부를 확인합니다. 그래서 <code>update()</code> 시 먼저 <code>findOne()</code>으로 가져와 값을 수정한 후 <code>save()</code>를 호출하는 패턴이 일반적입니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-typeorm-setup-entity-repo.html"><span class="dir">← 이전</span><span class="ttl">TypeORM 설정 · Entity · Repository</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 4 · Lesson 03 · Repository CRUD: Find/Create/Save/Delete</footer>
+</body>
+</html>

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 4·02 — TypeORM 설정 · Entity · Repository</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · SQL · Docker · TypeORM</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 4 — Lesson 02</span>
+  <h1>TypeORM 설정<br>Entity · Repository</h1>
+  <p class="subtitle"><code>TypeOrmModule.forRoot()</code>로 DB에 연결하고, <code>@Entity</code> + <code>@Column</code>으로 테이블을 클래스로 정의하고, <code>@InjectRepository()</code>로 Repository를 주입받는다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>TypeORM의 역할은 <b>객체 ↔ 테이블 번역</b>이다. Entity 클래스 = 표 양식, Repository = 창구 직원 — 이 두 비유만 머릿속에 있으면 데코레이터 문법이 자연스럽게 읽힌다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>TypeOrmModule.forRoot()</code>에 넘기는 연결 옵션을 설명할 수 있다</li>
+    <li><code>@Entity</code>, <code>@PrimaryGeneratedColumn</code>, <code>@Column</code>이 하는 일을 안다</li>
+    <li><code>TypeOrmModule.forFeature([Post])</code>가 필요한 이유를 설명할 수 있다</li>
+    <li><code>@InjectRepository(Post)</code>로 Repository를 주입받는 패턴을 쓸 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>TypeOrmModule.forRoot()</code> — DB 연결 설정</h2>
+  <p class="lead">NestJS에서 TypeORM을 쓰려면 루트 모듈(AppModule)에 <code>TypeOrmModule.forRoot()</code>를 등록합니다. 여기에 DB 종류·호스트·포트·인증 정보·동기화 옵션을 넘깁니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">app.module.ts — TypeORM 연결 설정</span></div><pre><span class="k">import</span> { <span class="t">Module</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">TypeOrmModule</span> } <span class="k">from</span> <span class="s">'@nestjs/typeorm'</span>;
+<span class="k">import</span> { <span class="t">PostsModule</span> } <span class="k">from</span> <span class="s">'./posts/posts.module'</span>;
+<span class="k">import</span> { <span class="t">Post</span> } <span class="k">from</span> <span class="s">'./posts/post.entity'</span>;
+
+<span class="d">@Module</span>({
+  imports: [
+    <span class="t">TypeOrmModule</span>.<span class="f">forRoot</span>({
+      type:       <span class="s">'postgres'</span>,
+      host:       <span class="s">'localhost'</span>,
+      port:       <span class="n">5432</span>,
+      username:   <span class="s">'admin'</span>,
+      password:   <span class="s">'secret'</span>,
+      database:   <span class="s">'nestjs_db'</span>,
+      entities:   [<span class="t">Post</span>],        <span class="c">// 등록할 Entity 목록</span>
+      synchronize: <span class="n">true</span>,         <span class="c">// 개발 환경에서만! 스키마 자동 동기화</span>
+    }),
+    <span class="t">PostsModule</span>,
+  ],
+})
+<span class="k">export class</span> <span class="t">AppModule</span> {}</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label"><code>synchronize: true</code>는 개발 환경 전용입니다</span>
+    <p>이 옵션이 켜지면 앱 시작 시 Entity 정의에 맞게 DB 스키마가 자동으로 변경됩니다. 편리하지만 <strong>운영 DB에서 사용하면 데이터 손실</strong>이 발생할 수 있습니다. 프로덕션에서는 반드시 <code>false</code>로 두고 마이그레이션을 사용하세요.</p>
+  </div>
+
+  <h2><span class="num">2</span><code>@Entity</code> + <code>@Column</code> — 클래스로 테이블 정의</h2>
+  <p>TypeORM에서 DB 테이블은 <strong>TypeScript 클래스</strong>로 표현됩니다. <code>@Entity()</code>를 붙인 클래스가 하나의 테이블이 되고, 프로퍼티에 <code>@Column()</code>을 붙이면 그게 열(Column)이 됩니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — Entity는 표 양식, ORM은 표↔객체 번역가</span>
+    <p><strong>Entity 클래스</strong>는 도서관의 <strong>도서 카드 양식</strong>처럼, "이 테이블에는 어떤 항목(컬럼)이 있고 각 항목의 타입은 무엇인가"를 선언합니다. <strong>ORM(TypeORM)</strong>은 이 양식을 보고 SQL <code>CREATE TABLE</code>을 만들고, 나중에 DB에서 가져온 행(Row)을 TypeScript 객체로, 또는 반대로 TypeScript 객체를 SQL로 변환해 주는 <strong>번역가</strong>입니다. 번역가 덕분에 개발자는 SQL 대신 객체만 다루면 됩니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">post.entity.ts</span></div><pre><span class="k">import</span> { <span class="t">Entity</span>, <span class="t">PrimaryGeneratedColumn</span>, <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+
+<span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">Post</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>()
+  id: <span class="t">number</span>;       <span class="c">// SERIAL PRIMARY KEY — 자동 증가 PK</span>
+
+  <span class="d">@Column</span>()
+  title: <span class="t">string</span>;    <span class="c">// NOT NULL TEXT</span>
+
+  <span class="d">@Column</span>({ nullable: <span class="n">true</span> })
+  content: <span class="t">string</span>;  <span class="c">// NULL 허용 TEXT</span>
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 250" role="img" aria-label="Post Entity 클래스와 DB posts 테이블의 컬럼 매핑">
+      <!-- Entity class box -->
+      <rect x="30" y="30" width="260" height="180" rx="12" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="160" y="58" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#6fd6c7">Post (Entity 클래스)</text>
+      <!-- id row -->
+      <rect x="50" y="70" width="220" height="34" rx="6" fill="#1c1a16" stroke="#c98a16" stroke-width="1"/>
+      <text x="70" y="84" font-family="JetBrains Mono, monospace" font-size="11" fill="#c98a16">@PrimaryGeneratedColumn()</text>
+      <text x="70" y="99" font-family="JetBrains Mono, monospace" font-size="12" fill="#ece6d6">id: number</text>
+      <!-- title row -->
+      <rect x="50" y="112" width="220" height="34" rx="6" fill="#1c1a16" stroke="#0d6e64" stroke-width="1"/>
+      <text x="70" y="126" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64">@Column()</text>
+      <text x="70" y="141" font-family="JetBrains Mono, monospace" font-size="12" fill="#ece6d6">title: string</text>
+      <!-- content row -->
+      <rect x="50" y="154" width="220" height="38" rx="6" fill="#1c1a16" stroke="#0d6e64" stroke-width="1"/>
+      <text x="70" y="168" font-family="JetBrains Mono, monospace" font-size="11" fill="#0d6e64">@Column({nullable: true})</text>
+      <text x="70" y="184" font-family="JetBrains Mono, monospace" font-size="12" fill="#ece6d6">content: string</text>
+
+      <!-- Arrow -->
+      <line x1="296" y1="120" x2="364" y2="120" stroke="#e0552f" stroke-width="2.5" marker-end="url(#w4l2-arr)"/>
+      <text x="330" y="112" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#e0552f">ORM 번역</text>
+
+      <!-- DB table box -->
+      <rect x="368" y="30" width="280" height="180" rx="12" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="508" y="58" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#a8401f">posts (DB 테이블)</text>
+      <!-- id col -->
+      <rect x="388" y="70" width="240" height="34" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="408" y="91" font-family="JetBrains Mono, monospace" font-size="12" fill="#1c1a16">id  SERIAL PRIMARY KEY</text>
+      <!-- title col -->
+      <rect x="388" y="112" width="240" height="34" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="408" y="133" font-family="JetBrains Mono, monospace" font-size="12" fill="#1c1a16">title  TEXT NOT NULL</text>
+      <!-- content col -->
+      <rect x="388" y="154" width="240" height="38" rx="6" fill="#fff" stroke="#e0552f" stroke-width="1" stroke-opacity="0.5"/>
+      <text x="408" y="175" font-family="JetBrains Mono, monospace" font-size="12" fill="#1c1a16">content  TEXT</text>
+
+      <text x="340" y="235" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#807a6c">Entity 클래스의 프로퍼티 ↔ DB 테이블의 컬럼이 1:1 대응</text>
+      <defs>
+        <marker id="w4l2-arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>TypeScript 클래스의 프로퍼티(왼쪽)가 DB 테이블의 컬럼(오른쪽)으로 변환된다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span><code>forFeature</code> + <code>@InjectRepository</code> — Repository 주입</h2>
+  <p>Repository는 특정 Entity에 대한 DB 작업 창구입니다. NestJS에서 이를 쓰려면 두 단계가 필요합니다. ① 해당 모듈에 <code>TypeOrmModule.forFeature([Post])</code>를 등록해 Repository를 DI 컨테이너에 제공하고, ② Service 생성자에 <code>@InjectRepository(Post)</code>를 붙여 주입받습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.module.ts — Repository 등록</span></div><pre><span class="k">import</span> { <span class="t">Module</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">TypeOrmModule</span> } <span class="k">from</span> <span class="s">'@nestjs/typeorm'</span>;
+<span class="k">import</span> { <span class="t">Post</span> } <span class="k">from</span> <span class="s">'./post.entity'</span>;
+<span class="k">import</span> { <span class="t">PostsController</span> } <span class="k">from</span> <span class="s">'./posts.controller'</span>;
+<span class="k">import</span> { <span class="t">PostsService</span> } <span class="k">from</span> <span class="s">'./posts.service'</span>;
+
+<span class="d">@Module</span>({
+  imports: [
+    <span class="t">TypeOrmModule</span>.<span class="f">forFeature</span>([<span class="t">Post</span>]),  <span class="c">// Post Repository를 이 모듈에 제공</span>
+  ],
+  controllers: [<span class="t">PostsController</span>],
+  providers:   [<span class="t">PostsService</span>],
+})
+<span class="k">export class</span> <span class="t">PostsModule</span> {}</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — Repository 주입받기</span></div><pre><span class="k">import</span> { <span class="t">Injectable</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">InjectRepository</span> } <span class="k">from</span> <span class="s">'@nestjs/typeorm'</span>;
+<span class="k">import</span> { <span class="t">Repository</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
+<span class="k">import</span> { <span class="t">Post</span> } <span class="k">from</span> <span class="s">'./post.entity'</span>;
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">PostsService</span> {
+  <span class="k">constructor</span>(
+    <span class="d">@InjectRepository</span>(<span class="t">Post</span>)
+    <span class="k">private</span> postsRepo: <span class="t">Repository</span>&lt;<span class="t">Post</span>&gt;,
+  ) {}
+
+  <span class="c">// 이제 this.postsRepo.find() 등으로 DB 접근 가능</span>
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">forRoot vs forFeature</span>
+    <p><code>TypeOrmModule.forRoot()</code>는 <strong>앱 전체에 DB 연결을 한 번만 설정</strong>합니다(AppModule). <code>TypeOrmModule.forFeature([Post])</code>는 <strong>특정 모듈에서 Post Repository를 쓸 수 있도록</strong> 제공합니다. forFeature 없이 @InjectRepository를 쓰면 NestJS가 Repository를 찾지 못해 에러가 납니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>@Entity()</code>를 붙인 클래스는 어떤 역할을 하나요?</summary>
+    <div class="answer"><p><code>@Entity()</code>는 TypeORM에게 "이 TypeScript 클래스는 DB 테이블과 매핑된다"고 알리는 데코레이터입니다. 클래스 이름(또는 전달한 문자열)이 테이블 이름이 되고, <code>@Column()</code>을 붙인 프로퍼티들이 열(Column)이 됩니다. <code>synchronize: true</code>일 때 앱 시작 시 이 정의대로 테이블이 자동 생성·수정됩니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Repository는 어떻게 주입받나요? <code>@InjectRepository</code>가 필요한 이유는?</summary>
+    <div class="answer"><p>Repository를 주입받으려면 두 단계가 필요합니다. ① 해당 기능 모듈에 <code>TypeOrmModule.forFeature([Post])</code>를 등록해 NestJS DI 컨테이너가 Post Repository를 제공할 수 있도록 합니다. ② Service 생성자 파라미터에 <code>@InjectRepository(Post)</code>를 붙입니다. <code>@InjectRepository</code>가 필요한 이유는 Repository가 일반 클래스가 아니라 TypeORM이 동적으로 생성하는 특수 토큰이기 때문입니다 — 타입 정보만으로는 NestJS가 어떤 Repository를 주입해야 할지 알 수 없어서, 데코레이터로 "Post 테이블의 Repository를 달라"고 명시합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>synchronize: true</code>를 프로덕션에서 쓰면 안 되는 이유는?</summary>
+    <div class="answer"><p>이 옵션은 앱 시작 시 Entity 정의를 기준으로 DB 스키마를 자동으로 변경합니다. 개발 중에는 편리하지만, 프로덕션 DB에서는 컬럼 삭제·타입 변경이 자동으로 일어날 수 있어 <strong>기존 데이터 손실</strong>의 위험이 있습니다. 프로덕션에서는 <code>synchronize: false</code>로 설정하고, TypeORM Migration을 사용해 변경 사항을 명시적으로 관리해야 합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-sql-docker-postgres.html"><span class="dir">← 이전</span><span class="ttl">SQL 기본기 + Docker로 PostgreSQL</span></a>
+    <a class="next" href="03-repository-crud.html"><span class="dir">다음 →</span><span class="ttl">Repository CRUD: Find/Create/Save/Delete</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 4 · Lesson 02 · TypeORM 설정 · Entity · Repository</footer>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 10·02 — Page Pagination</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 10 · Pagination</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 10 — Lesson 02</span>
+  <h1>Page Pagination<br>페이지 번호로 바로 점프</h1>
+  <p class="subtitle"><code>page</code>·<code>take</code> 파라미터로 <code>skip = (page - 1) × take</code>를 계산하고, TypeORM <code>findAndCount</code>로 전체 개수와 현재 묶음을 한 번에 받아 총 페이지 수를 응답에 포함한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>페이지 번호 방식은 <b>총 페이지 수</b>를 알 수 있어 "3 / 15 페이지" 같은 UI가 가능하다. 커서로는 전체 개수를 집계해야 하므로 추가 쿼리가 필요하다. 관리자 화면·검색 결과처럼 <b>임의 페이지 점프가 필요한 곳</b>에 어울린다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>page</code>·<code>take</code> 파라미터를 받아 <code>skip = (page - 1) * take</code>를 계산할 수 있다</li>
+    <li>TypeORM <code>findAndCount</code>가 <code>[items, total]</code>을 한 번에 반환함을 이해한다</li>
+    <li><code>totalPages = Math.ceil(total / take)</code> 공식으로 총 페이지 수를 계산할 수 있다</li>
+    <li>페이지 방식과 커서 방식의 적합한 사용 시나리오를 구분할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>page</code> · <code>take</code> 파라미터와 <code>skip</code> 계산</h2>
+  <p class="lead">페이지 번호 방식은 "page 2, 한 페이지에 20개"라는 직관적인 파라미터로 동작합니다. DB 입장에서는 <code>OFFSET + LIMIT</code>로 번역됩니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 책의 쪽 번호</span>
+    <p>사전에서 원하는 단어를 찾을 때 "250쪽으로 바로 펼치기"가 가능합니다. 책갈피(커서)가 없어도 쪽 번호만 알면 어느 페이지든 즉시 열 수 있습니다. 단, 중간에 페이지가 삽입되면 기존 쪽 번호가 전부 밀립니다. 페이지 번호 기반 페이지네이션이 이와 같습니다. 임의 페이지 점프가 필요하지만 실시간 데이터 정합성이 덜 중요한 경우에 적합합니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 200" role="img" aria-label="page 번호와 take로 skip을 계산해 DB에서 해당 묶음을 조회하는 흐름">
+      <!-- Input -->
+      <rect x="20" y="55" width="140" height="90" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="90" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">쿼리 파라미터</text>
+      <text x="90" y="98" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8401f">page = 3</text>
+      <text x="90" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8401f">take = 20</text>
+
+      <!-- Arrow 1 -->
+      <line x1="162" y1="100" x2="232" y2="100" stroke="#807a6c" stroke-width="2" marker-end="url(#w10l2-arr1)"/>
+
+      <!-- Skip calc -->
+      <rect x="234" y="42" width="192" height="116" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="330" y="66" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#7d5604">skip 계산</text>
+      <text x="330" y="88" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7d5604">skip = (page - 1)</text>
+      <text x="330" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7d5604">       × take</text>
+      <text x="330" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#c98a16">= (3-1) × 20 = 40</text>
+      <text x="330" y="148" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a6a05">page는 1-indexed</text>
+
+      <!-- Arrow 2 -->
+      <line x1="428" y1="100" x2="496" y2="100" stroke="#0d6e64" stroke-width="2" marker-end="url(#w10l2-arr2)"/>
+
+      <!-- findAndCount -->
+      <rect x="498" y="42" width="182" height="116" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2.5"/>
+      <text x="589" y="66" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">findAndCount</text>
+      <text x="589" y="86" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#0a4f48">skip: 40, take: 20</text>
+      <text x="589" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#0a4f48">→ [items[20], total]</text>
+      <text x="589" y="122" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#5a8f87">items: 41번~60번 행</text>
+      <text x="589" y="140" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#5a8f87">total: 전체 행 수</text>
+
+      <text x="350" y="184" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#5a8f87">SQL: SELECT … LIMIT 20 OFFSET 40</text>
+
+      <defs>
+        <marker id="w10l2-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w10l2-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption><code>page</code>는 1-indexed. <code>page=3, take=20</code> → <code>skip=40</code> → 41~60번째 행 반환.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span><code>findAndCount</code>로 <code>total</code> 포함 응답</h2>
+  <p>TypeORM의 <code>findAndCount</code>는 데이터와 전체 개수를 <strong>한 번의 쿼리</strong>로 반환합니다. 총 페이지 수는 <code>Math.ceil(total / take)</code>로 계산합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — 페이지 방식 paginatePosts</span></div><pre><span class="k">import</span> { Injectable } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { InjectRepository } <span class="k">from</span> <span class="s">'@nestjs/typeorm'</span>;
+<span class="k">import</span> { Repository } <span class="k">from</span> <span class="s">'typeorm'</span>;
+<span class="k">import</span> { <span class="t">Post</span> } <span class="k">from</span> <span class="s">'./entities/post.entity'</span>;
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">PostsService</span> {
+  <span class="f">constructor</span>(
+    <span class="d">@InjectRepository</span>(<span class="t">Post</span>)
+    <span class="k">private readonly</span> postsRepository: <span class="t">Repository</span>&lt;<span class="t">Post</span>&gt;,
+  ) {}
+
+  <span class="k">async</span> <span class="f">paginatePosts</span>(page: <span class="t">number</span>, take: <span class="t">number</span> = <span class="n">20</span>) {
+    <span class="c">// page는 1-indexed: page=1 → skip=0, page=2 → skip=20</span>
+    <span class="k">const</span> skip = (page - <span class="n">1</span>) * take;
+
+    <span class="c">// findAndCount: SELECT + COUNT(*) 를 한 번에 수행</span>
+    <span class="c">// 반환값: [Post[], number] — items 배열과 총 레코드 수</span>
+    <span class="k">const</span> [items, total] = <span class="k">await</span> <span class="k">this</span>.postsRepository.<span class="f">findAndCount</span>({
+      skip,
+      take,
+      order: { createdAt: <span class="s">'DESC'</span> },
+    });
+
+    <span class="k">return</span> {
+      data: items,
+      meta: {
+        total,
+        page,
+        take,
+        totalPages: <span class="t">Math</span>.<span class="f">ceil</span>(total / take),
+      },
+    };
+  }
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label"><code>findAndCount</code>는 두 쿼리가 아닌 하나의 논리적 요청</span>
+    <p>TypeORM의 <code>findAndCount</code>는 내부적으로 <code>SELECT … LIMIT … OFFSET …</code>과 <code>SELECT COUNT(*)</code>를 실행하지만, 코드 상에서는 한 번의 호출로 처리됩니다. 직접 <code>find()</code>와 <code>count()</code>를 따로 호출하면 트랜잭션 없이 두 쿼리 사이에 데이터가 변경될 수 있으므로 <code>findAndCount</code>를 사용하는 것이 더 안전합니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>응답 구조 — <code>total</code> · <code>totalPages</code> 포함</h2>
+  <p>페이지 방식 응답은 커서 방식과 달리 <code>total</code>과 <code>totalPages</code>를 포함합니다. 이를 통해 "3 / 15 페이지" 같은 UI 표시가 가능합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">응답 JSON 예시 — page=3, take=20, total=280</span></div><pre>{
+  <span class="s">"data"</span>: [
+    { <span class="s">"id"</span>: <span class="n">181</span>, <span class="s">"title"</span>: "41번째 글" },
+    <span class="c">// ... 총 20개</span>
+    { <span class="s">"id"</span>: <span class="n">200</span>, <span class="s">"title"</span>: "60번째 글" }
+  ],
+  <span class="s">"meta"</span>: {
+    <span class="s">"total"</span>: <span class="n">280</span>,          <span class="c">// 전체 게시글 수</span>
+    <span class="s">"page"</span>: <span class="n">3</span>,             <span class="c">// 현재 페이지 (1-indexed)</span>
+    <span class="s">"take"</span>: <span class="n">20</span>,            <span class="c">// 한 페이지 항목 수</span>
+    <span class="s">"totalPages"</span>: <span class="n">14</span>       <span class="c">// Math.ceil(280 / 20) = 14</span>
+  }
+}</pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">페이지 방식 vs 커서 방식 — 선택 기준</span>
+    <p><strong>페이지 방식이 적합한 경우:</strong> 관리자 대시보드, 검색 결과, "3 / 15 페이지" UI처럼 임의 페이지 점프가 필요하거나 총 개수를 표시해야 할 때.<br>
+    <strong>커서 방식이 적합한 경우:</strong> 소셜 피드, 무한 스크롤, 실시간으로 데이터가 추가·삭제되는 환경. 데이터 밀림 없이 일관된 스트림을 제공합니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 페이지 방식이 커서 방식보다 적합한 경우는 어떤 경우인가요?</summary>
+    <div class="answer"><p>임의 페이지 점프와 총 페이지 수 표시가 필요한 경우입니다. 예를 들어 관리자 화면에서 "5 / 20 페이지"를 표시하고 7페이지로 바로 이동하는 시나리오, 또는 검색 결과 페이지 번호 목록(1·2·3…10)을 UI에 렌더링해야 하는 경우입니다. 커서 방식은 현재 위치에서 다음으로만 이동 가능하고 전체 개수를 모르므로 이런 UI를 구현하기 어렵습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>total</code>은 어떻게 구하나요? 별도 쿼리가 필요한가요?</summary>
+    <div class="answer"><p>TypeORM의 <code>findAndCount</code>를 사용하면 별도 쿼리가 필요 없습니다. <code>findAndCount(options)</code>는 <code>[items, total]</code> 튜플을 반환합니다. <code>items</code>는 <code>skip</code>·<code>take</code>를 적용한 현재 페이지 항목이고, <code>total</code>은 <code>skip</code>·<code>take</code>를 제외한 전체 레코드 수입니다. 총 페이지 수는 <code>Math.ceil(total / take)</code>로 계산합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>page=1</code>일 때 <code>skip</code> 값은 얼마인가요? 공식을 설명하세요.</summary>
+    <div class="answer"><p><code>skip = (page - 1) * take</code>이므로 <code>page=1</code>이면 <code>skip = 0</code>입니다. page는 1-indexed(1부터 시작)이기 때문에 (1-1)=0이 되어 처음부터 조회합니다. <code>page=2</code>이면 <code>skip = 1 * take</code>(예: take=20이면 skip=20), <code>page=3</code>이면 <code>skip = 40</code>. SQL로는 <code>OFFSET skip LIMIT take</code>로 번역됩니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-cursor-pagination.html"><span class="dir">← 이전</span><span class="ttl">Cursor Pagination</span></a>
+    <a class="next" href="03-paginate-generalize.html"><span class="dir">다음 →</span><span class="ttl">Pagination 일반화</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 10 · Lesson 02 · Page Pagination</footer>
+</body>
+</html>

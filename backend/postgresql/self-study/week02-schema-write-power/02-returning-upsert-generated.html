@@ -37,6 +37,12 @@
   <h2><span class="num">1</span>RETURNING — 쓰기 + 결과를 한 번에</h2>
   <p>보통 INSERT 후 "방금 만든 행의 id가 뭐지?"를 알려면 다시 SELECT를 날려야 합니다. <code>RETURNING</code>은 그 왕복을 없앱니다 — INSERT/UPDATE/DELETE가 <strong>영향받은 행의 컬럼을 그대로 돌려줍니다</strong>.</p>
 
+  <div class="box analogy">
+    <span class="ic">🧾</span>
+    <span class="label">비유 — 주문하자마자 번호표를 받는 것</span>
+    <p>음식점에서 주문한 뒤 "제 주문 번호가 뭐예요?"를 따로 물어봐야 한다면 — 그게 보통의 <strong>INSERT + SELECT 패턴</strong>입니다(네트워크 왕복 2번). <code>RETURNING</code>은 주문하는 순간 직원이 바로 "주문번호 A-123입니다"라고 알려주는 것과 같습니다. 왕복이 1번으로 줄고, 그 사이에 다른 요청이 값을 바꿔버릴 위험(경쟁 조건)도 없어집니다.</p>
+  </div>
+
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — INSERT/DELETE ... RETURNING</span></div><pre><span class="k">INSERT</span> <span class="k">INTO</span> products (sku, price) <span class="k">VALUES</span> (<span class="s">'A-1'</span>, <span class="n">100.00</span>)
   <span class="k">RETURNING</span> id, created_at;          <span class="c">-- 재조회 없이 즉시 받는다</span>
 <span class="c"> id |          created_at</span>
@@ -50,6 +56,12 @@
 <span class="c">  2 | TMP</span></pre></div>
 
   <p>PG18에서는 한 걸음 더 나아가, <code>UPDATE</code>의 <strong>변경 전 값(<code>OLD</code>)과 변경 후 값(<code>NEW</code>)을 동시에</strong> 돌려받을 수 있습니다. 단, <code>RETURNING old.*, new.*</code>처럼 그대로 쓰면 컬럼명이 겹치므로(같은 <code>price</code>가 둘) <strong>별칭</strong>을 주는 게 깔끔합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🏦</span>
+    <span class="label">비유 — 은행 이체 확인서</span>
+    <p>은행 이체 후 "이전 잔액: 100만원 → 이후 잔액: 90만원"처럼 변경 전후를 한눈에 보여주는 확인서와 같습니다. PG18 이전에는 UPDATE 전에 <strong>별도로 SELECT해서 이전 값을 미리 챙겨둬야</strong> 했습니다. <code>RETURNING old.price, new.price</code>는 그 수고를 없애고 변경 전후 값을 UPDATE 한 문장으로 받아옵니다.</p>
+  </div>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — (PG18) RETURNING OLD / NEW</span></div><pre><span class="k">UPDATE</span> products <span class="k">SET</span> price = price * <span class="n">1.10</span> <span class="k">WHERE</span> sku = <span class="s">'A-1'</span>
   <span class="k">RETURNING</span> old.price <span class="k">AS</span> old_price, new.price <span class="k">AS</span> new_price;
@@ -78,9 +90,15 @@
   <p>"있으면 수정, 없으면 삽입"은 너무 흔한 요구라 별명까지 있습니다 — <strong>UPSERT</strong>. Postgres는 <code>INSERT … ON CONFLICT</code>로 이를 <strong>한 문장·원자적으로</strong> 처리합니다. 충돌 시 삽입하려던 행은 특수 테이블 <code>EXCLUDED</code>로 참조합니다.</p>
 
   <div class="box analogy">
+    <span class="ic">📱</span>
+    <span class="label">비유 — 소셜 로그인</span>
+    <p>카카오 로그인을 처리할 때 "이 이메일로 가입한 회원이 이미 있으면 마지막 로그인 시각만 업데이트, 없으면 새 회원으로 등록"하는 상황을 생각해보세요. 코드로 구현하면 SELECT → 있으면 UPDATE, 없으면 INSERT를 따로 작성해야 하고 동시 요청이 들어오면 경쟁 조건도 생깁니다. <code>ON CONFLICT</code>는 이걸 <strong>한 문장·원자적으로</strong> 해결합니다.</p>
+  </div>
+
+  <div class="box analogy">
     <span class="ic">🔑</span>
     <span class="label">비유 — EXCLUDED는 "문 앞에서 거절당한 행"</span>
-    <p><code>EXCLUDED</code>는 "<strong>삽입하려다 충돌로 거절당한 그 행</strong>"을 가리키는 가상 테이블입니다. <code>DO UPDATE SET qty = inventory.qty + EXCLUDED.qty</code>는 "기존 행의 수량(<code>inventory.qty</code>)에, 들어오려던 행의 수량(<code>EXCLUDED.qty</code>)을 더하라"는 뜻 — 즉 기존 값과 새 값을 조합할 수 있습니다.</p>
+    <p><code>EXCLUDED</code>는 "<strong>삽입하려다 충돌로 거절당한 그 행</strong>"을 가리키는 가상 테이블입니다. <code>DO UPDATE SET qty = inventory.qty + EXCLUDED.qty</code>는 "기존 행의 수량(<code>inventory.qty</code>)에, 들어오려던 행의 수량(<code>EXCLUDED.qty</code>)을 더하라"는 뜻 — 즉 기존 값과 새 값을 조합할 수 있습니다. <code>DO NOTHING</code>은 "충돌하면 조용히 무시" — 예를 들어 좋아요 버튼을 두 번 눌러도 한 번만 반영될 때 씁니다.</p>
   </div>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — ON CONFLICT DO UPDATE / DO NOTHING</span></div><pre><span class="k">INSERT</span> <span class="k">INTO</span> inventory (sku, qty) <span class="k">VALUES</span> (<span class="s">'A-1'</span>, <span class="n">10</span>)
@@ -116,6 +134,17 @@
   <h2><span class="num">3</span>MERGE — SQL 표준</h2>
   <p><code>ON CONFLICT</code>는 "들어오려는 한 행"의 충돌을 다룹니다. 반면 <strong><code>MERGE</code></strong>는 <strong>소스 테이블과 조인</strong>해, 매칭 여부(<code>WHEN MATCHED</code> / <code>WHEN NOT MATCHED</code>)에 따라 UPDATE·INSERT·DELETE를 분기합니다. 외부 피드를 통째로 동기화하는 경우처럼 <strong>여러 행을 다른 소스와 병합</strong>할 때 유용합니다.</p>
 
+  <div class="box analogy">
+    <span class="ic">📦</span>
+    <span class="label">비유 — 편의점 재고 동기화</span>
+    <p>본사에서 매주 "이번 주 재고 현황" 파일(<code>stock_feed</code>)을 보내옵니다. 편의점 직원이 현재 진열대(<code>inventory</code>)와 대조해서 처리합니다:</p>
+    <ul>
+      <li><strong>이미 있는 상품</strong>(매칭) → 수량을 본사 데이터로 덮어씁니다 (<code>WHEN MATCHED → UPDATE</code>)</li>
+      <li><strong>새로 들어온 상품</strong>(미매칭) → 진열대에 추가합니다 (<code>WHEN NOT MATCHED → INSERT</code>)</li>
+    </ul>
+    <p>MERGE는 이 작업 전체를 SQL 한 문장으로 처리합니다. <code>ON CONFLICT</code>가 "한 손님의 주문 처리"라면 MERGE는 "전체 손님 명단을 통째로 갱신"하는 것입니다.</p>
+  </div>
+
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — MERGE (소스 테이블과 병합)</span></div><pre><span class="c">-- stock_feed = 외부에서 들어온 재고 피드 (A-1=100, B-2=7)</span>
 <span class="k">MERGE</span> <span class="k">INTO</span> inventory <span class="k">AS</span> tgt
 <span class="k">USING</span> stock_feed <span class="k">AS</span> src
@@ -139,11 +168,19 @@
   <h2><span class="num">4</span>생성 컬럼(Generated Columns)</h2>
   <p>다른 컬럼으로부터 <strong>자동으로 계산되는 컬럼</strong>입니다. <code>price_tax</code>를 매번 앱에서 계산해 넣는 대신, "<code>price * 1.10</code>"이라고 <strong>한 번 선언</strong>해 두면 DB가 알아서 채웁니다. 두 가지 모드가 있습니다.</p>
 
+  <div class="box analogy">
+    <span class="ic">🧮</span>
+    <span class="label">비유 — 메모장에 미리 적어두기 vs 그때그때 계산하기</span>
+    <p><strong>STORED</strong>는 물건을 받는 순간(INSERT/UPDATE) 미리 계산해서 메모장(디스크)에 적어두는 것입니다. 나중에 읽을 때 메모장만 펼치면 되므로 빠르지만 메모장 공간을 씁니다.<br>
+    <strong>virtual</strong>은 메모장에 적지 않고, 필요할 때마다 그 자리에서 계산합니다. 메모장 공간은 아끼지만 읽을 때마다 계산 비용이 생깁니다.<br>
+    인덱스를 걸어야 하는 컬럼(예: 검색 속도가 중요한 <code>lower(name)</code>)이라면 <code>STORED</code>를 선택하세요 — virtual 컬럼에는 인덱스를 직접 달 수 없습니다.</p>
+  </div>
+
   <table class="tbl">
-    <thead><tr><th>모드</th><th>언제 계산</th><th>디스크 저장</th></tr></thead>
+    <thead><tr><th>모드</th><th>언제 계산</th><th>디스크 저장</th><th>인덱스</th></tr></thead>
     <tbody>
-      <tr><td><code>STORED</code></td><td>쓸 때(INSERT/UPDATE)</td><td>저장함 — 읽기 빠름</td></tr>
-      <tr><td>virtual (PG18 기본)</td><td>읽을 때(SELECT)</td><td>저장 안 함 — 공간 절약</td></tr>
+      <tr><td><code>STORED</code></td><td>쓸 때(INSERT/UPDATE)</td><td>저장함 — 읽기 빠름</td><td>가능 ✅</td></tr>
+      <tr><td>virtual (PG18 기본)</td><td>읽을 때(SELECT)</td><td>저장 안 함 — 공간 절약</td><td>불가 ❌</td></tr>
     </tbody>
   </table>
 

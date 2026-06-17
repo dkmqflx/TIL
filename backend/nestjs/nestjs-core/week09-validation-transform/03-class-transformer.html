@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 9·03 — Class Transformer — Exclude · Expose · ClassSerializerInterceptor</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 9 · DTO 검증·변환</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 9 — Lesson 03</span>
+  <h1>Class Transformer<br>직렬화 제어 — Exclude · Expose</h1>
+  <p class="subtitle"><code>class-transformer</code>의 <code>@Exclude()</code>·<code>@Expose()</code> 데코레이터로 엔티티 직렬화(응답)에서 민감한 필드를 제거하고, <code>ClassSerializerInterceptor</code>를 전역 적용해 선언 한 번으로 모든 응답을 제어한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p><code>@Exclude()</code>는 <b>선언</b>이고, <code>ClassSerializerInterceptor</code>는 <b>실행</b>이다. 둘 다 있어야 비밀번호가 응답에서 빠진다. 어느 하나만으로는 동작하지 않는다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>@Exclude()</code>·<code>@Expose()</code> 데코레이터의 역할과 차이를 설명할 수 있다</li>
+    <li><code>ClassSerializerInterceptor</code>를 전역 등록해 모든 응답에 직렬화 규칙을 적용할 수 있다</li>
+    <li><code>toPlainOnly</code>·<code>toClassOnly</code> 방향 옵션이 각각 어떤 경우에 쓰이는지 설명할 수 있다</li>
+    <li><code>@Expose()</code>로 getter 같은 계산된 필드를 응답에 포함시킬 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span><code>@Exclude()</code> · <code>@Expose()</code> 직렬화 제어</h2>
+  <p class="lead"><code>class-transformer</code>는 클래스 인스턴스를 일반 객체(plain object)로 변환(직렬화)하거나, 그 반대(역직렬화)를 할 때 어떤 필드를 포함할지 데코레이터로 선언할 수 있습니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 출력 전 민감정보 가리개</span>
+    <p>병원 영수증 출력 화면에서 <strong>환자 주민번호는 가려지고(마스킹)</strong>, 이름·진료비는 그대로 표시됩니다. 화면(응답)을 위한 마스킹이지, 내부 DB에는 주민번호가 그대로 존재합니다. <code>@Exclude({ toPlainOnly: true })</code>가 이 역할입니다 — <strong>응답(직렬화) 시에만 제거하고, 저장·처리 시에는 그대로</strong> 유지합니다.</p>
+  </div>
+
+  <p>전체 예제는 <a href="code/user.entity.ts"><code>code/user.entity.ts</code></a>에서 확인하세요.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.entity.ts — @Exclude + @Expose 적용</span></div><pre><span class="k">import</span> { Entity, PrimaryGeneratedColumn, Column } <span class="k">from</span> <span class="s">'typeorm'</span>;
+<span class="k">import</span> { Exclude, Expose } <span class="k">from</span> <span class="s">'class-transformer'</span>;
+
+<span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">User</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>()
+  id: <span class="t">number</span>;
+
+  <span class="d">@Column</span>({ unique: <span class="k">true</span> })
+  email: <span class="t">string</span>;
+
+  <span class="d">@Column</span>()
+  nickname: <span class="t">string</span>;
+
+  <span class="c">// toPlainOnly: true → 응답(직렬화) 시에만 제거</span>
+  <span class="c">// 저장(역직렬화) 시에는 그대로 포함 → DB 저장 정상 동작</span>
+  <span class="d">@Exclude</span>({ toPlainOnly: <span class="k">true</span> })
+  <span class="d">@Column</span>()
+  password: <span class="t">string</span>;
+
+  <span class="c">// @Expose(): 클래스에 @Exclude()가 기본 적용된 상태에서 명시적으로 포함</span>
+  <span class="c">// 또는 getter(계산된 필드)를 응답에 포함시킬 때 사용</span>
+  <span class="d">@Expose</span>()
+  <span class="f">get</span> <span class="f">displayName</span>(): <span class="t">string</span> {
+    <span class="k">return</span> <span class="s">`<span class="t">${<span class="k">this</span>.nickname}</span> &lt;<span class="t">${<span class="k">this</span>.email}</span>&gt;`</span>;
+  }
+}</pre></div>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label"><code>@Exclude()</code>만으로는 비밀번호가 응답에서 제거되지 않는다</span>
+    <p><code>@Exclude()</code>는 <strong>선언</strong>일 뿐입니다. 실제로 직렬화를 수행하는 <code>ClassSerializerInterceptor</code>가 등록되어 있어야 응답에서 제거됩니다. 또한 핸들러가 TypeORM 엔티티 <strong>클래스 인스턴스</strong>를 반환해야 합니다 — <code>{ ...user }</code>처럼 plain object로 spread하면 인스턴스 정보가 사라져 데코레이터가 동작하지 않습니다.</p>
+  </div>
+
+  <h2><span class="num">2</span><code>ClassSerializerInterceptor</code> 전역 적용</h2>
+  <p><code>main.ts</code>에서 전역 인터셉터로 등록하면 모든 핸들러의 응답에 <code>class-transformer</code> 직렬화 규칙이 자동 적용됩니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">main.ts — ClassSerializerInterceptor 전역 등록</span></div><pre><span class="k">import</span> { NestFactory, Reflector } <span class="k">from</span> <span class="s">'@nestjs/core'</span>;
+<span class="k">import</span> { ClassSerializerInterceptor, ValidationPipe } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">AppModule</span> } <span class="k">from</span> <span class="s">'./app.module'</span>;
+
+<span class="k">async function</span> <span class="f">bootstrap</span>() {
+  <span class="k">const</span> app = <span class="k">await</span> <span class="t">NestFactory</span>.<span class="f">create</span>(<span class="t">AppModule</span>);
+
+  app.<span class="f">useGlobalPipes</span>(<span class="k">new</span> <span class="t">ValidationPipe</span>({ whitelist: <span class="k">true</span>, transform: <span class="k">true</span> }));
+
+  <span class="c">// Reflector는 NestJS DI 컨테이너에서 메타데이터를 읽는 도구</span>
+  <span class="c">// ClassSerializerInterceptor가 내부적으로 Reflector를 필요로 한다</span>
+  app.<span class="f">useGlobalInterceptors</span>(<span class="k">new</span> <span class="t">ClassSerializerInterceptor</span>(app.<span class="f">get</span>(<span class="t">Reflector</span>)));
+
+  <span class="k">await</span> app.<span class="f">listen</span>(<span class="n">3000</span>);
+}
+<span class="f">bootstrap</span>();</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 720 220" role="img" aria-label="TypeORM User 엔티티 인스턴스가 ClassSerializerInterceptor를 통과하면서 password가 제거되고 displayName이 추가된 응답으로 변환되는 흐름">
+      <!-- Entity box -->
+      <rect x="20" y="50" width="160" height="130" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="100" y="76" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">User 인스턴스</text>
+      <text x="100" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">id: 1</text>
+      <text x="100" y="112" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">email: "..."</text>
+      <text x="100" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">nickname: "kim"</text>
+      <text x="100" y="146" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c05030">password: "hashed"</text>
+      <text x="100" y="163" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#c05030">(@Exclude toPlainOnly)</text>
+
+      <!-- Arrow -->
+      <line x1="182" y1="115" x2="260" y2="115" stroke="#807a6c" stroke-width="2" marker-end="url(#w9l3-arr1)"/>
+
+      <!-- Interceptor box -->
+      <rect x="262" y="48" width="196" height="134" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2.5"/>
+      <text x="360" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">ClassSerializer</text>
+      <text x="360" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">Interceptor</text>
+      <text x="360" y="112" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#0a4f48">① instanceToPlain() 호출</text>
+      <text x="360" y="130" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#0a4f48">② @Exclude 필드 제거</text>
+      <text x="360" y="148" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#0a4f48">③ @Expose getter 포함</text>
+      <text x="360" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#5a8f87">plain object 반환</text>
+
+      <!-- Arrow to response -->
+      <line x1="460" y1="115" x2="540" y2="115" stroke="#0d6e64" stroke-width="2" marker-end="url(#w9l3-arr2)"/>
+
+      <!-- Response box -->
+      <rect x="542" y="50" width="158" height="130" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="621" y="76" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#6fd6c7">JSON 응답</text>
+      <text x="621" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">id: 1</text>
+      <text x="621" y="112" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">email: "..."</text>
+      <text x="621" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">nickname: "kim"</text>
+      <text x="621" y="146" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#5ba888">password 없음 ✓</text>
+      <text x="621" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#6fd6c7">displayName: "kim ..."</text>
+
+      <defs>
+        <marker id="w9l3-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w9l3-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>User 인스턴스가 ClassSerializerInterceptor를 통과하면 <code>password</code>는 제거되고, <code>@Expose()</code> getter인 <code>displayName</code>은 포함된다.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span><code>toPlainOnly</code> · <code>toClassOnly</code> 방향 옵션</h2>
+  <p>방향 옵션으로 직렬화·역직렬화 중 어느 방향에서만 규칙을 적용할지 세밀하게 제어할 수 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.entity.ts — 방향 옵션 비교</span></div><pre><span class="k">import</span> { Exclude } <span class="k">from</span> <span class="s">'class-transformer'</span>;
+
+<span class="k">export class</span> <span class="t">User</span> {
+  <span class="c">// toPlainOnly: true</span>
+  <span class="c">// → 인스턴스 → plain(JSON 응답) 시에만 제거</span>
+  <span class="c">// → plain → 인스턴스(로그인 요청 역직렬화) 시에는 password 포함 → DB 저장 정상</span>
+  <span class="d">@Exclude</span>({ toPlainOnly: <span class="k">true</span> })
+  password: <span class="t">string</span>;
+
+  <span class="c">// toClassOnly: true (반대 방향)</span>
+  <span class="c">// → plain → 인스턴스(역직렬화) 시에만 제거</span>
+  <span class="c">// → 인스턴스 → plain(응답) 시에는 포함됨</span>
+  <span class="c">// 사용 사례: 외부에서 받은 값을 저장하지 않고 싶을 때</span>
+  <span class="d">@Exclude</span>({ toClassOnly: <span class="k">true</span> })
+  temporaryToken?: <span class="t">string</span>;
+
+  <span class="c">// 옵션 없음: 양방향 제거 (직렬화·역직렬화 모두에서 제외)</span>
+  <span class="d">@Exclude</span>()
+  internalFlag: <span class="t">boolean</span>;
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">비밀번호 필드는 반드시 <code>toPlainOnly: true</code></span>
+    <p>옵션 없이 <code>@Exclude()</code>만 쓰면 역직렬화(요청 본문 → 클래스 인스턴스) 시에도 제외됩니다. 회원가입·로그인 시 <code>password</code>가 엔티티에 담기지 않아 해싱 후 저장이 되지 않는 문제가 생깁니다. 비밀번호처럼 <strong>"응답에서는 숨기되 입력은 받아야 하는"</strong> 필드에는 반드시 <code>{ toPlainOnly: true }</code>를 사용하세요.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 응답 JSON에서 비밀번호를 제거하려면 무엇이 필요한가요?</summary>
+    <div class="answer"><p>두 가지가 반드시 함께 있어야 합니다. ① <strong><code>@Exclude({ toPlainOnly: true })</code></strong> — 엔티티 클래스의 <code>password</code> 필드에 선언합니다. 응답(직렬화) 시에만 제거하고, 입력(역직렬화) 시에는 포함합니다. ② <strong><code>ClassSerializerInterceptor</code></strong> — <code>main.ts</code>에 전역 등록해야 실제로 직렬화가 수행됩니다. 또한 핸들러가 <code>{ ...user }</code> 같은 plain object가 아니라 <strong>TypeORM 엔티티 클래스 인스턴스</strong>를 반환해야 데코레이터가 동작합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>@Expose()</code>는 언제 사용하나요?</summary>
+    <div class="answer"><p>두 가지 경우에 씁니다. ① <strong>전체 제외 후 일부 포함</strong> — 클래스에 <code>@Exclude()</code>를 기본 적용하고(<code>excludeExtraneousValues: true</code>), <code>@Expose()</code>로 표시한 필드만 응답에 포함시키는 화이트리스트 방식입니다. ② <strong>Getter(계산된 필드) 포함</strong> — TypeScript의 <code>get</code> 접근자는 기본적으로 직렬화에서 제외됩니다. <code>@Expose()</code>를 붙이면 <code>displayName</code>, <code>fullName</code> 같은 계산된 값을 응답에 포함시킬 수 있습니다. 이 방식으로 DB에 저장하지 않는 뷰 전용 필드를 응답에 추가할 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>ClassSerializerInterceptor</code>를 사용할 때 핸들러가 plain object를 반환하면 어떻게 되나요?</summary>
+    <div class="answer"><p><code>@Exclude()</code>·<code>@Expose()</code> 데코레이터가 동작하지 않습니다. <code>ClassSerializerInterceptor</code>는 내부적으로 <code>instanceToPlain()</code>을 호출하는데, 이 함수는 클래스 인스턴스의 메타데이터(데코레이터 정보)를 읽습니다. <code>{ ...entity }</code>처럼 spread하거나 <code>Object.assign({}, entity)</code>로 복사하면 프로토타입 체인이 끊겨 메타데이터가 사라집니다. 따라서 핸들러에서는 TypeORM Repository의 <code>find()</code>·<code>findOne()</code>이 반환하는 클래스 인스턴스를 그대로 반환해야 합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-validation-message.html"><span class="dir">← 이전</span><span class="ttl">Validation Message 일반화</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 9 · Lesson 03 · Class Transformer — Exclude · Expose · ClassSerializerInterceptor</footer>
+</body>
+</html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 9·02 — Validation Message 일반화</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 9 · DTO 검증·변환</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 9 — Lesson 02</span>
+  <h1>Validation Message 일반화<br>일관된 에러 메시지 패턴</h1>
+  <p class="subtitle">검증 데코레이터에 커스텀 메시지를 직접 넣는 방식의 한계를 이해하고, <code>ValidationArguments</code>를 받는 메시지 생성 함수로 일반화해 프로젝트 전체에서 일관된 에러 메시지를 반환한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>에러 메시지를 함수로 만들면 <b>DTO마다 같은 문구를 복붙할 필요가 없다</b>. 필드 이름·제약 값을 <code>ValidationArguments</code>에서 꺼내 쓰면, 메시지 하나가 모든 DTO를 커버한다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>검증 데코레이터의 <code>message</code> 옵션에 문자열이 아닌 함수를 전달할 수 있다</li>
+    <li><code>ValidationArguments</code> 타입의 주요 필드(<code>property</code>, <code>value</code>, <code>constraints</code>)를 활용할 수 있다</li>
+    <li>메시지 생성 함수를 별도 파일로 분리해 DTO 전반에서 재사용할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span>데코레이터별 커스텀 메시지</h2>
+  <p class="lead">검증 데코레이터는 두 번째 인수(옵션 객체)의 <code>message</code> 필드로 에러 메시지를 커스터마이징할 수 있습니다. 가장 단순한 방식은 <strong>문자열을 그대로</strong> 넣는 것입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 붕어빵 틀</span>
+    <p>에러 메시지를 DTO마다 직접 적으면 "제목은 1~100자" / "본문은 1~5000자" 처럼 내용만 다른 문구가 파일마다 흩어집니다. <strong>붕어빵 틀(메시지 생성 함수)</strong>을 만들면 "틀"에 재료(필드 이름, 제약 값)만 넣으면 모양이 같은 붕어빵(일관된 메시지)이 나옵니다. 틀을 바꾸면 전체 붕어빵이 바뀝니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">create-post.dto.ts — 문자열 직접 지정 (기본)</span></div><pre><span class="k">import</span> { IsString, Length } <span class="k">from</span> <span class="s">'class-validator'</span>;
+
+<span class="k">export class</span> <span class="t">CreatePostDto</span> {
+  <span class="d">@IsString</span>({ message: <span class="s">'title은 문자열이어야 합니다'</span> })
+  <span class="d">@Length</span>(<span class="n">1</span>, <span class="n">100</span>, { message: <span class="s">'title은 1~100자 사이여야 합니다'</span> })
+  title: <span class="t">string</span>;
+
+  <span class="d">@IsString</span>({ message: <span class="s">'content는 문자열이어야 합니다'</span> })
+  <span class="d">@Length</span>(<span class="n">1</span>, <span class="n">5000</span>, { message: <span class="s">'content는 1~5000자 사이여야 합니다'</span> })
+  content: <span class="t">string</span>;
+}
+<span class="c">// 문제: DTO가 늘어날수록 동일 패턴의 메시지가 반복됨</span></pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">기본 에러 메시지</span>
+    <p><code>message</code>를 지정하지 않으면 <code>class-validator</code>가 영문 기본 메시지를 반환합니다(예: <code>"title must be a string"</code>). 프론트엔드에서 한국어 메시지가 필요하거나, 일관된 포맷이 필요하면 <code>message</code>를 커스터마이징하는 것이 좋습니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>메시지 생성 함수로 일반화</h2>
+  <p><code>message</code> 옵션에 문자열 대신 <strong>함수</strong>를 전달할 수 있습니다. 함수는 <code>ValidationArguments</code>를 받아 동적으로 메시지를 생성합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">validation-messages.ts — 재사용 가능한 메시지 유틸</span></div><pre><span class="k">import</span> { <span class="t">ValidationArguments</span> } <span class="k">from</span> <span class="s">'class-validator'</span>;
+
+<span class="c">// args.property: 검증 중인 필드 이름 ('title', 'content' 등)</span>
+<span class="c">// args.value: 실제로 들어온 값</span>
+<span class="c">// args.constraints: 데코레이터에 전달한 제약 [min, max] 등</span>
+
+<span class="k">export const</span> <span class="f">stringValidationMessage</span> = (args: <span class="t">ValidationArguments</span>) =>
+  <span class="s">`<span class="t">${args.property}</span>는 문자열이어야 합니다`</span>;
+
+<span class="k">export const</span> <span class="f">lengthValidationMessage</span> = (args: <span class="t">ValidationArguments</span>) => {
+  <span class="k">const</span> [min, max] = args.constraints <span class="k">as</span> [<span class="t">number</span>, <span class="t">number</span>];
+  <span class="k">return</span> <span class="s">`<span class="t">${args.property}</span>는 <span class="t">${min}</span>~<span class="t">${max}</span>자 사이여야 합니다`</span>;
+};
+
+<span class="k">export const</span> <span class="f">emailValidationMessage</span> = (args: <span class="t">ValidationArguments</span>) =>
+  <span class="s">`<span class="t">${args.property}</span>는 유효한 이메일 형식이어야 합니다`</span>;</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">create-post.dto.ts — 메시지 함수 적용 후</span></div><pre><span class="k">import</span> { IsString, Length } <span class="k">from</span> <span class="s">'class-validator'</span>;
+<span class="k">import</span> { stringValidationMessage, lengthValidationMessage } <span class="k">from</span> <span class="s">'./validation-messages'</span>;
+
+<span class="k">export class</span> <span class="t">CreatePostDto</span> {
+  <span class="d">@IsString</span>({ message: stringValidationMessage })
+  <span class="d">@Length</span>(<span class="n">1</span>, <span class="n">100</span>, { message: lengthValidationMessage })
+  title: <span class="t">string</span>;
+
+  <span class="d">@IsString</span>({ message: stringValidationMessage })
+  <span class="d">@Length</span>(<span class="n">1</span>, <span class="n">5000</span>, { message: lengthValidationMessage })
+  content: <span class="t">string</span>;
+}
+<span class="c">// 결과: title에 숫자를 넣으면 → "title는 문자열이어야 합니다"</span>
+<span class="c">// "abc"를 title에 넣고 200자면 → "title는 1~100자 사이여야 합니다"</span></pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 680 200" role="img" aria-label="검증 실패 시 ValidationArguments가 메시지 함수에 전달되어 일관된 메시지를 생성하는 흐름">
+      <!-- Fail input -->
+      <rect x="20" y="64" width="130" height="72" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="85" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">검증 실패</text>
+      <text x="85" y="108" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">property: 'title'</text>
+      <text x="85" y="124" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">constraints: [1,100]</text>
+
+      <!-- Arrow -->
+      <line x1="152" y1="100" x2="232" y2="100" stroke="#807a6c" stroke-width="2" marker-end="url(#w9l2-arr1)"/>
+
+      <!-- Message function box -->
+      <rect x="234" y="48" width="210" height="104" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="339" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#7d5604">lengthValidationMessage</text>
+      <text x="339" y="94" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#7d5604">ValidationArguments 수신</text>
+      <text x="339" y="112" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9a7020">args.property → 'title'</text>
+      <text x="339" y="130" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9a7020">args.constraints → [1,100]</text>
+
+      <!-- Arrow to message -->
+      <line x1="446" y1="100" x2="526" y2="100" stroke="#c98a16" stroke-width="2" marker-end="url(#w9l2-arr2)"/>
+
+      <!-- Output box -->
+      <rect x="528" y="64" width="132" height="72" rx="10" fill="#16140f" stroke="#c98a16" stroke-width="2"/>
+      <text x="594" y="88" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" font-weight="700" fill="#f6c96e">일관된 메시지</text>
+      <text x="594" y="106" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">"title는</text>
+      <text x="594" y="122" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">1~100자 사이"</text>
+
+      <defs>
+        <marker id="w9l2-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w9l2-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>검증 실패 시 <code>ValidationArguments</code>가 메시지 함수에 전달된다. 함수는 필드 이름과 제약 값을 꺼내 일관된 메시지를 반환한다.</figcaption>
+  </figure>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">메시지 함수를 별도 파일로 분리하는 이유</span>
+    <p>프로젝트에 DTO 파일이 늘어날수록 메시지 패턴이 중복됩니다. <code>validation-messages.ts</code> 하나에 함수를 모아두면 <strong>메시지 문구를 바꿀 때 한 파일만 수정</strong>하면 됩니다. 국제화(i18n)가 필요할 때도 이 파일 하나만 교체하면 됩니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">3</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 메시지를 일반화(함수화)하면 어떤 점이 좋은가요?</summary>
+    <div class="answer"><p>세 가지 이점이 있습니다. ① <strong>중복 제거</strong> — 같은 패턴의 메시지를 DTO마다 복사할 필요 없이 함수 하나로 커버합니다. ② <strong>일관성</strong> — 프로젝트 전체의 에러 메시지가 동일한 포맷을 유지합니다. ③ <strong>유지보수성</strong> — 메시지 문구나 포맷을 바꿀 때 함수 한 곳만 수정하면 모든 DTO에 적용됩니다. i18n 적용도 이 함수만 교체하면 됩니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>ValidationArguments</code>로 어떤 정보를 알 수 있나요?</summary>
+    <div class="answer"><p><code>ValidationArguments</code>에는 네 가지 주요 필드가 있습니다. <code>property</code>: 현재 검증 중인 필드 이름(예: <code>'title'</code>). <code>value</code>: 요청에서 실제로 들어온 값. <code>constraints</code>: 데코레이터에 전달된 제약 값 배열(예: <code>@Length(1, 100)</code>이면 <code>[1, 100]</code>). <code>object</code>: 검증 중인 DTO 인스턴스 전체. <code>targetName</code>: DTO 클래스 이름. 이를 활용하면 "어떤 필드에서, 어떤 값이, 어떤 규칙을 어겼는가"를 메시지에 동적으로 반영할 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>message</code> 옵션에 함수를 넣으면 언제 호출되나요?</summary>
+    <div class="answer"><p>검증이 <strong>실패했을 때만</strong> 호출됩니다. 검증을 통과한 필드에 대해서는 메시지 함수가 전혀 실행되지 않습니다. 따라서 메시지 함수 안에서 비용이 큰 연산을 해도 정상 요청 성능에 영향을 주지 않습니다. 단, 반드시 문자열을 반환해야 하며 비동기 함수(<code>async</code>)는 지원하지 않습니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-class-validator-dto.html"><span class="dir">← 이전</span><span class="ttl">Class Validator + DTO</span></a>
+    <a class="next" href="03-class-transformer.html"><span class="dir">다음 →</span><span class="ttl">Class Transformer — Exclude · Expose · ClassSerializerInterceptor</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 9 · Lesson 02 · Validation Message 일반화</footer>
+</body>
+</html>

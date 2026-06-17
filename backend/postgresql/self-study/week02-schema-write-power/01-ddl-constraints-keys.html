@@ -34,6 +34,23 @@
     <li>시퀀스를 이해하고, (PG18) 제외 제약·temporal 제약을 맛본다</li>
   </ul>
 
+  <h2><span class="num">0</span>무결성(Integrity)이란?</h2>
+  <p><strong>무결성</strong>이란 "데이터가 정해진 규칙을 항상 지키고 있는 상태"를 말합니다. 쉽게 말하면 <strong>데이터가 올바르고 믿을 수 있는 상태</strong>입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">📦</span>
+    <span class="label">비유 — 택배 주소록</span>
+    <p>택배 주소록에 전화번호 칸이 있다고 해봅시다. 누군가 실수로 전화번호 칸에 "안녕하세요"라고 입력하거나, 같은 사람을 두 번 등록하거나, 이미 탈퇴한 회원의 주문이 남아 있다면 — 이 주소록은 <strong>무결성이 깨진</strong> 상태입니다. 반대로 모든 데이터가 규칙대로 정확히 들어가 있다면 <strong>무결성이 지켜진</strong> 상태입니다.</p>
+  </div>
+
+  <p>DB에서 무결성을 지키기 위한 구체적인 규칙들을 <strong>제약(constraint)</strong>이라고 합니다. 예를 들면:</p>
+  <ul>
+    <li><strong>이메일은 중복될 수 없다</strong> → <code>UNIQUE</code> 제약</li>
+    <li><strong>나이는 반드시 입력해야 하고 0 이상이어야 한다</strong> → <code>NOT NULL</code> + <code>CHECK</code> 제약</li>
+    <li><strong>주문의 고객 ID는 실제로 존재하는 고객이어야 한다</strong> → <code>FOREIGN KEY</code> 제약</li>
+  </ul>
+  <p>이런 제약들을 DB에 걸어두면, 잘못된 데이터가 들어오려 할 때 DB가 자동으로 거부합니다. 아래에서 각 제약을 하나씩 살펴봅니다.</p>
+
   <h2><span class="num">1</span>CREATE TABLE &amp; 컬럼 제약</h2>
   <p>테이블을 만들 때 컬럼 이름·타입만 적고 끝내기 쉽지만, 진짜 중요한 건 <strong>제약</strong>입니다. <code>NOT NULL</code>(비어 있을 수 없음), <code>DEFAULT</code>(기본값), <code>UNIQUE</code>(중복 금지), <code>CHECK</code>(값의 규칙)를 컬럼에 붙이면, "잘못된 데이터가 애초에 들어오지 못하게" DB가 직접 막아 줍니다.</p>
 
@@ -104,18 +121,23 @@
   </div>
 
   <h2><span class="num">3</span>기본키 전략 — IDENTITY vs uuidv7()</h2>
-  <p>거의 모든 테이블에는 기본키가 필요합니다. 선택지는 크게 둘입니다. <strong>정수 자동증가 키</strong>(<code>GENERATED ALWAYS AS IDENTITY</code>)와 <strong>UUID 키</strong>(<code>uuidv7()</code>). 둘의 동작 자체는 <a href="../week01-overview-env-types/03-data-types.html">Week 1 · Lesson 03</a>에서 다뤘으니, 여기서는 <strong>언제 무엇을 고를지</strong>에 집중합니다.</p>
+  <p>기본키(Primary Key)는 각 행을 구별하는 고유한 번호표입니다. 예를 들어 회원 테이블에서 "이 사람이 누구인지"를 식별하는 <code>id</code>가 기본키입니다. 선택지는 크게 두 가지입니다.</p>
+
+  <ul>
+    <li><strong>IDENTITY</strong>: 행이 추가될 때마다 DB가 자동으로 1, 2, 3… 숫자를 붙여 줍니다.</li>
+    <li><strong>uuidv7()</strong>: <code>019eac43-d675-7f08-…</code> 같은 긴 무작위 문자열을 ID로 씁니다.</li>
+  </ul>
 
   <table class="tbl">
-    <thead><tr><th>상황</th><th>권장 기본키</th><th>이유</th></tr></thead>
+    <thead><tr><th>상황</th><th>권장 기본키</th><th>이유 (쉽게)</th></tr></thead>
     <tbody>
-      <tr><td>일반적인 단일 DB 테이블</td><td><code>IDENTITY</code></td><td>작고(4~8바이트, int/bigint) 빠르고 인덱스 친화적</td></tr>
-      <tr><td>ID를 URL 등 외부에 노출</td><td><code>uuidv7()</code></td><td>순번이 새지 않음(다음 id 추측 불가)</td></tr>
-      <tr><td>분산 환경·클라이언트가 ID 생성</td><td><code>uuidv7()</code></td><td>중앙 시퀀스 없이 충돌 없는 ID</td></tr>
+      <tr><td>대부분의 경우 — 기본 선택</td><td><code>IDENTITY</code></td><td>1, 2, 3… 숫자라 단순하고 빠름</td></tr>
+      <tr><td>ID가 URL에 그대로 보일 때<br><small>예: <code>/posts/5</code>, <code>/orders/12</code></small></td><td><code>uuidv7()</code></td><td>숫자면 "다음 글은 /posts/6이겠네" 추측이 가능 — 긴 문자열은 추측 불가</td></tr>
+      <tr><td>여러 서버가 동시에 ID를 만들 때</td><td><code>uuidv7()</code></td><td>각 서버가 따로 만들어도 ID가 겹치지 않음</td></tr>
     </tbody>
   </table>
 
-  <p><code>uuidv7()</code>는 앞부분에 생성 시각이 박혀 있어 <strong>시간순으로 정렬</strong>되므로(무작위 v4와 달리) 인덱스에 순차적으로 꽂힙니다. 아래 실행 결과에서 두 행의 id 접두사 <code>019eac43</code>가 공유되고, 생성 순서대로 정렬되는 것에 주목하세요.</p>
+  <p><code>uuidv7()</code>는 완전히 무작위처럼 보이지만, 앞부분에 <strong>생성 시각</strong>이 들어 있어 만들어진 순서대로 정렬됩니다. 아래 결과에서 두 행의 id 앞부분 <code>019eac43</code>이 같은 것이 그 증거입니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — uuidv7() 기본키 (분산/외부노출용)</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> membership (
   id      <span class="t">uuid</span> <span class="k">PRIMARY KEY</span> <span class="k">DEFAULT</span> <span class="f">uuidv7</span>(),

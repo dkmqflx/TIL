@@ -34,6 +34,23 @@
     <li>시퀀스를 이해하고, (PG18) 제외 제약·temporal 제약을 맛본다</li>
   </ul>
 
+  <h2><span class="num">0</span>무결성(Integrity)이란?</h2>
+  <p><strong>무결성</strong>이란 "데이터가 정해진 규칙을 항상 지키고 있는 상태"를 말합니다. 쉽게 말하면 <strong>데이터가 올바르고 믿을 수 있는 상태</strong>입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">📦</span>
+    <span class="label">비유 — 택배 주소록</span>
+    <p>택배 주소록에 전화번호 칸이 있다고 해봅시다. 누군가 실수로 전화번호 칸에 "안녕하세요"라고 입력하거나, 같은 사람을 두 번 등록하거나, 이미 탈퇴한 회원의 주문이 남아 있다면 — 이 주소록은 <strong>무결성이 깨진</strong> 상태입니다. 반대로 모든 데이터가 규칙대로 정확히 들어가 있다면 <strong>무결성이 지켜진</strong> 상태입니다.</p>
+  </div>
+
+  <p>DB에서 무결성을 지키기 위한 구체적인 규칙들을 <strong>제약(constraint)</strong>이라고 합니다. 예를 들면:</p>
+  <ul>
+    <li><strong>이메일은 중복될 수 없다</strong> → <code>UNIQUE</code> 제약</li>
+    <li><strong>나이는 반드시 입력해야 하고 0 이상이어야 한다</strong> → <code>NOT NULL</code> + <code>CHECK</code> 제약</li>
+    <li><strong>주문의 고객 ID는 실제로 존재하는 고객이어야 한다</strong> → <code>FOREIGN KEY</code> 제약</li>
+  </ul>
+  <p>이런 제약들을 DB에 걸어두면, 잘못된 데이터가 들어오려 할 때 DB가 자동으로 거부합니다. 아래에서 각 제약을 하나씩 살펴봅니다.</p>
+
   <h2><span class="num">1</span>CREATE TABLE &amp; 컬럼 제약</h2>
   <p>테이블을 만들 때 컬럼 이름·타입만 적고 끝내기 쉽지만, 진짜 중요한 건 <strong>제약</strong>입니다. <code>NOT NULL</code>(비어 있을 수 없음), <code>DEFAULT</code>(기본값), <code>UNIQUE</code>(중복 금지), <code>CHECK</code>(값의 규칙)를 컬럼에 붙이면, "잘못된 데이터가 애초에 들어오지 못하게" DB가 직접 막아 줍니다.</p>
 

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 11·03 — Exception Filter + Middleware</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 11 · 횡단 관심사 + 파일/설정</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 11 — Lesson 03</span>
+  <h1>Exception Filter · Middleware<br>에러 응답 통일과 입구 검문소</h1>
+  <p class="subtitle"><code>@Catch(HttpException)</code>으로 에러 응답 형태를 통일하고, <code>NestMiddleware</code>로 요청이 컨트롤러에 닿기 <strong>전</strong> 공통 처리(로깅·파싱)를 삽입한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>Middleware는 요청이 들어오는 <strong>입구 검문소</strong>, Exception Filter는 에러가 나가는 <strong>출구 응급실</strong>. 둘은 라이프사이클에서 정반대 지점에 위치하지만, 함께 쓰면 요청·응답 전체를 일관되게 제어할 수 있다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li><code>@Catch(HttpException)</code>과 <code>ExceptionFilter</code> 인터페이스로 에러 응답 구조를 통일할 수 있다</li>
+    <li><code>app.useGlobalFilters()</code> 또는 <code>APP_FILTER</code>로 전역 등록하는 두 방식의 차이를 안다</li>
+    <li><code>NestMiddleware.use(req, res, next)</code>를 구현하고 <code>configure(consumer)</code>로 라우트에 적용할 수 있다</li>
+    <li>Middleware, Guard, Interceptor, Exception Filter가 요청 라이프사이클에서 실행되는 순서를 설명할 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span>Exception Filter — 에러 응답 형태 통일</h2>
+  <p class="lead">NestJS 기본 에러 응답은 <code>{ statusCode, message, error }</code> 형태입니다. 하지만 실무에서는 <strong>타임스탬프·경로</strong> 같은 디버그 정보를 함께 반환하거나, 프로젝트 전체에서 동일한 에러 포맷을 강제하고 싶습니다. <code>ExceptionFilter</code>로 원하는 형태를 만들 수 있습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/http-exception.filter.ts">code/http-exception.filter.ts</a></span></div><pre><span class="k">import</span> {
+  <span class="t">ExceptionFilter</span>, <span class="t">Catch</span>, <span class="t">ArgumentsHost</span>, <span class="t">HttpException</span>,
+} <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">Request</span>, <span class="t">Response</span> } <span class="k">from</span> <span class="s">'express'</span>;
+
+<span class="d">@Catch</span>(<span class="t">HttpException</span>)
+<span class="k">export class</span> <span class="t">HttpExceptionFilter</span> <span class="k">implements</span> <span class="t">ExceptionFilter</span> {
+  <span class="f">catch</span>(exception: <span class="t">HttpException</span>, host: <span class="t">ArgumentsHost</span>): <span class="k">void</span> {
+    <span class="k">const</span> ctx = host.<span class="f">switchToHttp</span>();
+    <span class="k">const</span> response = ctx.<span class="f">getResponse</span>&lt;<span class="t">Response</span>&gt;();
+    <span class="k">const</span> request = ctx.<span class="f">getRequest</span>&lt;<span class="t">Request</span>&gt;();
+    <span class="k">const</span> status = exception.<span class="f">getStatus</span>();
+    <span class="k">const</span> exceptionResponse = exception.<span class="f">getResponse</span>();
+
+    <span class="k">const</span> message =
+      <span class="k">typeof</span> exceptionResponse === <span class="s">'string'</span>
+        ? exceptionResponse
+        : (exceptionResponse <span class="k">as</span> <span class="t">Record</span>&lt;<span class="t">string</span>, <span class="k">unknown</span>&gt;).message ?? exception.message;
+
+    response.<span class="f">status</span>(status).<span class="f">json</span>({
+      statusCode: status,
+      timestamp: <span class="k">new</span> <span class="t">Date</span>().<span class="f">toISOString</span>(),
+      path: request.url,
+      message,
+    });
+  }
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label"><code>@Catch()</code>에 클래스를 넣으면 그 타입만 잡는다</span>
+    <p><code>@Catch(HttpException)</code>은 <code>HttpException</code>과 그 하위 클래스(<code>NotFoundException</code>, <code>BadRequestException</code> 등)를 모두 잡습니다. 인수를 비우면(<code>@Catch()</code>) 모든 예외를 잡습니다. DB 에러처럼 <code>HttpException</code>이 아닌 예외도 처리하려면 <code>@Catch()</code>를 쓰고 내부에서 타입을 분기하면 됩니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>전역 등록 — <code>useGlobalFilters</code> vs <code>APP_FILTER</code></h2>
+  <p>Exception Filter를 전역으로 등록하는 방법은 두 가지입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">방법 1 — main.ts에서 수동 등록</span></div><pre><span class="c">// main.ts</span>
+<span class="k">const</span> app = <span class="k">await</span> <span class="t">NestFactory</span>.<span class="f">create</span>(<span class="t">AppModule</span>);
+app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span class="t">HttpExceptionFilter</span>());
+<span class="k">await</span> app.<span class="f">listen</span>(<span class="n">3000</span>);</pre></div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">방법 2 — APP_FILTER 프로바이더 (DI 가능)</span></div><pre><span class="c">// app.module.ts</span>
+<span class="k">import</span> { <span class="t">APP_FILTER</span> } <span class="k">from</span> <span class="s">'@nestjs/core'</span>;
+
+<span class="d">@Module</span>({
+  providers: [
+    {
+      provide: <span class="t">APP_FILTER</span>,
+      useClass: <span class="t">HttpExceptionFilter</span>,
+    },
+  ],
+})
+<span class="k">export class</span> <span class="t">AppModule</span> {}</pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">Filter는 라이프사이클 마지막 — Interceptor와 역할 구분</span>
+    <p>Exception Filter는 요청 라이프사이클에서 <strong>가장 마지막</strong>에 실행됩니다. 핸들러나 Interceptor에서 던진 예외가 필터로 흘러옵니다. Interceptor는 핸들러의 <em>정상 흐름</em>을 가공(<code>tap</code>)하거나 에러를 <em>변환</em>(<code>catchError</code>)할 수 있는 반면, Exception Filter는 <em>최종 에러 응답 형태</em>를 담당합니다. 두 역할은 다릅니다.</p>
+  </div>
+
+  <h2><span class="num">3</span>Middleware — 요청 입구의 검문소</h2>
+  <p>Middleware는 요청이 라우팅되기 전, NestJS 파이프라인의 <strong>가장 앞 단계</strong>에서 실행됩니다. Express 미들웨어와 동일한 <code>(req, res, next)</code> 시그니처를 사용합니다. 대표 용도는 로깅, 요청 파싱, CORS, 속도 제한입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 입구 검문소 vs 출구 응급실</span>
+    <p><strong>Middleware = 입구 검문소</strong>: 건물에 들어오는 모든 사람을 검사합니다. 통과하면 안으로 들어갑니다. <strong>Exception Filter = 출구 응급실</strong>: 안에서 다쳐서 나오는 사람을 처치합니다. 검문소를 통과 못 하면 응급실에 도달할 일도 없고, 응급실은 정상적으로 나가는 사람에게는 관여하지 않습니다. 둘은 라이프사이클에서 정반대 위치에 있습니다.</p>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">logging.middleware.ts — 요청 로깅 미들웨어</span></div><pre><span class="k">import</span> { <span class="t">Injectable</span>, <span class="t">NestMiddleware</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">Request</span>, <span class="t">Response</span>, <span class="t">NextFunction</span> } <span class="k">from</span> <span class="s">'express'</span>;
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">LoggingMiddleware</span> <span class="k">implements</span> <span class="t">NestMiddleware</span> {
+  <span class="f">use</span>(req: <span class="t">Request</span>, res: <span class="t">Response</span>, next: <span class="t">NextFunction</span>): <span class="k">void</span> {
+    console.<span class="f">log</span>(`[${<span class="k">new</span> <span class="t">Date</span>().<span class="f">toISOString</span>()}] ${req.method} ${req.url}`);
+    <span class="f">next</span>();   <span class="c">// 반드시 next()를 호출해야 다음 단계로 진행된다</span>
+  }
+}
+
+<span class="c">// app.module.ts — 라우트에 적용</span>
+<span class="k">export class</span> <span class="t">AppModule</span> <span class="k">implements</span> <span class="t">NestModule</span> {
+  <span class="f">configure</span>(consumer: <span class="t">MiddlewareConsumer</span>): <span class="k">void</span> {
+    consumer
+      .<span class="f">apply</span>(<span class="t">LoggingMiddleware</span>)
+      .<span class="f">forRoutes</span>(<span class="s">'*'</span>);  <span class="c">// 모든 라우트에 적용</span>
+  }
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 220" role="img" aria-label="NestJS 요청 라이프사이클에서 Middleware가 가장 먼저, Exception Filter가 에러 시 가장 마지막에 위치하는 흐름">
+      <!-- Pipeline steps -->
+      <!-- Middleware -->
+      <rect x="10" y="70" width="110" height="60" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
+      <text x="65" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#7d5604">Middleware</text>
+      <text x="65" y="113" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#7d5604">가장 먼저</text>
+      <text x="65" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9a6a05">next()</text>
+
+      <!-- Arrow -->
+      <line x1="122" y1="100" x2="146" y2="100" stroke="#807a6c" stroke-width="1.5" marker-end="url(#w11l3-arr1)"/>
+
+      <!-- Guard -->
+      <rect x="148" y="70" width="90" height="60" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="193" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#0a4f48">Guard</text>
+      <text x="193" y="113" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#0a4f48">인가 검사</text>
+
+      <!-- Arrow -->
+      <line x1="240" y1="100" x2="264" y2="100" stroke="#807a6c" stroke-width="1.5" marker-end="url(#w11l3-arr2)"/>
+
+      <!-- Interceptor pre -->
+      <rect x="266" y="70" width="100" height="60" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="316" y="93" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#a8401f">Interceptor</text>
+      <text x="316" y="110" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#a8401f">핸들러 전·후</text>
+      <text x="316" y="124" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#a8401f">wrap</text>
+
+      <!-- Arrow -->
+      <line x1="368" y1="100" x2="392" y2="100" stroke="#807a6c" stroke-width="1.5" marker-end="url(#w11l3-arr3)"/>
+
+      <!-- Handler -->
+      <rect x="394" y="70" width="100" height="60" rx="8" fill="#16140f" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="444" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#6fd6c7">Handler</text>
+      <text x="444" y="113" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#ece6d6">Controller</text>
+
+      <!-- Arrow -->
+      <line x1="496" y1="100" x2="520" y2="100" stroke="#807a6c" stroke-width="1.5" marker-end="url(#w11l3-arr4)"/>
+
+      <!-- Response -->
+      <rect x="522" y="70" width="80" height="60" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="562" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#0a4f48">Response</text>
+      <text x="562" y="113" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#0a4f48">200 OK</text>
+
+      <!-- Exception Filter (below, error path) -->
+      <rect x="394" y="160" width="208" height="50" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
+      <text x="498" y="182" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#a8401f">Exception Filter</text>
+      <text x="498" y="200" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#a8401f">에러 응답 통일 (마지막)</text>
+
+      <!-- Error path arrow from Handler down -->
+      <line x1="444" y1="132" x2="444" y2="158" stroke="#e0552f" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#w11l3-arr5)"/>
+      <text x="452" y="148" font-family="Pretendard, sans-serif" font-size="9.5" fill="#e0552f">throw</text>
+
+      <text x="350" y="24" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="12" font-weight="700" fill="#1c1a16">NestJS 요청 라이프사이클</text>
+      <text x="350" y="42" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#807a6c">Middleware → Guard → Interceptor(pre) → Handler → Interceptor(post) → Response</text>
+
+      <defs>
+        <marker id="w11l3-arr1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w11l3-arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w11l3-arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w11l3-arr4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#807a6c"/></marker>
+        <marker id="w11l3-arr5" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Middleware는 파이프라인 맨 앞, Exception Filter는 에러 발생 시 맨 뒤. 정상 흐름에서는 Filter가 개입하지 않는다.</figcaption>
+  </figure>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Exception Filter와 Interceptor의 에러 처리 차이를 설명하세요.</summary>
+    <div class="answer"><p>두 가지 관점의 차이가 있습니다. ① <strong>목적</strong>: Interceptor의 <code>catchError</code>는 에러를 잡아 <em>다른 Observable로 변환</em>하거나 부가 작업(rollback 등)을 수행하고 에러를 다시 던집니다. Exception Filter는 최종적으로 <em>HTTP 응답 형태</em>를 결정합니다. ② <strong>실행 순서</strong>: Interceptor의 <code>catchError</code>가 먼저 실행되고, 에러가 rethrow되면 Exception Filter가 받아 응답합니다. 트랜잭션 롤백은 Interceptor에서, 에러 포맷 통일은 Exception Filter에서 담당하는 것이 역할 분리의 핵심입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Middleware는 요청 라이프사이클의 어디에서 동작하나요?</summary>
+    <div class="answer"><p>Middleware는 요청 라이프사이클에서 <strong>가장 먼저</strong> 실행됩니다. Guard, Interceptor, Pipe, Handler 모두 Middleware 이후에 실행됩니다. 이 때문에 인증 여부와 무관하게 모든 요청에 적용되어야 하는 로깅, 요청 파싱, CORS 처리 등에 적합합니다. <code>next()</code>를 호출하지 않으면 요청이 다음 단계로 진행되지 않습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>useGlobalFilters()</code>와 <code>APP_FILTER</code> 중 어떤 방법이 DI를 지원하나요?</summary>
+    <div class="answer"><p><code>APP_FILTER</code> 방식이 DI를 지원합니다. <code>main.ts</code>의 <code>useGlobalFilters(new HttpExceptionFilter())</code>는 필터를 직접 인스턴스화하므로 NestJS DI 컨테이너 밖에서 생성됩니다. 따라서 필터 내부에서 다른 서비스(<code>ConfigService</code>, 로거 등)를 주입받을 수 없습니다. 반면 <code>AppModule</code>의 <code>providers</code>에 <code>{ provide: APP_FILTER, useClass: HttpExceptionFilter }</code>를 등록하면 NestJS가 인스턴스를 관리하므로 DI가 정상 작동합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="02-transaction-interceptor.html"><span class="dir">← 이전</span><span class="ttl">Transaction · Interceptor</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 11 · Lesson 03 · Exception Filter + Middleware</footer>
+</body>
+</html>

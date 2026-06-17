@@ -137,5 +137,5 @@ backend/nestjs/nestjs-core/
 - [x] Week 8 — ★ Guard · Pipe · Custom Decorator (요청 파이프라인)
 - [x] Week 9 — DTO 검증·변환 (Class Validator & Transformer)
 - [x] Week 10 — ★ Pagination (기본 → 일반화)
-- [ ] Week 11 — ★ 횡단 관심사 + 파일/설정
+- [x] Week 11 — ★ 횡단 관심사 + 파일/설정
 - [ ] Week 12 — ★ 실시간 · 권한 · SNS 완성

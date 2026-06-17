@@ -35,12 +35,28 @@
   </ul>
 
   <h2><span class="num">1</span>PL/pgSQL 함수 — DB 안에 사는 작은 함수</h2>
-  <p>SQL은 "데이터를 조회·수정하는" 언어입니다. <strong>PL/pgSQL</strong>은 여기에 변수·조건문·반복문·예외처리를 더한 <strong>Postgres 전용 절차적 언어</strong>입니다. "할인가 계산"처럼 앱 여러 곳에서 반복되는 로직을 DB 안에 한 번 정의해두면, 어디서든 <code>SELECT discounted_price(...)</code>로 호출할 수 있습니다.</p>
+
+  <div class="box tip">
+    <span class="ic">❓</span>
+    <span class="label">PL/pgSQL이 뭔가요? — SQL과 무엇이 다른가</span>
+    <p>SQL은 원래 <strong>명령만</strong> 됩니다 — "이 데이터 가져와", "이 데이터 바꿔". 변수·조건문·반복문 같은 건 없습니다.</p>
+    <p><strong>PL/pgSQL</strong>은 SQL에 그것을 붙인 겁니다:</p>
+    <table class="tbl">
+      <thead><tr><th></th><th>할 수 있는 것</th></tr></thead>
+      <tbody>
+        <tr><td>SQL</td><td>SELECT / INSERT / UPDATE / DELETE (단순 명령)</td></tr>
+        <tr><td>PL/pgSQL</td><td>SQL + 변수 선언 + <code>IF/ELSE</code> + 반복문 + 예외처리</td></tr>
+      </tbody>
+    </table>
+    <p>한 마디로 <strong>"Postgres 안에서 돌아가는 미니 프로그래밍 언어"</strong>입니다. 이걸로 함수를 만들어 DB 안에 저장해두면, <code>SELECT 함수명(...)</code>으로 어디서든 호출할 수 있습니다.</p>
+    <p>실무에서 직접 PL/pgSQL 함수를 작성하는 경우는 드물고, <strong>트리거 함수를 만들 때 주로 씁니다</strong> — <code>updated_at</code> 자동 갱신이나 감사 로그처럼 "DB 이벤트가 발생하면 자동으로 뭔가 실행"하는 경우요.</p>
+  </div>
 
   <div class="box analogy">
     <span class="ic">🧮</span>
-    <span class="label">비유 — 엑셀에서 직접 만드는 함수</span>
-    <p>엑셀에는 <code>SUM</code>, <code>VLOOKUP</code> 같은 내장 함수가 있지만, 직접 함수를 만들어 저장할 수도 있습니다. PL/pgSQL 함수가 바로 그것입니다. "할인가 계산 로직"을 DB에 한 번 정의해두면, 앱 A·앱 B·관리자 도구 모두 <strong>같은 함수를 공유</strong>합니다. 계산식을 바꿔야 할 때 DB 함수 하나만 수정하면 됩니다.</p>
+    <span class="label">비유 — 여러 팀이 공유하는 공용 계산기</span>
+    <p>"할인가 계산 로직"을 앱 코드에서 구현하면, NestJS 서버·관리자 도구·배치 스크립트 등 여러 곳에 같은 계산식이 흩어집니다. 계산식이 바뀌면 다 찾아서 고쳐야 합니다.</p>
+    <p>PL/pgSQL 함수로 DB에 한 번 정의해두면, <strong>모든 곳에서 같은 함수를 공유</strong>합니다. 계산식을 바꿔야 할 때 DB 함수 하나만 수정하면 됩니다.</p>
   </div>
 
   <div class="box tip">

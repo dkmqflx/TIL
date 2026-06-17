@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 12·03 — Follow System · Count · 회고</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 12 · 실시간 · 권한 · SNS 완성</b></span>
+  <span>03 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 12 — Lesson 03 ★ 핵심</span>
+  <h1>Follow System · Count<br>회고 &amp; 다음 로드맵</h1>
+  <p class="subtitle">User 자기참조 N:M을 커스텀 조인 테이블(<code>Follow</code> 엔티티)로 구현하고, 팔로우 신청→승인→취소 흐름과 Follower Count 컬럼 관리를 배운다. 마지막으로 12주 여정을 돌아보고 다음 로드맵을 안내한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>팔로우는 단순 N:M이 아니라 <b>승인(isConfirmed) 같은 추가 데이터</b>가 필요하다. 별도 Entity로 조인 테이블을 직접 만들어야 그 데이터를 담을 수 있다. Count 컬럼도 매번 COUNT 쿼리를 돌리지 않고 <b>이벤트마다 증감</b>해 성능을 지킨다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>User 자기참조 N:M을 커스텀 <code>Follow</code> 엔티티(조인 테이블)로 구현하는 이유와 방법을 설명할 수 있다</li>
+    <li>팔로우 신청 → 승인(<code>isConfirmed=true</code>) → 취소 흐름을 서비스 코드로 구현할 수 있다</li>
+    <li><code>followerCount</code>를 별도 컬럼으로 관리할 때의 트레이드오프를 설명할 수 있다</li>
+    <li>12주 커리큘럼 핵심 내용을 스스로 요약하고, 다음 학습 방향을 파악한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>Follower/Followee — User 자기참조 N:M</h2>
+  <p class="lead">SNS의 팔로우는 <strong>User ↔ User</strong> 관계입니다. TypeORM의 <code>@ManyToMany</code>로 간단히 구현할 수도 있지만, 인스타그램처럼 <strong>비공개 계정 승인(isConfirmed)</strong> 같은 추가 필드가 필요하면 <strong>조인 테이블 자체를 별도 Entity(<code>Follow</code>)로 만들어야</strong> 합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 인맥 장부 + 좋아요 카운터</span>
+    <p><strong>팔로우 테이블</strong>은 <strong>인맥 장부</strong>입니다. 장부에는 "누가(follower) 누구를(following) 친구 신청했는지(isConfirmed=false)"와 "승인됐는지(isConfirmed=true)"를 적습니다. 단순 N:M 조인이었다면 이 메모를 적을 칸이 없습니다. <strong>followerCount 컬럼</strong>은 <strong>좋아요 카운터</strong>입니다. 승인될 때마다 +1, 취소될 때마다 -1하는 방식으로 실시간 카운터를 유지합니다. 매번 "장부를 세어봐"(COUNT 쿼리)보다 훨씬 빠릅니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 210" role="img" aria-label="User 자기참조 N:M Follow 커스텀 조인 테이블 구조">
+      <!-- User (follower) -->
+      <rect x="20" y="60" width="150" height="100" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="95" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#0a4f48">User</text>
+      <text x="95" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">id: number</text>
+      <text x="95" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">nickname: string</text>
+      <text x="95" y="136" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">followerCount: number</text>
+      <text x="95" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">followingCount: number</text>
+
+      <!-- Follow (join table) -->
+      <rect x="265" y="30" width="180" height="150" rx="10" fill="#16140f" stroke="#c98a16" stroke-width="2"/>
+      <text x="355" y="58" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#c98a16">Follow</text>
+      <text x="355" y="78" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">(커스텀 조인 테이블)</text>
+      <text x="355" y="98" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">id: number</text>
+      <text x="355" y="115" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#e0552f">follower_id: number</text>
+      <text x="355" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">following_id: number</text>
+      <text x="355" y="149" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">isConfirmed: boolean</text>
+      <text x="355" y="166" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9a9382">createdAt: Date</text>
+
+      <!-- User (following) — same entity -->
+      <rect x="530" y="60" width="150" height="100" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
+      <text x="605" y="86" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#0a4f48">User</text>
+      <text x="605" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">id: number</text>
+      <text x="605" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0a4f48">nickname: string</text>
+      <text x="605" y="136" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">followerCount: number</text>
+      <text x="605" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">followingCount: number</text>
+
+      <!-- ManyToOne arrows -->
+      <line x1="172" y1="100" x2="263" y2="100" stroke="#e0552f" stroke-width="2" marker-end="url(#w12l3-arr1)"/>
+      <text x="218" y="92" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#e0552f">follower</text>
+      <line x1="447" y1="115" x2="528" y2="110" stroke="#0d6e64" stroke-width="2" marker-end="url(#w12l3-arr2)"/>
+      <text x="490" y="107" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#0d6e64">following</text>
+
+      <!-- self-ref label -->
+      <text x="350" y="198" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#807a6c">같은 User 엔티티를 두 방향에서 참조하는 자기참조(self-referencing) N:M</text>
+
+      <defs>
+        <marker id="w12l3-arr1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w12l3-arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0d6e64"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Follow 엔티티가 follower_id와 following_id 두 FK로 User를 자기참조. isConfirmed 컬럼 덕분에 승인 플로우를 구현할 수 있다.</figcaption>
+  </figure>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/follow.entity.ts">code/follow.entity.ts</a></span></div><pre><span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">Follow</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>() id: <span class="t">number</span>;
+
+  <span class="d">@ManyToOne</span>(() =&gt; <span class="t">User</span>, (u) =&gt; u.following, { onDelete: <span class="s">'CASCADE'</span> })
+  <span class="d">@JoinColumn</span>({ name: <span class="s">'follower_id'</span> })
+  follower: <span class="t">User</span>;
+  <span class="d">@Column</span>() follower_id: <span class="t">number</span>;
+
+  <span class="d">@ManyToOne</span>(() =&gt; <span class="t">User</span>, (u) =&gt; u.followers, { onDelete: <span class="s">'CASCADE'</span> })
+  <span class="d">@JoinColumn</span>({ name: <span class="s">'following_id'</span> })
+  following: <span class="t">User</span>;
+  <span class="d">@Column</span>() following_id: <span class="t">number</span>;
+
+  <span class="c">// false = 신청 대기, true = 승인 완료 (비공개 계정 맞팔 승인)</span>
+  <span class="d">@Column</span>({ default: <span class="k">false</span> }) isConfirmed: <span class="t">boolean</span>;
+  <span class="d">@CreateDateColumn</span>() createdAt: <span class="t">Date</span>;
+}</pre></div>
+
+  <h2><span class="num">2</span>팔로우 신청 → 승인 → 취소 흐름</h2>
+  <p>팔로우 플로우는 세 단계입니다: <strong>① 신청(<code>isConfirmed=false</code>) → ② 팔로위가 승인(<code>isConfirmed=true</code> + followerCount++) → ③ 취소(Follow 레코드 삭제 + followerCount--)</strong>. 승인과 취소는 Follow 상태 변경과 Count 업데이트를 <strong>트랜잭션</strong>으로 묶어야 원자성이 보장됩니다(Week 11과 연계).</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/user-follow.service.ts">code/user-follow.service.ts</a> — 핵심 흐름</span></div><pre><span class="c">// 1. 팔로우 신청</span>
+<span class="k">async</span> <span class="f">followUser</span>(followerId: <span class="t">number</span>, followingId: <span class="t">number</span>) {
+  <span class="k">const</span> follow = <span class="k">this</span>.followRepo.<span class="f">create</span>({
+    follower_id: followerId, following_id: followingId, isConfirmed: <span class="k">false</span>,
+  });
+  <span class="k">return</span> <span class="k">this</span>.followRepo.<span class="f">save</span>(follow);
+}
+
+<span class="c">// 2. 팔로우 승인 — 트랜잭션으로 isConfirmed 변경 + followerCount++</span>
+<span class="k">async</span> <span class="f">confirmFollow</span>(followId: <span class="t">number</span>, followingId: <span class="t">number</span>) {
+  <span class="k">const</span> qr = <span class="k">this</span>.dataSource.<span class="f">createQueryRunner</span>();
+  <span class="k">await</span> qr.<span class="f">connect</span>();  <span class="k">await</span> qr.<span class="f">startTransaction</span>();
+  <span class="k">try</span> {
+    <span class="k">const</span> follow = <span class="k">await</span> qr.manager.<span class="f">findOneOrFail</span>(<span class="t">Follow</span>, { where: { id: followId } });
+    follow.isConfirmed = <span class="k">true</span>;
+    <span class="k">await</span> qr.manager.<span class="f">save</span>(follow);
+    <span class="k">await</span> <span class="k">this</span>.<span class="f">incrementFollowerCount</span>(followingId, qr.manager);
+    <span class="k">await</span> qr.<span class="f">commitTransaction</span>();
+  } <span class="k">catch</span> (e) {
+    <span class="k">await</span> qr.<span class="f">rollbackTransaction</span>(); <span class="k">throw</span> e;
+  } <span class="k">finally</span> { <span class="k">await</span> qr.<span class="f">release</span>(); }
+}
+
+<span class="c">// 3. 팔로우 취소 — 트랜잭션으로 삭제 + followerCount--</span>
+<span class="k">async</span> <span class="f">unfollow</span>(followerId: <span class="t">number</span>, followingId: <span class="t">number</span>) {
+  <span class="c">// Follow 레코드 삭제 후 isConfirmed였으면 카운터 감소 (트랜잭션)</span>
+}</pre></div>
+
+  <h2><span class="num">3</span>Follower/Comment Count — 별도 컬럼으로 증감 관리</h2>
+  <p>팔로워 수를 조회할 때마다 <code>COUNT(*)</code> 쿼리를 날리면 사용자가 많아질수록 성능이 저하됩니다. 대신 User 엔티티에 <code>followerCount</code> 컬럼을 두고, <strong>팔로우 승인 시 +1, 취소 시 -1</strong>로 점증 관리하는 방식을 씁니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">followerCount 컬럼 증감 — QueryBuilder UPDATE</span></div><pre><span class="c">// followerCount +1 (Raw SQL-safe 증감, race condition 없음)</span>
+<span class="k">await</span> manager
+  .<span class="f">createQueryBuilder</span>()
+  .<span class="f">update</span>(<span class="s">'user_entity'</span>)
+  .<span class="f">set</span>({ followerCount: () =&gt; <span class="s">'follower_count + 1'</span> })
+  .<span class="f">where</span>(<span class="s">'id = :id'</span>, { id: userId })
+  .<span class="f">execute</span>();
+
+<span class="c">// followerCount -1 (0 미만으로 내려가지 않도록 GREATEST 사용)</span>
+<span class="k">await</span> manager
+  .<span class="f">createQueryBuilder</span>()
+  .<span class="f">update</span>(<span class="s">'user_entity'</span>)
+  .<span class="f">set</span>({ followerCount: () =&gt; <span class="s">'GREATEST(follower_count - 1, 0)'</span> })
+  .<span class="f">where</span>(<span class="s">'id = :id'</span>, { id: userId })
+  .<span class="f">execute</span>();</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">카운터 컬럼 증감 vs COUNT 쿼리 — 트레이드오프</span>
+    <p><strong>COUNT 쿼리</strong>: 항상 정확하지만 대용량에서 느립니다. 인덱스가 있어도 테이블 스캔이 발생합니다. <strong>별도 컬럼 증감</strong>: 읽기가 O(1)로 빠르지만, 트랜잭션 없이 쓰면 정합성이 깨질 수 있습니다. 따라서 카운터 증감은 <strong>반드시 Follow 상태 변경과 같은 트랜잭션 안에서</strong> 실행해야 합니다(Week 11 <code>QueryRunner</code> 패턴과 직결).</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 팔로우 관계를 단순 @ManyToMany 대신 별도 Entity로 만드는 이유는 무엇인가요?</summary>
+    <div class="answer"><p><code>@ManyToMany</code>는 TypeORM이 자동으로 조인 테이블을 만들지만, 그 테이블에는 두 FK 컬럼만 존재합니다. <strong>비공개 계정의 승인 여부(<code>isConfirmed</code>), 팔로우 신청 시각(<code>createdAt</code>), 알림 여부</strong> 같은 <strong>추가 메타데이터가 필요하면</strong> 자동 조인 테이블로는 담을 방법이 없습니다. 별도 <code>Follow</code> 엔티티를 만들고 User를 두 개의 <code>@ManyToOne</code>으로 참조하면 조인 테이블에 원하는 컬럼을 자유롭게 추가할 수 있습니다. 이 패턴은 N:M 관계에 <strong>추가 속성이 필요한 모든 경우</strong>에 일반적으로 사용됩니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> followerCount를 별도 컬럼으로 관리할 때 가장 중요하게 고려해야 할 점은 무엇인가요?</summary>
+    <div class="answer"><p><strong>데이터 정합성</strong>입니다. <code>followerCount</code> 컬럼의 값이 실제 Follow 레코드 수와 다르면 잘못된 정보를 노출합니다. 이를 방지하기 위해 카운터 증감은 반드시 <strong>Follow 상태 변경과 같은 트랜잭션 안에서</strong> 실행해야 합니다. 팔로우 승인 쿼리가 성공했는데 카운터 업데이트가 실패하면 rollback으로 전체를 되돌려야 합니다. 트레이드오프를 요약하면: <strong>읽기 성능(O(1))</strong>을 얻는 대신 <strong>쓰기 복잡성(트랜잭션 필수)</strong>이 증가합니다. 높은 트래픽이 예상되는 SNS 서비스에서는 이 방식이 일반적으로 채택됩니다.</p></div>
+  </details>
+
+  <div class="section-divider">회고</div>
+
+  <h2><span class="num">5</span>12주 여정 회고 &amp; 다음 로드맵</h2>
+
+  <div class="box note">
+    <span class="ic">📖</span>
+    <span class="label">회고 — 본 자료에서 다룬 것</span>
+    <p>이 커리큘럼은 <strong>NestJS 코어 기능</strong>에 집중했습니다. Week 1~3에서 HTTP·REST·DI/IoC의 원리를 이해하고, Week 4~6에서 TypeORM과 관계형 DB를 다뤘으며, Week 7~8에서 JWT 인증과 Guard/Pipe 파이프라인을 구현했습니다. Week 9~11에서 DTO 검증·페이지네이션 일반화·트랜잭션·횡단 관심사를 완성하고, Week 12에서 WebSocket·RBAC·Follow 시스템으로 SNS 백엔드의 핵심 기능을 마무리했습니다. <strong>인스타그램 컨셉 SNS 백엔드를 설계·구현할 수 있는 NestJS 코어 역량</strong>이 목표였고, 이제 그 지도가 완성되었습니다.</p>
+  </div>
+
+  <div class="box tip">
+    <span class="ic">🗺️</span>
+    <span class="label">다음 로드맵 — 이 자료 범위 밖의 주제들</span>
+    <p>다음 단계에서 배울 수 있는 주제들입니다. 이 자료의 범위를 넘어서지만, NestJS 백엔드를 실제로 운영하려면 중요합니다.
+    <br><br>
+    <strong>① AWS 배포</strong>: EC2·RDS·S3 세팅, Nginx 리버스 프록시, PM2 프로세스 관리, 환경 변수 관리(Secrets Manager).
+    <br><strong>② Socket.IO 프로덕션 운영</strong>: Redis Adapter로 다중 인스턴스 간 이벤트 공유, 연결 수 모니터링, 인증(JWT over WebSocket).
+    <br><strong>③ 테스트</strong>: Jest 단위 테스트(Service 레이어), E2E 테스트(Supertest), Mock Repository 패턴.
+    <br><strong>④ 성능 최적화</strong>: Redis 캐싱, N+1 쿼리 방지(QueryBuilder join), DB 인덱싱 전략.
+    <br><br>
+    이 자료가 그 여정의 <strong>탄탄한 출발점</strong>이 되기를 바랍니다.</p>
+  </div>
+
+  <nav class="pager">
+    <a class="prev" href="02-nesting-rbac-authz.html"><span class="dir">← 이전</span><span class="ttl">모듈 네스팅 · RBAC · Authorization</span></a>
+    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 12 · Lesson 03 ★ 핵심 · Follow System · Count · 회고 &amp; 다음 로드맵</footer>
+</body>
+</html>

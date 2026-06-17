@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 12·01 — WebSocket &amp; Socket.IO</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 12 · 실시간 · 권한 · SNS 완성</b></span>
+  <span>01 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 12 — Lesson 01 ★ 핵심</span>
+  <h1>WebSocket &amp; Socket.IO<br>실시간 양방향 채팅</h1>
+  <p class="subtitle">HTTP의 요청-응답 방식에서 벗어나, <code>@WebSocketGateway</code>와 <code>@SubscribeMessage</code>로 <strong>상시 연결·양방향</strong> 채팅 서버를 구축한다. Room으로 채팅방을 분리하고, Gateway로 그룹 broadcasting을 구현한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>HTTP는 클라이언트가 먼저 말해야 서버가 답한다. WebSocket은 <b>전화 통화처럼</b> 한 번 연결되면 <strong>누구든 언제든</strong> 먼저 말할 수 있다. 채팅·알림·실시간 대시보드는 모두 이 연결 방식이 필요하다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>WebSocket이 HTTP와 어떻게 다른지(핸드셰이크·상시 연결·양방향)를 설명할 수 있다</li>
+    <li><code>@WebSocketGateway</code> · <code>@WebSocketServer</code> · <code>@SubscribeMessage</code>의 역할을 각각 이해한다</li>
+    <li><code>socket.join(room)</code>과 <code>server.to(room).emit()</code>으로 채팅방 분리·broadcasting을 구현할 수 있다</li>
+    <li>Chat·Message 엔티티 구조와 메시지 저장·전송 흐름을 그릴 수 있다</li>
+  </ul>
+
+  <h2><span class="num">1</span>WebSocket vs HTTP — 연결 방식이 다르다</h2>
+  <p class="lead">HTTP는 <strong>요청 → 응답 → 연결 종료</strong>의 일회성 패턴입니다. 서버는 클라이언트가 먼저 요청하기 전까지 아무것도 보낼 수 없습니다. WebSocket은 최초 <strong>HTTP 핸드셰이크(Upgrade)</strong>로 연결을 맺은 뒤, <strong>연결을 끊기 전까지 양쪽이 언제든지 메시지를 주고받을 수 있습니다.</strong></p>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 편지 vs 전화 통화</span>
+    <p><strong>HTTP</strong>는 <strong>편지</strong>입니다. 보낼 때마다 봉투에 주소를 쓰고(요청), 상대가 답장을 써서 부쳐야(응답) 오며, 대화 한 번에 왕복 시간이 걸립니다. 반면 <strong>WebSocket</strong>은 <strong>전화 통화</strong>입니다. 한 번 연결(핸드셰이크)하면 통화가 끊기기 전까지 <strong>양쪽이 실시간으로 말할 수 있습니다.</strong> 채팅은 전화가 필요하지 편지로 하지 않습니다.</p>
+  </div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 230" role="img" aria-label="HTTP 요청-응답 vs WebSocket 상시 연결 비교">
+      <!-- HTTP side -->
+      <text x="170" y="22" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="600" fill="#e0552f">HTTP (요청-응답)</text>
+      <rect x="20" y="34" width="100" height="44" rx="9" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="70" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">Client</text>
+      <rect x="220" y="34" width="100" height="44" rx="9" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="270" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">Server</text>
+      <line x1="122" y1="52" x2="218" y2="52" stroke="#e0552f" stroke-width="2" marker-end="url(#w12l1-arr1)"/>
+      <text x="170" y="45" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#e0552f">→ GET /posts</text>
+      <line x1="218" y1="68" x2="122" y2="68" stroke="#e0552f" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#w12l1-arr2)"/>
+      <text x="170" y="82" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#e0552f">← 200 OK (연결 종료)</text>
+      <rect x="20" y="102" width="100" height="44" rx="9" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="70" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">Client</text>
+      <rect x="220" y="102" width="100" height="44" rx="9" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="270" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">Server</text>
+      <line x1="122" y1="120" x2="218" y2="120" stroke="#e0552f" stroke-width="2" marker-end="url(#w12l1-arr3)"/>
+      <text x="170" y="113" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#e0552f">→ POST /messages</text>
+      <line x1="218" y1="136" x2="122" y2="136" stroke="#e0552f" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#w12l1-arr4)"/>
+      <text x="170" y="150" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#e0552f">← 201 (연결 종료)</text>
+      <text x="170" y="172" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a6a05">매 요청마다 새 연결</text>
+
+      <!-- divider -->
+      <line x1="350" y1="20" x2="350" y2="210" stroke="#c0bab0" stroke-width="1" stroke-dasharray="4 3"/>
+
+      <!-- WebSocket side -->
+      <text x="525" y="22" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="600" fill="#0d6e64">WebSocket (상시 연결)</text>
+      <rect x="380" y="34" width="100" height="44" rx="9" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="430" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">Client</text>
+      <rect x="572" y="34" width="110" height="44" rx="9" fill="#16140f" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="627" y="60" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#6fd6c7">Gateway</text>
+
+      <!-- persistent connection bar -->
+      <rect x="482" y="44" width="88" height="24" rx="5" fill="none" stroke="#0d6e64" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <text x="526" y="59" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#0d6e64">Upgrade (핸드셰이크)</text>
+
+      <!-- bidirectional arrows in one persistent connection -->
+      <line x1="482" y1="95" x2="570" y2="95" stroke="#0d6e64" stroke-width="2" marker-end="url(#w12l1-arr5)"/>
+      <text x="526" y="89" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#0d6e64">send_message →</text>
+      <line x1="570" y1="110" x2="482" y2="110" stroke="#0d6e64" stroke-width="2" marker-end="url(#w12l1-arr6)"/>
+      <text x="526" y="125" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#0d6e64">← receive_message</text>
+      <line x1="482" y1="140" x2="570" y2="140" stroke="#c98a16" stroke-width="2" marker-end="url(#w12l1-arr7)"/>
+      <text x="526" y="134" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#c98a16">enter_chat →</text>
+      <text x="526" y="170" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#0a4f48">한 번 연결 → 계속 통신</text>
+
+      <defs>
+        <marker id="w12l1-arr1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w12l1-arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w12l1-arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w12l1-arr4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+        <marker id="w12l1-arr5" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w12l1-arr6" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w12l1-arr7" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#c98a16"/></marker>
+      </defs>
+    </svg>
+    <figcaption>왼쪽 HTTP: 매 요청마다 새 연결. 오른쪽 WebSocket: 핸드셰이크 한 번으로 상시 양방향 통신.</figcaption>
+  </figure>
+
+  <h2><span class="num">2</span><code>@WebSocketGateway</code> — NestJS의 WebSocket 진입점</h2>
+  <p>NestJS에서 WebSocket 서버는 <strong>Gateway</strong>라는 특수 클래스로 구현합니다. <code>@WebSocketGateway()</code> 데코레이터를 달면 NestJS가 Socket.IO 서버를 만들어 줍니다. 핸들러는 <code>@SubscribeMessage('이벤트명')</code>으로 등록하고, 서버 자체 인스턴스는 <code>@WebSocketServer()</code>로 주입받습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/chats.gateway.ts">code/chats.gateway.ts</a></span></div><pre><span class="k">import</span> {
+  <span class="t">WebSocketGateway</span>, <span class="t">WebSocketServer</span>,
+  <span class="t">SubscribeMessage</span>, <span class="t">MessageBody</span>, <span class="t">ConnectedSocket</span>,
+} <span class="k">from</span> <span class="s">'@nestjs/websockets'</span>;
+<span class="k">import</span> { <span class="t">Server</span>, <span class="t">Socket</span> } <span class="k">from</span> <span class="s">'socket.io'</span>;
+
+<span class="d">@WebSocketGateway</span>({
+  namespace: <span class="s">'chats'</span>,
+  cors: { origin: <span class="s">'*'</span> },
+})
+<span class="k">export class</span> <span class="t">ChatsGateway</span> {
+  <span class="c">// Socket.IO 서버 인스턴스 자동 주입</span>
+  <span class="d">@WebSocketServer</span>()
+  server: <span class="t">Server</span>;
+
+  <span class="c">// 클라이언트가 'send_message' 이벤트를 emit하면 실행</span>
+  <span class="d">@SubscribeMessage</span>(<span class="s">'send_message'</span>)
+  <span class="k">async</span> <span class="f">sendMessage</span>(
+    <span class="d">@MessageBody</span>() data: { chatId: <span class="t">number</span>; content: <span class="t">string</span>; authorId: <span class="t">number</span> },
+    <span class="d">@ConnectedSocket</span>() client: <span class="t">Socket</span>,
+  ) {
+    <span class="k">const</span> room = <span class="s">`chat-${data.chatId}`</span>;
+
+    <span class="c">// 해당 Room의 모든 소켓에 receive_message 이벤트 broadcast</span>
+    <span class="k">this</span>.server.<span class="f">to</span>(room).<span class="f">emit</span>(<span class="s">'receive_message'</span>, {
+      chatId: data.chatId,
+      content: data.content,
+      authorId: data.authorId,
+    });
+  }
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label"><code>@WebSocketServer()</code> vs <code>client.emit()</code></span>
+    <p><code>@WebSocketServer() server</code>는 서버 전체 인스턴스입니다. <code>server.to(room).emit()</code>은 특정 Room의 <strong>모든</strong> 클라이언트에게 보냅니다. 반면 <code>client.emit()</code>은 <strong>해당 소켓에만</strong> 보냅니다. 채팅방 broadcast에는 <code>server.to(room)</code>을 사용하세요.</p>
+  </div>
+
+  <h2><span class="num">3</span>Room — 채팅방 분리와 Broadcasting</h2>
+  <p>Socket.IO의 <strong>Room</strong>은 소켓을 논리 그룹으로 묶는 기능입니다. 클라이언트가 <code>enter_chat</code> 이벤트를 보내면 서버에서 <code>client.join(room)</code>으로 해당 Room에 합류시키고, 이후 그 Room으로 보내는 모든 이벤트는 해당 채팅방 참가자에게만 전달됩니다.</p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 240" role="img" aria-label="Socket.IO Room으로 채팅방을 분리하고 broadcasting하는 구조">
+      <!-- Gateway center -->
+      <rect x="280" y="90" width="140" height="60" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="350" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">ChatsGateway</text>
+      <text x="350" y="134" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#ece6d6">server.to(room).emit()</text>
+
+      <!-- Room A -->
+      <rect x="20" y="20" width="200" height="90" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <text x="120" y="42" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">Room: chat-1</text>
+      <rect x="34" y="52" width="70" height="26" rx="6" fill="#0d6e64"/>
+      <text x="69" y="69" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#fff">User A</text>
+      <rect x="114" y="52" width="70" height="26" rx="6" fill="#0d6e64"/>
+      <text x="149" y="69" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#fff">User B</text>
+      <text x="120" y="100" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#0a4f48">chat-1 메시지만 수신</text>
+
+      <!-- Room B -->
+      <rect x="20" y="130" width="200" height="90" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <text x="120" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#7d5604">Room: chat-2</text>
+      <rect x="34" y="162" width="70" height="26" rx="6" fill="#c98a16"/>
+      <text x="69" y="179" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#fff">User C</text>
+      <rect x="114" y="162" width="70" height="26" rx="6" fill="#c98a16"/>
+      <text x="149" y="179" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#fff">User D</text>
+      <text x="120" y="210" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#7d5604">chat-2 메시지만 수신</text>
+
+      <!-- Arrows from gateway to rooms -->
+      <line x1="278" y1="108" x2="222" y2="72" stroke="#0d6e64" stroke-width="2" marker-end="url(#w12l1-rmA)"/>
+      <text x="258" y="83" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#0d6e64">Room A emit</text>
+      <line x1="278" y1="132" x2="222" y2="165" stroke="#c98a16" stroke-width="2" marker-end="url(#w12l1-rmB)"/>
+      <text x="258" y="162" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#c98a16">Room B emit</text>
+
+      <!-- client join -->
+      <rect x="520" y="80" width="150" height="80" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="595" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">User E</text>
+      <text x="595" y="122" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#a8401f">enter_chat →</text>
+      <text x="595" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">client.join(room)</text>
+
+      <line x1="518" y1="120" x2="422" y2="120" stroke="#e0552f" stroke-width="2" marker-end="url(#w12l1-rmC)"/>
+
+      <defs>
+        <marker id="w12l1-rmA" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w12l1-rmB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="w12l1-rmC" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>Room은 논리 채팅방. client.join('chat-1')으로 Room 입장 후 server.to('chat-1').emit()은 그 방 참가자에게만 전달.</figcaption>
+  </figure>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">채팅방 입장 핸들러</span></div><pre><span class="d">@SubscribeMessage</span>(<span class="s">'enter_chat'</span>)
+<span class="k">async</span> <span class="f">enterChat</span>(
+  <span class="d">@MessageBody</span>() data: { chatId: <span class="t">number</span> },
+  <span class="d">@ConnectedSocket</span>() client: <span class="t">Socket</span>,
+) {
+  <span class="k">const</span> room = <span class="s">`chat-${data.chatId}`</span>;
+  <span class="k">await</span> client.<span class="f">join</span>(room);          <span class="c">// 해당 소켓을 Room에 합류</span>
+  client.<span class="f">emit</span>(<span class="s">'enter_chat'</span>, { message: <span class="s">`방 ${data.chatId}에 입장`</span> });
+}</pre></div>
+
+  <h2><span class="num">4</span>Chat · Message 엔티티 + 메시지 저장·전송</h2>
+  <p>실시간 채팅에서도 메시지는 DB에 저장되어야 합니다. Chat(채팅방)과 Message(메시지) 두 엔티티를 만들고, Gateway의 <code>sendMessage</code> 핸들러 안에서 <strong>① DB 저장 → ② Room emit</strong> 순서로 처리합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">Chat / Message 엔티티 골격</span></div><pre><span class="c">// chat.entity.ts</span>
+<span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">Chat</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>() id: <span class="t">number</span>;
+  <span class="d">@OneToMany</span>(() =&gt; <span class="t">Message</span>, (m) =&gt; m.chat) messages: <span class="t">Message</span>[];
+  <span class="d">@CreateDateColumn</span>() createdAt: <span class="t">Date</span>;
+}
+
+<span class="c">// message.entity.ts</span>
+<span class="d">@Entity</span>()
+<span class="k">export class</span> <span class="t">Message</span> {
+  <span class="d">@PrimaryGeneratedColumn</span>() id: <span class="t">number</span>;
+  <span class="d">@Column</span>() content: <span class="t">string</span>;
+  <span class="d">@ManyToOne</span>(() =&gt; <span class="t">Chat</span>, (c) =&gt; c.messages) chat: <span class="t">Chat</span>;
+  <span class="d">@ManyToOne</span>(() =&gt; <span class="t">User</span>) author: <span class="t">User</span>;
+  <span class="d">@CreateDateColumn</span>() createdAt: <span class="t">Date</span>;
+}
+
+<span class="c">// Gateway의 send_message 핸들러 (저장 + emit)</span>
+<span class="d">@SubscribeMessage</span>(<span class="s">'send_message'</span>)
+<span class="k">async</span> <span class="f">sendMessage</span>(
+  <span class="d">@MessageBody</span>() data: { chatId: <span class="t">number</span>; content: <span class="t">string</span>; authorId: <span class="t">number</span> },
+) {
+  <span class="c">// 1. DB 저장</span>
+  <span class="k">const</span> saved = <span class="k">await</span> <span class="k">this</span>.messageService.<span class="f">saveMessage</span>(data);
+
+  <span class="c">// 2. Room broadcast</span>
+  <span class="k">this</span>.server.<span class="f">to</span>(<span class="s">`chat-${data.chatId}`</span>).<span class="f">emit</span>(<span class="s">'receive_message'</span>, saved);
+}</pre></div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">Socket.IO vs 순수 WebSocket</span>
+    <p>NestJS는 순수 <code>ws</code>와 <code>socket.io</code> 두 어댑터를 모두 지원합니다. <strong>Socket.IO</strong>는 자동 재연결, Room, 네임스페이스, 폴링 폴백, 브라우저 호환성을 기본 제공하므로 실무에서 훨씬 많이 사용됩니다. <code>@nestjs/platform-socket.io</code>를 의존성으로 추가하고 <code>@WebSocketGateway()</code>에 설정하면 됩니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> WebSocket이 HTTP와 근본적으로 다른 점은 무엇인가요?</summary>
+    <div class="answer"><p>가장 큰 차이는 <strong>연결 유지 방식</strong>과 <strong>통신 방향</strong>입니다. HTTP는 클라이언트가 요청을 보낼 때마다 새 연결을 맺고 응답 후 종료하는 <em>단방향·일회성</em> 패턴입니다. WebSocket은 최초 HTTP 핸드셰이크(Upgrade)로 연결을 맺은 뒤 <strong>클라이언트와 서버가 모두 언제든 먼저 메시지를 보낼 수 있는 상시 양방향 채널</strong>을 유지합니다. 이 차이 때문에 실시간 채팅, 알림, 주가 업데이트처럼 <strong>서버가 먼저 데이터를 푸시</strong>해야 하는 기능에 WebSocket이 필수입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> Socket.IO의 Room을 사용하는 이유가 무엇인가요?</summary>
+    <div class="answer"><p>Room이 없으면 <code>server.emit()</code>이 연결된 <strong>모든</strong> 클라이언트에게 이벤트를 전송합니다. 채팅 앱에서 1번 방의 메시지가 2번 방의 사용자에게도 전달되면 안 되죠. Room은 소켓을 논리 그룹으로 묶어 <code>server.to('chat-1').emit()</code>이 <strong>해당 방 참가자에게만</strong> 전달되도록 격리합니다. <code>client.join(room)</code>으로 입장하고 <code>client.leave(room)</code>으로 퇴장하는 것으로 간단히 관리할 수 있습니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>@WebSocketServer()</code>로 주입받는 server와 <code>client</code> 객체의 차이는?</summary>
+    <div class="answer"><p><code>@WebSocketServer() server</code>는 Socket.IO <strong>서버 전체 인스턴스</strong>로, 모든 연결된 소켓에 또는 특정 Room에 이벤트를 보낼 수 있습니다. <code>@ConnectedSocket() client</code>는 현재 이벤트를 보낸 <strong>특정 소켓(클라이언트) 하나</strong>에 대한 참조입니다. <code>client.emit()</code>은 그 클라이언트에게만, <code>client.broadcast.to(room).emit()</code>은 본인을 제외한 Room 멤버에게, <code>server.to(room).emit()</code>은 본인 포함 Room 멤버 전체에게 전송합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="../week11-cross-cutting/03-exception-filter-middleware.html"><span class="dir">← 이전</span><span class="ttl">Exception Filter · Middleware</span></a>
+    <a class="next" href="02-nesting-rbac-authz.html"><span class="dir">다음 →</span><span class="ttl">모듈 네스팅 · RBAC · Authorization</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 12 · Lesson 01 ★ 핵심 · WebSocket &amp; Socket.IO</footer>
+</body>
+</html>

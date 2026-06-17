@@ -138,4 +138,4 @@ backend/nestjs/nestjs-core/
 - [x] Week 9 — DTO 검증·변환 (Class Validator & Transformer)
 - [x] Week 10 — ★ Pagination (기본 → 일반화)
 - [x] Week 11 — ★ 횡단 관심사 + 파일/설정
-- [ ] Week 12 — ★ 실시간 · 권한 · SNS 완성
+- [x] Week 12 — ★ 실시간 · 권한 · SNS 완성

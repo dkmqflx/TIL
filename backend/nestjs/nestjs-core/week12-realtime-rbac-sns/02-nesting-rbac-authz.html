@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 12·02 — 모듈 네스팅 · RBAC · Authorization</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+
+<nav class="topbar">
+  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 12 · 실시간 · 권한 · SNS 완성</b></span>
+  <span>02 / 03</span>
+</nav>
+
+<header class="head">
+  <span class="kicker">◆ Week 12 — Lesson 02 ★ 핵심</span>
+  <h1>모듈 네스팅 · RBAC<br>Authorization(소유권 Guard)</h1>
+  <p class="subtitle">Posts 하위에 Comments 모듈을 중첩해 계층 라우트를 구성하고, <code>@Roles</code> + <code>RolesGuard</code>로 역할 기반 접근 제어(RBAC)를 구현한다. 전역 Private 원칙과 <code>@IsPublic()</code> 패턴, 그리고 소유권 기반 <code>IsMineOrAdmin</code> Guard까지 완성한다.</p>
+</header>
+
+<div class="summary">
+  <div class="summary__inner">
+    <span class="big">"</span>
+    <p>인증(Authentication)은 "당신이 누구냐"를 확인하고, 인가(Authorization)는 <b>"당신이 이것을 할 수 있느냐"</b>를 결정한다. RBAC는 역할로, 소유권 Guard는 "내 것인가"로 — 두 가지를 함께 써야 실무 인가가 완성된다.</p>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <ul class="goals">
+    <li>모듈 네스팅으로 <code>posts/:postId/comments</code> 형태의 중첩 라우트를 구성하는 방법을 안다</li>
+    <li><code>@Roles(RoleEnum.ADMIN)</code> 데코레이터와 <code>RolesGuard</code>가 <code>Reflector</code>를 통해 메타데이터를 읽는 방식을 설명할 수 있다</li>
+    <li>전역 AuthGuard를 기본 적용하고 <code>@IsPublic()</code>으로 공개 라우트만 예외 처리하는 패턴의 목적을 안다</li>
+    <li><code>IsPostMineOrAdminGuard</code>가 역할 기반과 소유권 기반 인가를 결합하는 방식을 이해한다</li>
+  </ul>
+
+  <h2><span class="num">1</span>모듈 네스팅 — Posts 하위에 Comments 모듈</h2>
+  <p class="lead">댓글(Comment)은 게시글(Post)에 종속되는 자원이므로 <code>posts/:postId/comments</code>처럼 중첩 라우트로 표현하는 것이 REST 원칙에 맞습니다. NestJS에서는 <strong>Comments 모듈을 독립 모듈로 만들되</strong>, 컨트롤러의 <code>@Controller('posts/:postId/comments')</code>와 Posts 모듈에서의 imports로 라우트 계층을 구성합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">중첩 라우트 컨트롤러 골격</span></div><pre><span class="c">// comments/comments.controller.ts</span>
+<span class="d">@Controller</span>(<span class="s">'posts/:postId/comments'</span>)
+<span class="k">export class</span> <span class="t">CommentsController</span> {
+  <span class="d">@Get</span>()
+  <span class="f">findAll</span>(<span class="d">@Param</span>(<span class="s">'postId'</span>, <span class="t">ParseIntPipe</span>) postId: <span class="t">number</span>) {
+    <span class="k">return</span> <span class="k">this</span>.commentsService.<span class="f">findAllByPost</span>(postId);
+  }
+
+  <span class="d">@Post</span>()
+  <span class="f">create</span>(
+    <span class="d">@Param</span>(<span class="s">'postId'</span>, <span class="t">ParseIntPipe</span>) postId: <span class="t">number</span>,
+    <span class="d">@Body</span>() dto: <span class="t">CreateCommentDto</span>,
+  ) {
+    <span class="k">return</span> <span class="k">this</span>.commentsService.<span class="f">create</span>(postId, dto);
+  }
+}
+
+<span class="c">// posts/posts.module.ts — CommentsModule을 imports에 포함</span>
+<span class="d">@Module</span>({
+  imports: [<span class="t">CommentsModule</span>],
+  controllers: [<span class="t">PostsController</span>],
+  providers: [<span class="t">PostsService</span>],
+})
+<span class="k">export class</span> <span class="t">PostsModule</span> {}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">중첩 라우트에서 <code>:postId</code> 파라미터 전달</span>
+    <p><code>@Controller('posts/:postId/comments')</code>를 쓰면 해당 컨트롤러의 모든 핸들러에서 <code>@Param('postId')</code>로 부모 자원의 ID를 받을 수 있습니다. Comments 서비스에서 DB를 조회할 때 <code>where: { post: { id: postId } }</code>로 필터링하면 정확히 해당 게시글의 댓글만 반환됩니다.</p>
+  </div>
+
+  <h2><span class="num">2</span>RBAC — <code>@Roles</code> 데코레이터 + <code>RolesGuard</code></h2>
+  <p>RBAC(Role-Based Access Control)는 <strong>사용자의 역할(role)</strong>에 따라 라우트 접근을 제어합니다. 구현은 두 부분으로 나뉩니다: ① <code>@Roles()</code> 커스텀 데코레이터가 핸들러에 역할 메타데이터를 붙이고, ② <code>RolesGuard</code>가 요청 시 <code>Reflector</code>로 그 메타데이터를 읽어 <code>request.user.role</code>과 비교합니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/roles.guard.ts">code/roles.guard.ts</a> — Reflector 기반 RolesGuard</span></div><pre><span class="k">import</span> { <span class="t">Injectable</span>, <span class="t">CanActivate</span>, <span class="t">ExecutionContext</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { <span class="t">Reflector</span> } <span class="k">from</span> <span class="s">'@nestjs/core'</span>;
+
+<span class="k">export enum</span> <span class="t">RoleEnum</span> { <span class="n">USER</span> = <span class="s">'USER'</span>, <span class="n">ADMIN</span> = <span class="s">'ADMIN'</span> }
+<span class="k">export const</span> <span class="n">ROLES_KEY</span> = <span class="s">'roles'</span>;
+<span class="k">export const</span> <span class="t">Roles</span> = (...roles: <span class="t">RoleEnum</span>[]) =&gt;
+  <span class="f">SetMetadata</span>(<span class="n">ROLES_KEY</span>, roles);
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">RolesGuard</span> <span class="k">implements</span> <span class="t">CanActivate</span> {
+  <span class="f">constructor</span>(<span class="k">private readonly</span> reflector: <span class="t">Reflector</span>) {}
+
+  <span class="f">canActivate</span>(context: <span class="t">ExecutionContext</span>): <span class="t">boolean</span> {
+    <span class="c">// 핸들러 또는 클래스에 붙은 @Roles() 메타데이터 읽기</span>
+    <span class="k">const</span> required = <span class="k">this</span>.reflector.<span class="f">getAllAndOverride</span>&lt;<span class="t">RoleEnum</span>[]&gt;(
+      <span class="n">ROLES_KEY</span>,
+      [context.<span class="f">getHandler</span>(), context.<span class="f">getClass</span>()],
+    );
+
+    <span class="k">if</span> (!required || required.length === <span class="n">0</span>) <span class="k">return true</span>;  <span class="c">// @Roles 없으면 통과</span>
+
+    <span class="k">const</span> { user } = context.<span class="f">switchToHttp</span>().<span class="f">getRequest</span>();
+    <span class="k">return</span> !!user &amp;&amp; required.<span class="f">includes</span>(user.role);
+  }
+}</pre></div>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 200" role="img" aria-label="RBAC 요청 흐름 — USER/ADMIN 역할별 Guard 통과/차단 매트릭스">
+      <!-- Request -->
+      <rect x="10" y="76" width="90" height="50" rx="9" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="55" y="100" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#7d5604">Request</text>
+      <text x="55" y="116" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#7d5604">user.role</text>
+      <line x1="102" y1="101" x2="148" y2="101" stroke="#c98a16" stroke-width="2" marker-end="url(#w12l2-arr1)"/>
+
+      <!-- RolesGuard -->
+      <rect x="150" y="60" width="140" height="82" rx="9" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
+      <text x="220" y="87" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#6fd6c7">RolesGuard</text>
+      <text x="220" y="104" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#ece6d6">Reflector.getAllAndOverride</text>
+      <text x="220" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#9a9382">(@Roles 메타데이터 읽기)</text>
+      <text x="220" y="136" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#9a9382">required.includes(user.role)</text>
+
+      <!-- pass arrow -->
+      <line x1="292" y1="88" x2="380" y2="70" stroke="#0d6e64" stroke-width="2" marker-end="url(#w12l2-arr2)"/>
+      <text x="348" y="69" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#0d6e64">✓ ADMIN → 통과</text>
+
+      <!-- handler -->
+      <rect x="382" y="50" width="130" height="40" rx="8" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="447" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#0a4f48">Handler</text>
+      <text x="447" y="83" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9" fill="#0a4f48">@Roles(ADMIN) deleteUser()</text>
+
+      <!-- block arrow -->
+      <line x1="292" y1="122" x2="380" y2="145" stroke="#e0552f" stroke-width="2" marker-end="url(#w12l2-arr3)"/>
+      <text x="348" y="145" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#e0552f">✗ USER → 403 Forbidden</text>
+      <rect x="382" y="128" width="130" height="30" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="447" y="147" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#a8401f">403 Forbidden</text>
+
+      <!-- no @Roles path -->
+      <rect x="382" y="168" width="130" height="25" rx="8" fill="#f6f0e8" stroke="#c98a16" stroke-width="1"/>
+      <text x="447" y="185" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#7d5604">@Roles 없음 → 모두 통과</text>
+
+      <defs>
+        <marker id="w12l2-arr1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#c98a16"/></marker>
+        <marker id="w12l2-arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0d6e64"/></marker>
+        <marker id="w12l2-arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>RolesGuard가 Reflector로 @Roles 메타데이터를 읽어 user.role과 비교. ADMIN이면 통과, USER이면 403.</figcaption>
+  </figure>
+
+  <h2><span class="num">3</span>전역 Private 기본 + <code>@IsPublic()</code> 예외</h2>
+  <p>"모든 라우트를 기본적으로 인증 필요"로 만들고, <strong>공개해야 하는 라우트에만</strong> <code>@IsPublic()</code>을 붙이는 패턴입니다. 실수로 보호되어야 할 라우트를 열어두는 것을 방지하는 <strong>화이트리스트 방어</strong> 전략입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">전역 AuthGuard에서 @IsPublic() 확인</span></div><pre><span class="c">// auth.guard.ts (전역 등록)</span>
+<span class="k">export const</span> <span class="n">IS_PUBLIC_KEY</span> = <span class="s">'isPublic'</span>;
+<span class="k">export const</span> <span class="t">IsPublic</span> = () =&gt; <span class="f">SetMetadata</span>(<span class="n">IS_PUBLIC_KEY</span>, <span class="k">true</span>);
+
+<span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">AccessTokenGuard</span> <span class="k">implements</span> <span class="t">CanActivate</span> {
+  <span class="f">constructor</span>(<span class="k">private</span> reflector: <span class="t">Reflector</span>) {}
+
+  <span class="f">canActivate</span>(context: <span class="t">ExecutionContext</span>): <span class="t">boolean</span> {
+    <span class="c">// @IsPublic()이 붙은 라우트는 토큰 없이도 통과</span>
+    <span class="k">const</span> isPublic = <span class="k">this</span>.reflector.<span class="f">getAllAndOverride</span>&lt;<span class="t">boolean</span>&gt;(
+      <span class="n">IS_PUBLIC_KEY</span>,
+      [context.<span class="f">getHandler</span>(), context.<span class="f">getClass</span>()],
+    );
+    <span class="k">if</span> (isPublic) <span class="k">return true</span>;
+
+    <span class="c">// 이후 토큰 검증 로직 …</span>
+    <span class="k">return</span> <span class="k">this</span>.<span class="f">validateToken</span>(context);
+  }
+}
+
+<span class="c">// 컨트롤러에서 공개 라우트 표시</span>
+<span class="d">@IsPublic</span>()          <span class="c">// 로그인·회원가입은 토큰 불필요</span>
+<span class="d">@Post</span>(<span class="s">'login'</span>)
+<span class="f">login</span>() { ... }</pre></div>
+
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 건물 출입 시스템 + 내 사물함</span>
+    <p><strong>RBAC</strong>는 건물 <strong>출입 등급 카드</strong>입니다. 일반 직원(USER) 카드는 사무실만 열리고, 관리자(ADMIN) 카드는 서버실·금고도 열립니다. 역할이 없으면 어디도 못 들어갑니다. <strong>소유권 Guard</strong>는 그 위에 <strong>내 사물함은 나만 열 수 있다</strong>는 규칙입니다. ADMIN 카드가 있어도 다른 사람 사물함을 막 열어선 안 될 때도 있죠. 두 규칙을 함께 써야 인가가 완전합니다.</p>
+  </div>
+
+  <h2><span class="num">4</span>Authorization — <code>IsPostMineOrAdminGuard</code></h2>
+  <p>RBAC는 역할을 확인하지만, "이 게시글이 내 것인가"는 DB를 조회해야 압니다. <code>IsPostMineOrAdminGuard</code>는 <strong>① ADMIN이면 무조건 통과 ② 그렇지 않으면 DB에서 게시글의 authorId를 확인해 본인인지 검사</strong>하는 인가 Guard입니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/is-mine-or-admin.guard.ts">code/is-mine-or-admin.guard.ts</a></span></div><pre><span class="d">@Injectable</span>()
+<span class="k">export class</span> <span class="t">IsPostMineOrAdminGuard</span> <span class="k">implements</span> <span class="t">CanActivate</span> {
+  <span class="f">constructor</span>(
+    <span class="d">@InjectRepository</span>(<span class="t">PostEntity</span>)
+    <span class="k">private readonly</span> postRepo: <span class="t">Repository</span>&lt;<span class="t">PostEntity</span>&gt;,
+  ) {}
+
+  <span class="k">async</span> <span class="f">canActivate</span>(context: <span class="t">ExecutionContext</span>): <span class="t">Promise</span>&lt;<span class="t">boolean</span>&gt; {
+    <span class="k">const</span> req = context.<span class="f">switchToHttp</span>().<span class="f">getRequest</span>();
+    <span class="k">const</span> user = req.user;
+    <span class="k">const</span> postId = +req.params.postId;
+
+    <span class="c">// ADMIN은 모든 게시글에 접근 가능</span>
+    <span class="k">if</span> (user.role === <span class="t">RoleEnum</span>.<span class="n">ADMIN</span>) <span class="k">return true</span>;
+
+    <span class="k">const</span> post = <span class="k">await</span> <span class="k">this</span>.postRepo.<span class="f">findOne</span>({ where: { id: postId } });
+    <span class="k">if</span> (!post) <span class="k">throw new</span> <span class="t">NotFoundException</span>();
+
+    <span class="c">// 본인 글이 아니면 403</span>
+    <span class="k">if</span> (post.authorId !== user.id) <span class="k">throw new</span> <span class="t">ForbiddenException</span>();
+
+    <span class="k">return true</span>;
+  }
+}
+
+<span class="c">// 컨트롤러 사용 예시</span>
+<span class="d">@UseGuards</span>(<span class="t">IsPostMineOrAdminGuard</span>)
+<span class="d">@Delete</span>(<span class="s">':postId'</span>)
+<span class="f">remove</span>(<span class="d">@Param</span>(<span class="s">'postId'</span>, <span class="t">ParseIntPipe</span>) postId: <span class="t">number</span>) {
+  <span class="k">return</span> <span class="k">this</span>.postsService.<span class="f">remove</span>(postId);
+}</pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">RBAC와 소유권 인가는 별개의 레이어</span>
+    <p>RBAC(<code>RolesGuard</code>)는 역할 수준 — "ADMIN만 이 엔드포인트에 접근 가능" — 을 처리합니다. 소유권 Guard(<code>IsMineOrAdminGuard</code>)는 자원 수준 — "이 자원이 내 것이거나 ADMIN인 경우만" — 을 처리합니다. 두 가지를 <code>@UseGuards(RolesGuard, IsPostMineOrAdminGuard)</code>처럼 함께 걸어 복합 인가 정책을 구성할 수 있습니다. 댓글에도 동일한 구조로 <code>IsCommentMineOrAdminGuard</code>를 추가할 수 있습니다.</p>
+  </div>
+
+  <div class="section-divider">복습</div>
+
+  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+
+  <details class="qa">
+    <summary><span class="qmark">Q</span> RBAC(역할 기반 접근 제어)란 무엇인가요?</summary>
+    <div class="answer"><p>RBAC는 사용자에게 <strong>역할(Role)</strong>을 부여하고, 각 역할이 수행할 수 있는 행동을 정의하는 인가 방식입니다. NestJS에서는 <code>@Roles(RoleEnum.ADMIN)</code> 커스텀 데코레이터로 핸들러에 <strong>필요한 역할 메타데이터</strong>를 붙이고, <code>RolesGuard</code>가 <code>Reflector.getAllAndOverride()</code>로 그 메타데이터를 읽어 <code>request.user.role</code>과 비교합니다. 역할이 일치하지 않으면 403 Forbidden을 반환합니다. RBAC의 장점은 역할별 권한을 <strong>한 곳에서 선언적으로</strong> 관리할 수 있어 유지보수가 쉽다는 점입니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> 모든 라우트를 기본 Private로 두고 <code>@IsPublic()</code>을 사용하는 패턴의 목적은 무엇인가요?</summary>
+    <div class="answer"><p><strong>실수로 보호되어야 할 라우트를 공개하는 것을 방지</strong>하는 화이트리스트 방어 전략입니다. 전통적 방식처럼 보호 라우트에만 <code>@UseGuards(AuthGuard)</code>를 달면, 개발자가 새 라우트를 추가할 때 Guard를 빠뜨리는 실수를 할 수 있습니다. 반대로 전역 Guard를 기본 적용하고 <code>@IsPublic()</code>을 붙인 라우트만 예외로 두면, 새 라우트는 자동으로 보호됩니다. 인증이 필요 없는 라우트(로그인·회원가입·공개 게시글 목록)에만 <code>@IsPublic()</code>을 명시적으로 달아야 공개됩니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>RolesGuard</code>와 <code>IsPostMineOrAdminGuard</code>는 각각 어떤 경우에 사용하나요?</summary>
+    <div class="answer"><p>두 Guard는 서로 다른 <strong>인가 레이어</strong>를 담당합니다. <code>RolesGuard</code>는 <strong>역할 수준</strong>: "이 엔드포인트는 ADMIN 역할을 가진 사용자만 호출할 수 있다"처럼, 특정 기능 자체에 역할 제한을 걸 때 씁니다. <code>IsMineOrAdminGuard</code>는 <strong>자원 소유권 수준</strong>: "이 게시글/댓글은 작성자 본인 또는 ADMIN만 수정·삭제할 수 있다"처럼, 특정 자원에 대한 접근을 자원 소유자와 관리자로 제한할 때 씁니다. 실무에서는 두 Guard를 함께 적용해 역할 + 소유권 이중 인가를 구성합니다.</p></div>
+  </details>
+
+  <nav class="pager">
+    <a class="prev" href="01-websocket-socketio.html"><span class="dir">← 이전</span><span class="ttl">WebSocket &amp; Socket.IO</span></a>
+    <a class="next" href="03-follow-count-retro.html"><span class="dir">다음 →</span><span class="ttl">Follow System · Count · 회고</span></a>
+  </nav>
+</main>
+
+<footer class="foot">NestJS 코어 셀프 스터디 · Week 12 · Lesson 02 ★ 핵심 · 모듈 네스팅 · RBAC · Authorization</footer>
+</body>
+</html>

@@ -95,6 +95,17 @@
     <p>카카오 로그인을 처리할 때 "이 이메일로 가입한 회원이 이미 있으면 마지막 로그인 시각만 업데이트, 없으면 새 회원으로 등록"하는 상황을 생각해보세요. 코드로 구현하면 SELECT → 있으면 UPDATE, 없으면 INSERT를 따로 작성해야 하고 동시 요청이 들어오면 경쟁 조건도 생깁니다. <code>ON CONFLICT</code>는 이걸 <strong>한 문장·원자적으로</strong> 해결합니다.</p>
   </div>
 
+  <div class="box tip">
+    <span class="ic">🎯</span>
+    <span class="label">ON CONFLICT — 충돌 대상을 명시해야 한다</span>
+    <p><code>ON CONFLICT</code>는 "어떤 조건에서 충돌이 발생하는가"를 먼저 지정합니다. 두 가지 방식이 있습니다:</p>
+    <ul>
+      <li><code>ON CONFLICT (sku)</code> — 특정 <strong>컬럼</strong>의 UNIQUE 제약을 기준으로 충돌을 감지합니다.</li>
+      <li><code>ON CONFLICT ON CONSTRAINT constraint_name</code> — 제약 이름을 직접 지정합니다. 복합 UNIQUE 제약(컬럼 2개 이상)처럼 컬럼 하나로 특정할 수 없을 때 씁니다.</li>
+    </ul>
+    <p>충돌이 <strong>없으면</strong> <code>ON CONFLICT</code> 절 자체가 무시되고 그냥 삽입됩니다. 충돌이 있을 때만 <code>DO UPDATE</code> 또는 <code>DO NOTHING</code>이 실행됩니다.</p>
+  </div>
+
   <div class="box analogy">
     <span class="ic">🔑</span>
     <span class="label">비유 — EXCLUDED는 "문 앞에서 거절당한 행"</span>
@@ -120,6 +131,22 @@
 <span class="c">-----+-----</span>
 <span class="c"> A-1 |  15      ← 999는 무시됨</span></pre></div>
 
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — EXCLUDED 활용 패턴</span></div><pre><span class="c">-- 1. 새 값으로 덮어쓰기</span>
+<span class="k">ON CONFLICT</span> (sku) <span class="k">DO UPDATE SET</span> qty = <span class="k">EXCLUDED</span>.qty;
+
+<span class="c">-- 2. 누적하기 (기존 + 새 값)</span>
+<span class="k">ON CONFLICT</span> (sku) <span class="k">DO UPDATE SET</span> qty = inventory.qty + <span class="k">EXCLUDED</span>.qty;
+
+<span class="c">-- 3. 더 큰 값만 유지</span>
+<span class="k">ON CONFLICT</span> (sku) <span class="k">DO UPDATE SET</span> qty = <span class="f">GREATEST</span>(inventory.qty, <span class="k">EXCLUDED</span>.qty);
+
+<span class="c">-- 4. 조건부 업데이트 (새 값이 더 클 때만)</span>
+<span class="k">ON CONFLICT</span> (sku) <span class="k">DO UPDATE SET</span> qty = <span class="k">EXCLUDED</span>.qty
+  <span class="k">WHERE</span> <span class="k">EXCLUDED</span>.qty &gt; inventory.qty;
+
+<span class="c">-- 5. 복합 UNIQUE 제약 기준으로 충돌 감지</span>
+<span class="k">ON CONFLICT ON CONSTRAINT</span> user_product_unique <span class="k">DO UPDATE SET</span> qty = <span class="k">EXCLUDED</span>.qty;</pre></div>
+
   <div class="compare">
     <div class="compare__mysql">
       <div class="compare__head">UPSERT <span class="tag">MySQL</span></div>
@@ -132,70 +159,102 @@
   </div>
 
   <h2><span class="num">3</span>MERGE — SQL 표준</h2>
-  <p><code>ON CONFLICT</code>는 "들어오려는 한 행"의 충돌을 다룹니다. 반면 <strong><code>MERGE</code></strong>는 <strong>소스 테이블과 조인</strong>해, 매칭 여부(<code>WHEN MATCHED</code> / <code>WHEN NOT MATCHED</code>)에 따라 UPDATE·INSERT·DELETE를 분기합니다. 외부 피드를 통째로 동기화하는 경우처럼 <strong>여러 행을 다른 소스와 병합</strong>할 때 유용합니다.</p>
+  <p><code>MERGE</code>는 <strong>"두 테이블을 비교해서, 행마다 다르게 처리"</strong>하는 명령입니다. <code>ON CONFLICT</code>가 "지금 삽입하려는 한 행이 충돌하면 어떻게 할까"라면, <code>MERGE</code>는 "소스 목록 전체를 대상 테이블과 대조해, 있는 행은 UPDATE·없는 행은 INSERT·필요 없어진 행은 DELETE"를 <strong>한 문장</strong>으로 처리합니다.</p>
 
   <div class="box analogy">
-    <span class="ic">📦</span>
-    <span class="label">비유 — 편의점 재고 동기화</span>
-    <p>본사에서 매주 "이번 주 재고 현황" 파일(<code>stock_feed</code>)을 보내옵니다. 편의점 직원이 현재 진열대(<code>inventory</code>)와 대조해서 처리합니다:</p>
+    <span class="ic">📱</span>
+    <span class="label">비유 — 새 폰에 연락처 옮기기</span>
+    <p>구글 연락처에서 내보낸 파일(<code>contacts_export</code>)을 새 폰의 연락처(<code>my_contacts</code>)에 반영한다고 생각해보세요. 사람마다 상황이 다릅니다:</p>
     <ul>
-      <li><strong>이미 있는 상품</strong>(매칭) → 수량을 본사 데이터로 덮어씁니다 (<code>WHEN MATCHED → UPDATE</code>)</li>
-      <li><strong>새로 들어온 상품</strong>(미매칭) → 진열대에 추가합니다 (<code>WHEN NOT MATCHED → INSERT</code>)</li>
+      <li><strong>이미 저장된 사람</strong>(매칭) → 최신 번호로 덮어씁니다 (<code>WHEN MATCHED → UPDATE</code>)</li>
+      <li><strong>새로 추가된 사람</strong>(미매칭) → 연락처를 새로 등록합니다 (<code>WHEN NOT MATCHED → INSERT</code>)</li>
     </ul>
-    <p>MERGE는 이 작업 전체를 SQL 한 문장으로 처리합니다. <code>ON CONFLICT</code>가 "한 손님의 주문 처리"라면 MERGE는 "전체 손님 명단을 통째로 갱신"하는 것입니다.</p>
+    <p>이 작업을 코드로 짜면 "파일 한 줄씩 읽어서 있으면 UPDATE, 없으면 INSERT" 루프가 필요합니다. <code>MERGE</code>는 이 루프 전체를 SQL 한 문장으로 대체합니다.</p>
   </div>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — MERGE (소스 테이블과 병합)</span></div><pre><span class="c">-- stock_feed = 외부에서 들어온 재고 피드 (A-1=100, B-2=7)</span>
-<span class="k">MERGE</span> <span class="k">INTO</span> inventory <span class="k">AS</span> tgt
-<span class="k">USING</span> stock_feed <span class="k">AS</span> src
-  <span class="k">ON</span> tgt.sku = src.sku
-<span class="k">WHEN MATCHED</span> <span class="k">THEN</span>
-  <span class="k">UPDATE SET</span> qty = src.qty                          <span class="c">-- 이미 있으면 덮어쓰기</span>
-<span class="k">WHEN NOT MATCHED</span> <span class="k">THEN</span>
-  <span class="k">INSERT</span> (sku, qty) <span class="k">VALUES</span> (src.sku, src.qty);    <span class="c">-- 없으면 삽입</span>
-<span class="k">SELECT</span> * <span class="k">FROM</span> inventory <span class="k">ORDER BY</span> sku;
-<span class="c"> sku | qty</span>
-<span class="c">-----+-----</span>
-<span class="c"> A-1 | 100      ← 매칭 → 갱신</span>
-<span class="c"> B-2 |   7      ← 미매칭 → 신규 삽입</span></pre></div>
 
   <div class="box tip">
     <span class="ic">💡</span>
-    <span class="label">ON CONFLICT vs MERGE — 언제 무엇을</span>
-    <p>"고유 키 충돌 시 그 한 행을 upsert"라면 간결한 <code>ON CONFLICT</code>가 보통 정답입니다. <strong>다른 소스 테이블과 조인</strong>해 매칭/미매칭/삭제까지 여러 분기를 표현해야 하면 <code>MERGE</code>가 적합합니다(SQL 표준이라 다른 DB와도 호환). 단순한 단일 행 upsert에 MERGE는 과합니다.</p>
+    <span class="label">MERGE 문장 읽는 법 — 키워드 4개만 기억하면 된다</span>
+    <ul>
+      <li><code>MERGE INTO 대상테이블</code> — 실제로 바뀔 테이블 (내 연락처)</li>
+      <li><code>USING 소스테이블 ON 조건</code> — 비교 기준이 되는 데이터와 매칭 조건 (내보낸 파일, 이름이 같으면 같은 사람)</li>
+      <li><code>WHEN MATCHED THEN</code> — 조건이 일치하는 행이 있을 때 → 보통 UPDATE</li>
+      <li><code>WHEN NOT MATCHED THEN</code> — 조건이 일치하는 행이 없을 때 → 보통 INSERT</li>
+    </ul>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — MERGE (소스 테이블과 병합)</span></div><pre><span class="c">-- stock_feed(소스): 본사에서 받은 재고 데이터 (A-1=100, B-2=7)</span>
+<span class="c">-- inventory(대상): 현재 진열대 데이터 (A-1=15만 있음)</span>
+
+<span class="k">MERGE</span> <span class="k">INTO</span> inventory <span class="k">AS</span> tgt         <span class="c">-- 바꿀 대상 테이블</span>
+<span class="k">USING</span> stock_feed <span class="k">AS</span> src             <span class="c">-- 비교할 소스 데이터</span>
+  <span class="k">ON</span> tgt.sku = src.sku               <span class="c">-- 매칭 조건: sku가 같으면 같은 상품</span>
+<span class="k">WHEN MATCHED THEN</span>                    <span class="c">-- 양쪽 모두 있을 때(A-1)</span>
+  <span class="k">UPDATE SET</span> qty = src.qty           <span class="c">--   → 본사 수량으로 덮어쓰기</span>
+<span class="k">WHEN NOT MATCHED THEN</span>                <span class="c">-- 소스에만 있고 대상엔 없을 때(B-2)</span>
+  <span class="k">INSERT</span> (sku, qty) <span class="k">VALUES</span> (src.sku, src.qty);  <span class="c">-- → 새로 삽입</span>
+
+<span class="k">SELECT</span> * <span class="k">FROM</span> inventory <span class="k">ORDER BY</span> sku;
+<span class="c"> sku | qty</span>
+<span class="c">-----+-----</span>
+<span class="c"> A-1 | 100      ← MATCHED → 15에서 100으로 갱신</span>
+<span class="c"> B-2 |   7      ← NOT MATCHED → 새로 삽입됨</span></pre></div>
+
+  <div class="box tip">
+    <span class="ic">💡</span>
+    <span class="label">ON CONFLICT vs MERGE — 한 문장 판단 기준</span>
+    <p><strong>"지금 INSERT하는 이 한 행"</strong>이 충돌 났을 때 처리하는 거라면 → <code>ON CONFLICT</code>가 간결합니다.<br>
+    <strong>"외부 목록 전체"</strong>를 대상 테이블과 대조해 매칭/비매칭별로 다르게 처리해야 한다면 → <code>MERGE</code>가 적합합니다.<br>
+    단순 upsert 한 건에 MERGE는 과합니다 — 코드가 길어지고 읽기 어려워집니다.</p>
   </div>
 
   <h2><span class="num">4</span>생성 컬럼(Generated Columns)</h2>
-  <p>다른 컬럼으로부터 <strong>자동으로 계산되는 컬럼</strong>입니다. <code>price_tax</code>를 매번 앱에서 계산해 넣는 대신, "<code>price * 1.10</code>"이라고 <strong>한 번 선언</strong>해 두면 DB가 알아서 채웁니다. 두 가지 모드가 있습니다.</p>
+  <p><strong>DB가 자동으로 계산해서 채워주는 컬럼</strong>입니다. 예를 들어 "부가세 포함 금액(<code>price_tax</code>)은 항상 <code>price × 1.10</code>"이라면, 앱 코드에서 매번 곱셈을 해서 INSERT할 필요가 없습니다. 컬럼을 만들 때 계산식을 한 번 선언해두면 DB가 알아서 채워줍니다. 직접 값을 넣으려 하면 에러가 납니다 — <strong>항상(ALWAYS)</strong> DB가 계산하는 컬럼이기 때문입니다.</p>
 
   <div class="box analogy">
-    <span class="ic">🧮</span>
-    <span class="label">비유 — 메모장에 미리 적어두기 vs 그때그때 계산하기</span>
-    <p><strong>STORED</strong>는 물건을 받는 순간(INSERT/UPDATE) 미리 계산해서 메모장(디스크)에 적어두는 것입니다. 나중에 읽을 때 메모장만 펼치면 되므로 빠르지만 메모장 공간을 씁니다.<br>
-    <strong>virtual</strong>은 메모장에 적지 않고, 필요할 때마다 그 자리에서 계산합니다. 메모장 공간은 아끼지만 읽을 때마다 계산 비용이 생깁니다.<br>
-    인덱스를 걸어야 하는 컬럼(예: 검색 속도가 중요한 <code>lower(name)</code>)이라면 <code>STORED</code>를 선택하세요 — virtual 컬럼에는 인덱스를 직접 달 수 없습니다.</p>
+    <span class="ic">📊</span>
+    <span class="label">비유 — 엑셀의 수식 셀</span>
+    <p>엑셀에서 B열에 <code>=A1*1.10</code>을 입력해두면, A열 값을 바꿀 때마다 B열이 자동으로 업데이트됩니다. 생성 컬럼이 정확히 이 개념입니다. 앱이 <code>price</code>만 넣어주면 <code>price_tax</code>는 DB가 계산합니다.</p>
+    <p>계산식을 앱 곳곳에 흩뿌리지 않아도 되고, 실수로 다른 값이 들어갈 걱정도 없습니다.</p>
+  </div>
+
+  <div class="box tip">
+    <span class="ic">🗄️</span>
+    <span class="label">STORED vs virtual — 계산 결과를 저장해두냐, 아니냐</span>
+    <p>생성 컬럼은 두 가지 방식으로 동작합니다:</p>
+    <ul>
+      <li><strong>STORED</strong> — INSERT/UPDATE할 때 미리 계산해서 <strong>디스크에 저장</strong>합니다. 조회할 때는 저장된 값을 그냥 읽으면 되므로 빠릅니다. 대신 공간을 차지하고, 인덱스를 걸 수 있습니다.</li>
+      <li><strong>virtual</strong> — 디스크에 저장하지 않고, <strong>SELECT할 때마다 그 자리에서 계산</strong>합니다. 공간을 아낄 수 있지만, 인덱스를 걸 수 없습니다.</li>
+    </ul>
+    <p><strong>언제 무엇을 쓸까?</strong> 검색 조건이나 정렬에 쓰일 컬럼 → <code>STORED</code>(인덱스 필요). 단순 표시용 계산값 → virtual로 충분합니다.</p>
   </div>
 
   <table class="tbl">
     <thead><tr><th>모드</th><th>언제 계산</th><th>디스크 저장</th><th>인덱스</th></tr></thead>
     <tbody>
-      <tr><td><code>STORED</code></td><td>쓸 때(INSERT/UPDATE)</td><td>저장함 — 읽기 빠름</td><td>가능 ✅</td></tr>
-      <tr><td>virtual (PG18 기본)</td><td>읽을 때(SELECT)</td><td>저장 안 함 — 공간 절약</td><td>불가 ❌</td></tr>
+      <tr><td><code>STORED</code></td><td>쓸 때 (INSERT/UPDATE)</td><td>저장함 — 조회 빠름</td><td>가능 ✅</td></tr>
+      <tr><td>virtual <span class="chip">PG18 기본</span></td><td>읽을 때 (SELECT)</td><td>저장 안 함 — 공간 절약</td><td>불가 ❌</td></tr>
     </tbody>
   </table>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — STORED vs (PG18 기본) virtual</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> line_item (
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — STORED vs virtual</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> line_item (
   name        <span class="t">text</span>,
   price       <span class="t">numeric</span>(<span class="n">10</span>,<span class="n">2</span>),
+
+  <span class="c">-- STORED: INSERT/UPDATE 시점에 계산해서 디스크에 저장</span>
   price_tax   <span class="t">numeric</span>(<span class="n">10</span>,<span class="n">2</span>) <span class="k">GENERATED ALWAYS AS</span> (price * <span class="n">1.10</span>) <span class="k">STORED</span>,
-  <span class="c">-- 키워드 생략 시 PG18 기본은 virtual (읽을 때 계산)</span>
+
+  <span class="c">-- virtual(PG18 기본): STORED/VIRTUAL 생략 → SELECT할 때마다 계산</span>
   search_name <span class="t">text</span> <span class="k">GENERATED ALWAYS AS</span> (<span class="f">lower</span>(name))
 );
+
+<span class="c">-- name, price만 넣으면 나머지 두 컬럼은 DB가 채워줌</span>
 <span class="k">INSERT</span> <span class="k">INTO</span> line_item (name, price) <span class="k">VALUES</span> (<span class="s">'Coffee'</span>, <span class="n">100.00</span>);
+
 <span class="k">SELECT</span> * <span class="k">FROM</span> line_item;
 <span class="c">  name  | price  | price_tax | search_name</span>
 <span class="c">--------+--------+-----------+-------------</span>
-<span class="c"> Coffee | 100.00 |    110.00 | coffee</span>
+<span class="c"> Coffee | 100.00 |    110.00 | coffee      ← 앱이 넣은 건 name, price뿐</span>
 
 <span class="c">-- 카탈로그로 확인: 's'=stored, 'v'=virtual</span>
 <span class="k">SELECT</span> attname, attgenerated <span class="k">FROM</span> pg_attribute
@@ -207,8 +266,8 @@
 
   <div class="box note">
     <span class="ic">🧩</span>
-    <span class="label">PG18: generated의 기본이 virtual로 바뀜</span>
-    <p><span class="chip">PG18</span> PG18 이전에는 생성 컬럼이 <code>STORED</code>만 가능했습니다. PG18부터는 <code>STORED</code>/<code>VIRTUAL</code> 키워드를 <strong>생략하면 기본이 virtual</strong>입니다(위 카탈로그에서 <code>search_name</code>이 <code>v</code>). virtual은 디스크에 저장하지 않고 읽을 때 계산하므로 공간을 아끼지만, <strong>인덱스를 걸어야 하는 표현식</strong>이라면 <code>STORED</code>를 명시하세요(virtual 컬럼엔 인덱스를 직접 못 답니다).</p>
+    <span class="label">PG18 이전과의 차이</span>
+    <p><span class="chip">PG18</span> PG18 이전에는 생성 컬럼이 <code>STORED</code>만 지원됐습니다. PG18부터 virtual도 가능해졌고, 키워드를 <strong>생략하면 기본이 virtual</strong>입니다. 즉, 기존 코드에서 <code>STORED</code>를 생략하면 PG18에서는 동작이 달라지므로 주의하세요.</p>
   </div>
 
   <div class="section-divider">복습</div>
@@ -221,6 +280,10 @@
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>ON CONFLICT</code>의 <code>EXCLUDED</code>란?</summary>
     <div class="answer"><p>충돌 때문에 <strong>삽입되지 못한 "들어오려던 행"</strong>을 가리키는 가상 테이블입니다. <code>DO UPDATE SET qty = inventory.qty + EXCLUDED.qty</code>처럼 기존 행 값과 새 값을 조합할 때 씁니다. <code>DO NOTHING</code>이면 충돌 시 조용히 무시합니다.</p></div>
+  </details>
+  <details class="qa">
+    <summary><span class="qmark">Q</span> <code>ON CONFLICT (sku)</code>와 <code>ON CONFLICT ON CONSTRAINT</code>의 차이는?</summary>
+    <div class="answer"><p><code>ON CONFLICT (sku)</code>는 <strong>컬럼 이름</strong>으로 충돌 대상을 지정합니다 — 해당 컬럼에 UNIQUE 제약이 있어야 합니다. <code>ON CONFLICT ON CONSTRAINT constraint_name</code>은 <strong>제약 이름</strong>으로 직접 지정하는 방식으로, 컬럼 2개 이상의 복합 UNIQUE 제약처럼 컬럼 하나로 특정할 수 없을 때 씁니다. 충돌이 없으면 <code>ON CONFLICT</code> 절 자체가 무시되고 그냥 삽입됩니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> 생성 컬럼의 <code>STORED</code> vs virtual 차이는?</summary>

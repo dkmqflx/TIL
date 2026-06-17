@@ -132,10 +132,31 @@
     <thead><tr><th>상황</th><th>권장 기본키</th><th>이유 (쉽게)</th></tr></thead>
     <tbody>
       <tr><td>대부분의 경우 — 기본 선택</td><td><code>IDENTITY</code></td><td>1, 2, 3… 숫자라 단순하고 빠름</td></tr>
-      <tr><td>ID가 URL에 그대로 보일 때<br><small>예: <code>/posts/5</code>, <code>/orders/12</code></small></td><td><code>uuidv7()</code></td><td>숫자면 "다음 글은 /posts/6이겠네" 추측이 가능 — 긴 문자열은 추측 불가</td></tr>
+      <tr><td>ID가 외부에 노출될 때<br><small>예: URL(<code>/posts/5</code>), API 응답 JSON</small></td><td><code>uuidv7()</code></td><td>숫자면 "다음 글은 /posts/6이겠네" 추측이 가능 — 긴 문자열은 추측 불가</td></tr>
       <tr><td>여러 서버가 동시에 ID를 만들 때</td><td><code>uuidv7()</code></td><td>각 서버가 따로 만들어도 ID가 겹치지 않음</td></tr>
     </tbody>
   </table>
+
+  <div class="box analogy">
+    <span class="ic">🔗</span>
+    <span class="label">왜 외부에 노출되는 숫자 ID가 위험한가?</span>
+    <p>URL이든 API 응답이든 <strong>클라이언트에 ID가 전달되는 순간</strong> 동일한 문제가 생깁니다. <code>/posts/5</code>를 보면 "다음은 <code>/posts/6</code>이겠네"를 추측할 수 있고, API 응답 <code>{ "id": 5 }</code>를 받아도 마찬가지입니다. 악의적인 사용자가 1부터 하나씩 올려가며 데이터를 긁거나, <code>/orders/123</code>으로 "오늘 주문이 123건"이라는 <strong>비즈니스 정보가 유출</strong>될 수 있습니다. <code>uuidv7()</code>로 바꾸면 <code>{ "id": "019eac43-d675-…" }</code>처럼 보여 다음 ID를 예측할 방법이 없습니다.</p>
+    <table class="tbl" style="margin-top:0.8rem">
+      <thead><tr><th>노출 방식</th><th>uuidv7() 필요?</th></tr></thead>
+      <tbody>
+        <tr><td>내부 DB 조인·집계에만 사용</td><td>❌ IDENTITY면 충분</td></tr>
+        <tr><td>URL 파라미터 (<code>/posts/5</code>)</td><td>✅</td></tr>
+        <tr><td>API 응답 JSON에 포함</td><td>✅</td></tr>
+        <tr><td>클라이언트에 전달되는 모든 경우</td><td>✅</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box analogy">
+    <span class="ic">🖥️</span>
+    <span class="label">왜 여러 서버가 동시에 숫자 ID를 만들면 충돌하는가?</span>
+    <p>서울 서버와 부산 서버가 직원 번호를 따로 발급하면 둘 다 "1번, 2번, 3번…"을 만들어 <strong>번호가 겹쳐버립니다</strong>. 숫자 <code>IDENTITY</code>는 반드시 DB 한 곳에 "지금 몇 번까지 발급했어?"를 물어봐야 하므로, 서버가 여러 대면 속도도 느려지고 복잡해집니다. 반면 <code>uuidv7()</code>은 <strong>"현재 시각 + 서버별 무작위 값"</strong>으로 ID를 만들기 때문에, 각 서버가 DB에 묻지 않고 독립적으로 생성해도 수십억 분의 1 확률로도 겹치지 않습니다.</p>
+  </div>
 
   <p><code>uuidv7()</code>는 완전히 무작위처럼 보이지만, 앞부분에 <strong>생성 시각</strong>이 들어 있어 만들어진 순서대로 정렬됩니다. 아래 결과에서 두 행의 id 앞부분 <code>019eac43</code>이 같은 것이 그 증거입니다.</p>
 
@@ -162,7 +183,7 @@
   </div>
 
   <h2><span class="num">4</span>시퀀스(SEQUENCE)</h2>
-  <p><code>IDENTITY</code> 키 뒤에는 사실 <strong>시퀀스</strong>라는 객체가 숨어 "다음 번호"를 발급하고 있습니다. <code>pg_get_serial_sequence()</code>로 어떤 시퀀스가 컬럼에 묶였는지 확인할 수 있고, 시퀀스를 <strong>직접 만들어</strong> <code>nextval</code>/<code>currval</code>로 번호를 뽑아 쓸 수도 있습니다.</p>
+  <p><code>IDENTITY</code> 키 뒤에는 사실 <strong>시퀀스</strong>라는 객체가 숨어 "다음 번호"를 발급하고 있습니다. 시퀀스는 <strong>"다음 번호표를 뽑아주는 기계"</strong>라고 생각하면 됩니다 — <code>nextval</code>을 호출할 때마다 100, 101, 102… 를 순서대로 내어줍니다. <code>IDENTITY</code>로 테이블을 만들면 PostgreSQL이 이 기계를 자동으로 생성하고, INSERT할 때마다 번호를 하나씩 뽑아 <code>id</code>에 채워줍니다. <code>pg_get_serial_sequence()</code>로 어떤 시퀀스가 컬럼에 묶였는지 확인할 수 있고, 시퀀스를 <strong>직접 만들어</strong> <code>nextval</code>/<code>currval</code>로 번호를 뽑아 쓸 수도 있습니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — IDENTITY 뒤의 시퀀스 + 직접 만들기</span></div><pre><span class="c">-- IDENTITY 컬럼이 소유한 시퀀스 이름 확인</span>
 <span class="k">SELECT</span> <span class="f">pg_get_serial_sequence</span>(<span class="s">'users'</span>, <span class="s">'id'</span>);
@@ -178,60 +199,130 @@
 
   <div class="box note">
     <span class="ic">🧩</span>
-    <span class="label">시퀀스는 트랜잭션을 따르지 않는다</span>
-    <p><span class="chip">gap</span> <code>nextval</code>로 뽑은 번호는 트랜잭션이 <strong>롤백돼도 되돌아오지 않습니다</strong>. 동시 발급 성능을 위해 일부러 그렇게 설계됐기 때문입니다. 그래서 IDENTITY/시퀀스 키에는 <strong>중간에 빈 번호(gap)가 생길 수 있습니다</strong> — "1, 2, 4, 5…"처럼요. 키는 <strong>유일하기만 하면 충분</strong>하지, 연속일 필요는 없다고 받아들이세요.</p>
+    <span class="label">시퀀스는 트랜잭션을 따르지 않는다 — gap이 생기는 이유</span>
+    <p><span class="chip">gap</span> <code>nextval</code>로 뽑은 번호는 트랜잭션이 <strong>롤백돼도 되돌아오지 않습니다</strong>.</p>
+    <p><strong>비유 — 은행 대기표:</strong> A·B·C가 동시에 번호표를 뽑아 101·102·103번을 받았습니다. A가 "잘못 왔네" 하고 그냥 나가버렸어도(= 롤백), 기계는 101번을 회수하지 않습니다. 다음 사람은 104번을 받고, 101번은 빈 자리로 남습니다. 만약 "롤백되면 번호를 회수한다"고 설계하면 동시에 100명이 번호표를 뽑을 때 기계가 매번 잠겨 <strong>엄청 느려지기 때문</strong>에, 일부러 "뽑으면 그냥 끝"으로 만든 겁니다.</p>
+    <p><strong>gap이 생겨도 괜찮은 이유:</strong> 도로 위 번호판이 <code>가 1234</code>, <code>가 1236</code>으로 1235가 빠져 있어도 각 차를 구별하는 데는 전혀 문제없습니다. ID의 역할은 <strong>"각 행을 유일하게 식별하는 것"</strong>이지 연속일 필요는 없습니다. <code>1, 2, 4, 5…</code>여도 충분합니다.</p>
   </div>
 
   <h2><span class="num">5</span>(PG18) 제외 제약 &amp; temporal 맛보기</h2>
-  <p>마지막은 한 단계 강력한 제약입니다. <code>UNIQUE</code>가 "값이 같으면 안 됨"이라면, <strong>제외 제약(<code>EXCLUDE</code>)</strong>은 "이 조건이 동시에 참이면 안 됨"을 표현합니다. 대표 예가 <strong>"같은 회의실에서 시간대가 겹치는 예약 금지"</strong>입니다.</p>
+
+  <p>지금까지 배운 <code>UNIQUE</code>는 <strong>"값이 완전히 같으면 안 됨"</strong>을 막습니다. 그런데 현실에서는 "값이 같은 건 괜찮은데, <em>특정 조건이 둘 다 겹치면</em> 안 되는" 상황이 있습니다. 이걸 처리하는 게 <strong>제외 제약(<code>EXCLUDE</code>)</strong>입니다.</p>
 
   <div class="box analogy">
     <span class="ic">📅</span>
-    <span class="label">비유 — 회의실 예약 충돌 방지</span>
-    <p>회의실 예약을 앱에서만 막으면, 두 사람이 같은 순간에 같은 방·겹치는 시간을 예약해 충돌이 날 수 있습니다. <code>EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)</code>는 "<strong>방이 같고(<code>=</code>) 시간대가 겹치면(<code>&amp;&amp;</code>) 거부</strong>"를 DB 차원에서 보장합니다. 범위 타입에 <code>=</code> 비교를 쓰려면 <code>btree_gist</code> 확장이 필요합니다.</p>
+    <span class="label">UNIQUE vs EXCLUDE — 한 줄 비교</span>
+    <p><strong>UNIQUE:</strong> "이메일은 딱 하나만" → 값 하나를 비교<br>
+    <strong>EXCLUDE:</strong> "같은 회의실에서 시간이 겹치면 안 됨" → 두 가지 조건을 동시에 비교</p>
+    <p>예약 시스템에서 UNIQUE로는 이걸 표현할 수 없어요. 같은 방을 다른 시간에 쓰는 건 괜찮으니까요. "방이 같고(<code>=</code>) <em>그리고</em> 시간대까지 겹치면(<code>&amp;&amp;</code>)" — 이 두 조건이 동시에 참일 때만 거부하는 게 EXCLUDE입니다.</p>
   </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — EXCLUDE USING gist (시간대 겹침 방지)</span></div><pre><span class="k">CREATE</span> <span class="k">EXTENSION</span> <span class="k">IF NOT EXISTS</span> btree_gist;
+  <div class="box analogy">
+    <span class="ic">🏢</span>
+    <span class="label">비유 — 회의실 예약 충돌</span>
+    <p>팀장 A가 회의실 A를 <strong>10시~11시</strong>로 예약했습니다. 팀원 B가 동시에 회의실 A를 <strong>10시 30분~11시 30분</strong>으로 예약 시도합니다. 앱에서만 체크하면 두 요청이 동시에 들어올 때 둘 다 "빈 방이네?"라고 판단하고 저장해버릴 수 있습니다. <code>EXCLUDE</code>를 DB에 걸면 <strong>어느 경로로 들어와도</strong> 시간대가 겹치는 예약을 DB가 직접 거부합니다.</p>
+    <p>반면 B가 <strong>11시~12시</strong>로 예약하면? 시간대가 딱 붙어있지만 겹치지는 않으므로(<code>&amp;&amp;</code>가 거짓) 허용됩니다.</p>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">tsrange — 시작과 끝을 하나로 묶은 타입</span>
+    <p><code>tsrange</code>는 <strong>timestamp range</strong>의 줄임말로, 시작 시각과 끝 시각을 컬럼 두 개 대신 <strong>하나의 값으로 묶은 타입</strong>입니다.</p>
+    <p>컬럼 두 개(<code>started_at</code>, <code>ended_at</code>)로 나눠 저장하면 "두 예약이 겹치는지"를 SQL로 검사하기가 복잡합니다. <code>tsrange</code>로 묶으면 <code>&amp;&amp;</code> 연산자 하나로 바로 확인할 수 있고, <code>EXCLUDE</code>에서도 그대로 쓸 수 있습니다.</p>
+    <p><strong>괄호의 의미:</strong> <code>[10:00, 11:00)</code>에서 <code>[</code>는 10시를 포함, <code>)</code>는 11시를 미포함합니다(수학의 반열린 구간). 11시 정각에 다음 예약이 시작할 수 있는 이유가 이 때문입니다 — 앞 예약이 11시를 포함하지 않으니 겹치지 않습니다.</p>
+    <table class="tbl" style="margin-top:0.8rem">
+      <thead><tr><th>비교</th><th>결과</th><th>이유</th></tr></thead>
+      <tbody>
+        <tr><td><code>[10:00, 11:00) &amp;&amp; [10:30, 11:30)</code></td><td>true (겹침)</td><td>10:30~11:00 구간이 겹침</td></tr>
+        <tr><td><code>[10:00, 11:00) &amp;&amp; [11:00, 12:00)</code></td><td>false (안 겹침)</td><td>딱 붙어있지만 공유 시각 없음</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">EXCLUDE 문법 파헤치기 — USING gist 와 WITH</span>
+    <p>코드에서 가장 낯선 줄인 <code>EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)</code>를 단어별로 풀면 이렇습니다.</p>
+
+    <p><strong>USING gist — 어떤 인덱스로 검사할지</strong><br>
+    PostgreSQL 인덱스에는 종류가 있습니다. 기본인 <strong>B-tree</strong>는 전화번호부처럼 값을 한 줄로 정렬해 <code>=</code>, <code>&lt;</code>, <code>&gt;</code> 비교에 강합니다. 하지만 "두 범위가 겹치는지(<code>&amp;&amp;</code>)"는 시작값과 끝값을 동시에 봐야 판단할 수 있어서 한 줄 정렬로는 안 됩니다. <strong>GiST(Generalized Search Tree)</strong>는 지도처럼 공간·범위 데이터를 다차원으로 색인해, 겹침 여부를 빠르게 찾을 수 있습니다.</p>
+
+    <table class="tbl" style="margin-top:0.8rem">
+      <thead><tr><th>인덱스</th><th>비유</th><th>잘하는 연산</th></tr></thead>
+      <tbody>
+        <tr><td>B-tree (기본)</td><td>전화번호부 (가나다 정렬)</td><td><code>=</code> <code>&lt;</code> <code>&gt;</code> — 값 크기 비교</td></tr>
+        <tr><td>GiST</td><td>지도 (공간 색인)</td><td><code>&amp;&amp;</code> — 범위·도형 겹침 검사</td></tr>
+      </tbody>
+    </table>
+
+    <p style="margin-top:1rem"><strong>WITH — 컬럼마다 "무엇이 충돌인지" 지정</strong><br>
+    <code>room WITH =</code>은 "room이 <strong>같으면</strong> 충돌 후보", <code>during WITH &amp;&amp;</code>은 "during이 <strong>겹치면</strong> 충돌 후보"입니다. 두 조건이 <em>동시에</em> 참일 때만 거부합니다. 방만 같고 시간이 달라도 OK, 시간이 겹쳐도 다른 방이면 OK입니다.</p>
+
+    <table class="tbl" style="margin-top:0.8rem">
+      <thead><tr><th>컬럼</th><th>WITH 연산자</th><th>의미</th></tr></thead>
+      <tbody>
+        <tr><td><code>room WITH =</code></td><td><code>=</code></td><td>방 이름이 같으면 충돌 후보</td></tr>
+        <tr><td><code>during WITH &amp;&amp;</code></td><td><code>&amp;&amp;</code></td><td>시간대가 겹치면 충돌 후보</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧩</span>
+    <span class="label">CREATE EXTENSION — PostgreSQL 플러그인 설치</span>
+    <p><code>CREATE EXTENSION</code>은 PostgreSQL에 <strong>플러그인을 설치하는 명령어</strong>입니다. Node.js의 <code>npm install</code>, Python의 <code>pip install</code>과 같은 개념입니다. <code>IF NOT EXISTS</code>는 "이미 설치돼 있으면 에러 내지 말고 넘어가"라는 의미입니다.</p>
+    <p><code>btree_gist</code>가 필요한 이유는 우리 EXCLUDE 조건이 <strong>하나의 GiST 인덱스에서 두 연산자를 동시에 처리</strong>해야 하기 때문입니다. GiST는 범위 겹침(<code>&amp;&amp;</code>)은 원래 잘 처리하지만, 일반 텍스트의 동등 비교(<code>=</code>)는 처리하지 못합니다. <code>btree_gist</code>는 GiST가 <code>=</code>도 처리할 수 있게 가르쳐주는 플러그인입니다.</p>
+    <table class="tbl" style="margin-top:0.8rem">
+      <thead><tr><th></th><th>btree_gist 없을 때</th><th>btree_gist 있을 때</th></tr></thead>
+      <tbody>
+        <tr><td><code>&amp;&amp;</code> (범위 겹침)</td><td>GiST 가능 ✅</td><td>GiST 가능 ✅</td></tr>
+        <tr><td><code>=</code> (텍스트 같음)</td><td>GiST 불가 ❌</td><td>GiST 가능 ✅</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — EXCLUDE USING gist (시간대 겹침 방지)</span></div><pre><span class="k">CREATE</span> <span class="k">EXTENSION</span> <span class="k">IF NOT EXISTS</span> btree_gist;  <span class="c">-- 범위 타입과 = 비교를 같이 쓰려면 필요</span>
 
 <span class="k">CREATE</span> <span class="k">TABLE</span> room_booking (
   id      <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
   room    <span class="t">text</span> <span class="k">NOT NULL</span>,
-  during  <span class="t">tsrange</span> <span class="k">NOT NULL</span>,
-  <span class="k">EXCLUDE</span> <span class="k">USING</span> gist (room <span class="k">WITH</span> =, during <span class="k">WITH</span> &amp;&amp;)
+  during  <span class="t">tsrange</span> <span class="k">NOT NULL</span>,                         <span class="c">-- 시작~끝 범위</span>
+  <span class="k">EXCLUDE</span> <span class="k">USING</span> gist (room <span class="k">WITH</span> =, during <span class="k">WITH</span> &amp;&amp;)  <span class="c">-- 방이 같고 시간이 겹치면 거부</span>
 );
 <span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during)
   <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 10:00, 2026-06-09 11:00)'</span>);   <span class="c">-- OK</span>
 <span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during)
-  <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 11:00, 2026-06-09 12:00)'</span>);   <span class="c">-- 인접, 안 겹침 → OK</span>
+  <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 11:00, 2026-06-09 12:00)'</span>);   <span class="c">-- 인접(딱 붙음), 겹치지 않음 → OK</span>
 
-<span class="c">-- 같은 방 A의 겹치는 시간대는 막힌다 (의도적 에러)</span>
+<span class="c">-- 10:30~11:30은 기존 10:00~11:00과 겹침 → 거부</span>
 <span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during)
   <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 10:30, 2026-06-09 11:30)'</span>);
 <span class="c">ERROR:  conflicting key value violates exclusion constraint</span></pre></div>
 
   <div class="box note">
     <span class="ic">🧩</span>
-    <span class="label">PG18: temporal PRIMARY KEY (WITHOUT OVERLAPS)</span>
-    <p><span class="chip">PG18</span> PG18부터 기본키/유일 제약에 <code>WITHOUT OVERLAPS</code>를 붙여 <strong>"같은 키끼리 기간이 겹치지 않게"</strong>를 PK가 직접 보장할 수 있습니다(SQL 표준 temporal 제약). 예: 상품별 가격 이력에서 같은 <code>product_id</code>의 유효 기간이 겹치면 안 될 때. 아래는 실제로 실행해 동작을 확인한 예입니다. 내부적으로는 위 <code>EXCLUDE</code>와 같은 GiST 메커니즘을 쓰며, <strong>마지막 키 컬럼이 범위(range) 타입</strong>이어야 합니다.</p>
+    <span class="label">PG18: WITHOUT OVERLAPS — 가격 이력처럼 "기간이 겹치면 안 되는" 데이터</span>
+    <p><span class="chip">PG18</span> EXCLUDE가 "회의실 예약 충돌 방지"라면, <code>WITHOUT OVERLAPS</code>는 같은 개념을 <strong>기본키에 바로 붙이는</strong> 문법입니다(PG18부터 지원).</p>
+    <p><strong>비유 — 상품 가격 이력:</strong> 상품 1번의 가격이 1월~6월엔 10,000원, 6월~12월엔 12,000원이라면 두 행이 모두 <code>product_id = 1</code>이지만 기간이 다르므로 괜찮습니다. 그런데 실수로 "3월~9월에 11,000원"을 추가하면 기존 두 기간과 겹쳐버립니다. <code>WITHOUT OVERLAPS</code>를 PK에 붙이면 이런 겹침을 DB가 자동으로 막습니다.</p>
   </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — (PG18) temporal PK · WITHOUT OVERLAPS</span></div><pre><span class="k">CREATE</span> <span class="k">EXTENSION</span> <span class="k">IF NOT EXISTS</span> btree_gist;   <span class="c">-- gist 연산자 클래스에 필요</span>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — (PG18) temporal PK · WITHOUT OVERLAPS</span></div><pre><span class="k">CREATE</span> <span class="k">EXTENSION</span> <span class="k">IF NOT EXISTS</span> btree_gist;
 
 <span class="k">CREATE</span> <span class="k">TABLE</span> price_history (
   product_id  <span class="t">int</span>,
-  valid_at    <span class="t">daterange</span>,
+  valid_at    <span class="t">daterange</span>,                                        <span class="c">-- 유효 기간</span>
   price       <span class="t">numeric</span>(<span class="n">10</span>,<span class="n">2</span>) <span class="k">NOT NULL</span>,
-  <span class="k">PRIMARY KEY</span> (product_id, valid_at <span class="k">WITHOUT OVERLAPS</span>)
+  <span class="k">PRIMARY KEY</span> (product_id, valid_at <span class="k">WITHOUT OVERLAPS</span>)           <span class="c">-- 같은 상품끼리 기간 겹침 금지</span>
 );
-<span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-01-01, 2026-06-01)'</span>, <span class="n">10.00</span>);
-<span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-06-01, 2026-12-01)'</span>, <span class="n">12.00</span>);  <span class="c">-- 인접 OK</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-01-01, 2026-06-01)'</span>, <span class="n">10.00</span>);  <span class="c">-- 1~6월 OK</span>
+<span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-06-01, 2026-12-01)'</span>, <span class="n">12.00</span>);  <span class="c">-- 6~12월 인접 OK</span>
 <span class="k">SELECT</span> * <span class="k">FROM</span> price_history <span class="k">ORDER BY</span> valid_at;
 <span class="c"> product_id |        valid_at         | price</span>
 <span class="c">------------+-------------------------+-------</span>
 <span class="c">          1 | [2026-01-01,2026-06-01) | 10.00</span>
 <span class="c">          1 | [2026-06-01,2026-12-01) | 12.00</span>
 
-<span class="c">-- 같은 product_id의 겹치는 기간은 막힌다 (의도적 에러)</span>
+<span class="c">-- 3~9월은 기존 두 기간과 모두 겹침 → 거부</span>
 <span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-03-01, 2026-09-01)'</span>, <span class="n">11.00</span>);
 <span class="c">ERROR:  conflicting key value violates exclusion constraint "price_history_pkey"</span></pre></div>
 

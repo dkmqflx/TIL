@@ -70,10 +70,29 @@
 <span class="t">volumes</span>:
   <span class="t">pgdata</span>:</pre></div>
 
+  <p>여기서 <code>volumes</code> 한 줄이 가장 헷갈립니다. 컨테이너는 <code>down</code>하면 사라지는 일회용이라, 그 안에 쌓인 DB 데이터도 같이 증발합니다. 그래서 <strong>데이터만 컨테이너 밖(내 컴퓨터)에 따로 보관</strong>하는데, 이 보관함이 <strong>볼륨(volume)</strong>이고, "컨테이너 안 <strong>어느 폴더</strong>를 이 보관함에 연결할지" 정하는 것이 <strong>마운트(mount)</strong>입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🔌</span>
+    <span class="label">비유 — 외장 하드를 어느 폴더에 꽂을까</span>
+    <p>컨테이너는 <strong>전원을 끄면 내용이 날아가는 노트북</strong>, 볼륨은 그 옆의 <strong>외장 하드</strong>입니다. 마운트는 "노트북의 <strong>어느 폴더</strong>를 외장 하드에 연결할까?"를 정하는 일이죠. 엉뚱한 빈 폴더에 외장 하드를 꽂으면, 정작 데이터가 쌓이는 진짜 폴더는 연결 밖에 있어 전원을 끄면 사라집니다. 그래서 <strong>꽂는 위치</strong>가 중요합니다.</p>
+  </div>
+
+  <p>PG18에서 그 위치가 한 단계 바뀌었습니다. 데이터가 실제로 쌓이는 폴더가 <strong>버전 폴더 안으로</strong> 들어갔기 때문입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>버전</th><th>데이터가 실제로 쌓이는 곳</th><th>볼륨을 연결(마운트)할 폴더</th></tr></thead>
+    <tbody>
+      <tr><td>PG17 이하</td><td><code>/var/lib/postgresql/data</code></td><td><code>/var/lib/postgresql/data</code></td></tr>
+      <tr><td><b>PG18</b></td><td><code>/var/lib/postgresql/<b>18/docker</b></code></td><td><code>/var/lib/postgresql</code> <b>(한 단계 위)</b></td></tr>
+    </tbody>
+  </table>
+
   <div class="box tip">
     <span class="ic">💡</span>
-    <span class="label">postgres:18은 볼륨을 상위 경로에 마운트한다</span>
-    <p><span class="chip">PG18</span> 볼륨은 <code>/var/lib/postgresql</code><strong>(상위)</strong>에 마운트해야 합니다. 예전 관습대로 <code>/var/lib/postgresql/data</code>로 마운트하면 <code>unused mount/volume</code> 경고와 함께 컨테이너가 <strong>exit 1로 즉시 종료</strong>됩니다 — 데이터를 조용히 잃는 게 아니라 아예 막아주는 안전장치입니다. PG18부터 이미지가 실제 데이터를 버전별 하위 디렉터리(<code>/var/lib/postgresql/18/docker</code>)에 두도록 바뀌었기 때문입니다. 옛 자료(이미지·블로그)에는 아직 <code>/data</code> 접미사가 흔하니, PG18에서는 떼고 한 단계 위에 마운트하세요.</p>
+    <span class="label">PG18은 /data를 떼고 한 단계 위에 마운트</span>
+    <p><span class="chip">PG18</span> 한 줄 요약: 볼륨은 <code>/var/lib/postgresql</code><strong>(상위)</strong>에 마운트, 뒤에 <code>/data</code>를 붙이지 마세요. 데이터가 이제 버전 폴더(<code>/var/lib/postgresql/18/docker</code>) 안에 쌓이므로, 그 상위를 통째로 연결해야 보관됩니다.</p>
+    <p>옛 습관대로 <code>.../data</code>를 붙이면 그 폴더는 이제 비어 있어, <code>unused mount/volume</code> 경고와 함께 컨테이너가 <strong>exit 1로 즉시 종료</strong>됩니다. 이건 데이터를 조용히 잃는 게 아니라, <strong>"엉뚱한 데 꽂았어요"라며 시작 자체를 막아주는 안전장치</strong>입니다. 옛 블로그·이미지엔 아직 <code>/data</code>가 흔하니 주의하세요.</p>
   </div>
 
   <p>설계도가 준비됐으니, 같은 폴더에서 명령 한 줄이면 컨테이너를 켜고 끌 수 있습니다.</p>

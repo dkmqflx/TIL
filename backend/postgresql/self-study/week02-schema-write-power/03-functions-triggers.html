@@ -144,6 +144,13 @@ $$;
   <h2><span class="num">3</span>⭐ updated_at 자동 갱신 트리거</h2>
   <p>실무에서 가장 자주 쓰는 트리거입니다. 행이 수정될 때마다 앱이 <code>updated_at = now()</code>를 챙겨야 한다면, UPDATE를 날리는 경로가 10곳이면 10곳 모두 빠뜨리지 않아야 합니다. 하나라도 빠지면 잘못된 시각이 남습니다. <code>BEFORE UPDATE</code> 트리거를 달면 <strong>어떤 경로로 수정하든 DB가 항상 자동으로</strong> 처리합니다.</p>
 
+  <div class="box analogy">
+    <span class="ic">🕰️</span>
+    <span class="label">비유 — 자동 날짜 도장 기계</span>
+    <p><code>updated_at</code>은 "이 글이 <strong>마지막으로 언제 바뀌었나</strong>"를 적어두는 칸입니다. 이 칸을 앱이 매번 손으로 챙기는 대신, DB 안에 <strong>자동 도장 기계</strong>를 심어두는 게 이 트리거입니다 — <code>article</code>이 수정될 때마다 "지금 시각"이 <code>updated_at</code>에 자동으로 쾅 찍힙니다.</p>
+    <p>만드는 건 <strong>두 부분</strong>입니다. ① <strong>도장 기계 자체</strong> = 함수 <code>set_updated_at()</code>("시각을 찍는다"는 동작), ② <strong>기계를 설치할 위치·타이밍</strong> = 트리거 <code>trg_set_updated_at</code>("<code>article</code>이 수정되기 <em>직전</em>에 돌려라"). 함수만 만들면 아무 일도 안 일어나고, 트리거로 연결해야 비로소 작동합니다.</p>
+  </div>
+
   <div class="box tip">
     <span class="ic">↩️</span>
     <span class="label">BEFORE 트리거는 반드시 RETURN NEW 해야 한다</span>
@@ -192,14 +199,30 @@ $$;
   </div>
 
   <div class="box tip">
+    <span class="ic">⏱️</span>
+    <span class="label">왜 BEFORE가 아니라 AFTER인가?</span>
+    <p>섹션 3의 <code>updated_at</code> 트리거는 <strong>저장되기 전에 값을 바꾸는 게 목적</strong>이었으니 <code>BEFORE</code>였습니다. 감사 로그는 반대입니다 — "데이터가 실제로 저장됐다"는 사실을 기록하는 게 목적이므로, <strong>저장이 완료된 뒤</strong>에 실행되는 <code>AFTER</code>를 씁니다.</p>
+    <p>그래서 함수 마지막의 <code>RETURN NULL</code>도 괜찮습니다. <code>AFTER</code> 트리거는 저장이 이미 끝난 뒤라 반환값이 무시됩니다 — <code>NULL</code>을 반환해도 이미 저장된 데이터에 영향이 없어요. <code>BEFORE</code> 트리거에서 <code>RETURN NULL</code>을 하면 저장이 취소됐던 것과 정반대입니다.</p>
+  </div>
+
+  <div class="box tip">
     <span class="ic">🔧</span>
-    <span class="label">트리거 함수 안에서 쓸 수 있는 특수 변수</span>
+    <span class="label">DB가 자동으로 알려주는 이벤트 정보 — TG_OP · TG_TABLE_NAME · to_jsonb</span>
+    <p>트리거 함수가 실행될 때 DB는 "지금 어떤 상황인지"를 자동으로 알려줍니다. 개발자가 직접 넘기지 않아도 함수 안에서 바로 쓸 수 있습니다.</p>
     <ul>
-      <li><code>TG_OP</code> — 어떤 이벤트였는지: <code>'INSERT'</code> / <code>'UPDATE'</code> / <code>'DELETE'</code></li>
-      <li><code>TG_TABLE_NAME</code> — 어떤 테이블에서 발생했는지: <code>'article'</code></li>
-      <li><code>to_jsonb(OLD)</code> / <code>to_jsonb(NEW)</code> — 행 전체를 JSON으로 변환. 컬럼이 추가돼도 자동으로 포함됨</li>
+      <li><code>TG_OP</code> — 지금 어떤 작업이 일어났는지: <code>'INSERT'</code> / <code>'UPDATE'</code> / <code>'DELETE'</code> 중 하나</li>
+      <li><code>TG_TABLE_NAME</code> — 어떤 테이블에서 발생했는지: 예) <code>'article'</code>. 함수 하나를 여러 테이블에 연결해도 각자 테이블 이름이 자동으로 찍힘</li>
+      <li><code>to_jsonb(OLD)</code> / <code>to_jsonb(NEW)</code> — 행 전체를 JSON으로 변환. 나중에 컬럼이 추가돼도 자동으로 포함되어 편리함</li>
     </ul>
-    <p>INSERT에는 OLD가 없고, DELETE에는 NEW가 없습니다. 그래서 <code>CASE WHEN TG_OP &lt;&gt; 'INSERT'</code> 조건으로 OLD를 안전하게 참조합니다.</p>
+    <p><strong>CASE WHEN이 필요한 이유</strong> — 이벤트마다 존재하는 값이 다릅니다. INSERT는 새로 생기는 것이라 <code>OLD</code>가 없고, DELETE는 없애는 것이라 <code>NEW</code>가 없습니다. 없는 값을 그냥 참조하면 에러가 나므로 <code>CASE WHEN TG_OP &lt;&gt; 'INSERT'</code>처럼 분기해서 안전하게 처리합니다.</p>
+    <table class="tbl">
+      <thead><tr><th>이벤트</th><th>OLD (변경 전)</th><th>NEW (변경 후)</th></tr></thead>
+      <tbody>
+        <tr><td>INSERT</td><td>없음 → <code>NULL</code></td><td>삽입된 행 ✅</td></tr>
+        <tr><td>UPDATE</td><td>수정 전 행 ✅</td><td>수정 후 행 ✅</td></tr>
+        <tr><td>DELETE</td><td>삭제된 행 ✅</td><td>없음 → <code>NULL</code></td></tr>
+      </tbody>
+    </table>
   </div>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — audit_changes 함수 (jsonb로 old/new 기록)</span></div><pre><span class="k">CREATE OR REPLACE</span> <span class="k">FUNCTION</span> <span class="f">audit_changes</span>()
@@ -221,6 +244,19 @@ $$;
 <span class="k">CREATE TRIGGER</span> trg_audit
   <span class="k">AFTER</span> <span class="k">INSERT</span> <span class="k">OR</span> <span class="k">UPDATE</span> <span class="k">OR</span> <span class="k">DELETE</span> <span class="k">ON</span> article
   <span class="k">FOR EACH ROW</span> <span class="k">EXECUTE FUNCTION</span> <span class="f">audit_changes</span>();</pre></div>
+
+  <div class="box tip">
+    <span class="ic">📖</span>
+    <span class="label">함수 코드 한 줄씩 읽기</span>
+    <p>함수 본문은 <code>audit_log</code> 테이블에 딱 한 행을 INSERT하는 것이 전부입니다. 네 개의 값을 채웁니다:</p>
+    <ol>
+      <li><code>TG_TABLE_NAME</code> → 어느 테이블에서 발생했는지 (예: <code>'article'</code>)</li>
+      <li><code>TG_OP</code> → 어떤 작업이었는지 (예: <code>'UPDATE'</code>)</li>
+      <li><code>CASE WHEN TG_OP &lt;&gt; 'INSERT' THEN to_jsonb(OLD) END</code> → INSERT가 아닐 때만 OLD를 JSON으로 저장, INSERT면 <code>NULL</code></li>
+      <li><code>CASE WHEN TG_OP &lt;&gt; 'DELETE' THEN to_jsonb(NEW) END</code> → DELETE가 아닐 때만 NEW를 JSON으로 저장, DELETE면 <code>NULL</code></li>
+    </ol>
+    <p>마지막 <code>RETURN NULL</code>은 AFTER 트리거이므로 반환값이 무시됩니다 — 관례상 <code>NULL</code>을 씁니다.</p>
+  </div>
 
   <p>이제 article에 INSERT·UPDATE·DELETE를 차례로 실행하면, <code>audit_log</code>에 변경 이력이 자동으로 쌓입니다. 아래는 실제 실행 결과입니다.</p>
 

@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 5</span>
+    </a>
+    <div class="logo-sub">TypeORM 심화 이론</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item active" href="01-columns-enum-embedding.html">
+      <span class="nav-num">01</span>Column 옵션 · Enum · Embedding
+    </a>
+    <a class="nav-item" href="02-inheritance-basemodel.html">
+      <span class="nav-num">02</span>Table Inheritance · BaseModel
+    </a>
+    <a class="nav-item" href="03-findoptions-utils-methods.html">
+      <span class="nav-num">03</span>FindManyOptions · 유틸 · 메서드
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">@Column 옵션 완전 정리</a>
+    <a class="nav-item sec" href="#s2">Enum 컬럼</a>
+    <a class="nav-item sec" href="#s3">Entity Embedding</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · TypeORM 심화 이론</b></span>
   <span>01 / 03</span>
@@ -34,7 +69,7 @@
     <li>Entity Embedding으로 여러 Entity에 걸친 공통 필드를 하나의 클래스로 묶을 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span><code>@Column</code> 옵션 완전 정리</h2>
+  <h2 id="s1"><span class="num">1</span><code>@Column</code> 옵션 완전 정리</h2>
   <p class="lead"><code>@Column()</code>에 옵션 객체를 전달하면 해당 컬럼의 DB 타입, 제약 조건, 기본값을 세밀하게 제어할 수 있습니다. 옵션을 생략하면 TypeORM이 TypeScript 타입에서 추론하지만, <strong>명시적으로 선언하는 것이 더 안전</strong>합니다.</p>
 
   <div class="box analogy">
@@ -88,7 +123,7 @@
     <p><code>select: false</code>인 컬럼은 <code>find()</code> 등 일반 조회에서 <strong>자동으로 빠집니다</strong>. 반드시 필요할 때는 QueryBuilder에서 <code>.addSelect('user.password')</code>를 명시해야 합니다. <code>update: false</code>는 TypeORM ORM 레이어에서만 보호합니다 — 직접 SQL을 실행하거나 QueryBuilder를 쓰면 여전히 변경이 가능합니다. "DB 수준 잠금"이 아닌 "ORM 수준 가이드"임을 기억하세요.</p>
   </div>
 
-  <h2><span class="num">2</span>Enum 컬럼 — <code>@Column({ type: 'enum', enum: ... })</code></h2>
+  <h2 id="s2"><span class="num">2</span>Enum 컬럼 — <code>@Column({ type: 'enum', enum: ... })</code></h2>
   <p>Enum 컬럼은 컬럼에 들어올 수 있는 값을 미리 제한합니다. TypeScript의 <code>enum</code>과 연결하면 타입 안전성까지 확보할 수 있습니다. PostgreSQL에서는 실제로 <code>ENUM</code> 타입이 생성됩니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">post.entity.ts — Enum 컬럼</span></div><pre><span class="k">import</span> { <span class="t">Entity</span>, <span class="t">PrimaryGeneratedColumn</span>, <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
@@ -123,7 +158,7 @@
     <p>상태값처럼 "정해진 값 중 하나만 허용"되는 필드에 Enum을 쓰면 세 가지 이점이 있습니다. ① DB 수준에서 유효하지 않은 값이 들어오는 것을 막아줍니다. ② TypeScript 타입으로 자동완성과 오류 감지가 됩니다. ③ 코드 전체에서 <code>'PUBLISHED'</code> 같은 문자열 리터럴 대신 <code>PostStatus.PUBLISHED</code>를 써서 오타를 방지합니다. 단, PostgreSQL Enum은 이미 존재하는 값을 삭제하거나 이름을 바꾸면 마이그레이션이 복잡해질 수 있으므로 주의하세요.</p>
   </div>
 
-  <h2><span class="num">3</span>Entity Embedding — 공통 필드를 묶어 재사용</h2>
+  <h2 id="s3"><span class="num">3</span>Entity Embedding — 공통 필드를 묶어 재사용</h2>
   <p>여러 Entity에 똑같은 컬럼 묶음(예: <code>address</code> 관련 필드)이 반복된다면, <strong>Embedded Entity</strong>로 공통 필드를 하나의 클래스로 추출하고 <code>@Column(() => Embedded)</code>로 삽입할 수 있습니다. DB에서는 같은 테이블에 일반 컬럼으로 합쳐집니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">address.embedded.ts + user.entity.ts — Embedding 예시</span></div><pre><span class="c">// --- 공통 필드를 담은 임베딩 클래스 ---</span>
@@ -224,7 +259,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>nullable: false</code>와 <code>default: ''</code>를 동시에 주면 어떻게 되나요?</summary>
@@ -246,5 +281,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 5 · Lesson 01 · Column 옵션 · Enum · Embedding</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

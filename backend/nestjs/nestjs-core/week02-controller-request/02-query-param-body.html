@@ -8,6 +8,42 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 2</span>
+    </a>
+    <div class="logo-sub">Controller · 라우팅 &amp; 요청 데이터</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-controller-routing.html">
+      <span class="nav-num">01</span>Controller &amp; 데코레이터 라우팅
+    </a>
+    <a class="nav-item active" href="02-query-param-body.html">
+      <span class="nav-num">02</span>Query · Param · Body 받기
+    </a>
+    <a class="nav-item" href="03-crud-builtin-exceptions.html">
+      <span class="nav-num">03</span>기본 CRUD + 내장 Exception
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">HTTP 요청 해부 — 데이터가 어디서</a>
+    <a class="nav-item sec" href="#s2">데코레이터 빠른 참조표</a>
+    <a class="nav-item sec" href="#s3">코드로 보는 각 데코레이터</a>
+    <a class="nav-item sec" href="#s4">REST API 세트</a>
+    <a class="nav-item sec" href="#s5">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · Controller · 라우팅 &amp; 요청 데이터</b></span>
   <span>02 / 03</span>
@@ -35,7 +71,7 @@
     <li>목록·단건·생성·수정·삭제 REST API 세트를 한눈에 이해한다</li>
   </ul>
 
-  <h2><span class="num">1</span>HTTP 요청 해부 — 데이터가 어디서 오나</h2>
+  <h2 id="s1"><span class="num">1</span>HTTP 요청 해부 — 데이터가 어디서 오나</h2>
   <p class="lead">요청 데이터는 <strong>네 군데</strong>에 나뉘어 담깁니다. 각 위치마다 목적이 다르고, NestJS는 그 각각에 대응하는 데코레이터를 제공합니다.</p>
 
   <div class="box analogy">
@@ -106,7 +142,7 @@
     <figcaption>요청의 각 조각(Path · Query · Body · Header)은 대응하는 데코레이터 하나씩으로 꺼낸다.</figcaption>
   </figure>
 
-  <h2><span class="num">2</span>데코레이터 빠른 참조표</h2>
+  <h2 id="s2"><span class="num">2</span>데코레이터 빠른 참조표</h2>
 
   <table class="tbl">
     <thead><tr><th>데코레이터</th><th>요청의 어느 부분</th><th>예시 / 반환 타입</th></tr></thead>
@@ -122,7 +158,7 @@
     </tbody>
   </table>
 
-  <h2><span class="num">3</span>코드로 보는 각 데코레이터</h2>
+  <h2 id="s3"><span class="num">3</span>코드로 보는 각 데코레이터</h2>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — 데코레이터 사용 예</span></div><pre><span class="k">import</span> {
   <span class="t">Controller</span>, <span class="t">Get</span>, <span class="t">Post</span>, <span class="t">Patch</span>, <span class="t">Delete</span>,
@@ -169,7 +205,7 @@
     <p>URL에서 꺼낸 값은 <strong>항상 문자열</strong>입니다. 숫자 ID가 필요하다면 <code>@Param('id', ParseIntPipe) id: number</code>처럼 <strong>Pipe</strong>로 변환하세요. Pipe는 Week 8에서 자세히 다루지만, 지금은 "타입 변환이 필요하면 Pipe"로만 기억해 두면 충분합니다.</p>
   </div>
 
-  <h2><span class="num">4</span>REST API 세트 — 한눈에</h2>
+  <h2 id="s4"><span class="num">4</span>REST API 세트 — 한눈에</h2>
   <p>게시글(posts) 자원 하나에 대한 <strong>완전한 CRUD REST API 세트</strong>를 정리합니다. 이 패턴은 앞으로 모든 자원(User·Comment·Follow)에 그대로 반복됩니다.</p>
 
   <table class="tbl">
@@ -185,7 +221,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s5"><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>@Param</code>과 <code>@Query</code>의 선택 기준은 무엇인가요?</summary>
@@ -203,5 +239,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 2 · Lesson 02 · Query · Param · Body 요청 데이터 받기</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

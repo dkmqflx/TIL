@@ -8,6 +8,42 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 3</span>
+    </a>
+    <div class="logo-sub">Service · Module · DI/IoC</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-service-layer.html">
+      <span class="nav-num">01</span>Service로 로직 분리
+    </a>
+    <a class="nav-item active" href="02-di-ioc.html">
+      <span class="nav-num">02</span>DI &amp; IoC 원리
+    </a>
+    <a class="nav-item" href="03-module-provider-appmodule.html">
+      <span class="nav-num">03</span>Module · Provider · AppModule
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">의존성을 직접 new 하지 않는다</a>
+    <a class="nav-item sec" href="#s2">IoC 컨테이너가 주입</a>
+    <a class="nav-item sec" href="#s3">생성자 주입</a>
+    <a class="nav-item sec" href="#s4">프로바이더 토큰</a>
+    <a class="nav-item sec" href="#s5">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 3 · Service · Module · DI/IoC</b></span>
   <span>02 / 03</span>
@@ -35,7 +71,7 @@
     <li>생성자 주입이 단위 테스트를 쉽게 만드는 이유를 말할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>의존성을 "직접 new 하지 않는다"</h2>
+  <h2 id="s1"><span class="num">1</span>의존성을 "직접 new 하지 않는다"</h2>
   <p class="lead">컨트롤러가 서비스를 쓰려면 서비스 인스턴스가 필요합니다. 가장 단순한 방법은 <code>new PostsService()</code>를 컨트롤러 안에서 호출하는 것이지만, NestJS는 이 방식을 권장하지 않습니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">❌ 직접 new — 하지 말 것</span></div><pre><span class="d">@Controller</span>(<span class="s">'posts'</span>)
@@ -58,7 +94,7 @@
     <p>과거에는 요리사가 직접 시장에 가서 재료를 골라 사왔습니다(직접 <code>new</code>). 이제는 재료 담당 팀(IoC 컨테이너)이 "오늘 메뉴에 필요한 재료를 미리 준비해 두었습니다"라며 요리대에 올려놓습니다. 요리사는 받아서 요리만 합니다. 재료 공급처(구현체)를 바꾸고 싶을 때도 요리사 코드를 건드리지 않고, 재료 담당 팀의 목록만 수정합니다.</p>
   </div>
 
-  <h2><span class="num">2</span>IoC 컨테이너가 인스턴스를 만들고 주입</h2>
+  <h2 id="s2"><span class="num">2</span>IoC 컨테이너가 인스턴스를 만들고 주입</h2>
   <p>NestJS는 애플리케이션이 시작될 때 모든 <code>providers</code>를 분석하고, TypeScript의 타입 정보(emitDecoratorMetadata)를 이용해 어디에 무엇을 주입해야 하는지 계산합니다. 이후 인스턴스를 생성하고 생성자 파라미터에 넣어 줍니다.</p>
 
   <figure class="diagram">
@@ -106,7 +142,7 @@
     <figcaption>컨테이너가 <code>PostsService</code> 인스턴스를 만들고, <code>PostsController</code> 생성자에 자동으로 주입한다.</figcaption>
   </figure>
 
-  <h2><span class="num">3</span>생성자 주입 — constructor injection</h2>
+  <h2 id="s3"><span class="num">3</span>생성자 주입 — constructor injection</h2>
   <p>NestJS에서 가장 권장하는 주입 방식은 <strong>생성자 주입</strong>입니다. TypeScript의 <code>private readonly</code> 단축 문법을 쓰면 생성자 파라미터 선언과 클래스 프로퍼티 할당이 동시에 이루어집니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">생성자 주입 전체 예시</span></div><pre><span class="k">import</span> { <span class="t">Controller</span>, <span class="t">Get</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -135,7 +171,7 @@
     <p>생성자 주입을 쓰면 테스트 코드에서 <strong>가짜(Mock) 서비스를 직접 넘길 수 있습니다</strong>. <code>new PostsController(new MockPostsService())</code>처럼 DB 연결 없이도 컨트롤러만 고립시켜 테스트할 수 있습니다. 반면 <code>new PostsService()</code>를 내부에서 직접 생성하면, 그 구현체에 강하게 묶여 가짜 객체를 끼워 넣을 방법이 없습니다.</p>
   </div>
 
-  <h2><span class="num">4</span>프로바이더 토큰 — 타입이 키다</h2>
+  <h2 id="s4"><span class="num">4</span>프로바이더 토큰 — 타입이 키다</h2>
   <p>컨테이너는 <strong>토큰(token)</strong>으로 어떤 인스턴스를 주입할지 결정합니다. 가장 기본적이고 흔한 경우는 <strong>클래스 자체가 토큰</strong>이 되는 방식입니다. 생성자 파라미터에 <code>PostsService</code> 타입을 쓰면, 컨테이너가 해당 클래스로 등록된 인스턴스를 찾아 주입합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">클래스가 토큰 — 가장 기본 형태</span></div><pre><span class="c">// 모듈의 providers 배열에 PostsService를 등록하면:</span>
@@ -159,7 +195,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s5"><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> IoC(제어의 역전)를 한 문장으로 설명해 보세요.</summary>
@@ -181,5 +217,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 3 · Lesson 02 · DI &amp; IoC 원리</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

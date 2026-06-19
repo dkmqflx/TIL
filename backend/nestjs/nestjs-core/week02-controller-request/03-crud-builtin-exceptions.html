@@ -7,6 +7,40 @@
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 2</span>
+    </a>
+    <div class="logo-sub">Controller · 라우팅 &amp; 요청 데이터</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-controller-routing.html">
+      <span class="nav-num">01</span>Controller &amp; 데코레이터 라우팅
+    </a>
+    <a class="nav-item" href="02-query-param-body.html">
+      <span class="nav-num">02</span>Query · Param · Body 받기
+    </a>
+    <a class="nav-item active" href="03-crud-builtin-exceptions.html">
+      <span class="nav-num">03</span>기본 CRUD + 내장 Exception
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">인메모리 배열로 CRUD 구현</a>
+    <a class="nav-item sec" href="#s2">NestJS 내장 HTTP 예외</a>
+    <a class="nav-item sec" href="#s3">예외 → HTTP 응답 변환 흐름</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
 
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · Controller · 라우팅 &amp; 요청 데이터</b></span>
@@ -35,7 +69,7 @@
     <li>인메모리 저장의 한계와 Week 4 DB 연동의 필요성을 안다</li>
   </ul>
 
-  <h2><span class="num">1</span>인메모리 배열로 CRUD 구현</h2>
+  <h2 id="s1"><span class="num">1</span>인메모리 배열로 CRUD 구현</h2>
   <p class="lead">실제 DB 없이 <strong>클래스 내부 배열</strong>에 게시글을 쌓으면, 컨트롤러의 역할과 CRUD 흐름을 군더더기 없이 이해할 수 있습니다. Week 4에서 TypeORM+PostgreSQL로 교체하기 전까지 이 구조로 작동합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — 인메모리 CRUD</span></div><pre><span class="k">import</span> {
@@ -102,7 +136,7 @@
     <p>배열로 저장하면 <strong>서버를 재시작할 때마다 데이터가 사라집니다</strong>. 또 서버 인스턴스가 여러 개면 각자 독립된 배열을 가져 데이터가 불일치합니다. 실제 서비스에서는 <strong>PostgreSQL 같은 영속 DB</strong>가 반드시 필요합니다. Week 4에서 Docker로 PostgreSQL을 띄우고 TypeORM으로 연결하면 이 배열을 DB 테이블로 교체합니다.</p>
   </div>
 
-  <h2><span class="num">2</span>NestJS 내장 HTTP 예외</h2>
+  <h2 id="s2"><span class="num">2</span>NestJS 내장 HTTP 예외</h2>
   <p>NestJS는 자주 쓰이는 HTTP 에러 상황마다 <strong>미리 만들어진 예외 클래스</strong>를 제공합니다. <code>throw new NotFoundException()</code> 한 줄이면 내장 Exception Filter가 알아서 JSON 응답을 만들어 돌려줍니다.</p>
 
   <table class="tbl">
@@ -123,7 +157,7 @@
     <p>위 클래스들은 전부 <code>@nestjs/common</code>의 <code>HttpException</code>을 상속합니다. 표에 없는 상황은 <code>throw new HttpException('Custom message', 418)</code>처럼 직접 상태코드를 지정할 수 있습니다. 전체 내장 예외 목록은 <a href="https://docs.nestjs.com/exception-filters#built-in-http-exceptions" target="_blank" rel="noopener">공식 문서 Built-in HTTP exceptions</a>에서 확인하세요.</p>
   </div>
 
-  <h2><span class="num">3</span>예외 → HTTP 응답 변환 흐름</h2>
+  <h2 id="s3"><span class="num">3</span>예외 → HTTP 응답 변환 흐름</h2>
   <p>핸들러에서 예외를 던지면, Nest의 <strong>내장 Exception Filter</strong>가 잡아서 일정한 형식의 JSON 응답으로 바꿉니다. 개발자가 직접 <code>res.status(404).json({...})</code>를 쓸 필요가 없습니다.</p>
 
   <figure class="diagram">
@@ -183,7 +217,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>throw new NotFoundException()</code>이 만드는 응답 형태는?</summary>
@@ -207,5 +241,22 @@ HTTP 상태코드는 <strong>404</strong>, <code>Content-Type: application/json<
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 2 · Lesson 03 · 기본 CRUD + 내장 Exception</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

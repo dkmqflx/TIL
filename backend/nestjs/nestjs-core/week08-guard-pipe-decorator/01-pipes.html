@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 8</span>
+    </a>
+    <div class="logo-sub">Guard · Pipe · Custom Decorator</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item active" href="01-pipes.html">
+      <span class="nav-num">01</span>Pipe — 검증·변환 파이프라인
+    </a>
+    <a class="nav-item" href="02-guards.html">
+      <span class="nav-num">02</span>Guard — CanActivate · 인증 가드
+    </a>
+    <a class="nav-item" href="03-custom-decorator.html">
+      <span class="nav-num">03</span>Custom Decorator — @User
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">내장 파이프 — ParseIntPipe · ParseUUIDPipe</a>
+    <a class="nav-item sec" href="#s2">Custom Pipe — PipeTransform 구현</a>
+    <a class="nav-item sec" href="#s3">DefaultValuePipe + 다중 파이프</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 8 · Guard · Pipe · Custom Decorator</b></span>
   <span>01 / 03</span>
@@ -35,7 +70,7 @@
     <li>Pipe가 요청 라이프사이클에서 Guard 이후, 핸들러 직전에 실행된다는 순서를 안다</li>
   </ul>
 
-  <h2><span class="num">1</span>내장 파이프 — <code>ParseIntPipe</code> · <code>ParseUUIDPipe</code></h2>
+  <h2 id="s1"><span class="num">1</span>내장 파이프 — <code>ParseIntPipe</code> · <code>ParseUUIDPipe</code></h2>
   <p class="lead">URL 파라미터나 쿼리스트링은 항상 <strong>문자열</strong>로 들어옵니다. <code>@Param('id')</code>가 수신하는 값은 <code>"42"</code>지, 숫자 <code>42</code>가 아닙니다. NestJS 내장 파이프는 이 변환을 선언적으로 처리해 줍니다.</p>
 
   <div class="box analogy">
@@ -109,7 +144,7 @@
     <figcaption>요청 파라미터는 Pipe를 반드시 통과한다. 검증 실패 시 핸들러에 도달하지 않고 400을 반환한다.</figcaption>
   </figure>
 
-  <h2><span class="num">2</span>Custom Pipe — <code>PipeTransform</code> 구현</h2>
+  <h2 id="s2"><span class="num">2</span>Custom Pipe — <code>PipeTransform</code> 구현</h2>
   <p>내장 파이프로 해결이 안 되는 검증·변환이 필요할 때 <strong>Custom Pipe</strong>를 직접 만듭니다. <code>PipeTransform</code> 인터페이스를 구현하고 <code>transform(value, metadata)</code> 메서드만 작성하면 됩니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">positive-int.pipe.ts — Custom Pipe 예제</span></div><pre><span class="k">import</span> { PipeTransform, Injectable, ArgumentMetadata, BadRequestException } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -143,7 +178,7 @@
     <p><code>transform</code>에서 <code>return</code>한 값이 핸들러 파라미터로 주입됩니다. 검증만 하고 원본을 그대로 쓰고 싶다면 <code>return value</code>, 변환이 필요하면 변환 후 반환합니다. 예외를 던지면 핸들러는 실행되지 않습니다.</p>
   </div>
 
-  <h2><span class="num">3</span><code>DefaultValuePipe</code> + 다중 파이프 동시 적용</h2>
+  <h2 id="s3"><span class="num">3</span><code>DefaultValuePipe</code> + 다중 파이프 동시 적용</h2>
   <p>쿼리 파라미터처럼 <strong>없을 수도 있는 값</strong>에 기본값을 주려면 <code>DefaultValuePipe</code>를 먼저 적용하고, 그 뒤에 변환 파이프를 붙입니다. 파이프는 <strong>배열 순서대로 왼쪽부터</strong> 순차 실행됩니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — DefaultValuePipe + 다중 파이프</span></div><pre><span class="k">import</span> { Controller, Get, Query, DefaultValuePipe, ParseIntPipe } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -169,7 +204,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> NestJS Pipe의 두 가지 역할은 무엇인가요?</summary>
@@ -191,5 +226,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 8 · Lesson 01 · Pipe — 검증·변환 파이프라인</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 8</span>
+    </a>
+    <div class="logo-sub">Guard · Pipe · Custom Decorator</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-pipes.html">
+      <span class="nav-num">01</span>Pipe — 검증·변환 파이프라인
+    </a>
+    <a class="nav-item" href="02-guards.html">
+      <span class="nav-num">02</span>Guard — CanActivate · 인증 가드
+    </a>
+    <a class="nav-item active" href="03-custom-decorator.html">
+      <span class="nav-num">03</span>Custom Decorator — @User
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">createParamDecorator 기본</a>
+    <a class="nav-item sec" href="#s2">@User() 데코레이터 구현</a>
+    <a class="nav-item sec" href="#s3">data 인자로 특정 필드 뽑기</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 8 · Guard · Pipe · Custom Decorator</b></span>
   <span>03 / 03</span>
@@ -35,7 +70,7 @@
     <li>Guard → <code>request.user</code> 세팅 → Custom Decorator 추출 흐름을 그릴 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span><code>createParamDecorator</code> 기본</h2>
+  <h2 id="s1"><span class="num">1</span><code>createParamDecorator</code> 기본</h2>
   <p class="lead"><code>@Body()</code>, <code>@Param()</code>처럼 핸들러 파라미터에 값을 주입하는 데코레이터를 직접 만들 수 있습니다. <code>createParamDecorator</code>에 콜백을 전달하면 되고, 콜백의 반환값이 파라미터로 주입됩니다.</p>
 
   <div class="box analogy">
@@ -55,7 +90,7 @@
   },
 );</pre></div>
 
-  <h2><span class="num">2</span><code>@User()</code> 데코레이터 구현 — <code>request.user</code> 추출</h2>
+  <h2 id="s2"><span class="num">2</span><code>@User()</code> 데코레이터 구현 — <code>request.user</code> 추출</h2>
   <p>Guard가 <code>request.user</code>에 인증된 사용자 정보를 저장해 두었다면, <code>@User()</code>는 그 객체를 꺼내 핸들러 파라미터로 바로 주입합니다. 실제 코드는 <a href="code/user.decorator.ts"><code>code/user.decorator.ts</code></a>에서 확인하세요.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — @User() 사용</span></div><pre><span class="k">import</span> { Controller, Get, Post, UseGuards } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -122,7 +157,7 @@
     <figcaption>Guard(틸)가 request.user를 채우고, @User 데코레이터(앰버)가 꺼내 핸들러 파라미터에 바로 주입한다.</figcaption>
   </figure>
 
-  <h2><span class="num">3</span><code>data</code> 인자로 특정 필드만 뽑기</h2>
+  <h2 id="s3"><span class="num">3</span><code>data</code> 인자로 특정 필드만 뽑기</h2>
   <p>데코레이터에 인자를 전달하면 <code>data</code> 파라미터로 받을 수 있습니다. <code>@User('email')</code>처럼 필드 이름을 넘기면 <code>user[data]</code>를 반환하고, 인자 없이 <code>@User()</code>만 쓰면 <code>user</code> 전체를 반환하는 패턴이 가장 흔합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.decorator.ts — data 인자로 필드 선택 (전체 구현)</span></div><pre><span class="k">import</span> { createParamDecorator, ExecutionContext } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -152,7 +187,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 파라미터 데코레이터가 핸들러에 무엇을 넣어주나요?</summary>
@@ -174,5 +209,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 8 · Lesson 03 · Custom Decorator — @User 파라미터 데코레이터</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

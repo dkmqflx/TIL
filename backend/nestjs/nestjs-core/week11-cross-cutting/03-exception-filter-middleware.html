@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 11</span>
+    </a>
+    <div class="logo-sub">횡단 관심사 + 파일/설정</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-config-fileupload-static.html">
+      <span class="nav-num">01</span>Config(ENV) + 파일 업로드 + Static
+    </a>
+    <a class="nav-item" href="02-transaction-interceptor.html">
+      <span class="nav-num">02</span>★ Transaction + Interceptor
+    </a>
+    <a class="nav-item active" href="03-exception-filter-middleware.html">
+      <span class="nav-num">03</span>Exception Filter + Middleware
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">Exception Filter — 에러 응답 형태 통일</a>
+    <a class="nav-item sec" href="#s2">전역 등록 — useGlobalFilters vs APP_FILTER</a>
+    <a class="nav-item sec" href="#s3">Middleware — 요청 입구의 검문소</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 11 · 횡단 관심사 + 파일/설정</b></span>
   <span>03 / 03</span>
@@ -35,7 +70,7 @@
     <li>Middleware, Guard, Interceptor, Exception Filter가 요청 라이프사이클에서 실행되는 순서를 설명할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>Exception Filter — 에러 응답 형태 통일</h2>
+  <h2 id="s1"><span class="num">1</span>Exception Filter — 에러 응답 형태 통일</h2>
   <p class="lead">NestJS 기본 에러 응답은 <code>{ statusCode, message, error }</code> 형태입니다. 하지만 실무에서는 <strong>타임스탬프·경로</strong> 같은 디버그 정보를 함께 반환하거나, 프로젝트 전체에서 동일한 에러 포맷을 강제하고 싶습니다. <code>ExceptionFilter</code>로 원하는 형태를 만들 수 있습니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/http-exception.filter.ts">code/http-exception.filter.ts</a></span></div><pre><span class="k">import</span> {
@@ -72,7 +107,7 @@
     <p><code>@Catch(HttpException)</code>은 <code>HttpException</code>과 그 하위 클래스(<code>NotFoundException</code>, <code>BadRequestException</code> 등)를 모두 잡습니다. 인수를 비우면(<code>@Catch()</code>) 모든 예외를 잡습니다. DB 에러처럼 <code>HttpException</code>이 아닌 예외도 처리하려면 <code>@Catch()</code>를 쓰고 내부에서 타입을 분기하면 됩니다.</p>
   </div>
 
-  <h2><span class="num">2</span>전역 등록 — <code>useGlobalFilters</code> vs <code>APP_FILTER</code></h2>
+  <h2 id="s2"><span class="num">2</span>전역 등록 — <code>useGlobalFilters</code> vs <code>APP_FILTER</code></h2>
   <p>Exception Filter를 전역으로 등록하는 방법은 두 가지입니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">방법 1 — main.ts에서 수동 등록</span></div><pre><span class="c">// main.ts</span>
@@ -99,7 +134,7 @@ app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span cla
     <p>Exception Filter는 요청 라이프사이클에서 <strong>가장 마지막</strong>에 실행됩니다. 핸들러나 Interceptor에서 던진 예외가 필터로 흘러옵니다. Interceptor는 핸들러의 <em>정상 흐름</em>을 가공(<code>tap</code>)하거나 에러를 <em>변환</em>(<code>catchError</code>)할 수 있는 반면, Exception Filter는 <em>최종 에러 응답 형태</em>를 담당합니다. 두 역할은 다릅니다.</p>
   </div>
 
-  <h2><span class="num">3</span>Middleware — 요청 입구의 검문소</h2>
+  <h2 id="s3"><span class="num">3</span>Middleware — 요청 입구의 검문소</h2>
   <p>Middleware는 요청이 라우팅되기 전, NestJS 파이프라인의 <strong>가장 앞 단계</strong>에서 실행됩니다. Express 미들웨어와 동일한 <code>(req, res, next)</code> 시그니처를 사용합니다. 대표 용도는 로깅, 요청 파싱, CORS, 속도 제한입니다.</p>
 
   <div class="box analogy">
@@ -195,7 +230,7 @@ app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span cla
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> Exception Filter와 Interceptor의 에러 처리 차이를 설명하세요.</summary>
@@ -217,5 +252,22 @@ app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span cla
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 11 · Lesson 03 · Exception Filter + Middleware</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

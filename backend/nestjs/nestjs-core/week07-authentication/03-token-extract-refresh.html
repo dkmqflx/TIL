@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 7</span>
+    </a>
+    <div class="logo-sub">Authentication (인증)</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-jwt-refresh-hashing.html">
+      <span class="nav-num">01</span>Session vs JWT · 토큰 이론 · 해싱
+    </a>
+    <a class="nav-item" href="02-register-login-signing.html">
+      <span class="nav-num">02</span>회원가입/로그인 · Signing
+    </a>
+    <a class="nav-item active" href="03-token-extract-refresh.html">
+      <span class="nav-num">03</span>토큰 추출 · 재발급(refresh)
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">Authorization 헤더 파싱</a>
+    <a class="nav-item sec" href="#s2">토큰 검증 — jwtService.verify</a>
+    <a class="nav-item sec" href="#s3">Access Token 재발급 — refresh 흐름</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 7 · Authentication (인증)</b></span>
   <span>03 / 03</span>
@@ -35,7 +70,7 @@
     <li>Access Token 만료 → Refresh Token으로 재발급 → 새 Access Token 수신 흐름을 그릴 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span><code>Authorization</code> 헤더 파싱 — <code>extractTokenFromHeader</code></h2>
+  <h2 id="s1"><span class="num">1</span><code>Authorization</code> 헤더 파싱 — <code>extractTokenFromHeader</code></h2>
   <p class="lead">클라이언트는 토큰을 <code>Authorization</code> 헤더에 담아 보냅니다. 형식은 두 가지입니다. <strong>Basic</strong>은 이메일/비밀번호를 Base64 인코딩한 것이고, <strong>Bearer</strong>는 JWT 토큰 자체입니다. 두 형식 모두 <code>"&lt;type&gt; &lt;credential&gt;"</code> 구조이므로, 공백으로 분리해 각 부분을 추출합니다.</p>
 
   <div class="box analogy">
@@ -71,7 +106,7 @@
     </tbody>
   </table>
 
-  <h2><span class="num">2</span>토큰 검증 — <code>jwtService.verify</code></h2>
+  <h2 id="s2"><span class="num">2</span>토큰 검증 — <code>jwtService.verify</code></h2>
   <p><code>jwtService.verify(token, { secret })</code>는 두 가지를 한 번에 합니다: <strong>① 서명 검증</strong>(위조 여부)과 <strong>② 만료 확인</strong>(exp 클레임). 하나라도 실패하면 예외를 던집니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — verifyToken</span></div><pre><span class="f">verifyToken</span>(token: <span class="t">string</span>) {
@@ -91,7 +126,7 @@
     <p><code>verify</code>는 서명 검증 + 만료 확인을 모두 합니다 — 검증 실패 시 예외를 던집니다. <code>decode</code>는 서명 검증 없이 payload를 읽기만 합니다 — 위조된 토큰도 디코딩됩니다. 인증 흐름에서는 반드시 <code>verify</code>를 사용해야 합니다. <code>decode</code>는 만료된 토큰의 payload를 읽어야 하는 특수 상황에서만 사용합니다.</p>
   </div>
 
-  <h2><span class="num">3</span>Access Token 재발급 — refresh 흐름</h2>
+  <h2 id="s3"><span class="num">3</span>Access Token 재발급 — refresh 흐름</h2>
   <p>Access Token이 만료되면 클라이언트는 Refresh Token을 제시해 새 Access Token을 발급받습니다. 재발급 시 반드시 <strong>payload.type === "refresh"</strong>를 확인해야 합니다 — Access Token으로 재발급을 요청하는 것을 막기 위해서입니다.</p>
 
   <div class="box warn">
@@ -188,7 +223,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>Authorization: Bearer &lt;token&gt;</code> 헤더의 형식을 설명해 보세요.</summary>
@@ -210,5 +245,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 7 · Lesson 03 · 토큰 추출 · 재발급(refresh)</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

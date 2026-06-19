@@ -8,6 +8,42 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 12</span>
+    </a>
+    <div class="logo-sub">실시간 · 권한 · SNS 완성</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-websocket-socketio.html">
+      <span class="nav-num">01</span>WebSocket &amp; Socket.IO
+    </a>
+    <a class="nav-item active" href="02-nesting-rbac-authz.html">
+      <span class="nav-num">02</span>모듈 네스팅 · RBAC · Authorization
+    </a>
+    <a class="nav-item" href="03-follow-count-retro.html">
+      <span class="nav-num">03</span>Follow System · Count · 회고
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">모듈 네스팅 — Posts 하위에 Comments</a>
+    <a class="nav-item sec" href="#s2">RBAC — @Roles 데코레이터 + RolesGuard</a>
+    <a class="nav-item sec" href="#s3">전역 Private 기본 + @IsPublic() 예외</a>
+    <a class="nav-item sec" href="#s4">Authorization — IsPostMineOrAdminGuard</a>
+    <a class="nav-item sec" href="#s5">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 12 · 실시간 · 권한 · SNS 완성</b></span>
   <span>02 / 03</span>
@@ -35,7 +71,7 @@
     <li><code>IsPostMineOrAdminGuard</code>가 역할 기반과 소유권 기반 인가를 결합하는 방식을 이해한다</li>
   </ul>
 
-  <h2><span class="num">1</span>모듈 네스팅 — Posts 하위에 Comments 모듈</h2>
+  <h2 id="s1"><span class="num">1</span>모듈 네스팅 — Posts 하위에 Comments 모듈</h2>
   <p class="lead">댓글(Comment)은 게시글(Post)에 종속되는 자원이므로 <code>posts/:postId/comments</code>처럼 중첩 라우트로 표현하는 것이 REST 원칙에 맞습니다. NestJS에서는 <strong>Comments 모듈을 독립 모듈로 만들되</strong>, 컨트롤러의 <code>@Controller('posts/:postId/comments')</code>와 Posts 모듈에서의 imports로 라우트 계층을 구성합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">중첩 라우트 컨트롤러 골격</span></div><pre><span class="c">// comments/comments.controller.ts</span>
@@ -69,7 +105,7 @@
     <p><code>@Controller('posts/:postId/comments')</code>를 쓰면 해당 컨트롤러의 모든 핸들러에서 <code>@Param('postId')</code>로 부모 자원의 ID를 받을 수 있습니다. Comments 서비스에서 DB를 조회할 때 <code>where: { post: { id: postId } }</code>로 필터링하면 정확히 해당 게시글의 댓글만 반환됩니다.</p>
   </div>
 
-  <h2><span class="num">2</span>RBAC — <code>@Roles</code> 데코레이터 + <code>RolesGuard</code></h2>
+  <h2 id="s2"><span class="num">2</span>RBAC — <code>@Roles</code> 데코레이터 + <code>RolesGuard</code></h2>
   <p>RBAC(Role-Based Access Control)는 <strong>사용자의 역할(role)</strong>에 따라 라우트 접근을 제어합니다. 구현은 두 부분으로 나뉩니다: ① <code>@Roles()</code> 커스텀 데코레이터가 핸들러에 역할 메타데이터를 붙이고, ② <code>RolesGuard</code>가 요청 시 <code>Reflector</code>로 그 메타데이터를 읽어 <code>request.user.role</code>과 비교합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/roles.guard.ts">code/roles.guard.ts</a> — Reflector 기반 RolesGuard</span></div><pre><span class="k">import</span> { <span class="t">Injectable</span>, <span class="t">CanActivate</span>, <span class="t">ExecutionContext</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -141,7 +177,7 @@
     <figcaption>RolesGuard가 Reflector로 @Roles 메타데이터를 읽어 user.role과 비교. ADMIN이면 통과, USER이면 403.</figcaption>
   </figure>
 
-  <h2><span class="num">3</span>전역 Private 기본 + <code>@IsPublic()</code> 예외</h2>
+  <h2 id="s3"><span class="num">3</span>전역 Private 기본 + <code>@IsPublic()</code> 예외</h2>
   <p>"모든 라우트를 기본적으로 인증 필요"로 만들고, <strong>공개해야 하는 라우트에만</strong> <code>@IsPublic()</code>을 붙이는 패턴입니다. 실수로 보호되어야 할 라우트를 열어두는 것을 방지하는 <strong>화이트리스트 방어</strong> 전략입니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">전역 AuthGuard에서 @IsPublic() 확인</span></div><pre><span class="c">// auth.guard.ts (전역 등록)</span>
@@ -176,7 +212,7 @@
     <p><strong>RBAC</strong>는 건물 <strong>출입 등급 카드</strong>입니다. 일반 직원(USER) 카드는 사무실만 열리고, 관리자(ADMIN) 카드는 서버실·금고도 열립니다. 역할이 없으면 어디도 못 들어갑니다. <strong>소유권 Guard</strong>는 그 위에 <strong>내 사물함은 나만 열 수 있다</strong>는 규칙입니다. ADMIN 카드가 있어도 다른 사람 사물함을 막 열어선 안 될 때도 있죠. 두 규칙을 함께 써야 인가가 완전합니다.</p>
   </div>
 
-  <h2><span class="num">4</span>Authorization — <code>IsPostMineOrAdminGuard</code></h2>
+  <h2 id="s4"><span class="num">4</span>Authorization — <code>IsPostMineOrAdminGuard</code></h2>
   <p>RBAC는 역할을 확인하지만, "이 게시글이 내 것인가"는 DB를 조회해야 압니다. <code>IsPostMineOrAdminGuard</code>는 <strong>① ADMIN이면 무조건 통과 ② 그렇지 않으면 DB에서 게시글의 authorId를 확인해 본인인지 검사</strong>하는 인가 Guard입니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/is-mine-or-admin.guard.ts">code/is-mine-or-admin.guard.ts</a></span></div><pre><span class="d">@Injectable</span>()
@@ -219,7 +255,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s5"><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> RBAC(역할 기반 접근 제어)란 무엇인가요?</summary>
@@ -241,5 +277,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 12 · Lesson 02 ★ 핵심 · 모듈 네스팅 · RBAC · Authorization</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

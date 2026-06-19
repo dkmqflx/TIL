@@ -7,6 +7,41 @@
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 12</span>
+    </a>
+    <div class="logo-sub">실시간 · 권한 · SNS 완성</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item active" href="01-websocket-socketio.html">
+      <span class="nav-num">01</span>WebSocket &amp; Socket.IO
+    </a>
+    <a class="nav-item" href="02-nesting-rbac-authz.html">
+      <span class="nav-num">02</span>모듈 네스팅 · RBAC · Authorization
+    </a>
+    <a class="nav-item" href="03-follow-count-retro.html">
+      <span class="nav-num">03</span>Follow System · Count · 회고
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">WebSocket vs HTTP — 연결 방식</a>
+    <a class="nav-item sec" href="#s2">@WebSocketGateway — NestJS WebSocket 진입점</a>
+    <a class="nav-item sec" href="#s3">Room — 채팅방 분리와 Broadcasting</a>
+    <a class="nav-item sec" href="#s4">Chat · Message 엔티티 + 메시지 저장</a>
+    <a class="nav-item sec" href="#s5">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
 
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 12 · 실시간 · 권한 · SNS 완성</b></span>
@@ -35,7 +70,7 @@
     <li>Chat·Message 엔티티 구조와 메시지 저장·전송 흐름을 그릴 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>WebSocket vs HTTP — 연결 방식이 다르다</h2>
+  <h2 id="s1"><span class="num">1</span>WebSocket vs HTTP — 연결 방식이 다르다</h2>
   <p class="lead">HTTP는 <strong>요청 → 응답 → 연결 종료</strong>의 일회성 패턴입니다. 서버는 클라이언트가 먼저 요청하기 전까지 아무것도 보낼 수 없습니다. WebSocket은 최초 <strong>HTTP 핸드셰이크(Upgrade)</strong>로 연결을 맺은 뒤, <strong>연결을 끊기 전까지 양쪽이 언제든지 메시지를 주고받을 수 있습니다.</strong></p>
 
   <div class="box analogy">
@@ -102,7 +137,7 @@
     <figcaption>왼쪽 HTTP: 매 요청마다 새 연결. 오른쪽 WebSocket: 핸드셰이크 한 번으로 상시 양방향 통신.</figcaption>
   </figure>
 
-  <h2><span class="num">2</span><code>@WebSocketGateway</code> — NestJS의 WebSocket 진입점</h2>
+  <h2 id="s2"><span class="num">2</span><code>@WebSocketGateway</code> — NestJS의 WebSocket 진입점</h2>
   <p>NestJS에서 WebSocket 서버는 <strong>Gateway</strong>라는 특수 클래스로 구현합니다. <code>@WebSocketGateway()</code> 데코레이터를 달면 NestJS가 Socket.IO 서버를 만들어 줍니다. 핸들러는 <code>@SubscribeMessage('이벤트명')</code>으로 등록하고, 서버 자체 인스턴스는 <code>@WebSocketServer()</code>로 주입받습니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/chats.gateway.ts">code/chats.gateway.ts</a></span></div><pre><span class="k">import</span> {
@@ -143,7 +178,7 @@
     <p><code>@WebSocketServer() server</code>는 서버 전체 인스턴스입니다. <code>server.to(room).emit()</code>은 특정 Room의 <strong>모든</strong> 클라이언트에게 보냅니다. 반면 <code>client.emit()</code>은 <strong>해당 소켓에만</strong> 보냅니다. 채팅방 broadcast에는 <code>server.to(room)</code>을 사용하세요.</p>
   </div>
 
-  <h2><span class="num">3</span>Room — 채팅방 분리와 Broadcasting</h2>
+  <h2 id="s3"><span class="num">3</span>Room — 채팅방 분리와 Broadcasting</h2>
   <p>Socket.IO의 <strong>Room</strong>은 소켓을 논리 그룹으로 묶는 기능입니다. 클라이언트가 <code>enter_chat</code> 이벤트를 보내면 서버에서 <code>client.join(room)</code>으로 해당 Room에 합류시키고, 이후 그 Room으로 보내는 모든 이벤트는 해당 채팅방 참가자에게만 전달됩니다.</p>
 
   <figure class="diagram">
@@ -204,7 +239,7 @@
   client.<span class="f">emit</span>(<span class="s">'enter_chat'</span>, { message: <span class="s">`방 ${data.chatId}에 입장`</span> });
 }</pre></div>
 
-  <h2><span class="num">4</span>Chat · Message 엔티티 + 메시지 저장·전송</h2>
+  <h2 id="s4"><span class="num">4</span>Chat · Message 엔티티 + 메시지 저장·전송</h2>
   <p>실시간 채팅에서도 메시지는 DB에 저장되어야 합니다. Chat(채팅방)과 Message(메시지) 두 엔티티를 만들고, Gateway의 <code>sendMessage</code> 핸들러 안에서 <strong>① DB 저장 → ② Room emit</strong> 순서로 처리합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">Chat / Message 엔티티 골격</span></div><pre><span class="c">// chat.entity.ts</span>
@@ -245,7 +280,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s5"><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> WebSocket이 HTTP와 근본적으로 다른 점은 무엇인가요?</summary>
@@ -267,5 +302,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 12 · Lesson 01 ★ 핵심 · WebSocket &amp; Socket.IO</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

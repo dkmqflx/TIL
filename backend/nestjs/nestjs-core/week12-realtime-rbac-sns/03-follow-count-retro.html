@@ -8,6 +8,42 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 12</span>
+    </a>
+    <div class="logo-sub">실시간 · 권한 · SNS 완성</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-websocket-socketio.html">
+      <span class="nav-num">01</span>WebSocket &amp; Socket.IO
+    </a>
+    <a class="nav-item" href="02-nesting-rbac-authz.html">
+      <span class="nav-num">02</span>모듈 네스팅 · RBAC · Authorization
+    </a>
+    <a class="nav-item active" href="03-follow-count-retro.html">
+      <span class="nav-num">03</span>Follow System · Count · 회고
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">Follower/Followee — User 자기참조 N:M</a>
+    <a class="nav-item sec" href="#s2">팔로우 신청 → 승인 → 취소 흐름</a>
+    <a class="nav-item sec" href="#s3">Follower/Comment Count — 증감 관리</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+    <a class="nav-item sec" href="#s5">12주 여정 회고 &amp; 다음 로드맵</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 12 · 실시간 · 권한 · SNS 완성</b></span>
   <span>03 / 03</span>
@@ -35,7 +71,7 @@
     <li>12주 커리큘럼 핵심 내용을 스스로 요약하고, 다음 학습 방향을 파악한다</li>
   </ul>
 
-  <h2><span class="num">1</span>Follower/Followee — User 자기참조 N:M</h2>
+  <h2 id="s1"><span class="num">1</span>Follower/Followee — User 자기참조 N:M</h2>
   <p class="lead">SNS의 팔로우는 <strong>User ↔ User</strong> 관계입니다. TypeORM의 <code>@ManyToMany</code>로 간단히 구현할 수도 있지만, 인스타그램처럼 <strong>비공개 계정 승인(isConfirmed)</strong> 같은 추가 필드가 필요하면 <strong>조인 테이블 자체를 별도 Entity(<code>Follow</code>)로 만들어야</strong> 합니다.</p>
 
   <div class="box analogy">
@@ -108,7 +144,7 @@
   <span class="d">@CreateDateColumn</span>() createdAt: <span class="t">Date</span>;
 }</pre></div>
 
-  <h2><span class="num">2</span>팔로우 신청 → 승인 → 취소 흐름</h2>
+  <h2 id="s2"><span class="num">2</span>팔로우 신청 → 승인 → 취소 흐름</h2>
   <p>팔로우 플로우는 세 단계입니다: <strong>① 신청(<code>isConfirmed=false</code>) → ② 팔로위가 승인(<code>isConfirmed=true</code> + followerCount++) → ③ 취소(Follow 레코드 삭제 + followerCount--)</strong>. 승인과 취소는 Follow 상태 변경과 Count 업데이트를 <strong>트랜잭션</strong>으로 묶어야 원자성이 보장됩니다(Week 11과 연계).</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/user-follow.service.ts">code/user-follow.service.ts</a> — 핵심 흐름</span></div><pre><span class="c">// 1. 팔로우 신청</span>
@@ -139,7 +175,7 @@
   <span class="c">// Follow 레코드 삭제 후 isConfirmed였으면 카운터 감소 (트랜잭션)</span>
 }</pre></div>
 
-  <h2><span class="num">3</span>Follower/Comment Count — 별도 컬럼으로 증감 관리</h2>
+  <h2 id="s3"><span class="num">3</span>Follower/Comment Count — 별도 컬럼으로 증감 관리</h2>
   <p>팔로워 수를 조회할 때마다 <code>COUNT(*)</code> 쿼리를 날리면 사용자가 많아질수록 성능이 저하됩니다. 대신 User 엔티티에 <code>followerCount</code> 컬럼을 두고, <strong>팔로우 승인 시 +1, 취소 시 -1</strong>로 점증 관리하는 방식을 씁니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">followerCount 컬럼 증감 — QueryBuilder UPDATE</span></div><pre><span class="c">// followerCount +1 (Raw SQL-safe 증감, race condition 없음)</span>
@@ -166,7 +202,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 팔로우 관계를 단순 @ManyToMany 대신 별도 Entity로 만드는 이유는 무엇인가요?</summary>
@@ -179,7 +215,7 @@
 
   <div class="section-divider">회고</div>
 
-  <h2><span class="num">5</span>12주 여정 회고 &amp; 다음 로드맵</h2>
+  <h2 id="s5"><span class="num">5</span>12주 여정 회고 &amp; 다음 로드맵</h2>
 
   <div class="box note">
     <span class="ic">📖</span>
@@ -207,5 +243,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 12 · Lesson 03 ★ 핵심 · Follow System · Count · 회고 &amp; 다음 로드맵</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

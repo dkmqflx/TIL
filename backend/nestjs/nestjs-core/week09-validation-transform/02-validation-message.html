@@ -8,6 +8,40 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 9</span>
+    </a>
+    <div class="logo-sub">DTO 검증·변환</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-class-validator-dto.html">
+      <span class="nav-num">01</span>Class Validator + DTO
+    </a>
+    <a class="nav-item active" href="02-validation-message.html">
+      <span class="nav-num">02</span>Validation Message 일반화
+    </a>
+    <a class="nav-item" href="03-class-transformer.html">
+      <span class="nav-num">03</span>Class Transformer — Exclude · Expose
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">데코레이터별 커스텀 메시지</a>
+    <a class="nav-item sec" href="#s2">메시지 생성 함수로 일반화</a>
+    <a class="nav-item sec" href="#s3">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 9 · DTO 검증·변환</b></span>
   <span>02 / 03</span>
@@ -34,7 +68,7 @@
     <li>메시지 생성 함수를 별도 파일로 분리해 DTO 전반에서 재사용할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>데코레이터별 커스텀 메시지</h2>
+  <h2 id="s1"><span class="num">1</span>데코레이터별 커스텀 메시지</h2>
   <p class="lead">검증 데코레이터는 두 번째 인수(옵션 객체)의 <code>message</code> 필드로 에러 메시지를 커스터마이징할 수 있습니다. 가장 단순한 방식은 <strong>문자열을 그대로</strong> 넣는 것입니다.</p>
 
   <div class="box analogy">
@@ -62,7 +96,7 @@
     <p><code>message</code>를 지정하지 않으면 <code>class-validator</code>가 영문 기본 메시지를 반환합니다(예: <code>"title must be a string"</code>). 프론트엔드에서 한국어 메시지가 필요하거나, 일관된 포맷이 필요하면 <code>message</code>를 커스터마이징하는 것이 좋습니다.</p>
   </div>
 
-  <h2><span class="num">2</span>메시지 생성 함수로 일반화</h2>
+  <h2 id="s2"><span class="num">2</span>메시지 생성 함수로 일반화</h2>
   <p><code>message</code> 옵션에 문자열 대신 <strong>함수</strong>를 전달할 수 있습니다. 함수는 <code>ValidationArguments</code>를 받아 동적으로 메시지를 생성합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">validation-messages.ts — 재사용 가능한 메시지 유틸</span></div><pre><span class="k">import</span> { <span class="t">ValidationArguments</span> } <span class="k">from</span> <span class="s">'class-validator'</span>;
@@ -140,7 +174,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">3</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s3"><span class="num">3</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 메시지를 일반화(함수화)하면 어떤 점이 좋은가요?</summary>
@@ -162,5 +196,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 9 · Lesson 02 · Validation Message 일반화</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

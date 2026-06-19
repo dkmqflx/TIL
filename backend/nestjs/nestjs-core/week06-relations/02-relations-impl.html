@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 6</span>
+    </a>
+    <div class="logo-sub">Table Relations (관계)</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-relation-theory-sql.html">
+      <span class="nav-num">01</span>관계 이론 · SQL Relations
+    </a>
+    <a class="nav-item active" href="02-relations-impl.html">
+      <span class="nav-num">02</span>관계 TypeORM 구현
+    </a>
+    <a class="nav-item" href="03-relation-options-query.html">
+      <span class="nav-num">03</span>Relation Options · 쿼리 · Author 적용
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">@OneToOne + @JoinColumn</a>
+    <a class="nav-item sec" href="#s2">@ManyToOne / @OneToMany</a>
+    <a class="nav-item sec" href="#s3">@ManyToMany + @JoinTable</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · Table Relations (관계)</b></span>
   <span>02 / 03</span>
@@ -35,7 +70,7 @@
     <li>각 관계 데코레이터의 두 인수(타입 함수, 역방향 함수)가 하는 역할을 설명할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>@OneToOne + @JoinColumn — 1:1 관계와 FK 소유</h2>
+  <h2 id="s1"><span class="num">1</span>@OneToOne + @JoinColumn — 1:1 관계와 FK 소유</h2>
   <p class="lead">1:1 관계는 두 엔티티 모두에 <code>@OneToOne</code>을 선언합니다. 단, FK 컬럼을 실제로 갖는 쪽(소유쪽)에만 <strong><code>@JoinColumn</code>을 추가</strong>합니다. <code>@JoinColumn</code> 없이 <code>@OneToOne</code>만 있는 반대쪽은 FK 없이 관계만 참조합니다.</p>
 
   <div class="box analogy">
@@ -110,7 +145,7 @@
     <figcaption><code>@JoinColumn</code>이 선언된 Profile 쪽 테이블에만 <code>userId</code> FK 컬럼이 생긴다.</figcaption>
   </figure>
 
-  <h2><span class="num">2</span>@ManyToOne / @OneToMany — 1:N 관계와 FK는 항상 ManyToOne</h2>
+  <h2 id="s2"><span class="num">2</span>@ManyToOne / @OneToMany — 1:N 관계와 FK는 항상 ManyToOne</h2>
   <p>1:N 관계에서 TypeORM은 두 개의 데코레이터를 <strong>쌍으로</strong> 씁니다. N쪽(자식) 엔티티에는 <code>@ManyToOne</code>, 1쪽(부모) 엔티티에는 <code>@OneToMany</code>입니다. <strong>FK 컬럼은 언제나 <code>@ManyToOne</code>이 있는 쪽 테이블에만 생성됩니다</strong> — <code>@OneToMany</code>만 있는 쪽에는 어떤 FK 컬럼도 생기지 않습니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.entity.ts + post.entity.ts — @ManyToOne / @OneToMany</span></div><pre><span class="c">// user.entity.ts — 1쪽 (부모)</span>
@@ -185,7 +220,7 @@
     <p><code>@OneToMany</code>는 반드시 반대쪽 엔티티에 <code>@ManyToOne</code>이 정의되어 있어야 작동합니다. TypeORM은 <code>@OneToMany</code>의 두 번째 인수(역방향 함수)로 반대쪽 <code>@ManyToOne</code> 필드를 참조하기 때문입니다. <code>@ManyToOne</code> 없이 <code>@OneToMany</code>만 선언하면 런타임 오류가 발생합니다.</p>
   </div>
 
-  <h2><span class="num">3</span>@ManyToMany + @JoinTable — N:M과 조인 테이블 자동 생성</h2>
+  <h2 id="s3"><span class="num">3</span>@ManyToMany + @JoinTable — N:M과 조인 테이블 자동 생성</h2>
   <p>N:M 관계에서는 양쪽 엔티티 모두 <code>@ManyToMany</code>를 선언합니다. 그리고 <strong>소유쪽(owner) 엔티티에만 <code>@JoinTable</code>을 추가</strong>합니다. TypeORM은 <code>@JoinTable</code>을 보고 두 FK를 담는 <strong>중간 테이블을 자동으로 생성</strong>합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">post.entity.ts + tag.entity.ts — @ManyToMany</span></div><pre><span class="c">// post.entity.ts — 소유쪽 (owner): @JoinTable 있음</span>
@@ -285,7 +320,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>@JoinColumn</code>은 관계의 어느 쪽에 붙이나요?</summary>
@@ -307,5 +342,23 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 6 · Lesson 02 · 관계 TypeORM 구현</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
 </body>
 </html>

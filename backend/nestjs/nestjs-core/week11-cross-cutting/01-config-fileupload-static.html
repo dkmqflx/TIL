@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 11</span>
+    </a>
+    <div class="logo-sub">횡단 관심사 + 파일/설정</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item active" href="01-config-fileupload-static.html">
+      <span class="nav-num">01</span>Config(ENV) + 파일 업로드 + Static
+    </a>
+    <a class="nav-item" href="02-transaction-interceptor.html">
+      <span class="nav-num">02</span>★ Transaction + Interceptor
+    </a>
+    <a class="nav-item" href="03-exception-filter-middleware.html">
+      <span class="nav-num">03</span>Exception Filter + Middleware
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">ConfigModule — .env 읽기</a>
+    <a class="nav-item sec" href="#s2">파일 업로드 — Multer + FileInterceptor</a>
+    <a class="nav-item sec" href="#s3">정적 파일 서빙 — ServeStaticModule</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 11 · 횡단 관심사 + 파일/설정</b></span>
   <span>01 / 03</span>
@@ -34,7 +69,7 @@
     <li><code>ServeStaticModule.forRoot({ rootPath, serveRoot })</code>로 업로드 파일을 특정 URL 경로로 제공한다</li>
   </ul>
 
-  <h2><span class="num">1</span><code>ConfigModule</code> — <code>.env</code> 읽기</h2>
+  <h2 id="s1"><span class="num">1</span><code>ConfigModule</code> — <code>.env</code> 읽기</h2>
   <p class="lead">NestJS 앱에서 포트, DB URL, JWT 시크릿 같은 값은 코드에 하드코딩하면 안 됩니다. <code>@nestjs/config</code>의 <code>ConfigModule</code>을 루트 모듈에 한 번 등록하면 어느 서비스에서나 <code>ConfigService</code>로 꺼낼 수 있습니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">app.module.ts — ConfigModule 전역 등록</span></div><pre><span class="k">import</span> { <span class="t">Module</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -68,7 +103,7 @@
     <p><code>.env</code>에는 DB 비밀번호, JWT 시크릿, AWS 키 같은 민감 정보가 담깁니다. 반드시 <code>.gitignore</code>에 추가하고, 팀원 공유는 별도 보안 채널(Vault, AWS Secrets Manager)을 이용하세요. 레포에 커밋하면 이미 유출입니다.</p>
   </div>
 
-  <h2><span class="num">2</span>파일 업로드 — Multer + <code>FileInterceptor</code></h2>
+  <h2 id="s2"><span class="num">2</span>파일 업로드 — Multer + <code>FileInterceptor</code></h2>
   <p>HTTP multipart/form-data로 전송된 파일은 NestJS 내장 Multer 연동으로 처리합니다. 컨트롤러 메서드에 <code>@UseInterceptors(FileInterceptor('필드명'))</code>을 달고 <code>@UploadedFile()</code>로 파일 메타데이터를 받습니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — 파일 업로드 엔드포인트</span></div><pre><span class="k">import</span> {
@@ -104,7 +139,7 @@
     <p>한 필드에서 여러 파일을 받으려면 <code>FilesInterceptor('images', 10)</code>(최대 10개)를 쓰고 파라미터를 <code>@UploadedFiles()</code>로 변경합니다. 파일 유형 검증은 <code>fileFilter</code> 옵션에서 <code>file.mimetype</code>을 확인하면 됩니다.</p>
   </div>
 
-  <h2><span class="num">3</span>정적 파일 서빙 — <code>ServeStaticModule</code></h2>
+  <h2 id="s3"><span class="num">3</span>정적 파일 서빙 — <code>ServeStaticModule</code></h2>
   <p>Multer가 <code>public/images/</code>에 저장한 파일을 HTTP로 제공하려면 <code>@nestjs/serve-static</code>의 <code>ServeStaticModule</code>을 등록합니다. <code>rootPath</code>는 디스크 경로, <code>serveRoot</code>는 URL 접두사입니다.</p>
 
   <div class="box analogy">
@@ -176,7 +211,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>.env</code> 값을 NestJS 코드에서 읽는 방법을 설명하세요.</summary>
@@ -198,5 +233,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 11 · Lesson 01 · Config · 파일 업로드 · Static Serving</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

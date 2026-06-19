@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 6</span>
+    </a>
+    <div class="logo-sub">Table Relations (관계)</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-relation-theory-sql.html">
+      <span class="nav-num">01</span>관계 이론 · SQL Relations
+    </a>
+    <a class="nav-item" href="02-relations-impl.html">
+      <span class="nav-num">02</span>관계 TypeORM 구현
+    </a>
+    <a class="nav-item active" href="03-relation-options-query.html">
+      <span class="nav-num">03</span>Relation Options · 쿼리 · Author 적용
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">관계 옵션 — cascade · eager · onDelete</a>
+    <a class="nav-item sec" href="#s2">관계 포함 조회 — relations &amp; QueryBuilder</a>
+    <a class="nav-item sec" href="#s3">Post에 author 관계 적용</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · Table Relations (관계)</b></span>
   <span>03 / 03</span>
@@ -35,7 +70,7 @@
     <li><code>eager</code> 남용이 성능 문제로 이어지는 이유를 설명할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>관계 옵션 — <code>cascade</code> · <code>eager</code> · <code>onDelete</code></h2>
+  <h2 id="s1"><span class="num">1</span>관계 옵션 — <code>cascade</code> · <code>eager</code> · <code>onDelete</code></h2>
   <p class="lead">관계 데코레이터의 세 번째 인수(옵션 객체)에 동작을 제어하는 옵션을 선언합니다. 각 옵션은 독립적으로 설정할 수 있으며, 모두 <strong>기본값은 비활성화</strong>입니다.</p>
 
   <div class="box analogy">
@@ -98,7 +133,7 @@
     <p><code>eager: true</code>를 선언하면 해당 관계는 <strong>모든 <code>find()</code> 호출</strong>에서 자동으로 LEFT JOIN됩니다. 게시글 목록 100개를 가져오는 API에서도 작성자 정보 100개가 항상 JOIN된다는 뜻입니다. 필요 없는 경우에도 쿼리 비용이 증가하고, 데이터가 많아질수록 성능 저하가 심해집니다. <strong>권장 패턴: <code>eager</code>는 끄고, 관계 데이터가 필요한 쿼리에서만 <code>relations: { author: true }</code>로 명시</strong>해 주세요.</p>
   </div>
 
-  <h2><span class="num">2</span>관계 포함 조회 — <code>relations</code> 옵션과 QueryBuilder</h2>
+  <h2 id="s2"><span class="num">2</span>관계 포함 조회 — <code>relations</code> 옵션과 QueryBuilder</h2>
   <p><code>eager: false</code>(기본값)일 때 관계 데이터를 포함해 조회하는 방법은 두 가지입니다. <strong>① <code>find({ relations: … })</code></strong>은 간단한 1단계 관계에 적합하고, <strong>② QueryBuilder <code>leftJoinAndSelect</code></strong>는 복잡한 조건이나 중첩 관계에 적합합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — relations 옵션과 QueryBuilder</span></div><pre><span class="k">import</span> { <span class="t">Injectable</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -176,7 +211,7 @@
     <figcaption><code>relations</code> 없이는 FK(<code>authorId</code>)만 응답된다. <code>relations: { author: true }</code>를 주면 author 객체 전체가 중첩되어 응답된다.</figcaption>
   </figure>
 
-  <h2><span class="num">3</span>Post에 author 관계 적용 — 데이터 생성 · 조회</h2>
+  <h2 id="s3"><span class="num">3</span>Post에 author 관계 적용 — 데이터 생성 · 조회</h2>
   <p>실제 SNS 앱 컨텍스트에서 User와 Post를 연결하고, 게시글을 작성자와 함께 저장하고 조회하는 전체 흐름을 작성합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — author 관계 포함 생성/조회</span></div><pre><span class="k">import</span> { <span class="t">Injectable</span>, <span class="t">NotFoundException</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -239,7 +274,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>eager: true</code>와 명시적 <code>relations</code> 옵션의 차이는 무엇인가요?</summary>
@@ -261,5 +296,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 6 · Lesson 03 · Relation Options · 쿼리 · Author 적용</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

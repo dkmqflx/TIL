@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 3</span>
+    </a>
+    <div class="logo-sub">Service · Module · DI/IoC</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item active" href="01-service-layer.html">
+      <span class="nav-num">01</span>Service로 로직 분리
+    </a>
+    <a class="nav-item" href="02-di-ioc.html">
+      <span class="nav-num">02</span>DI &amp; IoC 원리
+    </a>
+    <a class="nav-item" href="03-module-provider-appmodule.html">
+      <span class="nav-num">03</span>Module · Provider · AppModule
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">@Injectable() 서비스란</a>
+    <a class="nav-item sec" href="#s2">컨트롤러는 얇게</a>
+    <a class="nav-item sec" href="#s3">책임 분리의 효과</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 3 · Service · Module · DI/IoC</b></span>
   <span>01 / 03</span>
@@ -35,7 +70,7 @@
     <li><code>PostsService</code>에 CRUD 로직을 옮기고, 컨트롤러에서 호출하는 코드를 작성할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span><code>@Injectable()</code> 서비스란</h2>
+  <h2 id="s1"><span class="num">1</span><code>@Injectable()</code> 서비스란</h2>
   <p class="lead"><strong>서비스(Service)</strong>는 비즈니스 로직을 담는 클래스입니다. <code>@Injectable()</code>을 붙이면 "NestJS DI 컨테이너가 이 클래스의 인스턴스를 만들어 관리해도 된다"고 선언하는 것입니다. 컨테이너가 인스턴스를 생성하고, 필요한 곳에 주입(inject)합니다.</p>
 
   <div class="box analogy">
@@ -72,7 +107,7 @@
     <p><code>@Injectable()</code>은 "이 클래스를 직접 <code>new</code>하지 말고, NestJS 컨테이너가 만들어서 제공한다"는 표시입니다. 컨테이너는 이 클래스의 인스턴스를 딱 하나 만들어(기본 싱글턴) 필요한 곳마다 재사용합니다. <code>@Controller()</code>, <code>@Module()</code>도 내부적으로 같은 방식으로 동작하지만, 서비스는 <code>@Injectable()</code>을 명시해야 등록이 됩니다.</p>
   </div>
 
-  <h2><span class="num">2</span>컨트롤러는 얇게 — 요청·응답만</h2>
+  <h2 id="s2"><span class="num">2</span>컨트롤러는 얇게 — 요청·응답만</h2>
   <p>컨트롤러의 역할은 딱 세 가지입니다: <strong>① HTTP 요청을 받고 ② 서비스에 위임하고 ③ 결과를 응답으로 돌려준다</strong>. 비즈니스 로직이 컨트롤러에 들어오기 시작하면, 같은 로직을 WebSocket이나 배치에서 재사용하려면 복사·붙여넣기가 필요해집니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — 얇은 컨트롤러, 서비스에 위임</span></div><pre><span class="k">import</span> { <span class="t">Controller</span>, <span class="t">Get</span>, <span class="t">Post</span>, <span class="t">Patch</span>, <span class="t">Delete</span>, <span class="t">Param</span>, <span class="t">Body</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -157,7 +192,7 @@
     <figcaption>Request → Controller(얇게) → Service(로직 전담) → 저장소. 컨트롤러는 로직을 몰라도 된다.</figcaption>
   </figure>
 
-  <h2><span class="num">3</span>책임 분리의 효과 — 재사용·테스트</h2>
+  <h2 id="s3"><span class="num">3</span>책임 분리의 효과 — 재사용·테스트</h2>
   <p>서비스로 로직을 분리하면 세 가지 이점이 즉시 생깁니다.</p>
 
   <table class="tbl">
@@ -177,7 +212,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 로직을 서비스로 빼면 좋은 점을 두 가지만 말해보세요.</summary>
@@ -199,5 +234,22 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 3 · Lesson 01 · Service로 로직 분리</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
 </body>
 </html>

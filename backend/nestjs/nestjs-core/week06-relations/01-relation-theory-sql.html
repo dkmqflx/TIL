@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 6</span>
+    </a>
+    <div class="logo-sub">Table Relations (관계)</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item active" href="01-relation-theory-sql.html">
+      <span class="nav-num">01</span>관계 이론 · SQL Relations
+    </a>
+    <a class="nav-item" href="02-relations-impl.html">
+      <span class="nav-num">02</span>관계 TypeORM 구현
+    </a>
+    <a class="nav-item" href="03-relation-options-query.html">
+      <span class="nav-num">03</span>Relation Options · 쿼리 · Author 적용
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">Foreign Key — 테이블 간의 연결 고리</a>
+    <a class="nav-item sec" href="#s2">JOIN — 흩어진 데이터 연결</a>
+    <a class="nav-item sec" href="#s3">관계 종류 모델링 — 1:1 · 1:N · N:M</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · Table Relations (관계)</b></span>
   <span>01 / 03</span>
@@ -35,7 +70,7 @@
     <li>N:M 관계에 왜 중간(조인) 테이블이 필요한지 이해한다</li>
   </ul>
 
-  <h2><span class="num">1</span>Foreign Key — 테이블 간의 연결 고리</h2>
+  <h2 id="s1"><span class="num">1</span>Foreign Key — 테이블 간의 연결 고리</h2>
   <p class="lead"><strong>Foreign Key(외래 키, FK)</strong>는 한 테이블의 컬럼이 다른 테이블의 PK(기본 키)를 참조하도록 선언하는 제약입니다. 이를 통해 DB가 <strong>참조 무결성(Referential Integrity)</strong>을 강제합니다 — 존재하지 않는 행을 가리키는 FK를 삽입하려 하면 오류가 발생합니다.</p>
 
   <div class="box analogy">
@@ -121,7 +156,7 @@
     <p>FK 제약이 선언되면 DB는 두 가지를 강제합니다. ① <code>posts.authorId</code>에 삽입하는 값은 <code>users.id</code>에 반드시 존재해야 합니다. ② <code>ON DELETE CASCADE</code>처럼 연쇄 동작을 선언하면, 참조 대상 행이 삭제될 때 자동으로 처리(연쇄 삭제·NULL 처리)됩니다. 이 보장을 <strong>참조 무결성</strong>이라고 합니다.</p>
   </div>
 
-  <h2><span class="num">2</span>JOIN — 흩어진 데이터를 연결하기</h2>
+  <h2 id="s2"><span class="num">2</span>JOIN — 흩어진 데이터를 연결하기</h2>
   <p>FK로 나눠 저장한 데이터를 다시 합칠 때 <strong>JOIN</strong>을 사용합니다. 가장 자주 쓰는 두 가지는 INNER JOIN(양쪽 모두 존재하는 행만)과 LEFT JOIN(왼쪽 행은 모두, 오른쪽은 없으면 NULL)입니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">SQL — JOIN 예시</span></div><pre><span class="c">-- INNER JOIN: 작성자가 있는 게시글만 (author_id IS NOT NULL)</span>
@@ -185,7 +220,7 @@
     <figcaption>INNER JOIN은 매칭되는 행만, LEFT JOIN은 왼쪽 테이블 전체를 보존한다. TypeORM의 <code>relations</code> 옵션은 내부적으로 LEFT JOIN을 실행한다.</figcaption>
   </figure>
 
-  <h2><span class="num">3</span>관계 종류 모델링 — 1:1 · 1:N · N:M</h2>
+  <h2 id="s3"><span class="num">3</span>관계 종류 모델링 — 1:1 · 1:N · N:M</h2>
   <p>테이블 간 관계는 <strong>카디널리티(한쪽이 몇 개와 연결될 수 있는가)</strong>에 따라 세 가지로 분류합니다. 상황에 맞는 관계 모델을 선택하는 것이 설계의 핵심입니다.</p>
 
   <figure class="diagram">
@@ -257,7 +292,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> Foreign Key가 보장하는 것은 무엇인가요?</summary>
@@ -279,5 +314,23 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 6 · Lesson 01 · 관계 이론 · SQL Relations</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
 </body>
 </html>

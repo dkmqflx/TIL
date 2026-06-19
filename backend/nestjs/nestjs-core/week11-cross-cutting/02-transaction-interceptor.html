@@ -8,6 +8,42 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 11</span>
+    </a>
+    <div class="logo-sub">횡단 관심사 + 파일/설정</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-config-fileupload-static.html">
+      <span class="nav-num">01</span>Config(ENV) + 파일 업로드 + Static
+    </a>
+    <a class="nav-item active" href="02-transaction-interceptor.html">
+      <span class="nav-num">02</span>★ Transaction + Interceptor
+    </a>
+    <a class="nav-item" href="03-exception-filter-middleware.html">
+      <span class="nav-num">03</span>Exception Filter + Middleware
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">트랜잭션 — All-or-Nothing(원자성)</a>
+    <a class="nav-item sec" href="#s2">QueryRunner — 수동 트랜잭션 라이프사이클</a>
+    <a class="nav-item sec" href="#s3">Interceptor — AOP 레이어</a>
+    <a class="nav-item sec" href="#s4">Transaction Interceptor — 경계 자동화</a>
+    <a class="nav-item sec" href="#s5">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 11 · 횡단 관심사 + 파일/설정</b></span>
   <span>02 / 03</span>
@@ -35,7 +71,7 @@
     <li><code>TransactionInterceptor</code>가 <code>catchError</code>·<code>tap</code>으로 rollback/commit을 자동화하는 방식을 설명할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>트랜잭션 — All-or-Nothing(원자성)</h2>
+  <h2 id="s1"><span class="num">1</span>트랜잭션 — All-or-Nothing(원자성)</h2>
   <p class="lead">트랜잭션은 여러 DB 작업을 <strong>하나의 논리 단위</strong>로 묶어, 모두 성공하거나 모두 실패하도록 보장합니다. 일부만 성공한 채 멈추는 상황을 원천 차단합니다.</p>
 
   <div class="box analogy">
@@ -44,7 +80,7 @@
     <p>A 계좌에서 1만 원을 <strong>출금</strong>하고 B 계좌에 <strong>입금</strong>하는 두 쿼리가 있습니다. 출금은 됐는데 입금이 실패한다면? 돈이 허공에 사라집니다. 트랜잭션은 두 쿼리를 묶어 <strong>둘 다 성공해야 확정(commit)</strong>하고, 하나라도 실패하면 <strong>출금도 되돌립니다(rollback)</strong>. SNS에서는 이미지 파일 레코드 저장과 포스트 레코드 저장이 이 관계입니다.</p>
   </div>
 
-  <h2><span class="num">2</span><code>QueryRunner</code> — 수동 트랜잭션 라이프사이클</h2>
+  <h2 id="s2"><span class="num">2</span><code>QueryRunner</code> — 수동 트랜잭션 라이프사이클</h2>
   <p>TypeORM에서 트랜잭션을 직접 제어할 때는 <code>DataSource</code>에서 <code>QueryRunner</code>를 꺼냅니다. 라이프사이클은 반드시 이 순서를 지켜야 합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">QueryRunner 수동 트랜잭션 골격</span></div><pre><span class="k">const</span> qr = dataSource.<span class="f">createQueryRunner</span>();
@@ -69,7 +105,7 @@
     <p><code>release()</code>를 빠뜨리거나 <code>try</code> 블록 안에 넣으면 예외 발생 시 커넥션이 풀로 돌아오지 않아 <strong>커넥션 누수</strong>가 발생합니다. 수십 개의 누수가 쌓이면 DB 커넥션 풀이 소진되어 앱 전체가 멈춥니다. 항상 <code>finally { await qr.release() }</code>로 작성하세요.</p>
   </div>
 
-  <h2><span class="num">3</span>Interceptor — 핸들러를 감싸는 AOP 레이어</h2>
+  <h2 id="s3"><span class="num">3</span>Interceptor — 핸들러를 감싸는 AOP 레이어</h2>
   <p><code>NestInterceptor</code>는 컨트롤러 핸들러의 <strong>실행 전·후</strong>에 로직을 끼워 넣는 AOP(관점 지향 프로그래밍) 도구입니다. <code>intercept(context, next)</code>를 구현하고, <code>next.handle()</code>이 반환하는 <code>Observable</code>에 RxJS 연산자를 파이프합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">Interceptor 기본 구조 — 로깅 예시</span></div><pre><span class="k">import</span> {
@@ -98,7 +134,7 @@
     <p><code>next.handle()</code>은 다음 단계(최종적으로 컨트롤러 핸들러)를 실행하는 Observable입니다. 이를 <strong>호출하지 않으면 핸들러 자체가 실행되지 않습니다</strong>. <code>.pipe(tap(...), catchError(...))</code>로 완료·오류 시점에 각각 로직을 끼워 넣습니다.</p>
   </div>
 
-  <h2><span class="num">4</span>Transaction Interceptor — 트랜잭션 경계 자동화</h2>
+  <h2 id="s4"><span class="num">4</span>Transaction Interceptor — 트랜잭션 경계 자동화</h2>
   <p>Interceptor 안에서 QueryRunner를 생성하고 요청 객체에 붙이면, 핸들러가 성공/실패할 때 자동으로 commit/rollback됩니다. 핸들러는 <code>@QueryRunner()</code> 커스텀 데코레이터로 꺼내 씁니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/transaction.interceptor.ts">code/transaction.interceptor.ts</a> — 전체 구현</span></div><pre><span class="k">import</span> {
@@ -192,7 +228,7 @@
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s5"><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 트랜잭션이 꼭 필요한 상황을 예를 들어 설명하세요.</summary>
@@ -214,5 +250,23 @@
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 11 · Lesson 02 ★ 핵심 · Transaction(QueryRunner) + Interceptor</footer>
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
 </body>
 </html>

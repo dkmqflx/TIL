@@ -8,6 +8,42 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 1</span>
+    </a>
+    <div class="logo-sub">큰 그림 &amp; 아키텍처</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-backend-map-http-rest.html">
+      <span class="nav-num">01</span>백엔드의 지도 · HTTP · REST
+    </a>
+    <a class="nav-item active" href="02-why-nest-wraps-express.html">
+      <span class="nav-num">02</span>왜 NestJS는 Express를 감싸나
+    </a>
+    <a class="nav-item" href="03-setup-sns-concept-lifecycle.html">
+      <span class="nav-num">03</span>셋업 · SNS 컨셉 · 라이프사이클
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">순수 Node http</a>
+    <a class="nav-item sec" href="#s2">Express — 배관을 덜어 준다</a>
+    <a class="nav-item sec" href="#s3">NestJS가 더해 주는 것</a>
+    <a class="nav-item sec" href="#s4">언제 Nest를?</a>
+    <a class="nav-item sec" href="#s5">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 &amp; NestJS 아키텍처</b></span>
   <span>02 / 03</span>
@@ -21,7 +57,7 @@
 
 <div class="summary">
   <div class="summary__inner">
-    <span class="big">“</span>
+    <span class="big">"</span>
     <p>NestJS는 무에서 만든 서버가 아니다. <b>Express 위에 구조(DI·모듈·데코레이터)를 얹은 프레임워크</b>다. 순수 <code>http</code>로는 라우팅·파싱을 손으로 챙겨야 하고, Express는 그걸 덜어 주지만 "코드를 어떻게 조직할지"는 안 알려 준다 — 그 빈칸을 채우는 게 Nest다.</p>
   </div>
 </div>
@@ -35,7 +71,7 @@
     <li>"언제 Nest를 택하나"를 판단 기준으로 말할 수 있다</li>
   </ul>
 
-  <h2><span class="num">1</span>순수 Node <code>http</code> — 전부 손으로</h2>
+  <h2 id="s1"><span class="num">1</span>순수 Node <code>http</code> — 전부 손으로</h2>
   <p class="lead">가장 밑바닥부터 시작합니다. Node에는 외부 라이브러리 없이도 서버를 띄울 수 있는 내장 <code>http</code> 모듈이 있습니다. 하지만 <strong>라우팅도, 응답 형식도 전부 직접</strong> 챙겨야 합니다.</p>
 
   <div class="box analogy">
@@ -67,7 +103,7 @@ server.<span class="f">listen</span>(<span class="n">3000</span>);   <span class
     <p><code>req.method</code>/<code>req.url</code> 분기, 바디 스트림 직접 읽기, <code>Content-Type</code> 헤더, JSON 직렬화, 404 폴백… 라우트가 늘수록 <code>if</code>가 늘고, 코드는 금세 거대한 분기 덩어리가 됩니다. <strong>비즈니스 로직보다 배관(plumbing)이 더 많아지는</strong> 지점입니다.</p>
   </div>
 
-  <h2><span class="num">2</span>Express — 배관을 덜어 준다</h2>
+  <h2 id="s2"><span class="num">2</span>Express — 배관을 덜어 준다</h2>
   <p>같은 동작을 <strong>Express</strong>로 옮기면, 위에서 손으로 하던 라우팅 분기·응답 헬퍼를 프레임워크가 대신 해 줍니다. 같은 엔드포인트가 어떻게 짧아지는지 보세요 — 아래는 위 코드와 <strong>완전히 같은 동작</strong>입니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">express-server.js</span></div><pre><span class="k">const</span> express = <span class="f">require</span>(<span class="s">"express"</span>);   <span class="c">// npm i express</span>
@@ -91,7 +127,7 @@ app.<span class="f">listen</span>(<span class="n">3000</span>);   <span class="c
     <p><code>writeHead(200, {...}) + JSON.stringify</code>가 <code>res.json(...)</code> 한 줄로, 손수 짜던 라우팅 분기가 <code>app.get("/posts", ...)</code>로 줄었습니다. Express가 <strong>HTTP의 반복 작업(라우팅·파싱·응답 헬퍼)</strong>을 추상화해 준 것이죠. 하지만 Express는 여기까지입니다 — "<strong>파일을 어떻게 나누고, 로직을 어떻게 조직할지</strong>"는 여전히 당신 몫입니다.</p>
   </div>
 
-  <h2><span class="num">3</span>NestJS가 더해 주는 것 — 구조</h2>
+  <h2 id="s3"><span class="num">3</span>NestJS가 더해 주는 것 — 구조</h2>
   <p>Express는 "어떻게든 동작하는" 서버를 빠르게 만들어 줍니다. 문제는 <strong>커질 때</strong>입니다. 라우트가 수십 개가 되고 서비스끼리 얽히면, 자유로움이 곧 <strong>"각자 알아서"라는 무질서</strong>가 됩니다. NestJS는 바로 그 위에 한 층을 더 얹습니다 — 코드를 조직하는 <strong>일관된 구조</strong>를.</p>
 
   <figure class="diagram">
@@ -145,7 +181,7 @@ app.<span class="f">listen</span>(<span class="n">3000</span>);   <span class="c
     <p>NestJS는 기본적으로 내부에서 <strong>Express를 HTTP 어댑터로 사용</strong>합니다. 즉 Nest 코드를 짜면 그 아래에서 결국 Express가 돈다는 뜻입니다. (원하면 Fastify 어댑터로 갈아끼울 수도 있죠.) 그래서 "Nest냐 Express냐"는 양자택일이 아니라, <strong>Express를 깔고 그 위에 구조를 입을 것인가</strong>의 문제입니다.</p>
   </div>
 
-  <h2><span class="num">4</span>그래서, 언제 Nest를?</h2>
+  <h2 id="s4"><span class="num">4</span>그래서, 언제 Nest를?</h2>
   <p>프레임워크는 공짜가 아닙니다. Nest는 배워야 할 개념(데코레이터·모듈·DI)이 있고, 작은 스크립트엔 과합니다. 선택 기준을 정리하면:</p>
 
   <div class="box tip">
@@ -162,7 +198,7 @@ app.<span class="f">listen</span>(<span class="n">3000</span>);   <span class="c
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s5"><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> NestJS가 내부적으로 기본 사용하는 HTTP 라이브러리는?</summary>
@@ -184,5 +220,24 @@ app.<span class="f">listen</span>(<span class="n">3000</span>);   <span class="c
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 1 · Lesson 02 · 왜 NestJS는 Express를 감싸나</footer>
+
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
 </body>
 </html>

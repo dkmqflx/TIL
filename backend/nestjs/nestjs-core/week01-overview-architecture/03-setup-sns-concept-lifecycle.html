@@ -8,6 +8,41 @@
 </head>
 <body>
 
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">Week 1</span>
+    </a>
+    <div class="logo-sub">큰 그림 &amp; 아키텍처</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">레슨</div>
+    <a class="nav-item" href="01-backend-map-http-rest.html">
+      <span class="nav-num">01</span>백엔드의 지도 · HTTP · REST
+    </a>
+    <a class="nav-item" href="02-why-nest-wraps-express.html">
+      <span class="nav-num">02</span>왜 NestJS는 Express를 감싸나
+    </a>
+    <a class="nav-item active" href="03-setup-sns-concept-lifecycle.html">
+      <span class="nav-num">03</span>셋업 · SNS 컨셉 · 라이프사이클
+    </a>
+
+    <div class="nav-divider"></div>
+    <div class="nav-section-title">이번 레슨</div>
+    <a class="nav-item sec" href="#s1">nest new — 골격과 폴더 구조</a>
+    <a class="nav-item sec" href="#s2">인스타그램 SNS 컨셉</a>
+    <a class="nav-item sec" href="#s3">Request Life Cycle</a>
+    <a class="nav-item sec" href="#s4">셀프 체크</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<div class="sidebar-main">
+
 <nav class="topbar">
   <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 1 · 큰 그림 &amp; NestJS 아키텍처</b></span>
   <span>03 / 03</span>
@@ -21,7 +56,7 @@
 
 <div class="summary">
   <div class="summary__inner">
-    <span class="big">“</span>
+    <span class="big">"</span>
     <p>nest CLI로 <b>골격을 생성</b>하고 → 인스타그램 SNS 도메인(<b>User · Post · Comment · Follow</b>)을 그려 보고 → 모든 요청이 컨트롤러 앞에서 거치는 <b>Request Life Cycle</b>(Middleware → Guard → Interceptor → Pipe → Handler → …)을 머릿속에 새긴다. 이 셋이 앞으로 12주의 좌표축이다.</p>
   </div>
 </div>
@@ -34,7 +69,7 @@
     <li>요청이 거치는 Request Life Cycle의 <strong>순서</strong>를 외운다</li>
   </ul>
 
-  <h2><span class="num">1</span><code>nest new</code> — 골격과 폴더 구조</h2>
+  <h2 id="s1"><span class="num">1</span><code>nest new</code> — 골격과 폴더 구조</h2>
   <p class="lead">Nest는 <strong>CLI가 골격을 대신 만들어 줍니다</strong>. 빈 폴더에서 시작해 손으로 설정 파일을 만들 필요가 없습니다 — <code>nest new</code> 한 번이면 실행 가능한 최소 앱이 떨어집니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal</span></div><pre><span class="c"># CLI 전역 설치 후 프로젝트 생성</span>
@@ -76,7 +111,7 @@ npm run start:dev        <span class="c"># watch 모드 → http://localhost:300
     <p>환경설정·디버거·PgAdmin·Postman 같은 <strong>순수 툴링</strong>은 이 자료에서 별도 레슨으로 다루지 않습니다. 대신 해당 도구가 실제로 필요해지는 주차(예: PostgreSQL은 Week 4, 엔드포인트 테스트는 Week 2)에서 <strong>짧은 콜아웃</strong>으로 그때그때 안내합니다. 지금은 "골격이 어떻게 생겼나"만 눈에 익히면 충분합니다.</p>
   </div>
 
-  <h2><span class="num">2</span>인스타그램 SNS 컨셉 — 우리가 만들 것</h2>
+  <h2 id="s2"><span class="num">2</span>인스타그램 SNS 컨셉 — 우리가 만들 것</h2>
   <p>12주 동안 우리는 단편 예제가 아니라 <strong>하나의 인스타그램형 SNS 백엔드</strong>를 향해 갑니다. 도메인을 먼저 그려 두면, 매 주차의 기능이 이 그림의 어느 부분을 채우는지 한눈에 보입니다. 핵심 엔티티는 넷 — <strong>User · Post · Comment · Follow</strong>입니다.</p>
 
   <figure class="diagram">
@@ -136,7 +171,7 @@ npm run start:dev        <span class="c"># watch 모드 → http://localhost:300
     <p>관계를 TypeORM으로 실제 구현하는 건 Week 5~6, 인증으로 User에 로그인을 붙이는 건 Week 7, 팔로우 시스템 완성은 Week 12입니다. 지금은 <strong>전체 지형</strong>만 머리에 넣어 두세요 — 매 주차가 이 그림의 빈칸을 하나씩 채워 갑니다.</p>
   </div>
 
-  <h2><span class="num">3</span>Request Life Cycle — 요청이 거치는 관문들</h2>
+  <h2 id="s3"><span class="num">3</span>Request Life Cycle — 요청이 거치는 관문들</h2>
   <p>클라이언트의 요청은 컨트롤러 핸들러에 곧장 도착하지 않습니다. <strong>여러 관문을 순서대로</strong> 통과합니다. 이 순서를 외워 두면, 앞으로 "검증은 어디서? 인증은 어디서? 로깅은 어디서?"를 정확히 어느 단계에 끼울지 바로 답할 수 있습니다.</p>
 
   <figure class="diagram">
@@ -216,7 +251,7 @@ npm run start:dev        <span class="c"># watch 모드 → http://localhost:300
 
   <div class="section-divider">복습</div>
 
-  <h2><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
 
   <details class="qa">
     <summary><span class="qmark">Q</span> Request Life Cycle의 순서를 나열해 보세요.</summary>
@@ -238,5 +273,24 @@ npm run start:dev        <span class="c"># watch 모드 → http://localhost:300
 </main>
 
 <footer class="foot">NestJS 코어 셀프 스터디 · Week 1 · Lesson 03 · 셋업 · SNS 컨셉 · 라이프사이클</footer>
+
+</div><!-- sidebar-main -->
+</div><!-- layout -->
+
+<script>
+  const sections = document.querySelectorAll('h2[id]');
+  const navLinks = document.querySelectorAll('.nav-item.sec');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(a => a.classList.remove('active-sec'));
+        const link = document.querySelector('.nav-item.sec[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active-sec');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+
 </body>
 </html>

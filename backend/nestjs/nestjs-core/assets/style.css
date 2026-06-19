@@ -408,3 +408,108 @@ ul.goals li::before {
 .summary { animation-delay: 0.08s; }
 .wrap > h2 { animation: none; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+/* =============================================================
+   Sidebar layout (week01+)  —  기존 스타일에 영향 없음
+   ============================================================= */
+:root { --sidebar-w: 264px; }
+
+.layout { display: flex; min-height: 100vh; }
+
+/* sidebar panel */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--paper);
+  border-right: 1.5px solid var(--line);
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  overflow-y: auto;
+  padding-bottom: 48px;
+  z-index: 100;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+.sidebar-header {
+  padding: 22px 18px 16px;
+  border-bottom: 1.5px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+  z-index: 1;
+}
+
+.sidebar-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+
+.logo-badge {
+  background: var(--coral);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.logo-text { font-size: 13px; font-weight: 600; color: var(--ink); }
+.logo-sub { font-size: 11px; color: var(--ink-faint); margin-top: 4px; font-family: var(--mono); }
+
+.sidebar-nav { padding: 14px 10px; }
+
+.nav-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--ink-faint);
+  padding: 8px 8px 4px;
+  font-family: var(--mono);
+}
+
+.nav-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  text-decoration: none;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+  line-height: 1.4;
+  font-family: var(--sans);
+}
+.nav-item:hover { background: var(--paper-2); color: var(--ink); }
+.nav-item.active {
+  background: var(--coral-tint);
+  color: var(--coral);
+  font-weight: 600;
+  border-left: 3px solid var(--coral);
+  padding-left: 5px;
+}
+.nav-item.active .nav-num { color: var(--coral); }
+.nav-item.sec { font-size: 12px; color: var(--ink-faint); padding: 5px 8px; }
+.nav-item.sec:hover { color: var(--ink-soft); }
+.nav-item.sec.active-sec { color: var(--teal-deep); font-weight: 600; }
+
+.nav-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.nav-divider { height: 1px; background: var(--line); margin: 10px 8px; }
+
+/* main content area — shifted right of sidebar */
+.sidebar-main { margin-left: var(--sidebar-w); flex: 1; min-width: 0; }
+
+/* hide old topbar when sidebar layout is used */
+.sidebar-main .topbar { display: none; }

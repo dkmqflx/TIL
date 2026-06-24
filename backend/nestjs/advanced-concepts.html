@@ -2178,6 +2178,79 @@ const users = await this.userRepository
       <div class="callout-body">박민준, 최준호도 <strong>포함</strong>되지만 product/price는 <code>null</code>. 주문 없는 사용자도 목록에 나타내야 할 때 사용합니다.</div>
     </div>
 
+    <!-- leftJoin vs leftJoinAndSelect -->
+    <h3>leftJoin vs leftJoinAndSelect</h3>
+    <p>두 메서드 모두 SQL의 <code>LEFT JOIN</code>을 생성하지만, <strong>결과 SELECT 절에 포함되는지 여부</strong>가 다릅니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>leftJoin</th><th>leftJoinAndSelect</th></tr></thead>
+        <tbody>
+          <tr><td>LEFT JOIN 생성</td><td>O</td><td>O</td></tr>
+          <tr><td>JOIN 대상 컬럼 자동 SELECT</td><td>X</td><td>O</td></tr>
+          <tr><td>엔티티 관계 객체 자동 채움</td><td>X</td><td>O</td></tr>
+          <tr><td>주 용도</td><td>집계·필터링</td><td>관계 객체 로드</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// leftJoinAndSelect: JOIN + o.* 자동 SELECT
+// → getMany() 결과에서 user.orders 로 바로 접근 가능
+const users = await this.userRepository
+  .createQueryBuilder('u')
+  .leftJoinAndSelect('u.orders', 'o')  // SELECT u.*, o.* 모두 포함
+  .getMany();
+// users[0].orders → Order[] 배열로 채워짐
+
+// leftJoin: JOIN만 생성, SELECT는 addSelect()로 직접 지정
+// → 집계 함수처럼 o.* 전체가 아닌 특정 표현식만 필요할 때 사용
+const result = await this.userRepository
+  .createQueryBuilder('u')
+  .leftJoin('u.orders', 'o')           // o.* 은 SELECT 되지 않음
+  .select('u.name', 'name')
+  .addSelect('COUNT(o.id)', 'orderCount')
+  .addSelect('SUM(o.price)', 'totalPrice')
+  .groupBy('u.id')
+  .getRawMany();
+// result[0] → { name: '김철수', orderCount: '2', totalPrice: '1550000' }</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>정리:</strong> 관계 객체(<code>user.orders</code>)를 그대로 쓰려면 <code>leftJoinAndSelect</code>, 집계나 필터링 목적으로 JOIN만 필요하면 <code>leftJoin</code> + <code>addSelect()</code>를 사용합니다. <code>leftJoin</code>에 <code>AndSelect</code>가 없는 이유는 "어떤 컬럼을 SELECT할지 직접 결정하겠다"는 의도입니다.</div>
+    </div>
+
+    <!-- JOIN은 참조, SELECT는 포함 -->
+    <h4>JOIN은 "참조 허용", SELECT는 "결과에 포함"</h4>
+    <p><code>leftJoin</code>만 해도 <code>o.id</code>, <code>o.price</code> 같은 컬럼을 쿼리 안에서 참조할 수 있습니다. JOIN이 실행되는 순간 SQL 엔진 내부에서 <code>u</code>와 <code>o</code>가 합쳐진 가상의 행이 만들어지기 때문입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-sql">-- leftJoin('u.orders', 'o') 가 만드는 SQL
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+--                    ↑ 이 시점부터 o.* 컬럼을 쿼리 안에서 참조 가능
+
+-- 집계 표현식에서 o.id, o.price를 참조 (o.* 전체를 SELECT하지 않아도 됨)
+SELECT u.name, COUNT(o.id) AS orderCount, SUM(o.price) AS totalPrice
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id</code></pre>
+    </div>
+    <p>이 구조 덕분에 <code>o.</code> 참조가 필요한 상황을 세 가지로 나눌 수 있습니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>상황</th><th>JOIN 필요?</th><th>AndSelect 필요?</th></tr></thead>
+        <tbody>
+          <tr><td><code>COUNT(o.id)</code> 집계 계산</td><td>O (o 참조용)</td><td>X (o.* 전체 불필요)</td></tr>
+          <tr><td><code>user.orders</code> 객체 접근</td><td>O</td><td>O</td></tr>
+          <tr><td><code>WHERE o.price &gt; 1000</code> 필터</td><td>O (o 참조용)</td><td>X</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>핵심:</strong> <code>o.</code> 참조는 JOIN만 있으면 가능합니다. <code>AndSelect</code>는 "o의 컬럼을 결과 객체에 담겠다"는 추가 명령입니다. JOIN = 연결, SELECT = 꺼내기는 별개의 개념입니다.</div>
+    </div>
+
     <!-- RIGHT JOIN -->
     <h3>RIGHT JOIN — 오른쪽 테이블 기준</h3>
     <p>오른쪽(orders) 테이블의 모든 행을 반환하고, 왼쪽(users)에 데이터가 없으면 <code>null</code>로 채웁니다. TypeORM에서는 <code>leftJoinAndSelect</code>의 반대 방향으로 생각하면 됩니다.</p>

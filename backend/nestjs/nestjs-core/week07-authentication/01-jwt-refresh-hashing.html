@@ -35,7 +35,7 @@
     <div class="nav-section-title">이번 레슨</div>
     <a class="nav-item sec" href="#s1">세션 vs JWT</a>
     <a class="nav-item sec" href="#s2">Access Token vs Refresh Token</a>
-    <a class="nav-item sec" href="#s3">비밀번호 해싱 — bcrypt와 salt</a>
+    <a class="nav-item sec" href="#s3">비밀번호 해싱 — argon2와 salt</a>
     <a class="nav-item sec" href="#s4">셀프 체크</a>
   </div>
 </nav>
@@ -52,13 +52,13 @@
 <header class="head">
   <span class="kicker">◆ Week 7 — Lesson 01</span>
   <h1>Session vs JWT<br>토큰 이론 · 해싱</h1>
-  <p class="subtitle">두 가지 인증 방식의 트레이드오프를 비교하고, Access / Refresh Token의 역할과 수명을 이해한다. 비밀번호는 왜 반드시 해시로 저장해야 하는지, bcrypt가 어떻게 salt를 다루는지 익힌다.</p>
+  <p class="subtitle">두 가지 인증 방식의 트레이드오프를 비교하고, Access / Refresh Token의 역할과 수명을 이해한다. 비밀번호는 왜 반드시 해시로 저장해야 하는지, argon2가 어떻게 salt와 파라미터를 다루는지 익힌다.</p>
 </header>
 
 <div class="summary">
   <div class="summary__inner">
     <span class="big">"</span>
-    <p>인증의 핵심은 <b>"서버가 사용자를 기억하는 방법"</b>이다. 세션은 서버 메모리에 기록하고, JWT는 <b>서명된 토큰</b>을 클라이언트에 넘겨 서버가 아무것도 저장하지 않는다. 비밀번호는 <b>절대 평문으로 저장하지 않고</b>, bcrypt 해시로만 보관한다.</p>
+    <p>인증의 핵심은 <b>"서버가 사용자를 기억하는 방법"</b>이다. 세션은 서버 메모리에 기록하고, JWT는 <b>서명된 토큰</b>을 클라이언트에 넘겨 서버가 아무것도 저장하지 않는다. 비밀번호는 <b>절대 평문으로 저장하지 않고</b>, argon2 해시로만 보관한다.</p>
   </div>
 </div>
 
@@ -67,7 +67,7 @@
   <ul class="goals">
     <li>세션과 JWT의 차이를 "서버 저장 여부"와 "확장성"으로 설명할 수 있다</li>
     <li>Access Token과 Refresh Token의 역할·수명을 구분하여 설명할 수 있다</li>
-    <li>bcrypt가 salt를 해시 안에 내장한다는 것을 이해하고, <code>bcrypt.hash/compare</code> 흐름을 설명할 수 있다</li>
+    <li>argon2가 salt와 해싱 파라미터(memory cost, time cost, parallelism)를 해시 안에 내장한다는 것을 이해하고, <code>argon2.hash/verify</code> 흐름을 설명할 수 있다</li>
     <li>비밀번호를 평문(또는 단순 MD5)으로 저장하면 안 되는 이유를 구체적으로 설명할 수 있다</li>
   </ul>
 
@@ -156,47 +156,56 @@
     <p>Access Token과 Refresh Token은 <strong>발급 시 payload에 <code>type: "access"</code> / <code>type: "refresh"</code>를 명시</strong>합니다. 재발급 엔드포인트에서는 받은 토큰의 <code>type</code>을 확인해 <code>"refresh"</code>일 때만 새 access token을 발급합니다. access token을 refresh 엔드포인트에 넘겨도 거부되어야 합니다.</p>
   </div>
 
-  <h2 id="s3"><span class="num">3</span>비밀번호 해싱 — bcrypt와 salt</h2>
-  <p class="lead">비밀번호는 <strong>절대 평문으로 저장해서는 안 됩니다</strong>. DB가 유출되어도 원본 비밀번호를 알 수 없도록 <strong>단방향 해시</strong>로 변환해 저장합니다. NestJS 생태계에서는 <code>bcrypt</code>가 사실상 표준입니다.</p>
+  <h2 id="s3"><span class="num">3</span>비밀번호 해싱 — argon2와 salt</h2>
+  <p class="lead">비밀번호는 <strong>절대 평문으로 저장해서는 안 됩니다</strong>. DB가 유출되어도 원본 비밀번호를 알 수 없도록 <strong>단방향 해시</strong>로 변환해 저장합니다. <code>argon2</code>(그중에서도 <code>argon2id</code>)는 2015년 Password Hashing Competition 우승 알고리즘으로, OWASP Password Storage Cheat Sheet에서 <strong>1순위로 권장</strong>하는 현재 표준입니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🏋️</span>
+    <span class="label">비유 — 무거운 금고</span>
+    <p>bcrypt 같은 기존 방식은 "계산이 느린 자물쇠"를 채우는 것과 비슷합니다 — CPU 연산만 여러 번 반복시켜 공격자를 느리게 만듭니다. 문제는 GPU/ASIC은 이런 연산을 수천 개씩 <b>병렬로</b> 돌릴 수 있다는 점입니다. <strong>argon2</strong>는 여기에 "무거운 금고를 옮겨야만 여는" 조건을 추가합니다 — 해시 하나를 계산할 때마다 <b>일정량의 메모리(memory-hard)</b>를 실제로 점유하도록 강제해서, GPU라도 금고를 동시에 수천 개씩 들 수는 없게 만듭니다. 그만큼 대량 병렬 크래킹에 훨씬 강합니다.</p>
+  </div>
 
   <div class="box warn">
     <span class="ic">⚠️</span>
     <span class="label">비밀번호 평문 저장 절대 금지</span>
-    <p>"DB가 해킹당하면 어차피 끝 아닌가?"라는 생각은 잘못된 것입니다. 대부분의 사람이 여러 사이트에 같은 비밀번호를 씁니다. 평문 유출 → 타 사이트 피해(credential stuffing)로 이어집니다. <strong>MD5나 SHA-1도 너무 빠르기 때문에 사용 금지</strong>입니다 — rainbow table과 GPU 대량 연산으로 쉽게 역산됩니다. bcrypt의 cost factor(saltRounds)가 높을수록 해시 계산이 느려져 대량 시도 공격을 막습니다.</p>
+    <p>"DB가 해킹당하면 어차피 끝 아닌가?"라는 생각은 잘못된 것입니다. 대부분의 사람이 여러 사이트에 같은 비밀번호를 씁니다. 평문 유출 → 타 사이트 피해(credential stuffing)로 이어집니다. <strong>MD5나 SHA-1도 너무 빠르기 때문에 사용 금지</strong>입니다 — rainbow table과 GPU 대량 연산으로 쉽게 역산됩니다. argon2의 <strong>memory cost(메모리 사용량)</strong>와 <strong>time cost(반복 횟수)</strong>가 높을수록 해시 계산이 느려지고 메모리도 많이 필요해져, 대량 시도 공격(특히 GPU 병렬 연산)을 막습니다.</p>
   </div>
 
-  <p>bcrypt는 해시할 때 <strong>무작위 salt를 생성</strong>하고, 그 salt를 <strong>해시 결과물 안에 내장</strong>합니다. 별도의 salt 컬럼을 저장할 필요가 없고, <code>bcrypt.compare</code>가 내장된 salt를 자동으로 추출해 비교합니다.</p>
+  <p>argon2는 해시할 때 <strong>무작위 salt를 생성</strong>하고, salt는 물론 <strong>사용한 파라미터(알고리즘 종류, memory cost, time cost, parallelism)까지 해시 결과 문자열 안에 함께 인코딩</strong>합니다. 별도의 salt·설정값 컬럼을 저장할 필요가 없고, <code>argon2.verify</code>가 인코딩된 문자열에서 이 정보를 자동으로 추출해 동일한 조건으로 재해싱 후 비교합니다.</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — bcrypt 해싱 · 비교</span></div><pre><span class="k">import</span> * <span class="k">as</span> bcrypt <span class="k">from</span> <span class="s">'bcrypt'</span>;
-
-<span class="k">const</span> ROUNDS = <span class="n">10</span>;  <span class="c">// cost factor — 높을수록 느리고 안전</span>
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — argon2 해싱 · 비교</span></div><pre><span class="k">import</span> * <span class="k">as</span> argon2 <span class="k">from</span> <span class="s">'argon2'</span>;
 
 <span class="c">// 회원가입: 비밀번호 해싱 후 저장</span>
-<span class="k">const</span> hashedPw = <span class="k">await</span> bcrypt.<span class="f">hash</span>(password, ROUNDS);
-<span class="c">// hashedPw 안에 salt가 내장됨 → DB에 hashedPw만 저장</span>
+<span class="k">const</span> hashedPw = <span class="k">await</span> argon2.<span class="f">hash</span>(password, {
+  type: argon2.argon2id,     <span class="c">// argon2i/argon2d 대신 argon2id 권장(OWASP)</span>
+  memoryCost: <span class="n">65536</span>,       <span class="c">// 64 MiB — 클수록 GPU 병렬 공격에 강함</span>
+  timeCost: <span class="n">3</span>,             <span class="c">// 반복 횟수 — 클수록 느리고 안전</span>
+  parallelism: <span class="n">4</span>,
+});
+<span class="c">// hashedPw 안에 salt + 위 파라미터가 모두 내장됨 → DB에 hashedPw만 저장</span>
 
 <span class="c">// 로그인: 입력 비밀번호 vs 저장된 해시 비교</span>
-<span class="k">const</span> isMatch = <span class="k">await</span> bcrypt.<span class="f">compare</span>(inputPassword, storedHashedPw);
-<span class="c">// bcrypt.compare 가 해시에서 salt를 자동 추출해 재해싱 후 비교</span>
+<span class="k">const</span> isMatch = <span class="k">await</span> argon2.<span class="f">verify</span>(storedHashedPw, inputPassword);
+<span class="c">// argon2.verify(해시, 평문) — 인자 순서 주의. 해시에서 salt·파라미터를 자동 추출해 재해싱 후 비교</span>
 <span class="k">if</span> (!isMatch) <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'비밀번호가 올바르지 않습니다'</span>);</pre></div>
 
   <figure class="diagram">
-    <svg viewBox="0 0 720 220" role="img" aria-label="bcrypt 해싱과 비교 흐름: 해시 시 salt 내장, 비교 시 salt 추출 후 재해싱">
+    <svg viewBox="0 0 720 220" role="img" aria-label="argon2 해싱과 비교 흐름: 해시 시 salt와 파라미터 내장, 비교 시 추출 후 재해싱">
       <!-- HASH flow -->
       <text x="10" y="24" font-family="Fraunces, serif" font-size="14" font-weight="700" fill="#e0552f">해싱 (회원가입)</text>
       <!-- plain pw -->
       <rect x="10" y="36" width="130" height="44" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
       <text x="75" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7a3018">평문 비밀번호</text>
       <text x="75" y="72" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1c1a16">"mySecret"</text>
-      <!-- bcrypt.hash -->
+      <!-- argon2.hash -->
       <rect x="190" y="36" width="130" height="44" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
-      <text x="255" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#7d5604">bcrypt.hash</text>
-      <text x="255" y="72" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">salt 생성 + 내장</text>
+      <text x="255" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#7d5604">argon2.hash</text>
+      <text x="255" y="72" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">salt+파라미터 내장</text>
       <line x1="142" y1="58" x2="188" y2="58" stroke="#e0552f" stroke-width="2" marker-end="url(#w7l1-h1)"/>
       <!-- hashed -->
       <rect x="372" y="28" width="186" height="60" rx="8" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
       <text x="465" y="48" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">해시 결과 (DB 저장)</text>
-      <text x="465" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#ece6d6">$2b$10$<tspan fill="#6fd6c7">salt내장</tspan>hashedValue</text>
+      <text x="465" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#ece6d6">$argon2id$…$<tspan fill="#6fd6c7">salt</tspan>$hash</text>
       <line x1="322" y1="58" x2="370" y2="58" stroke="#0d6e64" stroke-width="2" marker-end="url(#w7l1-h2)"/>
 
       <!-- COMPARE flow -->
@@ -207,11 +216,11 @@
       <text x="75" y="179" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1c1a16">"mySecret"</text>
       <!-- stored hash -->
       <rect x="10" y="196" width="186" height="20" rx="5" fill="#1c1a16" stroke="#807a6c" stroke-width="1"/>
-      <text x="103" y="210" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#ece6d6">DB 저장 해시 ($2b$10$...)</text>
-      <!-- bcrypt.compare -->
+      <text x="103" y="210" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#ece6d6">DB 저장 해시 ($argon2id$...)</text>
+      <!-- argon2.verify -->
       <rect x="220" y="144" width="150" height="72" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
-      <text x="295" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#7d5604">bcrypt.compare</text>
-      <text x="295" y="182" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">① salt 추출</text>
+      <text x="295" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#7d5604">argon2.verify</text>
+      <text x="295" y="182" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">① salt·파라미터 추출</text>
       <text x="295" y="200" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#9a6a05">② 재해싱 후 비교</text>
       <line x1="142" y1="166" x2="218" y2="166" stroke="#e0552f" stroke-width="2" marker-end="url(#w7l1-h3)"/>
       <line x1="198" y1="206" x2="218" y2="190" stroke="#807a6c" stroke-width="1.5" marker-end="url(#w7l1-h4)"/>
@@ -228,7 +237,7 @@
         <marker id="w7l1-h5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
       </defs>
     </svg>
-    <figcaption>bcrypt 해시 결과물 안에 salt가 내장된다. 비교 시 <code>bcrypt.compare</code>가 salt를 자동 추출해 재해싱 후 비교하므로, 별도 salt 컬럼이 필요 없다.</figcaption>
+    <figcaption>argon2 해시 결과물 안에 salt뿐 아니라 사용된 파라미터(memory cost 등)까지 함께 내장된다. 비교 시 <code>argon2.verify</code>가 이 정보를 자동 추출해 동일한 조건으로 재해싱 후 비교하므로, 별도 컬럼이 필요 없다.</figcaption>
   </figure>
 
   <div class="section-divider">복습</div>
@@ -244,8 +253,8 @@
     <div class="answer"><p>보안과 사용성을 동시에 확보하기 위해서입니다. Access Token만 쓴다면 ① 만료 기간을 짧게 설정하면 사용자가 자주 로그인해야 하고 ② 길게 설정하면 탈취 시 오랫동안 악용될 수 있습니다. Refresh Token을 도입하면, <strong>Access Token은 짧게(수분~수십 분)</strong> 유지해 탈취 피해를 최소화하고, <strong>Refresh Token은 길게(수 일~수 주)</strong> 유지해 사용자 경험을 유지합니다. Access Token이 만료되면 Refresh Token으로 조용히 새 Access Token을 발급받으면 되기 때문입니다.</p></div>
   </details>
   <details class="qa">
-    <summary><span class="qmark">Q</span> bcrypt.compare는 어떻게 salt 없이도 비교할 수 있나요?</summary>
-    <div class="answer"><p>bcrypt 해시 결과물(<code>$2b$10$<salt>...</code>) 안에 salt가 내장되어 있기 때문입니다. <code>bcrypt.compare(입력PW, 저장된해시)</code>를 호출하면 내부적으로 ① 해시에서 salt를 추출 → ② 입력 비밀번호를 같은 salt로 재해싱 → ③ 결과를 저장된 해시와 비교합니다. 따라서 별도의 salt 컬럼을 저장할 필요가 없고, 코드도 간결해집니다.</p></div>
+    <summary><span class="qmark">Q</span> argon2.verify는 어떻게 salt 없이도 비교할 수 있나요?</summary>
+    <div class="answer"><p>argon2 해시 결과물(<code>$argon2id$v=19$m=65536,t=3,p=4$&lt;salt&gt;$&lt;hash&gt;</code>) 안에 salt는 물론 <strong>알고리즘 변형(argon2id)과 memory/time/parallelism 파라미터까지</strong> 함께 인코딩되어 있기 때문입니다. <code>argon2.verify(저장된해시, 입력PW)</code>를 호출하면 내부적으로 ① 해시 문자열에서 salt와 파라미터를 추출 → ② 입력 비밀번호를 <strong>정확히 동일한 조건</strong>으로 재해싱 → ③ 결과를 저장된 해시와 비교합니다. 따라서 별도의 salt·설정값 컬럼을 저장할 필요가 없고, 나중에 파라미터를 올려도 기존 해시를 그대로 검증할 수 있습니다.</p></div>
   </details>
 
   <nav class="pager">

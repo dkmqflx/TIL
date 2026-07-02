@@ -51,45 +51,43 @@
 <header class="head">
   <span class="kicker">◆ Week 7 — Lesson 02</span>
   <h1>회원가입 · 로그인<br>토큰 signing</h1>
-  <p class="subtitle">회원가입 시 bcrypt로 비밀번호를 해싱하고, 로그인 시 <code>bcrypt.compare</code>로 검증한 뒤 <code>jwtService.sign</code>으로 Access/Refresh Token을 발급하는 전체 흐름을 구현한다.</p>
+  <p class="subtitle">회원가입 시 argon2로 비밀번호를 해싱하고, 로그인 시 <code>argon2.verify</code>로 검증한 뒤 <code>jwtService.sign</code>으로 Access/Refresh Token을 발급하는 전체 흐름을 구현한다.</p>
 </header>
 
 <div class="summary">
   <div class="summary__inner">
     <span class="big">"</span>
-    <p>로그인은 <b>세 단계</b>다: ① 이메일로 유저 찾기 → ② bcrypt로 비밀번호 검증 → ③ 토큰 서명·발급. 비밀번호는 검증 후 <b>즉시 잊는다</b> — JWT payload에는 절대 넣지 않는다.</p>
+    <p>로그인은 <b>세 단계</b>다: ① 이메일로 유저 찾기 → ② argon2로 비밀번호 검증 → ③ 토큰 서명·발급. 비밀번호는 검증 후 <b>즉시 잊는다</b> — JWT payload에는 절대 넣지 않는다.</p>
   </div>
 </div>
 
 <main class="wrap">
 
   <ul class="goals">
-    <li><code>registerWithEmail</code>이 비밀번호를 bcrypt 해싱 후 저장한다는 흐름을 설명할 수 있다</li>
+    <li><code>registerWithEmail</code>이 비밀번호를 argon2 해싱 후 저장한다는 흐름을 설명할 수 있다</li>
     <li><code>authenticateWithEmailAndPassword</code>의 두 단계(유저 조회·비밀번호 검증)를 설명할 수 있다</li>
     <li><code>jwtService.sign(payload, options)</code>으로 토큰을 발급하는 코드를 작성할 수 있다</li>
     <li>JWT payload에 넣어야 할 것과 넣으면 안 되는 것을 구분할 수 있다</li>
   </ul>
 
   <h2 id="s1"><span class="num">1</span>회원가입 — <code>registerWithEmail</code></h2>
-  <p class="lead">회원가입의 핵심 규칙은 단 하나 — <strong>비밀번호는 절대 평문으로 저장하지 않는다</strong>. 저장 전 반드시 bcrypt로 해싱해서 해시값만 DB에 보관합니다.</p>
+  <p class="lead">회원가입의 핵심 규칙은 단 하나 — <strong>비밀번호는 절대 평문으로 저장하지 않는다</strong>. 저장 전 반드시 argon2로 해싱해서 해시값만 DB에 보관합니다.</p>
 
   <div class="box analogy">
     <span class="ic">🍔</span>
     <span class="label">비유 — 금고에 지문 보관</span>
-    <p>은행이 비밀번호를 그대로 파일에 적어 두지 않듯, 우리도 비밀번호를 그대로 저장하지 않습니다. 대신 <strong>지문처럼 복원할 수 없는 방식(bcrypt 해시)</strong>으로 변환해서 보관합니다. 나중에 본인이 왔을 때 "지문이 일치하는지"만 확인하면 됩니다 — 원본을 알 필요가 없습니다.</p>
+    <p>은행이 비밀번호를 그대로 파일에 적어 두지 않듯, 우리도 비밀번호를 그대로 저장하지 않습니다. 대신 <strong>지문처럼 복원할 수 없는 방식(argon2 해시)</strong>으로 변환해서 보관합니다. 나중에 본인이 왔을 때 "지문이 일치하는지"만 확인하면 됩니다 — 원본을 알 필요가 없습니다.</p>
   </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — registerWithEmail</span></div><pre><span class="k">import</span> * <span class="k">as</span> bcrypt <span class="k">from</span> <span class="s">'bcrypt'</span>;
-
-<span class="k">const</span> ROUNDS = <span class="n">10</span>;
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — registerWithEmail</span></div><pre><span class="k">import</span> * <span class="k">as</span> argon2 <span class="k">from</span> <span class="s">'argon2'</span>;
 
 <span class="k">async</span> <span class="f">registerWithEmail</span>(user: {
   email: <span class="t">string</span>;
   nickname: <span class="t">string</span>;
   password: <span class="t">string</span>;
 }) {
-  <span class="c">// 1. 비밀번호 해싱 (salt는 bcrypt가 자동 생성·내장)</span>
-  <span class="k">const</span> hashedPw = <span class="k">await</span> bcrypt.<span class="f">hash</span>(user.password, ROUNDS);
+  <span class="c">// 1. 비밀번호 해싱 (salt·파라미터는 argon2가 자동 생성·내장)</span>
+  <span class="k">const</span> hashedPw = <span class="k">await</span> argon2.<span class="f">hash</span>(user.password, { type: argon2.argon2id });
 
   <span class="c">// 2. 해시된 비밀번호로 유저 생성 — 평문은 이 시점에 버려짐</span>
   <span class="k">const</span> newUser = <span class="k">await this</span>.usersRepository.<span class="f">save</span>({
@@ -109,7 +107,7 @@
   </div>
 
   <h2 id="s2"><span class="num">2</span>로그인 검증 — <code>authenticateWithEmailAndPassword</code></h2>
-  <p>로그인 검증은 <strong>이메일로 유저 조회 → <code>bcrypt.compare</code>로 비밀번호 확인</strong>의 두 단계입니다. 이 함수는 검증만 담당하고, 토큰 발급은 별도 함수에 위임합니다.</p>
+  <p>로그인 검증은 <strong>이메일로 유저 조회 → <code>argon2.verify</code>로 비밀번호 확인</strong>의 두 단계입니다. 이 함수는 검증만 담당하고, 토큰 발급은 별도 함수에 위임합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">auth.service.ts — authenticateWithEmailAndPassword + loginWithEmail</span></div><pre><span class="k">async</span> <span class="f">authenticateWithEmailAndPassword</span>(user: {
   email: <span class="t">string</span>;
@@ -125,8 +123,8 @@
     <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'존재하지 않는 사용자입니다'</span>);
   }
 
-  <span class="c">// 2. 입력 비밀번호 vs 저장된 해시 비교</span>
-  <span class="k">const</span> isMatch = <span class="k">await</span> bcrypt.<span class="f">compare</span>(user.password, existingUser.password);
+  <span class="c">// 2. 입력 비밀번호 vs 저장된 해시 비교 (argon2.verify는 해시가 먼저)</span>
+  <span class="k">const</span> isMatch = <span class="k">await</span> argon2.<span class="f">verify</span>(existingUser.password, user.password);
 
   <span class="k">if</span> (!isMatch) {
     <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'비밀번호가 올바르지 않습니다'</span>);
@@ -143,7 +141,7 @@
 }</pre></div>
 
   <figure class="diagram">
-    <svg viewBox="0 0 720 280" role="img" aria-label="로그인 시퀀스: 클라이언트 → 컨트롤러 → 서비스(유저조회 → bcrypt검증 → 토큰서명) → 응답">
+    <svg viewBox="0 0 720 280" role="img" aria-label="로그인 시퀀스: 클라이언트 → 컨트롤러 → 서비스(유저조회 → argon2검증 → 토큰서명) → 응답">
       <!-- Lane labels -->
       <rect x="10" y="10" width="110" height="260" rx="8" fill="#f7e2d8" stroke="#e0552f" stroke-width="1" fill-opacity="0.3"/>
       <text x="65" y="32" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">CLIENT</text>
@@ -167,9 +165,9 @@
       <text x="400" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6fd6c7">① 이메일로 유저 조회</text>
       <text x="400" y="130" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">usersRepo.findOne(email)</text>
 
-      <!-- Step 4: bcrypt.compare -->
+      <!-- Step 4: argon2.verify -->
       <rect x="310" y="150" width="180" height="36" rx="6" fill="#16140f" stroke="#c98a16" stroke-width="1.5"/>
-      <text x="400" y="166" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#e6c96a">② bcrypt.compare</text>
+      <text x="400" y="166" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#e6c96a">② argon2.verify</text>
       <text x="400" y="180" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#9a9382">입력PW vs 저장 해시</text>
 
       <!-- Step 5: sign token -->
@@ -240,7 +238,7 @@
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 로그인 검증 단계는 어떻게 되나요?</summary>
-    <div class="answer"><p>두 단계입니다. ① <strong>이메일로 유저 조회</strong> — <code>usersRepository.findOne({ where: { email } })</code>으로 DB에서 유저를 찾습니다. 없으면 즉시 <code>UnauthorizedException</code>을 던집니다. ② <strong><code>bcrypt.compare</code>로 비밀번호 검증</strong> — 입력한 비밀번호와 DB에 저장된 해시를 비교합니다. 일치하지 않으면 역시 <code>UnauthorizedException</code>을 던집니다. 두 단계 모두 통과하면 유저 객체를 반환하고, 이후 토큰을 발급합니다. 보안상 "이메일이 없다" / "비밀번호가 틀렸다"를 구분해 응답하지 않는 것이 좋습니다 — 공격자에게 정보를 주지 않기 위해서입니다.</p></div>
+    <div class="answer"><p>두 단계입니다. ① <strong>이메일로 유저 조회</strong> — <code>usersRepository.findOne({ where: { email } })</code>으로 DB에서 유저를 찾습니다. 없으면 즉시 <code>UnauthorizedException</code>을 던집니다. ② <strong><code>argon2.verify</code>로 비밀번호 검증</strong> — 입력한 비밀번호와 DB에 저장된 해시를 비교합니다. 일치하지 않으면 역시 <code>UnauthorizedException</code>을 던집니다. 두 단계 모두 통과하면 유저 객체를 반환하고, 이후 토큰을 발급합니다. 보안상 "이메일이 없다" / "비밀번호가 틀렸다"를 구분해 응답하지 않는 것이 좋습니다 — 공격자에게 정보를 주지 않기 위해서입니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>jwtService.sign</code>의 payload에 무엇을 넣어야 하나요?</summary>

@@ -70,12 +70,12 @@
   </ul>
 
   <h2 id="s1"><span class="num">1</span><code>@Column</code> 옵션 완전 정리</h2>
-  <p class="lead"><code>@Column()</code>에 옵션 객체를 전달하면 해당 컬럼의 DB 타입, 제약 조건, 기본값을 세밀하게 제어할 수 있습니다. 옵션을 생략하면 TypeORM이 TypeScript 타입에서 추론하지만, <strong>명시적으로 선언하는 것이 더 안전</strong>합니다.</p>
+  <p class="lead"><code>@Column()</code>은 그저 "이 필드는 컬럼입니다"라고 표시하는 도장이 아닙니다. 괄호 안에 옵션 객체를 채워 넣는 순간, 그 컬럼이 DB에서 어떤 모습으로 태어날지 — 어떤 타입인지, 비워둬도 되는지, 값이 없을 때 무엇으로 채울지 — 를 직접 설계하게 됩니다. 옵션을 아예 안 쓰면 TypeORM이 TypeScript 타입을 보고 "아마 이런 뜻이겠지" 하고 추측해서 컬럼을 만들어 주긴 합니다. 하지만 이건 마치 이사할 집의 설계도를 인테리어 업자의 감에만 맡기는 것과 비슷합니다 — 대충은 맞겠지만 나중에 "왜 벽이 여기 있지?" 같은 문제가 튀어나올 수 있죠. 그래서 실무에서는 옵션을 <strong>명시적으로 선언</strong>해서 컬럼의 모양을 직접 결정하는 편이 훨씬 안전합니다.</p>
 
   <div class="box analogy">
     <span class="ic">🍔</span>
     <span class="label">비유 — 입력 칸의 규칙</span>
-    <p>온라인 가입 폼을 생각해 보세요. 각 입력 칸에는 <strong>규칙</strong>이 있습니다 — "이 칸은 필수입니다(<code>nullable: false</code>)", "이 칸은 비워두면 '게스트'가 자동으로 들어갑니다(<code>default: 'guest'</code>)", "이 칸은 중복 이메일을 허용하지 않습니다(<code>unique: true</code>)", "이 칸은 최대 50자까지만 됩니다(<code>length: 50</code>)". <code>@Column()</code>의 옵션이 바로 <strong>DB 수준에서 그 칸의 규칙을 정의</strong>하는 것입니다.</p>
+    <p>온라인 가입 폼을 생각해 보세요. 각 입력 칸에는 <strong>규칙</strong>이 있습니다 — "이 칸은 필수입니다(<code>nullable: false</code>)", "이 칸은 비워두면 '게스트'가 자동으로 들어갑니다(<code>default: 'guest'</code>)", "이 칸은 중복 이메일을 허용하지 않습니다(<code>unique: true</code>)", "이 칸은 최대 50자까지만 됩니다(<code>length: 50</code>)". <code>@Column()</code>의 옵션이 바로 <strong>DB 수준에서 그 칸의 규칙을 정의</strong>하는 것입니다. 폼을 만드는 사람이 규칙을 안 정하면 사용자가 아무렇게나 입력해도 다 통과되듯, <code>@Column()</code>에 옵션을 안 주면 DB도 별다른 규칙 없이 값을 받아줍니다.</p>
   </div>
 
   <table class="tbl">
@@ -120,11 +120,17 @@
   <div class="box warn">
     <span class="ic">⚠️</span>
     <span class="label"><code>select: false</code>와 <code>update: false</code>의 동작을 정확히 이해하세요</span>
-    <p><code>select: false</code>인 컬럼은 <code>find()</code> 등 일반 조회에서 <strong>자동으로 빠집니다</strong>. 반드시 필요할 때는 QueryBuilder에서 <code>.addSelect('user.password')</code>를 명시해야 합니다. <code>update: false</code>는 TypeORM ORM 레이어에서만 보호합니다 — 직접 SQL을 실행하거나 QueryBuilder를 쓰면 여전히 변경이 가능합니다. "DB 수준 잠금"이 아닌 "ORM 수준 가이드"임을 기억하세요.</p>
+    <p><code>select: false</code>인 컬럼은 <code>find()</code> 등 일반 조회에서 <strong>자동으로 빠집니다</strong>. 예를 들어 비밀번호 해시 컬럼에 이 옵션을 걸어두면, 개발자가 실수로 <code>user</code> 객체를 통째로 API 응답에 실어 보내도 비밀번호 해시는 애초에 그 안에 들어있지 않습니다 — 복사기로 서류를 복사할 때 특정 페이지만 자동으로 빼놓는 것과 비슷하죠. 정말 그 값이 필요할 때는 QueryBuilder에서 <code>.addSelect('user.password')</code>를 명시해야 다시 보입니다. <code>update: false</code>는 조금 다릅니다 — TypeORM ORM 레이어를 통해 저장할 때만 보호되는 규칙이라서, 직접 SQL을 실행하거나 QueryBuilder로 UPDATE를 날리면 여전히 값이 바뀔 수 있습니다. 즉 "금고에 넣고 잠근 것"이 아니라 "손대지 말라고 붙여둔 안내문"에 가깝다는 걸 기억하세요.</p>
   </div>
 
   <h2 id="s2"><span class="num">2</span>Enum 컬럼 — <code>@Column({ type: 'enum', enum: ... })</code></h2>
-  <p>Enum 컬럼은 컬럼에 들어올 수 있는 값을 미리 제한합니다. TypeScript의 <code>enum</code>과 연결하면 타입 안전성까지 확보할 수 있습니다. PostgreSQL에서는 실제로 <code>ENUM</code> 타입이 생성됩니다.</p>
+  <p>자유 텍스트로 <code>status</code> 컬럼을 만들면 어떤 일이 생길까요? 누군가는 <code>'published'</code>라고 소문자로 쓰고, 누군가는 <code>'Published'</code>라고 쓰고, 오타로 <code>'publised'</code>라고 쓸 수도 있습니다. DB 입장에서는 셋 다 그냥 문자열이라 아무 문제 없이 저장됩니다. Enum 컬럼은 이런 혼란을 애초에 차단합니다 — 컬럼에 들어올 수 있는 값의 목록을 미리 못박아 두고, 그 목록에 없는 값은 DB가 거부합니다. TypeScript의 <code>enum</code>과 연결하면 코드를 작성하는 단계에서부터 자동완성과 타입 체크까지 받을 수 있고, PostgreSQL에서는 이 제약이 실제로 <code>ENUM</code> 타입으로 만들어집니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🚦</span>
+    <span class="label">비유 — 신호등이 켤 수 있는 세 가지 색</span>
+    <p>신호등은 빨강, 노랑, 초록 세 가지 색만 켤 수 있습니다. "연두색"이나 "주황색"은 애초에 존재하지 않습니다 — 그런 전구 자체가 없으니까요. Enum 컬럼도 마찬가지입니다. <code>PostStatus</code>를 <code>DRAFT</code>, <code>PUBLISHED</code>, <code>ARCHIVED</code> 세 값으로 정의하면, DB는 그 외의 값이 들어오려는 시도 자체를 막아버립니다. "혹시 몰라서" 문자열 컬럼을 쓰고 애플리케이션 코드에서만 값을 검증하는 것과, DB 스스로가 "이 신호는 세 가지 색만 가능해"라고 강제하는 것은 안정성의 차원이 다릅니다.</p>
+  </div>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">post.entity.ts — Enum 컬럼</span></div><pre><span class="k">import</span> { <span class="t">Entity</span>, <span class="t">PrimaryGeneratedColumn</span>, <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
 
@@ -159,7 +165,7 @@
   </div>
 
   <h2 id="s3"><span class="num">3</span>Entity Embedding — 공통 필드를 묶어 재사용</h2>
-  <p>여러 Entity에 똑같은 컬럼 묶음(예: <code>address</code> 관련 필드)이 반복된다면, <strong>Embedded Entity</strong>로 공통 필드를 하나의 클래스로 추출하고 <code>@Column(() => Embedded)</code>로 삽입할 수 있습니다. DB에서는 같은 테이블에 일반 컬럼으로 합쳐집니다.</p>
+  <p><code>User</code>에도 배송지 주소가 필요하고, <code>Store</code>에도 사업장 주소가 필요하다고 해봅시다. 두 Entity에 <code>city</code>, <code>street</code> 컬럼을 매번 따로 선언하면, 나중에 "우편번호(<code>zipCode</code>)도 추가하자"는 요구사항이 왔을 때 두 곳을 똑같이 고쳐야 합니다. <strong>Entity Embedding</strong>은 이런 반복을 없애줍니다 — 주소 관련 필드를 <code>Address</code>라는 하나의 클래스로 따로 떼어 놓고, 그 클래스가 필요한 Entity에 <code>@Column(() => Address)</code>로 끼워 넣기만 하면 됩니다. 신기한 점은 DB에는 별도 테이블이 생기는 게 아니라, <code>Address</code>의 필드들이 접두사를 붙인 채 원래 테이블 안에 그대로 펼쳐진다는 것입니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">address.embedded.ts + user.entity.ts — Embedding 예시</span></div><pre><span class="c">// --- 공통 필드를 담은 임베딩 클래스 ---</span>
 <span class="k">import</span> { <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
@@ -189,6 +195,12 @@
   address: <span class="t">Address</span>;
 }
 <span class="c">// 결과 DB 컬럼: id, name, address_city, address_street</span></pre></div>
+
+  <div class="box analogy">
+    <span class="ic">📮</span>
+    <span class="label">비유 — 여러 서류에 찍는 같은 도장</span>
+    <p>회사에 "주소 기입란" 도장이 하나 있다고 생각해 보세요. 계약서에도 찍고, 배송 요청서에도 찍습니다. 도장의 모양(도시, 도로명 칸)은 완전히 똑같지만, 계약서와 배송 요청서는 서로 다른 서류일 뿐 하나가 다른 하나를 상속받는 관계는 아닙니다. Entity Embedding이 바로 이 도장 역할을 합니다. <code>Address</code> 클래스를 한 번 정의해 두고, 필요한 Entity마다 그 모양 그대로 "찍어서" 컬럼을 채워 넣는 것이죠. 그래서 다음 레슨에서 배울 상속(<code>extends BaseModel</code>)과는 성격이 다릅니다 — 상속은 "부모 자식 관계"이고, Embedding은 "같은 서식을 여러 곳에 붙여 쓰는 것"에 가깝습니다.</p>
+  </div>
 
   <figure class="diagram">
     <svg viewBox="0 0 680 290" role="img" aria-label="Post Entity에서 일반 컬럼, Enum 컬럼, Embedded 묶음이 하나의 DB 테이블로 합쳐지는 구조">

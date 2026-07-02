@@ -69,7 +69,7 @@
   </ul>
 
   <h2 id="s1"><span class="num">1</span>FindManyOptions 핵심 키</h2>
-  <p class="lead"><code>repository.find(options)</code>에 전달하는 객체가 <code>FindManyOptions</code>입니다. <code>findOne()</code>에는 <code>FindOneOptions</code>(같은 구조에서 <code>take</code>/<code>skip</code>만 없음)를 씁니다.</p>
+  <p class="lead"><code>find({ where: { id } })</code>처럼 조건 하나만 넣어본 경험이 전부라면, <code>find()</code>가 사실 얼마나 많은 걸 할 수 있는지 아직 모르는 것입니다. 어떤 컬럼만 골라 가져올지, 연관된 데이터를 함께 불러올지, 어떤 순서로 정렬할지, 몇 건씩 끊어서 가져올지 — 이 모든 걸 <code>repository.find(options)</code>에 넘기는 옵션 객체 하나로 지정합니다. 이 객체의 타입이 <code>FindManyOptions</code>입니다. 단건 조회용 <code>findOne()</code>에는 같은 구조에서 페이지네이션 키(<code>take</code>/<code>skip</code>)만 빠진 <code>FindOneOptions</code>를 씁니다.</p>
 
   <div class="box analogy">
     <span class="ic">🍔</span>
@@ -111,6 +111,12 @@
 
   <h2 id="s2"><span class="num">2</span>TypeORM 연산자 유틸리티</h2>
   <p><code>where</code> 절에서 단순 동등 비교 이외의 조건이 필요할 때, TypeORM이 제공하는 연산자 함수를 사용합니다. <code>typeorm</code> 패키지에서 직접 임포트합니다.</p>
+
+  <div class="box analogy">
+    <span class="ic">🛒</span>
+    <span class="label">비유 — 쇼핑몰의 필터 버튼들</span>
+    <p>온라인 쇼핑몰에서 상품을 찾을 때를 떠올려 보세요. "가격 10만원 이상"(<code>MoreThan</code>), "5만원~10만원 사이"(<code>Between</code>), "브랜드가 A 또는 B 또는 C"(<code>In</code>), "상품명에 '무선'이 들어감"(<code>Like</code>/<code>ILike</code>), "품절 표시가 비어있음"(<code>IsNull</code>) — 이런 필터 버튼들을 조합해서 원하는 상품을 좁혀 나갑니다. TypeORM의 연산자 함수들이 바로 이 필터 버튼 역할을 합니다. <code>where</code> 절 안에 이 함수들을 끼워 넣으면, "같다/다르다"를 넘어서는 훨씬 정교한 검색 조건을 SQL을 직접 쓰지 않고도 TypeScript 코드만으로 표현할 수 있습니다.</p>
+  </div>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — 연산자 활용 예시</span></div><pre><span class="k">import</span> {
   <span class="t">MoreThan</span>, <span class="t">LessThan</span>, <span class="t">Like</span>, <span class="t">ILike</span>,
@@ -203,7 +209,7 @@ postsRepo.<span class="f">find</span>({ where: { deletedAt: <span class="f">IsNu
   </figure>
 
   <h2 id="s3"><span class="num">3</span>자주 쓰는 메서드 — <code>count</code> · <code>exists</code> · <code>findAndCount</code></h2>
-  <p><code>find()</code> 외에도 개수 확인과 페이지네이션에 자주 쓰는 Repository 메서드가 있습니다.</p>
+  <p>도서관에서 사서에게 물어볼 수 있는 질문은 다양합니다. "이 조건에 맞는 책이 총 몇 권 있어요?"(개수만 궁금할 때), "이 조건에 맞는 책이 있긴 해요?"(있다/없다만 궁금할 때), "책 10권 보여주시고 전체는 몇 권인지도 같이 알려주세요"(목록과 총 개수가 동시에 필요할 때). <code>find()</code> 외에도 TypeORM은 이 세 가지 질문에 각각 대응하는 Repository 메서드를 제공합니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.service.ts — count / exists / findAndCount</span></div><pre><span class="k">import</span> { <span class="t">ILike</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
 

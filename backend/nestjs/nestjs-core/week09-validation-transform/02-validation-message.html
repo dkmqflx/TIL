@@ -178,11 +178,20 @@
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 메시지를 일반화(함수화)하면 어떤 점이 좋은가요?</summary>
-    <div class="answer"><p>세 가지 이점이 있습니다. ① <strong>중복 제거</strong> — 같은 패턴의 메시지를 DTO마다 복사할 필요 없이 함수 하나로 커버합니다. ② <strong>일관성</strong> — 프로젝트 전체의 에러 메시지가 동일한 포맷을 유지합니다. ③ <strong>유지보수성</strong> — 메시지 문구나 포맷을 바꿀 때 함수 한 곳만 수정하면 모든 DTO에 적용됩니다. i18n 적용도 이 함수만 교체하면 됩니다.</p></div>
+    <div class="answer"><p>세 가지 이점이 있습니다.<br>
+    ① <strong>중복 제거</strong> — 같은 패턴의 메시지를 DTO마다 복사할 필요 없이 함수 하나로 커버합니다.<br>
+    ② <strong>일관성</strong> — 프로젝트 전체의 에러 메시지가 동일한 포맷을 유지합니다.<br>
+    ③ <strong>유지보수성</strong> — 메시지 문구나 포맷을 바꿀 때 함수 한 곳만 수정하면 모든 DTO에 적용됩니다. i18n 적용도 이 함수만 교체하면 됩니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>ValidationArguments</code>로 어떤 정보를 알 수 있나요?</summary>
-    <div class="answer"><p><code>ValidationArguments</code>에는 네 가지 주요 필드가 있습니다. <code>property</code>: 현재 검증 중인 필드 이름(예: <code>'title'</code>). <code>value</code>: 요청에서 실제로 들어온 값. <code>constraints</code>: 데코레이터에 전달된 제약 값 배열(예: <code>@Length(1, 100)</code>이면 <code>[1, 100]</code>). <code>object</code>: 검증 중인 DTO 인스턴스 전체. <code>targetName</code>: DTO 클래스 이름. 이를 활용하면 "어떤 필드에서, 어떤 값이, 어떤 규칙을 어겼는가"를 메시지에 동적으로 반영할 수 있습니다.</p></div>
+    <div class="answer"><p><code>ValidationArguments</code>에는 네 가지 주요 필드가 있습니다.<br>
+    <code>property</code>: 현재 검증 중인 필드 이름(예: <code>'title'</code>).<br>
+    <code>value</code>: 요청에서 실제로 들어온 값.<br>
+    <code>constraints</code>: 데코레이터에 전달된 제약 값 배열(예: <code>@Length(1, 100)</code>이면 <code>[1, 100]</code>).<br>
+    <code>object</code>: 검증 중인 DTO 인스턴스 전체.<br>
+    <code>targetName</code>: DTO 클래스 이름.<br>
+    이를 활용하면 "어떤 필드에서, 어떤 값이, 어떤 규칙을 어겼는가"를 메시지에 동적으로 반영할 수 있습니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>message</code> 옵션에 함수를 넣으면 언제 호출되나요?</summary>

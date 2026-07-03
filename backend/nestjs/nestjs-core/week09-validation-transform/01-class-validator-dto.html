@@ -102,7 +102,14 @@
   <div class="box note">
     <span class="ic">🧭</span>
     <span class="label">주요 class-validator 데코레이터</span>
-    <p><code>@IsString()</code> — 문자열. <code>@IsInt()</code> — 정수. <code>@IsEmail()</code> — 이메일 형식. <code>@IsUrl()</code> — URL 형식. <code>@Length(min, max)</code> — 문자열 길이 범위. <code>@Min(n)</code> / <code>@Max(n)</code> — 숫자 범위. <code>@IsOptional()</code> — 필드 자체가 없으면 검증 건너뜀. 이 중 <code>@IsOptional()</code>은 관례적으로 <strong>다른 데코레이터보다 먼저(위에)</strong> 선언합니다.</p>
+    <p><code>@IsString()</code> — 문자열.<br>
+    <code>@IsInt()</code> — 정수.<br>
+    <code>@IsEmail()</code> — 이메일 형식.<br>
+    <code>@IsUrl()</code> — URL 형식.<br>
+    <code>@Length(min, max)</code> — 문자열 길이 범위.<br>
+    <code>@Min(n)</code> / <code>@Max(n)</code> — 숫자 범위.<br>
+    <code>@IsOptional()</code> — 필드 자체가 없으면 검증 건너뜀.<br>
+    이 중 <code>@IsOptional()</code>은 관례적으로 <strong>다른 데코레이터보다 먼저(위에)</strong> 선언합니다.</p>
   </div>
 
   <h2 id="s2"><span class="num">2</span>검증 데코레이터 + 컨트롤러 연결</h2>
@@ -239,7 +246,10 @@
 
   <details class="qa">
     <summary><span class="qmark">Q</span> DTO와 ValidationPipe가 없으면 어떤 문제가 생기나요?</summary>
-    <div class="answer"><p>두 가지 문제가 생깁니다. ① <strong>타입 불안정</strong> — <code>req.body</code>는 <code>any</code>이므로 서비스 레이어에서 직접 <code>if (!body.title || typeof body.title !== 'string')</code> 같은 방어 코드를 반복 작성해야 합니다. ② <strong>보안 위험</strong> — 공격자가 임의의 키를 본문에 실어 보내도 그대로 서비스에 전달됩니다. DTO + <code>ValidationPipe(whitelist: true)</code>를 쓰면 타입 안전성과 화이트리스트 필터링을 한꺼번에 해결합니다.</p></div>
+    <div class="answer"><p>두 가지 문제가 생깁니다.<br>
+    ① <strong>타입 불안정</strong> — <code>req.body</code>는 <code>any</code>이므로 서비스 레이어에서 직접 <code>if (!body.title || typeof body.title !== 'string')</code> 같은 방어 코드를 반복 작성해야 합니다.<br>
+    ② <strong>보안 위험</strong> — 공격자가 임의의 키를 본문에 실어 보내도 그대로 서비스에 전달됩니다.<br>
+    DTO + <code>ValidationPipe(whitelist: true)</code>를 쓰면 타입 안전성과 화이트리스트 필터링을 한꺼번에 해결합니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>PickType</code>이 해결하는 문제는 무엇인가요?</summary>
@@ -247,7 +257,10 @@
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>ValidationPipe</code>의 <code>transform: true</code>옵션은 무엇을 하나요?</summary>
-    <div class="answer"><p>두 가지 변환을 수행합니다. ① <strong>클래스 인스턴스화</strong> — 요청 본문(<code>plain object</code>)을 DTO 클래스 인스턴스로 변환합니다. <code>transform: false</code>(기본)이면 <code>dto instanceof CreatePostDto</code>가 <code>false</code>입니다. ② <strong>원시 타입 변환</strong> — 쿼리 스트링·URL 파라미터처럼 항상 문자열로 오는 값을 DTO에 선언된 타입(<code>number</code>, <code>boolean</code>)으로 자동 변환합니다. 이를 통해 <code>@Type(() => Number)</code> 데코레이터를 생략할 수 있습니다.</p></div>
+    <div class="answer"><p>두 가지 변환을 수행합니다.<br>
+    ① <strong>클래스 인스턴스화</strong> — 요청 본문(<code>plain object</code>)을 DTO 클래스 인스턴스로 변환합니다. <code>transform: false</code>(기본)이면 <code>dto instanceof CreatePostDto</code>가 <code>false</code>입니다.<br>
+    ② <strong>원시 타입 변환</strong> — 쿼리 스트링·URL 파라미터처럼 항상 문자열로 오는 값을 DTO에 선언된 타입(<code>number</code>, <code>boolean</code>)으로 자동 변환합니다.<br>
+    이를 통해 <code>@Type(() => Number)</code> 데코레이터를 생략할 수 있습니다.</p></div>
   </details>
 
   <nav class="pager">

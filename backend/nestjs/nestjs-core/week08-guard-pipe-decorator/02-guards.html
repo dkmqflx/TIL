@@ -51,7 +51,7 @@
 <header class="head">
   <span class="kicker">◆ Week 8 — Lesson 02</span>
   <h1>Guard<br>CanActivate · 인증 가드</h1>
-  <p class="subtitle"><code>CanActivate</code> 인터페이스를 구현해 요청이 핸들러에 도달하기 전 <strong>통과 여부를 판단</strong>하는 Guard를 만든다. BasicTokenGuard부터 BearerTokenGuard·AccessTokenGuard 적용 흐름까지.</p>
+  <p class="subtitle"><code>CanActivate</code> 인터페이스를 구현해 요청이 핸들러에 도달하기 전 <strong>통과 여부를 판단</strong>하는 Guard를 만든다. BearerTokenGuard 구현부터 AccessTokenGuard 적용·라우트별 오버라이드까지.</p>
 </header>
 
 <div class="summary">
@@ -66,7 +66,7 @@
   <ul class="goals">
     <li><code>CanActivate</code> 인터페이스와 <code>canActivate(context: ExecutionContext)</code>의 반환값 의미를 설명할 수 있다</li>
     <li><code>ExecutionContext</code>를 통해 HTTP 요청 객체를 꺼내는 방법(<code>context.switchToHttp().getRequest()</code>)을 안다</li>
-    <li>BasicTokenGuard가 <code>Authorization: Basic</code> 헤더를 파싱하는 흐름을 설명할 수 있다</li>
+    <li>BearerTokenGuard가 <code>Authorization: Bearer</code> 헤더를 파싱하는 흐름을 설명할 수 있다</li>
     <li>BearerTokenGuard / AccessTokenGuard를 컨트롤러나 라우트 레벨에 적용할 수 있다</li>
   </ul>
 
@@ -79,10 +79,10 @@
     <p>클럽 입구의 보안요원은 음악을 틀거나 음식을 내오지 않습니다. 오직 <strong>입장 가능 여부만 판단</strong>합니다. 초대장이 있으면 <code>true</code> — 통과. 없으면 <code>false</code> — 차단. 보안요원은 "안에서 무슨 일이 벌어지는지(핸들러 로직)"에 관심이 없고, 입장 자격만 봅니다. NestJS Guard도 마찬가지로, <strong>인증·인가만 담당</strong>하고 비즈니스 로직은 건드리지 않습니다.</p>
   </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">basic-token.guard.ts — CanActivate 기본 구조</span></div><pre><span class="k">import</span> { CanActivate, ExecutionContext, Injectable, UnauthorizedException } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">bearer-token.guard.ts — CanActivate 기본 구조</span></div><pre><span class="k">import</span> { CanActivate, ExecutionContext, Injectable, UnauthorizedException } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
 
 <span class="d">@Injectable</span>()
-<span class="k">export class</span> <span class="t">BasicTokenGuard</span> <span class="k">implements</span> <span class="t">CanActivate</span> {
+<span class="k">export class</span> <span class="t">BearerTokenGuard</span> <span class="k">implements</span> <span class="t">CanActivate</span> {
   <span class="k">async</span> <span class="f">canActivate</span>(context: <span class="t">ExecutionContext</span>): <span class="t">Promise</span>&lt;<span class="t">boolean</span>&gt; {
     <span class="c">// 1. HTTP 요청 객체 꺼내기</span>
     <span class="k">const</span> req = context.<span class="f">switchToHttp</span>().<span class="f">getRequest</span>();
@@ -93,18 +93,14 @@
       <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'Authorization 헤더가 없습니다'</span>);
     }
 
-    <span class="c">// 3. "Basic base64encoded" 형식 파싱</span>
+    <span class="c">// 3. "Bearer jwt.token.here" 형식 파싱</span>
     <span class="k">const</span> [type, token] = rawToken.split(<span class="s">' '</span>);
-    <span class="k">if</span> (type !== <span class="s">'Basic'</span> || !token) {
-      <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'올바르지 않은 Basic 토큰 형식입니다'</span>);
+    <span class="k">if</span> (type !== <span class="s">'Bearer'</span> || !token) {
+      <span class="k">throw new</span> <span class="t">UnauthorizedException</span>(<span class="s">'올바르지 않은 Bearer 토큰 형식입니다'</span>);
     }
 
-    <span class="c">// 4. Base64 디코딩 → email:password 추출</span>
-    <span class="k">const</span> decoded = <span class="t">Buffer</span>.<span class="f">from</span>(token, <span class="s">'base64'</span>).<span class="f">toString</span>(<span class="s">'utf8'</span>);
-    <span class="k">const</span> [email, password] = decoded.split(<span class="s">':'</span>);
-
-    <span class="c">// 5. 요청 객체에 credentials 저장 (이후 핸들러에서 사용 가능)</span>
-    req.user = { email, password };
+    <span class="c">// 4. 요청 객체에 토큰 저장 (실제 구현에서는 여기서 JWT 서명을 검증하고 payload를 세팅)</span>
+    req.token = token;
 
     <span class="k">return true</span>; <span class="c">// 통과</span>
   }
@@ -159,10 +155,11 @@
   </div>
 
   <h2 id="s2"><span class="num">2</span>BearerTokenGuard — JWT Bearer 검증</h2>
-  <p>실제 프로젝트에서 가장 많이 쓰는 패턴입니다. <code>Authorization: Bearer &lt;token&gt;</code> 헤더를 파싱하고, JWT를 검증해 <code>request.user</code>에 사용자 정보를 주입합니다. 코드는 <a href="code/bearer-token.guard.ts"><code>code/bearer-token.guard.ts</code></a>에서 확인하세요.</p>
+  <p>이 프로젝트에서 인증에 사용하는 유일한 방식입니다. <code>Authorization: Bearer &lt;token&gt;</code> 헤더를 파싱하고, JWT를 검증해 <code>request.user</code>에 사용자 정보를 주입합니다. 코드는 <a href="code/bearer-token.guard.ts"><code>code/bearer-token.guard.ts</code></a>에서 확인하세요.</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">guard 적용 — 컨트롤러/라우트 레벨</span></div><pre><span class="k">import</span> { Controller, Get, UseGuards } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">guard 적용 — 컨트롤러/라우트 레벨</span></div><pre><span class="k">import</span> { Controller, Get, Post, UseGuards } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
 <span class="k">import</span> { AccessTokenGuard } <span class="k">from</span> <span class="s">'./auth/guard/access-token.guard'</span>;
+<span class="k">import</span> { RefreshTokenGuard } <span class="k">from</span> <span class="s">'./auth/guard/refresh-token.guard'</span>;
 
 <span class="c">// 컨트롤러 전체에 적용</span>
 <span class="d">@UseGuards</span>(AccessTokenGuard)
@@ -175,10 +172,10 @@
     <span class="k">return</span> [];
   }
 
-  <span class="c">// 특정 라우트만 다른 Guard 적용 (오버라이드)</span>
-  <span class="d">@Post</span>(<span class="s">'register'</span>)
-  <span class="d">@UseGuards</span>(BasicTokenGuard)
-  <span class="f">register</span>() {
+  <span class="c">// 토큰 재발급 엔드포인트만 RefreshTokenGuard로 교체 (오버라이드)</span>
+  <span class="d">@Post</span>(<span class="s">'token/access'</span>)
+  <span class="d">@UseGuards</span>(RefreshTokenGuard)
+  <span class="f">rotateAccessToken</span>() {
     <span class="k">return</span> {};
   }
 }</pre></div>
@@ -209,7 +206,9 @@
   <div class="box tip">
     <span class="ic">💡</span>
     <span class="label">Guard 등록 방법 세 가지</span>
-    <p>① <strong>라우트 레벨</strong>: <code>@UseGuards(Guard)</code>를 메서드 위에. ② <strong>컨트롤러 레벨</strong>: <code>@UseGuards(Guard)</code>를 클래스 위에(전체 적용). ③ <strong>전역(Global)</strong>: <code>app.useGlobalGuards(new Guard())</code> — 단, 이 방식은 DI가 안 되므로 실무에서는 <code>APP_GUARD</code> 토큰을 이용한 프로바이더 등록을 선호합니다.</p>
+    <p>① <strong>라우트 레벨</strong>: <code>@UseGuards(Guard)</code>를 메서드 위에.<br>
+    ② <strong>컨트롤러 레벨</strong>: <code>@UseGuards(Guard)</code>를 클래스 위에(전체 적용).<br>
+    ③ <strong>전역(Global)</strong>: <code>app.useGlobalGuards(new Guard())</code> — 단, 이 방식은 DI가 안 되므로 실무에서는 <code>APP_GUARD</code> 토큰을 이용한 프로바이더 등록을 선호합니다.</p>
   </div>
 
   <div class="section-divider">복습</div>
@@ -218,15 +217,22 @@
 
   <details class="qa">
     <summary><span class="qmark">Q</span> Guard와 Middleware의 차이점은 무엇인가요?</summary>
-    <div class="answer"><p>두 가지 핵심 차이가 있습니다. ① <strong>실행 시점</strong>: Middleware가 먼저 실행되고, Guard가 그 이후에 실행됩니다. ② <strong>컨텍스트 접근</strong>: Middleware는 <code>req, res, next</code>만 알고, 어떤 컨트롤러·메서드가 처리할지 모릅니다. Guard는 <code>ExecutionContext</code>를 통해 현재 핸들러의 클래스명·메서드명·메타데이터(예: <code>@Roles()</code> 데코레이터 값)까지 접근할 수 있습니다. 따라서 "역할(Role) 기반 접근 제어"처럼 <strong>라우트 정보가 필요한 인가 로직</strong>은 Middleware가 아닌 Guard로 구현합니다.</p></div>
+    <div class="answer"><p>두 가지 핵심 차이가 있습니다.<br>
+    ① <strong>실행 시점</strong>: Middleware가 먼저 실행되고, Guard가 그 이후에 실행됩니다.<br>
+    ② <strong>컨텍스트 접근</strong>: Middleware는 <code>req, res, next</code>만 알고, 어떤 컨트롤러·메서드가 처리할지 모릅니다. Guard는 <code>ExecutionContext</code>를 통해 현재 핸들러의 클래스명·메서드명·메타데이터(예: <code>@Roles()</code> 데코레이터 값)까지 접근할 수 있습니다.<br>
+    따라서 "역할(Role) 기반 접근 제어"처럼 <strong>라우트 정보가 필요한 인가 로직</strong>은 Middleware가 아닌 Guard로 구현합니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>canActivate</code>가 <code>false</code>를 반환하면 어떻게 되나요?</summary>
-    <div class="answer"><p><code>false</code>를 반환하면 NestJS가 자동으로 <strong>403 Forbidden</strong> 응답을 반환합니다. 단, 실무에서는 보통 <code>false</code> 반환보다 <code>UnauthorizedException</code>을 직접 던지는 방식을 선호합니다 — 더 명확한 401 상태코드와 커스텀 메시지를 함께 전달할 수 있기 때문입니다. <code>canActivate</code>는 <code>boolean</code> 외에도 <code>Promise&lt;boolean&gt;</code>, <code>Observable&lt;boolean&gt;</code>을 반환할 수 있습니다 — 비동기 JWT 검증처럼 I/O가 필요한 경우 <code>async/await</code>를 활용합니다.</p></div>
+    <div class="answer"><p><code>false</code>를 반환하면 NestJS가 자동으로 <strong>403 Forbidden</strong> 응답을 반환합니다. 단, 실무에서는 보통 <code>false</code> 반환보다 <code>UnauthorizedException</code>을 직접 던지는 방식을 선호합니다 — 더 명확한 401 상태코드와 커스텀 메시지를 함께 전달할 수 있기 때문입니다.<br>
+    <code>canActivate</code>는 <code>boolean</code> 외에도 <code>Promise&lt;boolean&gt;</code>, <code>Observable&lt;boolean&gt;</code>을 반환할 수 있습니다 — 비동기 JWT 검증처럼 I/O가 필요한 경우 <code>async/await</code>를 활용합니다.</p></div>
   </details>
   <details class="qa">
-    <summary><span class="qmark">Q</span> BasicTokenGuard와 BearerTokenGuard는 어느 엔드포인트에 각각 적용하나요?</summary>
-    <div class="answer"><p><strong>BasicTokenGuard</strong>는 로그인/회원가입 엔드포인트처럼 <strong>아직 토큰이 없는 상태</strong>에서 사용자를 식별할 때 적용합니다. <code>Authorization: Basic base64(email:password)</code> 헤더로 자격증명을 전달합니다. <strong>BearerTokenGuard / AccessTokenGuard</strong>는 이미 로그인한 사용자가 JWT를 가지고 있는 상태, 즉 <strong>인증이 필요한 일반 API 엔드포인트</strong>에 적용합니다. <code>Authorization: Bearer jwt.token.here</code> 형식입니다. 재발급 엔드포인트에는 Refresh Token을 검증하는 별도 Guard를 사용해야 합니다.</p></div>
+    <summary><span class="qmark">Q</span> AccessTokenGuard와 RefreshTokenGuard는 어느 엔드포인트에 각각 적용하나요?</summary>
+    <div class="answer"><p><strong>AccessTokenGuard</strong>는 이미 로그인한 사용자가 Access Token을 가지고 있는 상태, 즉 <strong>인증이 필요한 일반 API 엔드포인트</strong>에 적용합니다.<br>
+    <strong>RefreshTokenGuard</strong>는 <strong>Access Token 재발급 엔드포인트</strong>(예: <code>POST /auth/token/access</code>)에만 적용합니다.<br>
+    둘 다 <code>Authorization: Bearer jwt.token.here</code> 형식은 동일하게 파싱하고, payload의 <code>type</code> 필드(<code>'access'</code> vs <code>'refresh'</code>)만 다르게 검사합니다.<br>
+    로그인·회원가입처럼 <strong>아직 토큰이 없는 엔드포인트</strong>는 애초에 Guard를 적용하지 않습니다 — 이메일·비밀번호를 요청 바디로 받아 인증한 뒤, 그 결과로 토큰을 발급하는 흐름이기 때문입니다.</p></div>
   </details>
 
   <nav class="pager">

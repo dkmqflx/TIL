@@ -33,7 +33,7 @@
 
     <div class="nav-divider"></div>
     <div class="nav-section-title">이번 레슨</div>
-    <a class="nav-item sec" href="#s1">createParamDecorator 기본</a>
+    <a class="nav-item sec" href="#s1">왜 필요한가 · 기본 구조</a>
     <a class="nav-item sec" href="#s2">@User() 데코레이터 구현</a>
     <a class="nav-item sec" href="#s3">data 인자로 특정 필드 뽑기</a>
     <a class="nav-item sec" href="#s4">셀프 체크</a>
@@ -51,32 +51,61 @@
 <header class="head">
   <span class="kicker">◆ Week 8 — Lesson 03</span>
   <h1>Custom Decorator<br>@User 파라미터 데코레이터</h1>
-  <p class="subtitle"><code>createParamDecorator</code>로 <code>request.user</code>를 핸들러 파라미터에 바로 주입하는 <code>@User()</code> 데코레이터를 구현한다. <code>data</code> 인자로 특정 필드만 골라 받는 패턴도 함께.</p>
+  <p class="subtitle">매 핸들러마다 <code>req.user.email</code>처럼 직접 꺼내 쓰는 반복을 없애기 위해, <code>createParamDecorator</code>로 <code>request.user</code>를 파라미터에 바로 주입하는 <code>@User()</code> 데코레이터를 만든다. <code>data</code> 인자로 특정 필드만 골라 받는 패턴도 함께.</p>
 </header>
 
 <div class="summary">
   <div class="summary__inner">
     <span class="big">"</span>
-    <p>Guard가 <code>request.user</code>를 채워두면, <code>@User()</code> 데코레이터가 그걸 꺼내 핸들러에 바로 꽂아준다. 두 개가 <b>인증과 추출을 분업</b>하는 구조다.</p>
+    <p>이 챕터는 딱 하나만 다룬다 — <b>반복되는 <code>req.user</code> 접근 코드를 데코레이터 뒤에 숨기기</b>. Guard가 <code>request.user</code>를 채워두면, <code>@User()</code>가 그걸 꺼내 핸들러에 바로 꽂아준다. Guard는 인증만, Custom Decorator는 추출만 — <b>분업 구조</b>다.</p>
   </div>
 </div>
 
 <main class="wrap">
 
   <ul class="goals">
+    <li>Custom Decorator 없이 <code>@Req()</code>로 직접 값을 꺼낼 때 어떤 문제가 생기는지 설명할 수 있다</li>
     <li><code>createParamDecorator((data, ctx) => ...)</code> 기본 구조를 작성할 수 있다</li>
     <li><code>@User()</code> 파라미터 데코레이터로 <code>request.user</code> 전체를 핸들러에 주입할 수 있다</li>
     <li><code>@User('email')</code>처럼 <code>data</code> 인자로 특정 필드만 추출하는 패턴을 구현할 수 있다</li>
     <li>Guard → <code>request.user</code> 세팅 → Custom Decorator 추출 흐름을 그릴 수 있다</li>
   </ul>
 
-  <h2 id="s1"><span class="num">1</span><code>createParamDecorator</code> 기본</h2>
-  <p class="lead"><code>@Body()</code>, <code>@Param()</code>처럼 핸들러 파라미터에 값을 주입하는 데코레이터를 직접 만들 수 있습니다. <code>createParamDecorator</code>에 콜백을 전달하면 되고, 콜백의 반환값이 파라미터로 주입됩니다.</p>
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">왜 이 챕터를 배우나요?</span>
+    <p>사실 Week 2부터 <code>@Body()</code>, <code>@Param()</code>, <code>@Query()</code>를 계속 써왔습니다 — 이것들도 전부 NestJS 내부에서 <code>createParamDecorator</code>로 만들어진 파라미터 데코레이터입니다. 이번 챕터는 그 원리를 그대로 가져와 <strong>"인증된 사용자 정보를 꺼내는" 나만의 데코레이터</strong>를 만들어 봅니다. Guard(인증) · Pipe(검증) · Custom Decorator(추출)가 모이면, 핸들러는 이미 검증되고 정리된 값만 파라미터로 받는 깨끗한 상태가 됩니다.</p>
+  </div>
+
+  <h2 id="s1"><span class="num">1</span>왜 필요한가 — <code>createParamDecorator</code> 기본</h2>
+  <p class="lead">Guard가 인증에 성공하면 <code>request.user</code>에 사용자 정보를 저장해 둡니다. 이 값을 쓰려면 원래 <code>@Req() req: Request</code>로 요청 객체 전체를 받은 뒤 <code>req.user</code>, <code>req.user.email</code>처럼 매번 직접 꺼내야 합니다. 이렇게 하면 어떤 문제가 생기는지 먼저 보겠습니다.</p>
+
+  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — Custom Decorator 없이 매번 직접 꺼내는 경우</span></div><pre><span class="k">import</span> { Controller, Get, Post, Req, UseGuards } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
+<span class="k">import</span> { Request } <span class="k">from</span> <span class="s">'express'</span>;
+
+<span class="d">@UseGuards</span>(AccessTokenGuard)
+<span class="d">@Controller</span>(<span class="s">'posts'</span>)
+<span class="k">export class</span> <span class="t">PostsController</span> {
+
+  <span class="d">@Post</span>()
+  <span class="f">createPost</span>(<span class="d">@Req</span>() req: <span class="t">Request</span>) {
+    <span class="k">const</span> user = req.user; <span class="c">// 매번 req에서 꺼내야 함, req.user는 보통 any 타입</span>
+    <span class="k">return</span> { authorId: user.id };
+  }
+
+  <span class="d">@Get</span>(<span class="s">'my'</span>)
+  <span class="f">getMyPosts</span>(<span class="d">@Req</span>() req: <span class="t">Request</span>) {
+    <span class="k">const</span> email = req.user.email; <span class="c">// 여기서도 또 꺼내야 함, 필드명 오타가 나도 컴파일 에러가 안 남</span>
+    <span class="k">return</span> { email };
+  }
+}</pre></div>
+
+  <p>핸들러가 늘어날수록 <code>req.user</code>를 꺼내는 코드가 계속 반복되고, 나중에 "인증된 사용자 정보를 어디서 어떻게 꺼내는지"가 바뀌면 이 코드를 쓴 모든 핸들러를 다 고쳐야 합니다. <code>createParamDecorator</code>는 이 반복을 한 곳에 모아둡니다. <code>@Body()</code>, <code>@Param()</code>처럼 핸들러 파라미터에 값을 바로 주입하는 데코레이터를 직접 만드는 함수이고, 콜백을 하나 작성해서 넘기면 <strong>그 콜백이 반환하는 값이 곧 파라미터로 주입되는 값</strong>이 됩니다.</p>
 
   <div class="box analogy">
     <span class="ic">🍔</span>
     <span class="label">비유 — 택배 상자에서 필요한 것만 꺼내기</span>
-    <p><code>request.user</code>는 Guard가 배달해 놓은 <strong>택배 상자</strong>입니다. 상자 안에는 이메일, 닉네임, 역할 등 여러 정보가 들어 있습니다. <code>@User()</code>는 "상자 전체를 꺼내라"이고, <code>@User('email')</code>는 "상자 안에서 이메일만 꺼내라"입니다. 핸들러는 매번 <code>req.user.email</code>처럼 길게 쓰는 대신, <strong>원하는 항목을 콕 집어 파라미터로 받을 수 있습니다.</strong></p>
+    <p><code>request.user</code>는 Guard가 배달해 놓은 <strong>택배 상자</strong>입니다. 상자 안에는 이메일, 닉네임, 역할 등 여러 정보가 들어 있습니다. <code>@User()</code>는 "상자 전체를 꺼내라"이고, <code>@User('email')</code>는 "상자 안에서 이메일만 꺼내라"입니다. 상자를 여는 방법(택배 기사가 어디에 놓는지)은 데코레이터 안에 딱 한 번만 정의해두고, 핸들러는 <strong>원하는 항목을 콕 집어 파라미터로 받기만 하면 됩니다.</strong></p>
   </div>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">user.decorator.ts — createParamDecorator 기본</span></div><pre><span class="k">import</span> { createParamDecorator, ExecutionContext } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -89,6 +118,8 @@
     <span class="k">return</span> req.user; <span class="c">// request.user 전체 반환</span>
   },
 );</pre></div>
+
+  <p><code>ctx</code>는 Guard 챕터에서 다룬 <code>ExecutionContext</code>와 동일합니다 — <code>switchToHttp().getRequest()</code>로 요청 객체를 꺼내는 방법도 그대로입니다. 콜백이 하는 일은 딱 두 줄, "요청 객체를 꺼내고" "원하는 값을 반환하는" 것뿐입니다.</p>
 
   <h2 id="s2"><span class="num">2</span><code>@User()</code> 데코레이터 구현 — <code>request.user</code> 추출</h2>
   <p>Guard가 <code>request.user</code>에 인증된 사용자 정보를 저장해 두었다면, <code>@User()</code>는 그 객체를 꺼내 핸들러 파라미터로 바로 주입합니다. 실제 코드는 <a href="code/user.decorator.ts"><code>code/user.decorator.ts</code></a>에서 확인하세요.</p>
@@ -116,6 +147,8 @@
     <span class="k">return</span> { email };
   }
 }</pre></div>
+
+  <p>1절 예제와 비교해 보면, <code>@Req() req</code>를 받아 <code>req.user</code> · <code>req.user.email</code>을 꺼내던 두 줄이 각각 <code>@User()</code>, <code>@User('email')</code> 한 줄로 줄었습니다. 요청 객체를 어떻게 다루는지는 데코레이터 안으로 숨고, 핸들러는 필요한 값만 파라미터로 받습니다.</p>
 
   <figure class="diagram">
     <svg viewBox="0 0 680 220" role="img" aria-label="Guard가 request.user를 세팅하고 @User 데코레이터가 꺼내 핸들러 파라미터에 주입하는 흐름">

@@ -65,7 +65,7 @@
 <main class="wrap">
 
   <ul class="goals">
-    <li><code>BasePaginationDto</code>의 각 프로퍼티(<code>page</code>, <code>where__id__more_than</code>, <code>order__createdAt</code>, <code>take</code>)가 하는 역할을 설명할 수 있다</li>
+    <li><code>BasePaginationDto</code>의 각 프로퍼티(<code>page</code>, <code>where__id__more_than</code>, <code>order__id</code>, <code>take</code>)가 하는 역할을 설명할 수 있다</li>
     <li><code>paginate()</code> 함수가 <code>dto.page</code> 존재 여부로 커서/페이지 모드를 분기하는 방식을 이해한다</li>
     <li><code>composeFindOptions</code>가 DTO 키의 이중 언더스코어(<code>__</code>) 접두사를 파싱해 <code>where</code>·<code>order</code>로 변환하는 전략을 설명할 수 있다</li>
     <li><code>overrideFindOptions</code>로 추가 필터(예: 특정 user의 게시글)를 병합하는 방법을 이해한다</li>
@@ -97,10 +97,10 @@
   <span class="d">@IsOptional</span>()
   page?: <span class="t">number</span>;
 
-  <span class="c">// 공통 정렬 방향. 커서 모드에서는 반드시 ASC여야 MoreThan이 올바르게 동작한다.</span>
+  <span class="c">// 정렬 방향. 커서 모드에서는 where__id__more_than과 반드시 같은 필드(id)를 order로 써야 MoreThan이 올바르게 동작한다(01번 레슨 참고).</span>
   <span class="d">@IsString</span>()
   <span class="d">@IsOptional</span>()
-  order__createdAt?: <span class="s">'ASC'</span> | <span class="s">'DESC'</span>;
+  order__id?: <span class="s">'ASC'</span> | <span class="s">'DESC'</span>;
 
   <span class="c">// 한 번에 가져올 항목 수 (기본 20)</span>
   <span class="d">@IsNumber</span>()
@@ -111,7 +111,7 @@
   <div class="box note">
     <span class="ic">🧭</span>
     <span class="label">이중 언더스코어(<code>__</code>) 키 규칙</span>
-    <p>프로퍼티 이름에 <code>__</code>(언더스코어 2개)를 구분자로 사용합니다. <code>where__id__more_than</code>은 세 조각으로 파싱됩니다: 접두사 <code>where</code>, 필드명 <code>id</code>, 연산자 <code>more_than</code>. <code>order__createdAt</code>은 두 조각: <code>order</code>, <code>createdAt</code>. <code>composeFindOptions</code>가 이 규칙으로 DTO를 TypeORM <code>FindOptions</code>로 변환합니다.</p>
+    <p>프로퍼티 이름에 <code>__</code>(언더스코어 2개)를 구분자로 사용합니다. <code>where__id__more_than</code>은 세 조각으로 파싱됩니다: 접두사 <code>where</code>, 필드명 <code>id</code>, 연산자 <code>more_than</code>. <code>order__id</code>는 두 조각: <code>order</code>, <code>id</code> — <code>where</code>와 필드가 같아야 커서 방식이 올바르게 동작합니다(01번 레슨의 <code>MoreThan + order ASC</code> 규칙). <code>composeFindOptions</code>가 이 규칙으로 DTO를 TypeORM <code>FindOptions</code>로 변환합니다.</p>
   </div>
 
   <h2 id="s2"><span class="num">2</span>공통 <code>paginate()</code> 함수 — 커서/페이지 분기</h2>
@@ -175,7 +175,7 @@
       <text x="104" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#a8401f">BasePaginationDto</text>
       <text x="104" y="88" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">where__id__more_than</text>
       <text x="104" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">= 42</text>
-      <text x="104" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">order__createdAt</text>
+      <text x="104" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">order__id</text>
       <text x="104" y="144" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">= 'ASC'</text>
       <text x="104" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">take = 20</text>
 
@@ -202,7 +202,7 @@
       <text x="592" y="108" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">  id: MoreThan(42)</text>
       <text x="592" y="124" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">},</text>
       <text x="592" y="142" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">order: {</text>
-      <text x="592" y="158" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">  createdAt: 'ASC'</text>
+      <text x="592" y="158" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">  id: 'ASC'</text>
       <text x="592" y="174" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">}</text>
 
       <text x="350" y="214" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#5a8f87">DTO 쿼리 키 → TypeORM FindOptions 자동 변환</text>
@@ -229,7 +229,7 @@
         ? <span class="f">MoreThan</span>(value <span class="k">as</span> <span class="t">number</span>)
         : value;  <span class="c">// 연산자 없으면 직접 할당 (Equal)</span>
     } <span class="k">else if</span> (key.<span class="f">startsWith</span>(<span class="s">'order__'</span>)) {
-      <span class="c">// "order__createdAt" → ['order', 'createdAt']</span>
+      <span class="c">// "order__id" → ['order', 'id']</span>
       <span class="k">const</span> [, field] = key.<span class="f">split</span>(<span class="s">'__'</span>);
       order[field] = value <span class="k">as</span> <span class="t">string</span>;
     }
@@ -283,15 +283,24 @@
 
   <details class="qa">
     <summary><span class="qmark">Q</span> 페이지네이션을 일반화하면 얻는 이점은 무엇인가요?</summary>
-    <div class="answer"><p>세 가지 이점이 있습니다. ① <strong>코드 중복 제거</strong> — 커서 분기, <code>take+1</code> 트릭, <code>findAndCount</code> 호출, 메타 구성 로직을 엔드포인트마다 반복하지 않고 한 함수로 관리합니다. ② <strong>일관된 응답 형태</strong> — 모든 리스트 엔드포인트가 같은 <code>{ data, meta }</code> 구조를 반환하므로 클라이언트가 응답을 예측할 수 있습니다. ③ <strong>버그 단일 수정</strong> — 커서 처리에 버그가 있으면 <code>paginate.ts</code> 한 곳만 고치면 모든 엔드포인트에 반영됩니다.</p></div>
+    <div class="answer"><p>세 가지 이점이 있습니다.<br>
+    ① <strong>코드 중복 제거</strong> — 커서 분기, <code>take+1</code> 트릭, <code>findAndCount</code> 호출, 메타 구성 로직을 엔드포인트마다 반복하지 않고 한 함수로 관리합니다.<br>
+    ② <strong>일관된 응답 형태</strong> — 모든 리스트 엔드포인트가 같은 <code>{ data, meta }</code> 구조를 반환하므로 클라이언트가 응답을 예측할 수 있습니다.<br>
+    ③ <strong>버그 단일 수정</strong> — 커서 처리에 버그가 있으면 <code>paginate.ts</code> 한 곳만 고치면 모든 엔드포인트에 반영됩니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>where__id__more_than</code> 같은 DTO 키를 TypeORM <code>FindOptions</code>로 파싱하는 전략을 설명하세요.</summary>
-    <div class="answer"><p><code>composeFindOptions</code>에서 <code>Object.entries(dto)</code>로 DTO의 키-값을 순회합니다. 키를 <code>split('__')</code>으로 분리해 첫 조각으로 접두사를 판별합니다. <strong><code>where__</code>로 시작하면</strong> 나머지를 <code>[field, op]</code>로 분해합니다. <code>op</code>가 <code>more_than</code>이면 TypeORM의 <code>MoreThan(value)</code>를 생성하고, 연산자가 없으면 값을 직접 할당합니다(Equal). <strong><code>order__</code>로 시작하면</strong> <code>[field]</code>를 키로 정렬 방향 값을 <code>order</code> 객체에 넣습니다. 최종적으로 <code>{ where, order }</code>를 <code>FindManyOptions</code>로 반환합니다.</p></div>
+    <div class="answer"><p><code>composeFindOptions</code>에서 <code>Object.entries(dto)</code>로 DTO의 키-값을 순회합니다. 키를 <code>split('__')</code>으로 분리해 첫 조각으로 접두사를 판별합니다.<br>
+    <strong><code>where__</code>로 시작하면</strong> 나머지를 <code>[field, op]</code>로 분해합니다. <code>op</code>가 <code>more_than</code>이면 TypeORM의 <code>MoreThan(value)</code>를 생성하고, 연산자가 없으면 값을 직접 할당합니다(Equal).<br>
+    <strong><code>order__</code>로 시작하면</strong> <code>[field]</code>를 키로 정렬 방향 값을 <code>order</code> 객체에 넣습니다.<br>
+    최종적으로 <code>{ where, order }</code>를 <code>FindManyOptions</code>로 반환합니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>paginate()</code>가 커서 모드와 페이지 모드를 어떻게 구분하나요?</summary>
-    <div class="answer"><p><code>dto.page</code>의 존재 여부로 분기합니다. <code>dto.page !== undefined</code>이면 페이지 모드로 진입해 <code>skip = (dto.page - 1) * take</code>를 계산하고 <code>findAndCount</code>로 <code>total</code>을 포함한 응답을 반환합니다. <code>dto.page</code>가 없으면 커서 모드로 진입해 <code>take+1</code>을 조회하고 <code>hasMore</code>를 판정합니다. 두 모드 모두 <code>composeFindOptions</code>로 DTO를 TypeORM 옵션으로 변환하고, <code>overrideFindOptions</code>를 spread로 병합합니다.</p></div>
+    <div class="answer"><p><code>dto.page</code>의 존재 여부로 분기합니다.<br>
+    <code>dto.page !== undefined</code>이면 페이지 모드로 진입해 <code>skip = (dto.page - 1) * take</code>를 계산하고 <code>findAndCount</code>로 <code>total</code>을 포함한 응답을 반환합니다.<br>
+    <code>dto.page</code>가 없으면 커서 모드로 진입해 <code>take+1</code>을 조회하고 <code>hasMore</code>를 판정합니다.<br>
+    두 모드 모두 <code>composeFindOptions</code>로 DTO를 TypeORM 옵션으로 변환하고, <code>overrideFindOptions</code>를 spread로 병합합니다.</p></div>
   </details>
 
   <nav class="pager">

@@ -110,7 +110,7 @@
       <text x="520" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">id=2 "두 번째 글"</text>
       <rect x="350" y="144" width="340" height="30" rx="6" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
       <text x="520" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7d5604">id=3 ← 2페이지의 OFFSET 3 시작</text>
-      <text x="520" y="200" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#e0552f">⚡ "첫 번째 글" 이 1페이지와 2페이지에 중복 노출!</text>
+      <text x="520" y="200" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#e0552f">⚡ "세 번째 글"(id=3)이 1페이지와 2페이지에 중복 노출!</text>
 
       <defs>
         <marker id="w10l1-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
@@ -118,6 +118,78 @@
     </svg>
     <figcaption>새 글이 삽입되면 기존 행이 밀려 같은 글이 두 페이지에 걸쳐 중복되거나 누락됩니다. OFFSET의 구조적 한계.</figcaption>
   </figure>
+
+  <p class="lead">반대로 <strong>삭제</strong>가 일어나면 정반대 문제가 생깁니다. 글이 중복되는 게 아니라, 아예 <strong>어느 페이지에도 나타나지 않고 통째로 사라집니다.</strong></p>
+
+  <figure class="diagram">
+    <svg viewBox="0 0 700 280" role="img" aria-label="오프셋 페이지네이션에서 글 삭제 시 데이터 누락 문제">
+      <!-- Before label -->
+      <text x="160" y="22" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="700" fill="#0a4f48">조회 전 DB 상태 (5개 행)</text>
+      <!-- DB rows before -->
+      <rect x="60" y="36" width="200" height="30" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="160" y="56" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">id=1 "첫 번째 글"</text>
+      <rect x="60" y="72" width="200" height="30" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="160" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">id=2 "두 번째 글"</text>
+      <rect x="60" y="108" width="200" height="30" rx="6" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="160" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7d5604">id=3 "세 번째 글" ← 1페이지 끝</text>
+      <rect x="60" y="144" width="200" height="30" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="160" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">id=4 "네 번째 글"</text>
+      <rect x="60" y="180" width="200" height="30" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="160" y="200" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">id=5 "다섯 번째 글"</text>
+
+      <!-- Arrow -->
+      <line x1="270" y1="123" x2="340" y2="123" stroke="#e0552f" stroke-width="2" marker-end="url(#w10l1-arr4)"/>
+      <text x="305" y="115" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#e0552f">id=2 삭제</text>
+
+      <!-- After label -->
+      <text x="520" y="22" text-anchor="middle" font-family="Fraunces, serif" font-size="14" font-weight="700" fill="#a8401f">삭제 후 2페이지 요청</text>
+      <!-- DB rows after -->
+      <rect x="350" y="36" width="340" height="30" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="520" y="56" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">id=1 "첫 번째 글"</text>
+      <rect x="350" y="72" width="340" height="30" rx="6" fill="#e3f0ec" stroke="#0d6e64" stroke-width="1.5"/>
+      <text x="520" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0a4f48">id=3 "세 번째 글"</text>
+      <rect x="350" y="108" width="340" height="30" rx="6" fill="#f7e2d8" stroke="#e0552f" stroke-width="1.5"/>
+      <text x="520" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#a8401f">id=4 "네 번째 글" ← 어느 페이지에도 없음</text>
+      <rect x="350" y="144" width="340" height="30" rx="6" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
+      <text x="520" y="164" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#7d5604">id=5 ← 2페이지의 OFFSET 3 시작</text>
+      <text x="520" y="200" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#e0552f">⚡ "네 번째 글"(id=4)은 1페이지에도 2페이지에도 없이 그대로 사라짐!</text>
+
+      <defs>
+        <marker id="w10l1-arr4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
+      </defs>
+    </svg>
+    <figcaption>1페이지 조회 후 앞쪽 글(id=2)이 삭제되면 뒤 글들이 한 칸씩 앞으로 당겨집니다. 그 결과 <code>id=4</code>는 1페이지(이미 지나간 OFFSET 0~2)에도, 2페이지(당겨진 뒤의 OFFSET 3~)에도 걸리지 않고 그대로 누락됩니다.</figcaption>
+  </figure>
+
+  <p class="lead">위 다이어그램을 <strong>자리(position)</strong> 기준 표로 다시 정리하면, <code>id=4</code>가 왜 사라지는지 더 분명해집니다. OFFSET은 "어떤 id를 봤는지"가 아니라 "몇 번째 자리부터"라는 <strong>숫자</strong>만 기억한다는 점이 핵심입니다.</p>
+
+  <table class="tbl">
+    <thead><tr><th>자리(position)</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th></tr></thead>
+    <tbody>
+      <tr><td>쿼리1 시점 (삭제 전)</td><td>id=1</td><td>id=2</td><td>id=3</td><td>id=4</td><td>id=5</td></tr>
+      <tr><td>쿼리2 시점 (삭제 후)</td><td>id=1</td><td>id=3</td><td>id=4</td><td>id=5</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">카운트(count) vs 정체성(identity)</span>
+    <p><strong>쿼리1</strong> — <code>OFFSET 0, LIMIT 3</code> → 자리 0~2를 가져와 <code>id=1, id=2, id=3</code> 반환. 클라이언트가 실제로 받은 것은 이 셋뿐입니다.<br>
+    <strong>쿼리2</strong> — <code>id=2</code> 삭제로 자리가 당겨진 뒤 <code>OFFSET 3, LIMIT 3</code> → 자리 3부터 가져와 <code>id=5</code>부터 반환. <code>id=4</code>는 삭제 후 자리 2로 밀려 들어왔는데, 이 자리는 쿼리2가 "이미 지나간 구간(0~2)"으로 건너뛰는 범위라 다시는 조회되지 않습니다.<br>
+    결국 클라이언트는 "3개를 봤다"는 <strong>개수</strong>만 기억할 뿐 "id=1,2,3을 봤다"는 <strong>정체성</strong>은 기억하지 않으므로, 그 사이 자리가 바뀌었다는 사실을 알아챌 방법이 없습니다.</p>
+  </div>
+
+  <div class="box analogy">
+    <span class="ic">🎫</span>
+    <span class="label">비유 — 줄 서 있는 사람 건너뛰기</span>
+    <p>"앞에서 3명 건너뛰고 그다음 사람을 불러줘"라고 부탁하는 것과 같습니다. 처음엔 앞 3명이 <code>1, 2, 3번</code>이었는데, <code>2번</code>이 줄을 이탈하면 앞 3명은 <code>1, 3, 4번</code>으로 바뀝니다. "앞에서 3명 건너뛰기"라는 지시는 그대로지만, 이제 그 3명 안에 <code>4번</code>이 새로 포함되어 버려서 <code>4번</code>은 영영 불리지 않습니다.</p>
+  </div>
+
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">그렇다고 오프셋이 항상 나쁜 건 아니다</span>
+    <p>오프셋의 두 약점은 <strong>실시간으로 데이터가 추가·삭제되는 피드</strong>에서 두드러집니다. 반대로 <strong>전체 개수(total)를 보여주거나 임의 페이지로 바로 점프</strong>해야 하는 화면(관리자 목록, 검색 결과)에서는 오프셋 방식이 여전히 더 적합합니다. 다음 레슨(02)에서 이 오프셋 방식을 <code>page</code> 파라미터로 감싸 실전에 쓰는 법과, 커서와의 선택 기준을 정리합니다.</p>
+  </div>
 
   <h2 id="s2"><span class="num">2</span>커서(Cursor) 개념 — 책갈피 방식</h2>
   <p>커서 페이지네이션은 페이지 번호 대신 <strong>마지막으로 받은 항목의 id</strong>를 기억합니다. 다음 요청 시 "이 id보다 큰 항목들을 N개 주세요"라고 묻습니다.</p>

@@ -73,6 +73,12 @@
   <h2 id="s1"><span class="num">1</span><code>page</code> · <code>take</code> 파라미터와 <code>skip</code> 계산</h2>
   <p class="lead">페이지 번호 방식은 "page 2, 한 페이지에 20개"라는 직관적인 파라미터로 동작합니다. DB 입장에서는 <code>OFFSET + LIMIT</code>로 번역됩니다.</p>
 
+  <div class="box warn">
+    <span class="ic">⚠️</span>
+    <span class="label">01번에서 배운 그 OFFSET입니다</span>
+    <p>여기서 계산하는 <code>skip</code>이 바로 01번 레슨에서 다룬 <code>OFFSET</code> 값입니다. 즉 페이지 방식은 오프셋 방식을 <code>page</code>라는 사용자 친화적 파라미터로 감싼 것일 뿐, <strong>데이터 밀림과 큰 OFFSET의 성능 비용을 그대로 가지고 있습니다.</strong> 그럼에도 페이지 방식을 쓰는 이유는 커서가 주지 못하는 <code>total</code>·<code>totalPages</code>를 제공하기 때문입니다 — 아래에서 확인합니다.</p>
+  </div>
+
   <div class="box analogy">
     <span class="ic">🍔</span>
     <span class="label">비유 — 책의 쪽 번호</span>
@@ -164,6 +170,12 @@
     <p>TypeORM의 <code>findAndCount</code>는 내부적으로 <code>SELECT … LIMIT … OFFSET …</code>과 <code>SELECT COUNT(*)</code>를 실행하지만, 코드 상에서는 한 번의 호출로 처리됩니다. 직접 <code>find()</code>와 <code>count()</code>를 따로 호출하면 트랜잭션 없이 두 쿼리 사이에 데이터가 변경될 수 있으므로 <code>findAndCount</code>를 사용하는 것이 더 안전합니다.</p>
   </div>
 
+  <div class="box note">
+    <span class="ic">🧭</span>
+    <span class="label">정렬 필드는 방식과 무관한 선택</span>
+    <p>01번 예제는 <code>id ASC</code>, 여기서는 <code>createdAt DESC</code>로 정렬 필드가 다른데, 이는 방식의 규칙이 아니라 각 예제가 고른 임의의 선택입니다. 페이지 방식은 <code>MoreThan</code> 제약이 없으므로 <code>id</code>든 <code>createdAt</code>이든 원하는 필드로 정렬할 수 있습니다. 반대로 01번의 커서 방식은 <strong><code>where</code>에 쓴 필드와 <code>order</code>의 필드가 반드시 같아야</strong> 합니다(<code>MoreThan(id)</code> + <code>order: { id: 'ASC' }</code>).</p>
+  </div>
+
   <h2 id="s3"><span class="num">3</span>응답 구조 — <code>total</code> · <code>totalPages</code> 포함</h2>
   <p>페이지 방식 응답은 커서 방식과 달리 <code>total</code>과 <code>totalPages</code>를 포함합니다. 이를 통해 "3 / 15 페이지" 같은 UI 표시가 가능합니다.</p>
 
@@ -184,8 +196,9 @@
   <div class="box note">
     <span class="ic">🧭</span>
     <span class="label">페이지 방식 vs 커서 방식 — 선택 기준</span>
-    <p><strong>페이지 방식이 적합한 경우:</strong> 관리자 대시보드, 검색 결과, "3 / 15 페이지" UI처럼 임의 페이지 점프가 필요하거나 총 개수를 표시해야 할 때.<br>
-    <strong>커서 방식이 적합한 경우:</strong> 소셜 피드, 무한 스크롤, 실시간으로 데이터가 추가·삭제되는 환경. 데이터 밀림 없이 일관된 스트림을 제공합니다.</p>
+    <p><strong>페이지 방식(이번 레슨)이 적합한 경우:</strong> 관리자 대시보드, 검색 결과, "3 / 15 페이지" UI처럼 임의 페이지 점프가 필요하거나 총 개수를 표시해야 할 때.<br>
+    <strong>커서 방식(01번 레슨)이 적합한 경우:</strong> 소셜 피드, 무한 스크롤, 실시간으로 데이터가 추가·삭제되는 환경. 데이터 밀림 없이 일관된 스트림을 제공합니다.<br>
+    두 방식을 엔드포인트마다 새로 구현하지 않도록 하나의 함수로 합치는 방법은 다음 레슨(03)에서 다룹니다.</p>
   </div>
 
   <div class="section-divider">복습</div>

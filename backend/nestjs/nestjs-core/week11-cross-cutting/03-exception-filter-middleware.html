@@ -73,6 +73,12 @@
   <h2 id="s1"><span class="num">1</span>Exception Filter — 에러 응답 형태 통일</h2>
   <p class="lead">NestJS 기본 에러 응답은 <code>{ statusCode, message, error }</code> 형태입니다. 하지만 실무에서는 <strong>타임스탬프·경로</strong> 같은 디버그 정보를 함께 반환하거나, 프로젝트 전체에서 동일한 에러 포맷을 강제하고 싶습니다. <code>ExceptionFilter</code>로 원하는 형태를 만들 수 있습니다.</p>
 
+  <div class="box analogy">
+    <span class="ic">🍔</span>
+    <span class="label">비유 — 고객센터의 통일된 응대 양식</span>
+    <p>상담원마다 "죄송합니다, 오류인데요", "그거 안 됩니다" 처럼 저마다 다른 말투로 답하면 고객(프론트엔드)은 매번 새로운 형식을 해석해야 합니다. 그래서 콜센터는 <strong>정해진 응대 양식</strong>(사유·시각·담당 부서를 항상 같은 순서로 안내)을 두고 모든 상담원이 그 양식을 따르게 합니다. <code>ExceptionFilter</code>가 이 양식입니다 — <code>NotFoundException</code>이 나든 <code>BadRequestException</code>이 나든, 클라이언트는 항상 같은 모양의 JSON을 받게 됩니다.</p>
+  </div>
+
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name"><a href="code/http-exception.filter.ts">code/http-exception.filter.ts</a></span></div><pre><span class="k">import</span> {
   <span class="t">ExceptionFilter</span>, <span class="t">Catch</span>, <span class="t">ArgumentsHost</span>, <span class="t">HttpException</span>,
 } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
@@ -108,7 +114,7 @@
   </div>
 
   <h2 id="s2"><span class="num">2</span>전역 등록 — <code>useGlobalFilters</code> vs <code>APP_FILTER</code></h2>
-  <p>Exception Filter를 전역으로 등록하는 방법은 두 가지입니다.</p>
+  <p>1절에서 만든 <code>HttpExceptionFilter</code>를 컨트롤러 하나하나에 <code>@UseFilters(HttpExceptionFilter)</code>로 붙여도 되지만, 그러면 컨트롤러 수만큼 데코레이터를 반복해야 하고 하나라도 빠뜨리면 그 컨트롤러만 기본 에러 형식으로 응답합니다. 앱 전체에 예외 없이 같은 형식을 적용하려면 <strong>전역 등록</strong>이 필요합니다. NestJS는 이를 위한 방법을 두 가지 제공하는데, 겉보기엔 비슷해도 내부 동작 방식이 다릅니다.</p>
 
   <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">방법 1 — main.ts에서 수동 등록</span></div><pre><span class="c">// main.ts</span>
 <span class="k">const</span> app = <span class="k">await</span> <span class="t">NestFactory</span>.<span class="f">create</span>(<span class="t">AppModule</span>);
@@ -128,6 +134,8 @@ app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span cla
 })
 <span class="k">export class</span> <span class="t">AppModule</span> {}</pre></div>
 
+  <p>차이는 "누가 인스턴스를 만드는가"에 있습니다. 방법 1은 <code>new HttpExceptionFilter()</code>로 개발자가 직접 인스턴스를 생성합니다 — 이렇게 만든 객체는 NestJS의 DI 컨테이너 밖에 있으므로, 만약 필터 안에서 <code>ConfigService</code>나 로거 같은 다른 서비스를 생성자로 주입받고 싶어도 불가능합니다. 방법 2는 <code>providers</code> 목록에 등록해 NestJS가 직접 인스턴스를 만들고 관리하게 맡깁니다 — 그래서 필터도 다른 프로바이더와 똑같이 생성자 주입을 받을 수 있습니다. 단순한 필터라면 방법 1로도 충분하지만, 필터 안에서 다른 서비스가 필요해지는 순간 방법 2가 필요해집니다.</p>
+
   <div class="box note">
     <span class="ic">🧭</span>
     <span class="label">Filter는 라이프사이클 마지막 — Interceptor와 역할 구분</span>
@@ -135,7 +143,9 @@ app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span cla
   </div>
 
   <h2 id="s3"><span class="num">3</span>Middleware — 요청 입구의 검문소</h2>
-  <p>Middleware는 요청이 라우팅되기 전, NestJS 파이프라인의 <strong>가장 앞 단계</strong>에서 실행됩니다. Express 미들웨어와 동일한 <code>(req, res, next)</code> 시그니처를 사용합니다. 대표 용도는 로깅, 요청 파싱, CORS, 속도 제한입니다.</p>
+  <p class="lead">Guard는 특정 라우트에만, Interceptor도 특정 컨트롤러·핸들러 단위로 적용됩니다. 그런데 "인증 여부와 상관없이 <strong>모든</strong> 요청의 시각과 경로를 로그로 남기고 싶다"거나 "라우팅이 결정되기도 전에 요청 자체를 검사하고 싶다"면 어떻게 해야 할까요? NestJS가 라우트를 매칭하고 Guard·Interceptor를 실행하기 <strong>이전</strong>, 파이프라인의 가장 앞 단계에서 실행되는 것이 Middleware입니다.</p>
+
+  <p>Middleware는 Express 미들웨어와 동일한 <code>(req, res, next)</code> 시그니처를 그대로 사용합니다. 대표 용도는 로깅, 요청 파싱, CORS, 속도 제한처럼 라우트가 무엇이든 상관없이 모든 요청에 걸쳐야 하는 처리입니다.</p>
 
   <div class="box analogy">
     <span class="ic">🍔</span>
@@ -234,7 +244,10 @@ app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span cla
 
   <details class="qa">
     <summary><span class="qmark">Q</span> Exception Filter와 Interceptor의 에러 처리 차이를 설명하세요.</summary>
-    <div class="answer"><p>두 가지 관점의 차이가 있습니다. ① <strong>목적</strong>: Interceptor의 <code>catchError</code>는 에러를 잡아 <em>다른 Observable로 변환</em>하거나 부가 작업(rollback 등)을 수행하고 에러를 다시 던집니다. Exception Filter는 최종적으로 <em>HTTP 응답 형태</em>를 결정합니다. ② <strong>실행 순서</strong>: Interceptor의 <code>catchError</code>가 먼저 실행되고, 에러가 rethrow되면 Exception Filter가 받아 응답합니다. 트랜잭션 롤백은 Interceptor에서, 에러 포맷 통일은 Exception Filter에서 담당하는 것이 역할 분리의 핵심입니다.</p></div>
+    <div class="answer"><p>두 가지 관점의 차이가 있습니다.<br>
+    ① <strong>목적</strong>: Interceptor의 <code>catchError</code>는 에러를 잡아 <em>다른 Observable로 변환</em>하거나 부가 작업(rollback 등)을 수행하고 에러를 다시 던집니다. Exception Filter는 최종적으로 <em>HTTP 응답 형태</em>를 결정합니다.<br>
+    ② <strong>실행 순서</strong>: Interceptor의 <code>catchError</code>가 먼저 실행되고, 에러가 rethrow되면 Exception Filter가 받아 응답합니다.<br>
+    트랜잭션 롤백은 Interceptor에서, 에러 포맷 통일은 Exception Filter에서 담당하는 것이 역할 분리의 핵심입니다.</p></div>
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> Middleware는 요청 라이프사이클의 어디에서 동작하나요?</summary>
@@ -242,7 +255,9 @@ app.<span class="f">useGlobalFilters</span>(<span class="k">new</span> <span cla
   </details>
   <details class="qa">
     <summary><span class="qmark">Q</span> <code>useGlobalFilters()</code>와 <code>APP_FILTER</code> 중 어떤 방법이 DI를 지원하나요?</summary>
-    <div class="answer"><p><code>APP_FILTER</code> 방식이 DI를 지원합니다. <code>main.ts</code>의 <code>useGlobalFilters(new HttpExceptionFilter())</code>는 필터를 직접 인스턴스화하므로 NestJS DI 컨테이너 밖에서 생성됩니다. 따라서 필터 내부에서 다른 서비스(<code>ConfigService</code>, 로거 등)를 주입받을 수 없습니다. 반면 <code>AppModule</code>의 <code>providers</code>에 <code>{ provide: APP_FILTER, useClass: HttpExceptionFilter }</code>를 등록하면 NestJS가 인스턴스를 관리하므로 DI가 정상 작동합니다.</p></div>
+    <div class="answer"><p><code>APP_FILTER</code> 방식이 DI를 지원합니다.<br>
+    <code>main.ts</code>의 <code>useGlobalFilters(new HttpExceptionFilter())</code>는 필터를 직접 인스턴스화하므로 NestJS DI 컨테이너 밖에서 생성됩니다. 따라서 필터 내부에서 다른 서비스(<code>ConfigService</code>, 로거 등)를 주입받을 수 없습니다.<br>
+    반면 <code>AppModule</code>의 <code>providers</code>에 <code>{ provide: APP_FILTER, useClass: HttpExceptionFilter }</code>를 등록하면 NestJS가 인스턴스를 관리하므로 DI가 정상 작동합니다.</p></div>
   </details>
 
   <nav class="pager">

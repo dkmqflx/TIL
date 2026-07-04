@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 3 · 연관관계 매핑 — NestJS TypeORM 완전 가이드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">TypeORM 완전 가이드</span>
+    </a>
+    <div class="logo-sub">기초 CRUD · 연관관계 · 트랜잭션 · N+1 · Lock</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 기초</div>
+    <a class="nav-item" href="01-basics.html#concept">📦 기본 개념 &amp; TypeORM이란?</a>
+    <a class="nav-item" href="01-basics.html#setup">⚙️ 의존성 설정</a>
+    <a class="nav-item" href="01-basics.html#entity">🗂️ Entity 정의</a>
+    <a class="nav-item" href="01-basics.html#no-setter">🔒 Setter 대신 메서드</a>
+    <a class="nav-item" href="01-basics.html#repository">🔌 Repository 사용법</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · CRUD 오퍼레이션</div>
+    <a class="nav-item" href="02-crud.html#find">🔍 find <span class="nav-badge badge-get">GET</span></a>
+    <a class="nav-item" href="02-crud.html#save">➕ save <span class="nav-badge badge-post">POST</span></a>
+    <a class="nav-item" href="02-crud.html#update">✏️ update / save <span class="nav-badge badge-patch">PATCH</span></a>
+    <a class="nav-item" href="02-crud.html#delete">🗑️ delete / remove <span class="nav-badge badge-delete">DELETE</span></a>
+    <a class="nav-item" href="02-crud.html#soft-delete">🧹 softDelete <span class="nav-badge badge-delete">DELETE</span></a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 연관관계 매핑</div>
+    <a class="nav-item" href="#why-relation">🤔 연관관계가 필요한 이유</a>
+    <a class="nav-item" href="#many-to-one">↗️ @ManyToOne</a>
+    <a class="nav-item" href="#one-to-many">↙️ @OneToMany</a>
+    <a class="nav-item" href="#many-to-many">↔️ @ManyToMany</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 고급 쿼리</div>
+    <a class="nav-item" href="04-advanced-query.html#querybuilder">🔧 QueryBuilder</a>
+    <a class="nav-item" href="04-advanced-query.html#pagination">📄 페이지네이션</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 고급 패턴</div>
+    <a class="nav-item" href="05-advanced-patterns.html#transaction">🔒 트랜잭션</a>
+    <a class="nav-item" href="05-advanced-patterns.html#n-plus-1">⚡ N+1 문제</a>
+    <a class="nav-item" href="05-advanced-patterns.html#concurrency">🏁 Race Condition &amp; Lock</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 실전</div>
+    <a class="nav-item" href="06-practice.html#exception">❌ 예외 처리</a>
+    <a class="nav-item" href="06-practice.html#pattern">🏗️ 실전 패턴</a>
+    <a class="nav-item" href="06-practice.html#compare">📊 프레임워크 비교</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-crud.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 2 · CRUD 오퍼레이션</span></a>
+    <a class="part-pager-link next" href="04-advanced-query.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 4 · 고급 쿼리</span></a>
+  </div>
+
+  <!-- ══════════ PART 3 · 연관관계 매핑 ══════════ -->
+
+  <!-- ── 연관관계 필요한 이유 ── -->
+  <section class="section" id="why-relation">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--yellow-soft)">🤔</div>
+      <h2>연관관계가 필요한 이유</h2>
+    </div>
+    <p>지금까지는 <code>users</code> 한 테이블만 다뤘습니다. 실제 서비스는 <strong>여러 테이블이 서로 연결</strong>됩니다 (게시글 → 카테고리, 주문 → 회원). TypeORM은 이 관계를 <strong>객체 그래프</strong>로 표현해, FK를 직접 조회·연결하는 수고를 없애줍니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ Raw 쿼리 방식</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// Post 조회 후 Category 따로 조회
+async findPost(id: number) {
+  const post = await dataSource.query(
+    'SELECT * FROM posts WHERE id = $1', [id]
+  );
+  // Category를 따로 조회해서 수동으로 연결
+  const category = await dataSource.query(
+    'SELECT * FROM categories WHERE id = $1',
+    [post[0].category_id]
+  );
+  post[0].category = category[0];
+  return post[0];
+}</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ TypeORM 연관관계</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 객체 그래프 탐색으로 바로 접근
+async findPost(id: number) {
+  const post = await this.postRepository
+    .findOne({
+      where: { id },
+      relations: { category: true },
+    });
+
+  // 바로 접근 가능
+  const categoryName = post.category.name;
+  return post;
+}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-row" style="margin-top:16px">
+      <div class="flow-step blue">Post Entity</div>
+      <div class="flow-arrow">→ <code style="font-size:11px">@ManyToOne</code> →</div>
+      <div class="flow-step green">Category Entity</div>
+      <div class="flow-arrow">|</div>
+      <div class="flow-step blue">Post Entity</div>
+      <div class="flow-arrow">→ <code style="font-size:11px">@ManyToOne</code> →</div>
+      <div class="flow-step green">Member Entity</div>
+    </div>
+  </section>
+
+  <!-- ── ManyToOne ── -->
+  <section class="section" id="many-to-one">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--blue-soft)">↗️</div>
+      <h2>@ManyToOne — 가장 많이 쓰는 연관관계</h2>
+    </div>
+
+    <h3>① "N:1 관계"가 뭔가요?</h3>
+    <p>쉽게 말하면 <strong>"여러 개(N)가 하나(1)를 가리키는 관계"</strong>입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af">예시로 이해하기</div>
+        <div style="padding:16px;font-size:0.95rem;line-height:2">
+          유튜브 영상(N) → 채널(1)<br>
+          댓글(N) → 게시글(1)<br>
+          게시글(N) → 카테고리(1)<br>
+          <br>
+          공통점: <strong>"여러 개"쪽이 "하나"의 ID를 가짐</strong>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#166534">DB 테이블로 보면</div>
+        <div style="padding:16px;font-size:0.9rem">
+          <strong>posts 테이블</strong>이 <code>category_id</code>라는 컬럼을 가집니다.<br>
+          categories 테이블에는 아무 변화 없음.<br><br>
+          즉, <strong>"여러 개(N)"쪽 테이블에 FK 컬럼이 생깁니다.</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="db-demo" style="margin-top:16px">
+      <div class="db-demo-header">posts 테이블 (category_id = FK 컬럼)</div>
+      <table>
+        <thead><tr><th>id</th><th>title</th><th>category_id</th></tr></thead>
+        <tbody>
+          <tr><td class="pk">1</td><td>NestJS 시작하기</td><td class="fk">1 → "백엔드"</td></tr>
+          <tr><td class="pk">2</td><td>TypeORM 연관관계</td><td class="fk">1 → "백엔드"</td></tr>
+          <tr><td class="pk">3</td><td>React 기초</td><td class="fk">2 → "프론트엔드"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>② 연관 데이터를 가져오는 3가지 전략</h3>
+    <p>Post를 조회할 때 <strong>Category 정보를 언제, 어떻게 가져올지</strong> 결정하는 방식이 3가지 있습니다.</p>
+
+    <div class="table-wrap" style="margin:16px 0">
+      <table>
+        <thead><tr><th>전략</th><th>동작 방식</th><th>실무 사용 여부</th></tr></thead>
+        <tbody>
+          <tr><td><strong>EAGER</strong></td><td>엔티티에 <code>eager: true</code> 설정 → <strong>항상</strong> 자동 JOIN</td><td>⚠️ 제한적</td></tr>
+          <tr><td><strong>LAZY</strong></td><td>처음엔 Post만 가져오고, <code>await post.category</code> 시점에 추가 쿼리 실행</td><td>❌ 비권장</td></tr>
+          <tr><td><strong>relations 명시</strong></td><td>find() 호출마다 필요할 때만 <code>relations: { category: true }</code> 지정</td><td>✅ 실무 표준</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>각 전략이 실제로 어떻게 동작하는가</h3>
+
+    <div class="compare-grid" style="grid-template-columns:1fr">
+      <div class="compare-card">
+        <div class="compare-card-header bad">EAGER — 항상 같이 가져옴</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 엔티티 설정
+@ManyToOne(() => Category, {
+  eager: true,  // ← 항상 자동 JOIN
+})
+category: Category;
+
+// 조회 — relations 안 써도 category 포함됨
+const post = await repo.findOne(
+  { where: { id: 1 } }
+);
+// SQL: SELECT ... JOIN categories
+//      category가 필요 없어도 항상 JOIN</code></pre>
+        </div>
+        <div style="padding:10px 14px;font-size:13px;color:#b91c1c">
+          ⚠️ 필요 없을 때도 매번 JOIN → 불필요한 부하
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header bad">LAZY — 접근 시점에 추가 쿼리</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 엔티티 설정
+@ManyToOne(() => Category)
+category: Promise&lt;Category&gt;;
+// ← 타입이 Promise여야 함 (특이한 구조)
+
+// 조회
+const post = await repo.findOne(
+  { where: { id: 1 } }
+);
+// SQL 1: SELECT * FROM posts WHERE id=1
+// (category는 아직 안 가져옴)
+
+// category에 접근하는 순간 추가 쿼리 실행
+const cat = await post.category;
+// SQL 2: SELECT * FROM categories WHERE id=?</code></pre>
+        </div>
+        <div style="padding:10px 14px;font-size:13px;color:#b91c1c">
+          ❌ Promise 타입 강제, 실수 시 N+1 문제 디버깅 어려움
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">relations 명시 — 필요할 때만 (권장)</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 엔티티 설정 — 아무 옵션 없음
+@ManyToOne(() => Category)
+category: Category;
+
+// category 필요 없을 때
+const post = await repo.findOne(
+  { where: { id: 1 } }
+);
+// SQL: SELECT * FROM posts WHERE id=1
+
+// category 필요할 때 → 명시적으로 추가
+const post = await repo.findOne({
+  where: { id: 1 },
+  relations: { category: true },
+});
+// SQL: SELECT ... JOIN categories</code></pre>
+        </div>
+        <div style="padding:10px 14px;font-size:13px;color:#065f46">
+          ✅ 필요한 것만 가져옴, 코드만 봐도 동작 예측 가능
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>LAZY를 실무에서 쓰지 않는 이유</strong><br>
+        TypeORM의 LAZY는 "연관 필드 타입을 <code>Promise&lt;Category&gt;</code>로 바꿔야 한다"는 특이한 제약이 있습니다. 그래서 일반 Category 타입처럼 쓰다가 <code>await</code>를 빠뜨리면 조용히 Promise 객체가 반환되어 버그가 생기고, 어느 시점에 쿼리가 몇 번 나가는지 추적하기도 어렵습니다.<br><br>
+        <code>relations</code> 옵션은 코드만 봐도 "이 호출은 JOIN이 발생한다"는 게 바로 보여서 훨씬 안전합니다.
+      </div>
+    </div>
+
+    <h3>③ 실제 코드 — 실무 권장 패턴</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">post.entity.ts</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Entity('posts')
+export class Post {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  title: string;
+
+  // @ManyToOne: "Post가 N, Category가 1"
+  // () => Category : 연결할 대상 엔티티
+  // (category) => category.posts : 반대쪽(Category)에서 이 관계를 뭐라 부르는지
+  @ManyToOne(() => Category, (category) => category.posts, {
+    nullable: false,  // category 없는 post는 존재 불가 (NOT NULL)
+  })
+  @JoinColumn({ name: 'category_id' })  // DB 컬럼명을 category_id로 지정
+  category: Category;
+
+  @Column({ name: 'category_id' })
+  categoryId: number;  // ID만 필요할 때 편하게 꺼내 쓸 수 있음
+}</code></pre>
+    </div>
+
+    <h3>@JoinColumn — FK 컬럼 이름 지정</h3>
+    <p><code>@JoinColumn</code>은 <strong>FK(외래 키) 컬럼이 DB에 어떤 이름으로 생성될지</strong> 지정하는 데코레이터입니다. 생략하면 TypeORM이 <code>categoryId</code>(camelCase)로 자동 생성합니다. <code>{ name: 'category_id' }</code>를 넘기면 snake_case 컬럼명으로 만들어집니다.</p>
+
+    <div class="table-wrap" style="margin:12px 0">
+      <table>
+        <thead><tr><th>관계</th><th><code>@JoinColumn</code></th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td><code>@ManyToOne</code></td><td>선택 — 컬럼명 커스텀할 때만</td><td>FK가 "N"쪽 테이블에 생기는 건 TypeORM이 이미 앎</td></tr>
+          <tr><td><code>@OneToOne</code></td><td><strong>필수</strong></td><td>FK가 어느 쪽 테이블에 생길지 직접 지정해야 함</td></tr>
+          <tr><td><code>@OneToMany</code></td><td>불필요</td><td>FK는 반대쪽(<code>@ManyToOne</code>)에 생김</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        위 코드에서 <code>@JoinColumn({ name: 'category_id' })</code>를 쓴 이유는 딱 하나 — 컬럼명을 <code>category_id</code>(snake_case)로 맞추기 위해서입니다. 생략해도 FK는 생기지만 컬럼명이 <code>categoryId</code>(camelCase)가 됩니다.
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">post.service.ts</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// category 정보가 필요 없을 때 → 그냥 조회
+const post = await this.postRepository.findOne({
+  where: { id: 1 },
+  // category 정보 없음 → post.category = undefined
+});
+
+// category 정보가 필요할 때 → relations 명시
+const postWithCategory = await this.postRepository.findOne({
+  where: { id: 1 },
+  relations: { category: true },  // SELECT ... JOIN categories
+  // 이제 post.category.name 접근 가능
+});
+
+console.log(postWithCategory.category.name);  // "백엔드"</code></pre>
+    </div>
+
+    <h3>④ eager 옵션 — 항상 자동으로 같이 가져오기</h3>
+    <p>엔티티에 <code>eager: true</code>를 설정하면 <strong>relations를 쓰지 않아도 매번 자동으로 JOIN</strong>합니다.</p>
+
+    <div class="compare-grid" style="grid-template-columns:1fr">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af">eager: true 설정</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// post.entity.ts
+@ManyToOne(() => Category, (category) => category.posts, {
+  eager: true,  // 항상 category를 같이 가져옴
+})
+category: Category;</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af">서비스에서 사용</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// post.service.ts
+// relations 없어도 category가 자동 포함됨
+const post = await this.postRepository.findOne({
+  where: { id: 1 },
+});
+
+// eager: true 덕분에 바로 접근 가능
+console.log(post.category.name);  // "백엔드"</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>방식</th><th>동작</th><th>언제 쓰나</th><th>주의점</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>eager: true</code></td>
+            <td>항상 자동 JOIN</td>
+            <td>이 관계가 <strong>항상</strong> 필요한 경우</td>
+            <td>불필요한 조회도 항상 JOIN → 성능 주의</td>
+          </tr>
+          <tr>
+            <td><code>relations</code> 명시</td>
+            <td>해당 쿼리에서만 JOIN</td>
+            <td><strong>필요할 때만</strong> 가져오고 싶을 때</td>
+            <td>가장 일반적인 실무 패턴 ✅</td>
+          </tr>
+          <tr>
+            <td>아무것도 없음</td>
+            <td>category 미포함</td>
+            <td>ID만 필요한 경우 (<code>categoryId</code>)</td>
+            <td><code>post.category</code>는 undefined</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무 팁</strong>: <code>eager: true</code>는 "이 엔티티를 조회하면 항상 이 관계가 필요하다"는 확신이 있을 때만 씁니다. 대부분의 경우는 <code>relations</code>로 명시하는 게 더 유연합니다.</div>
+    </div>
+  </section>
+
+  <!-- ── OneToMany ── -->
+  <section class="section" id="one-to-many">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--green-soft)">↙️</div>
+      <h2>@OneToMany — 양방향 관계</h2>
+    </div>
+
+    <p>Category 입장에서 여러 Post를 가지는 관계. <code>@OneToMany</code>는 반드시 <code>@ManyToOne</code>의 역방향으로만 존재합니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">category.entity.ts</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Entity('categories')
+export class Category {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ unique: true })
+  name: string;
+
+  // mappedBy 역할: Post.category 필드와 연결
+  @OneToMany(() => Post, (post) => post.category)
+  posts: Post[];   // 조회 시 자동 로딩 안 됨 (relations 명시 필요)
+}
+
+// Post.category와 반드시 짝을 맞춤
+@Entity('posts')
+export class Post {
+  @ManyToOne(() => Category, (category) => category.posts)
+  @JoinColumn({ name: 'category_id' })
+  category: Category;
+}</code></pre>
+    </div>
+
+    <h3>Cascade — 부모에게 한 작업이 자식에게 자동으로 전파</h3>
+
+    <p>cascade가 없으면 Post와 Comment를 <strong>각각 따로 save()</strong> 해야 합니다. cascade가 있으면 Post만 save()해도 Comment까지 자동으로 처리됩니다.</p>
+
+    <div class="compare-grid" style="grid-template-columns:1fr">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ cascade 없을 때 — 각각 따로 저장해야 함</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// Comment를 먼저 직접 save()
+const comment1 = new Comment();
+comment1.content = '좋아요!';
+await this.commentRepository.save(comment1);  // ← 따로 저장
+
+const comment2 = new Comment();
+comment2.content = '유익해요';
+await this.commentRepository.save(comment2);  // ← 따로 저장
+
+// 그 다음 Post를 저장
+const post = new Post();
+post.title = 'NestJS 강의';
+post.comments = [comment1, comment2];
+await this.postRepository.save(post);
+
+// SQL: INSERT INTO comments ... (2번)
+// SQL: INSERT INTO posts ...</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ cascade: true 있을 때 — Post만 save()하면 Comment도 자동 저장</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 엔티티 설정
+@Entity('posts')
+export class Post {
+  @OneToMany(() => Comment, (comment) => comment.post, {
+    cascade: true,  // 저장·삭제 모두 전파
+  })
+  comments: Comment[];
+}
+
+// 서비스 코드 — commentRepository.save() 없이 postRepository.save() 한 번으로 끝
+const post = new Post();
+post.title = 'NestJS 강의';
+post.comments = [
+  Object.assign(new Comment(), { content: '좋아요!' }),
+  Object.assign(new Comment(), { content: '유익해요' }),
+];
+
+await this.postRepository.save(post);  // ← 이것만으로 Comment도 자동 INSERT
+// SQL 1: INSERT INTO posts ...
+// SQL 2: INSERT INTO comments ...  ← 자동 실행</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h3>cascade: ['insert'] — 저장만 전파, 삭제는 각자</h3>
+    <p>생성할 때는 Post 하나로 묶어서 편하게 만들고 싶지만, 삭제할 때는 댓글이 자동으로 지워지는 게 위험해서 따로 관리하고 싶을 때 씁니다.</p>
+
+    <div class="compare-grid" style="grid-template-columns:1fr">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">cascade: ['insert'] 설정</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@OneToMany(() => Comment, (comment) => comment.post, {
+  cascade: ['insert'],  // 저장만 전파, 삭제는 전파 안 함
+})
+comments: Comment[];
+
+// ✅ 저장 — Post save() 시 Comment도 자동 INSERT
+const post = new Post();
+post.comments = [Object.assign(new Comment(), { content: '안녕' })];
+await this.postRepository.save(post);  // Comment도 자동 저장됨
+
+// ❌ 삭제 — Post remove()해도 Comment는 자동 삭제 안 됨
+// → 먼저 Comment를 직접 삭제해야 Post를 지울 수 있음
+await this.commentRepository.delete({ post: { id: 1 } });  // 직접 삭제
+await this.postRepository.remove(post);</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>cascade: ['insert']를 쓰는 실제 이유</strong><br>
+        게시글 삭제 시 댓글도 자동으로 지워지면 실수로 중요한 데이터를 날릴 수 있습니다. 삭제는 별도 확인 후 직접 처리하고, 생성만 편하게 묶고 싶을 때 <code>cascade: ['insert']</code>를 선택합니다.
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead><tr><th>옵션</th><th>저장 전파</th><th>삭제 전파</th><th>언제 쓰나</th></tr></thead>
+        <tbody>
+          <tr><td><code>cascade: true</code></td><td>✅</td><td>✅</td><td>부모와 자식을 항상 함께 관리할 때</td></tr>
+          <tr><td><code>cascade: ['insert']</code></td><td>✅</td><td>❌</td><td>생성은 묶어서 편하게, 삭제는 직접 관리할 때</td></tr>
+          <tr><td><code>cascade: ['remove']</code></td><td>❌</td><td>✅</td><td>생성은 각자, 부모 삭제 시 자식도 지울 때</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>orphanedRowAction — 배열에서 빠진 자식을 DB에서도 지우기</h3>
+    <p>cascade와 헷갈리기 쉬운 옵션입니다. 핵심 차이는 <strong>"부모를 삭제할 때"가 아니라, "자식이 부모 배열에서 빠질 때"</strong> 동작한다는 점입니다.</p>
+
+    <div class="compare-grid" style="grid-template-columns:1fr">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ orphanedRowAction 없을 때 — 고아 행 발생</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 댓글이 3개 있는 Post 조회
+const post = await this.postRepository.findOne({
+  where: { id: 1 },
+  relations: { comments: true },
+});
+// post.comments = [댓글1(id:1), 댓글2(id:2), 댓글3(id:3)]
+
+// 댓글3을 배열에서 제거하고 저장
+post.comments = post.comments.filter(c => c.id !== 3);
+await this.postRepository.save(post);
+
+// DB 결과: 댓글3이 DB에 그대로 남아있음 → "고아(orphan) 행"
+// comments 테이블: id=1, id=2, id=3 모두 존재</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ orphanedRowAction: 'delete' 있을 때</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Entity('posts')
+export class Post {
+  @OneToMany(() => Comment, (comment) => comment.post, {
+    cascade: true,
+    orphanedRowAction: 'delete',  // 배열에서 빠지면 DB에서도 삭제
+  })
+  comments: Comment[];
+}
+
+// 댓글3을 배열에서 제거하고 저장
+post.comments = post.comments.filter(c => c.id !== 3);
+await this.postRepository.save(post);
+
+// DB 결과: 댓글3이 DB에서도 자동 삭제됨
+// comments 테이블: id=1, id=2만 존재
+// SQL: DELETE FROM comments WHERE id = 3  ← 자동 실행</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>cascade vs orphanedRowAction 한 줄 요약</strong><br>
+        • <code>cascade</code> — <strong>부모를 통째로 삭제</strong>할 때 자식도 함께 삭제<br>
+        • <code>orphanedRowAction: 'delete'</code> — <strong>부모 배열에서 자식을 제거</strong>했을 때 DB에서도 삭제
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ManyToMany ── -->
+  <section class="section" id="many-to-many">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--purple-soft)">↔️</div>
+      <h2>@ManyToMany — 중간 Entity 사용 권장</h2>
+    </div>
+
+    <h3>① 좋아요 기능을 DB에 저장하려면?</h3>
+    <p>인스타그램 좋아요를 예시로 생각해봅시다. "김철수가 NestJS 글에 좋아요를 눌렀다"를 DB에 어떻게 저장할까요?</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ 이렇게 하면 안 됨</div>
+        <div class="db-demo" style="margin:8px 0">
+          <div class="db-demo-header">posts 테이블에 컬럼 추가?</div>
+          <table>
+            <thead><tr><th>id</th><th>title</th><th>liked_by</th></tr></thead>
+            <tbody>
+              <tr><td class="pk">10</td><td>NestJS 입문</td><td style="color:#f85149">???</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:12px;font-size:0.88rem;color:#dc2626;line-height:1.7">
+          liked_by 컬럼에 "김철수, 이영희, 박민준..."<br>
+          → <strong>DB 컬럼은 값 하나만 저장 가능</strong><br>
+          → 목록을 컬럼 하나에 우겨넣을 수 없음
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ 정답: 별도 테이블 생성</div>
+        <div class="db-demo" style="margin:8px 0">
+          <div class="db-demo-header">post_likes 테이블</div>
+          <table>
+            <thead><tr><th>member_id</th><th>post_id</th></tr></thead>
+            <tbody>
+              <tr><td class="fk">1 (김철수)</td><td class="fk">10</td></tr>
+              <tr><td class="fk">2 (이영희)</td><td class="fk">10</td></tr>
+              <tr><td class="fk">1 (김철수)</td><td class="fk">20</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="padding:12px;font-size:0.88rem;color:#16a34a;line-height:1.7">
+          "누가(member_id) + 어떤 글(post_id)"<br>
+          한 행 = 좋아요 하나<br>
+          → <strong>이게 중간 테이블</strong>
+        </div>
+      </div>
+    </div>
+
+    <h3>② 전체 구조 한눈에 보기</h3>
+    <div class="db-demo">
+      <div class="db-demo-header">3개 테이블의 관계</div>
+      <div style="display:grid;grid-template-columns:1fr 36px 1fr 36px 1fr;gap:0;align-items:center;padding:16px;font-size:0.88rem">
+        <div>
+          <div style="font-weight:600;color:var(--accent);margin-bottom:6px">members</div>
+          <table style="margin:0">
+            <thead><tr><th>id</th><th>name</th></tr></thead>
+            <tbody>
+              <tr><td class="pk">1</td><td>김철수</td></tr>
+              <tr><td class="pk">2</td><td>이영희</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="text-align:center;color:var(--text-muted);font-size:1.2rem">→</div>
+        <div>
+          <div style="font-weight:600;color:#a855f7;margin-bottom:6px">post_likes (중간 테이블)</div>
+          <table style="margin:0">
+            <thead><tr><th>member_id</th><th>post_id</th><th>created_at</th></tr></thead>
+            <tbody>
+              <tr><td class="fk">1</td><td class="fk">10</td><td>01-01</td></tr>
+              <tr><td class="fk">2</td><td class="fk">10</td><td>01-02</td></tr>
+              <tr><td class="fk">1</td><td class="fk">20</td><td>01-03</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="text-align:center;color:var(--text-muted);font-size:1.2rem">→</div>
+        <div>
+          <div style="font-weight:600;color:var(--accent);margin-bottom:6px">posts</div>
+          <table style="margin:0">
+            <thead><tr><th>id</th><th>title</th></tr></thead>
+            <tbody>
+              <tr><td class="pk">10</td><td>NestJS 입문</td></tr>
+              <tr><td class="pk">20</td><td>React 기초</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="callout callout-tip" style="margin-top:12px">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        읽는 법 — "member_id=1 / post_id=10" 한 행은 <strong>"김철수가 NestJS 입문에 좋아요를 눌렀다"</strong>는 의미입니다.<br>
+        좋아요가 하나 추가될 때마다 post_likes에 행이 하나씩 늘어납니다.
+      </div>
+    </div>
+
+    <h3>③ 코드로 보기 — 딱 3개 파일</h3>
+    <p>중간 테이블을 직접 Entity로 만들고, 양쪽에 <code>@ManyToOne</code>을 하나씩 답니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">post-like.entity.ts — 중간 테이블</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Entity('post_likes')
+export class PostLike {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  // "이 좋아요는 어떤 멤버가 눌렀나?"
+  // → member_id 컬럼이 생기고, members 테이블과 연결됨
+  @ManyToOne(() => Member, { nullable: false })
+  @JoinColumn({ name: 'member_id' })
+  member: Member;
+
+  // "이 좋아요는 어떤 게시글에 눌렸나?"
+  // → post_id 컬럼이 생기고, posts 테이블과 연결됨
+  @ManyToOne(() => Post, { nullable: false })
+  @JoinColumn({ name: 'post_id' })
+  post: Post;
+
+  // 이 컬럼이 있기 때문에 중간 Entity를 직접 만든 것!
+  // TypeORM @ManyToMany 자동 생성 방식으로는 이 컬럼을 추가할 수 없음
+  @CreateDateColumn()
+  createdAt: Date;
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">member.entity.ts — 멤버 쪽</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Entity('members')
+export class Member {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  name: string;
+
+  // "이 멤버가 누른 좋아요 목록"
+  // Member(1) : PostLike(N) — 1:N 관계
+  @OneToMany(() => PostLike, (like) => like.member)
+  postLikes: PostLike[];
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">like.service.ts — 실제 사용</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// 좋아요 누르기
+async like(memberId: number, postId: number) {
+  const like = this.postLikeRepository.create({
+    member: { id: memberId },  // member_id = 1
+    post:   { id: postId },    // post_id = 10
+  });
+  await this.postLikeRepository.save(like);
+  // INSERT INTO post_likes (member_id, post_id) VALUES (1, 10)
+}
+
+// "이 게시글 좋아요 누른 사람 목록" 조회
+async whoLiked(postId: number) {
+  return this.postLikeRepository.find({
+    where: { post: { id: postId } },  // post_id = 10 조건
+    relations: { member: true },       // member 정보도 같이
+  });
+  // → [{ member: { name: '김철수' }, createdAt: ... }, ...]
+}
+
+// "이 멤버가 좋아요 누른 게시글 목록" 조회
+async whatILiked(memberId: number) {
+  return this.postLikeRepository.find({
+    where: { member: { id: memberId } },
+    relations: { post: true },
+  });
+}</code></pre>
+    </div>
+
+    <h3>④ 왜 @ManyToMany 데코레이터를 직접 안 쓰나요?</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">@ManyToMany 자동 생성 방식</div>
+        <div style="padding:16px;font-size:0.9rem;line-height:1.8">
+          TypeORM이 <code>post_likes</code> 테이블을<br>
+          알아서 만들어줌<br><br>
+          근데 그 테이블 구조가 고정:<br>
+          <code>member_id</code> + <code>post_id</code> <strong>끝</strong><br><br>
+          ❌ "좋아요 누른 시간" 추가 불가<br>
+          ❌ "취소 여부" 추가 불가<br>
+          ❌ 나중에 확장하려면 전부 뜯어고쳐야 함
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">중간 Entity 직접 만들기 ✅</div>
+        <div style="padding:16px;font-size:0.9rem;line-height:1.8">
+          <code>PostLike</code> 라는 Entity를 내가 만듦<br><br>
+          이건 그냥 평범한 Entity라서<br>
+          컬럼을 마음대로 추가할 수 있음<br><br>
+          ✅ <code>createdAt</code> 추가 가능<br>
+          ✅ <code>status</code> ('active'/'cancelled') 추가 가능<br>
+          ✅ 실무에서 거의 항상 이 방식
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    NestJS TypeORM 완전 가이드 · Part 3 · 연관관계 매핑 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

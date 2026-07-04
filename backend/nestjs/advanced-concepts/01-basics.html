@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 1 · 기초 — NestJS TypeORM 완전 가이드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">TypeORM 완전 가이드</span>
+    </a>
+    <div class="logo-sub">기초 CRUD · 연관관계 · 트랜잭션 · N+1 · Lock</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 기초</div>
+    <a class="nav-item" href="#concept">📦 기본 개념 &amp; TypeORM이란?</a>
+    <a class="nav-item" href="#setup">⚙️ 의존성 설정</a>
+    <a class="nav-item" href="#entity">🗂️ Entity 정의</a>
+    <a class="nav-item" href="#no-setter">🔒 Setter 대신 메서드</a>
+    <a class="nav-item" href="#repository">🔌 Repository 사용법</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · CRUD 오퍼레이션</div>
+    <a class="nav-item" href="02-crud.html#find">🔍 find <span class="nav-badge badge-get">GET</span></a>
+    <a class="nav-item" href="02-crud.html#save">➕ save <span class="nav-badge badge-post">POST</span></a>
+    <a class="nav-item" href="02-crud.html#update">✏️ update / save <span class="nav-badge badge-patch">PATCH</span></a>
+    <a class="nav-item" href="02-crud.html#delete">🗑️ delete / remove <span class="nav-badge badge-delete">DELETE</span></a>
+    <a class="nav-item" href="02-crud.html#soft-delete">🧹 softDelete <span class="nav-badge badge-delete">DELETE</span></a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 연관관계 매핑</div>
+    <a class="nav-item" href="03-relations.html#why-relation">🤔 연관관계가 필요한 이유</a>
+    <a class="nav-item" href="03-relations.html#many-to-one">↗️ @ManyToOne</a>
+    <a class="nav-item" href="03-relations.html#one-to-many">↙️ @OneToMany</a>
+    <a class="nav-item" href="03-relations.html#many-to-many">↔️ @ManyToMany</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 고급 쿼리</div>
+    <a class="nav-item" href="04-advanced-query.html#querybuilder">🔧 QueryBuilder</a>
+    <a class="nav-item" href="04-advanced-query.html#pagination">📄 페이지네이션</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 고급 패턴</div>
+    <a class="nav-item" href="05-advanced-patterns.html#transaction">🔒 트랜잭션</a>
+    <a class="nav-item" href="05-advanced-patterns.html#n-plus-1">⚡ N+1 문제</a>
+    <a class="nav-item" href="05-advanced-patterns.html#concurrency">🏁 Race Condition &amp; Lock</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 실전</div>
+    <a class="nav-item" href="06-practice.html#exception">❌ 예외 처리</a>
+    <a class="nav-item" href="06-practice.html#pattern">🏗️ 실전 패턴</a>
+    <a class="nav-item" href="06-practice.html#compare">📊 프레임워크 비교</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="index.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">목차로</span></a>
+    <a class="part-pager-link next" href="02-crud.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 2 · CRUD 오퍼레이션</span></a>
+  </div>
+
+  <!-- ── 기본 개념 ── -->
+  <section class="section" id="concept">
+    <div class="section-header">
+      <div class="section-icon icon-concept">📦</div>
+      <h2>기본 개념</h2>
+    </div>
+    <p>TypeORM에서 데이터는 <strong>Entity</strong> 클래스로 정의하고, <strong>Repository</strong>를 통해 DB와 통신합니다.</p>
+    <p>Spring JDBC와 달리 SQL을 직접 작성하지 않아도 기본 CRUD는 TypeORM이 자동으로 처리합니다.</p>
+
+    <div class="db-table-demo">
+      <div class="db-header">users 테이블 (Entity로 정의)</div>
+      <table>
+        <thead>
+          <tr><th>id</th><th>name</th><th>email</th><th>age</th><th>created_at</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="pk">1</td><td class="name-cell">김철수</td><td class="email-cell">kim@example.com</td><td>28</td><td style="color:#8b949e">2024-01-15</td></tr>
+          <tr><td class="pk">2</td><td class="name-cell">이영희</td><td class="email-cell">lee@example.com</td><td>32</td><td style="color:#8b949e">2024-02-03</td></tr>
+          <tr><td class="pk">3</td><td class="name-cell">박민준</td><td class="email-cell">park@example.com</td><td>25</td><td style="color:#8b949e">2024-03-11</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-step">HTTP 요청</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Controller</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Service</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">Repository (TypeORM)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">PostgreSQL</div>
+    </div>
+
+    <h3>Raw SQL vs TypeORM</h3>
+    <p>TypeORM은 <strong>객체와 관계형 DB를 매핑</strong>하는 ORM입니다. SQL을 직접 쓰지 않고 TypeScript 객체로 DB를 다룰 수 있게 해줍니다.</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ Raw SQL (직접 작성)</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 반복적인 코드, SQL 의존적
+const result = await dataSource.query(
+  `INSERT INTO categories (name) VALUES ($1)
+   RETURNING id`,
+  [category.name]
+);
+const id = result[0].id;</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ TypeORM (객체 중심)</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 간결하고 객체 지향적
+const saved = await this.categoryRepository
+  .save(category);
+const id = saved.id;</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h3>핵심 개념 4가지</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🗂️</div>
+        <div class="card-title">Entity</div>
+        <div class="card-body">DB 테이블과 매핑되는 TypeScript 클래스. <code>@Entity()</code> 데코레이터로 선언.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔌</div>
+        <div class="card-title">Repository</div>
+        <div class="card-body">Entity에 대한 CRUD 작업을 담당. <code>Repository&lt;T&gt;</code> 타입으로 주입.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💾</div>
+        <div class="card-title">DataSource</div>
+        <div class="card-body">DB 연결 설정의 중심. 트랜잭션·마이그레이션 실행의 진입점.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">주의: save() 필수</div>
+        <div class="card-body">엔티티를 변경해도 <code>save()</code>를 호출해야 DB에 반영됩니다. 변경 사항이 자동으로 저장되지 않습니다.</div>
+      </div>
+    </div>
+
+    <h3>TypeORM vs 다른 ORM</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ORM</th><th>특징</th><th>적합한 상황</th></tr></thead>
+        <tbody>
+          <tr><td><strong>TypeORM</strong></td><td>데코레이터 기반, NestJS 공식 지원</td><td>NestJS 프로젝트 표준</td></tr>
+          <tr><td>Prisma</td><td>타입 안정성 최강, 스키마 파일 분리, 러닝커브 낮음</td><td>빠른 개발, 스타트업</td></tr>
+          <tr><td>Sequelize</td><td>오래된 ORM, JavaScript 기반, 레거시 많음</td><td>레거시 프로젝트</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 의존성 설정 ── -->
+  <section class="section" id="setup">
+    <div class="section-header">
+      <div class="section-icon icon-setup">⚙️</div>
+      <h2>의존성 설정</h2>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">npm install @nestjs/typeorm typeorm pg
+# pg = PostgreSQL 드라이버 (MySQL이면 mysql2)</code></pre>
+    </div>
+
+    <h3>app.module.ts</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import { TypeOrmModule } from '@nestjs/typeorm';
+
+@Module({
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT) || 5432,
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: true,  // 개발 환경에서만 사용 (프로덕션은 false)
+    }),
+  ],
+})
+export class AppModule {}</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><code>synchronize: true</code>는 Entity 변경 시 DB 스키마를 자동으로 업데이트합니다. 프로덕션에서는 반드시 <code>false</code>로 설정하고 마이그레이션을 사용하세요.</div>
+    </div>
+  </section>
+
+  <!-- ── Entity 정의 ── -->
+  <section class="section" id="entity">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🗂️</div>
+      <h2>Entity 정의</h2>
+    </div>
+    <p>TypeORM에서 테이블 구조는 <strong>Entity 클래스</strong>로 정의합니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// user.entity.ts
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+
+@Entity('users')
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ length: 50 })
+  name: string;
+
+  @Column({ unique: true })
+  email: string;
+
+  @Column()
+  age: number;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}</code></pre>
+    </div>
+
+    <h3>자주 쓰는 컬럼 데코레이터</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>데코레이터</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td><code>@PrimaryGeneratedColumn()</code></td><td>AUTO_INCREMENT PK</td></tr>
+          <tr><td><code>@PrimaryGeneratedColumn('uuid')</code></td><td>UUID PK</td></tr>
+          <tr><td><code>@Column()</code></td><td>일반 컬럼</td></tr>
+          <tr><td><code>@Column({ nullable: true })</code></td><td>NULL 허용</td></tr>
+          <tr><td><code>@Column({ unique: true })</code></td><td>UNIQUE 제약</td></tr>
+          <tr><td><code>@Column({ default: 0 })</code></td><td>기본값 설정</td></tr>
+          <tr><td><code>@CreateDateColumn()</code></td><td>INSERT 시 자동 설정</td></tr>
+          <tr><td><code>@UpdateDateColumn()</code></td><td>UPDATE 시 자동 갱신</td></tr>
+          <tr><td><code>@VersionColumn()</code></td><td>낙관적 락 버전 관리 (Part 5)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:28px">AUTO_INCREMENT vs UUID — 어떤 PK를 써야 할까?</h3>
+    <p style="margin:8px 0 16px">두 방식은 PK를 <strong>어떤 값</strong>으로, <strong>누가</strong> 만드느냐가 다릅니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">@PrimaryGeneratedColumn() — AUTO_INCREMENT</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Entity()
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;  // 1, 2, 3, ...
+
+  @Column()
+  name: string;
+}
+</code></pre>
+        </div>
+        <div style="padding:12px 16px;font-size:13px">
+          <strong>DB에 저장되는 모습</strong>
+          <table style="width:100%;margin-top:8px;border-collapse:collapse;font-family:var(--mono);font-size:12px">
+            <thead><tr style="background:var(--bg)"><th style="padding:4px 8px;border:1px solid var(--border)">id</th><th style="padding:4px 8px;border:1px solid var(--border)">name</th></tr></thead>
+            <tbody>
+              <tr><td style="padding:4px 8px;border:1px solid var(--border)">1</td><td style="padding:4px 8px;border:1px solid var(--border)">Alice</td></tr>
+              <tr><td style="padding:4px 8px;border:1px solid var(--border)">2</td><td style="padding:4px 8px;border:1px solid var(--border)">Bob</td></tr>
+              <tr><td style="padding:4px 8px;border:1px solid var(--border)">3</td><td style="padding:4px 8px;border:1px solid var(--border)">Charlie</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">@PrimaryGeneratedColumn('uuid') — UUID</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Entity()
+export class User {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;  // '550e8400-e29b-...'
+
+  @Column()
+  name: string;
+}
+</code></pre>
+        </div>
+        <div style="padding:12px 16px;font-size:13px">
+          <strong>DB에 저장되는 모습</strong>
+          <table style="width:100%;margin-top:8px;border-collapse:collapse;font-family:var(--mono);font-size:12px">
+            <thead><tr style="background:var(--bg)"><th style="padding:4px 8px;border:1px solid var(--border)">id</th><th style="padding:4px 8px;border:1px solid var(--border)">name</th></tr></thead>
+            <tbody>
+              <tr><td style="padding:4px 8px;border:1px solid var(--border)">550e8400-e29b-41d4-a716-446655440000</td><td style="padding:4px 8px;border:1px solid var(--border)">Alice</td></tr>
+              <tr><td style="padding:4px 8px;border:1px solid var(--border)">f47ac10b-58cc-4372-a567-0e02b2c3d479</td><td style="padding:4px 8px;border:1px solid var(--border)">Bob</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th></th><th>AUTO_INCREMENT</th><th>UUID</th></tr></thead>
+        <tbody>
+          <tr><td><strong>타입</strong></td><td><code>number</code></td><td><code>string</code></td></tr>
+          <tr><td><strong>생성 주체</strong></td><td>DB가 순서대로 부여</td><td>앱(또는 DB)이 무작위 생성</td></tr>
+          <tr><td><strong>예측 가능성</strong></td><td><code>/users/3</code>으로 총 사용자 수 유추 가능</td><td>무작위값이라 유추 불가</td></tr>
+          <tr><td><strong>JOIN 성능</strong></td><td>빠름 (int 비교)</td><td>상대적으로 느림 (string 비교)</td></tr>
+          <tr><td><strong>분산 시스템</strong></td><td>여러 DB 인스턴스 간 충돌 위험</td><td>충돌 없음</td></tr>
+          <tr><td><strong>적합한 상황</strong></td><td>단일 DB, 내부 참조용 테이블</td><td>외부 노출 리소스, 마이크로서비스</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip" style="margin-top:12px">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>실무 패턴 — 두 가지를 함께 사용하기</strong><br>
+        내부 JOIN 성능은 AUTO_INCREMENT로, 외부 노출 URL은 UUID로 분리하면 두 장점을 모두 얻을 수 있습니다.
+        <div class="code-block" style="margin-top:10px">
+          <pre><code class="language-typescript">@Entity()
+export class User {
+  @PrimaryGeneratedColumn()
+  id: number;          // 내부 JOIN용 — 빠른 int 비교
+
+  @Column({ unique: true, default: () => 'gen_random_uuid()' })
+  publicId: string;    // 외부 노출용 — URL에 사용 (/users/550e8400-...)
+}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">테이블 간 관계를 표현하는 <code>@ManyToOne</code>, <code>@OneToMany</code>, <code>@ManyToMany</code> 같은 <strong>연관관계 데코레이터</strong>는 <strong>Part 3 · 연관관계 매핑</strong>에서 자세히 다룹니다.</div>
+    </div>
+  </section>
+
+  <!-- ── Setter 대신 메서드 ── -->
+  <section class="section" id="no-setter">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--purple-soft)">🔒</div>
+      <h2>Setter 대신 메서드 사용</h2>
+    </div>
+    <p>TypeScript에서도 public setter 남용은 <strong>데이터 무결성</strong>을 해칩니다. 의미 있는 메서드로 대체하세요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ 나쁜 예 — public setter</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Entity()
+export class Post {
+  @Column()
+  title: string;
+
+  // 어디서든 마음대로 변경 가능
+  setTitle(title: string) {
+    this.title = title; // 빈 문자열? null?
+  }
+}
+
+// 호출부
+post.setTitle('');    // 빈 제목?
+post.setTitle(null);  // null?</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ 좋은 예 — 의미 있는 메서드</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Entity()
+export class Post {
+  @Column({ nullable: false })
+  title: string;
+
+  // 비즈니스 로직이 명확
+  updateTitle(newTitle: string): void {
+    if (!newTitle?.trim()) {
+      throw new BadRequestException(
+        '제목은 필수입니다.'
+      );
+    }
+    if (newTitle.length > 100) {
+      throw new BadRequestException(
+        '제목은 100자를 초과할 수 없습니다.'
+      );
+    }
+    this.title = newTitle;
+  }
+}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>장점</strong>: 유효성 검증이 Entity 안에 모임 → 어디서 호출해도 일관된 규칙이 적용됩니다. Controller/Service에서 중복 검증이 필요 없어집니다.</div>
+    </div>
+  </section>
+
+  <!-- ── Repository ── -->
+  <section class="section" id="repository">
+    <div class="section-header">
+      <div class="section-icon icon-repo">🔌</div>
+      <h2>Repository - 기본 사용법</h2>
+    </div>
+
+    <h3>모듈에 등록</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// users.module.ts
+@Module({
+  imports: [TypeOrmModule.forFeature([User])],
+  providers: [UsersService],
+  controllers: [UsersController],
+})
+export class UsersModule {}</code></pre>
+    </div>
+
+    <h3>Repository 주입</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository&lt;User&gt;,
+  ) {}
+}</code></pre>
+    </div>
+
+    <h3>주요 메서드 요약</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>메서드</th><th>용도</th><th>반환 타입</th></tr></thead>
+        <tbody>
+          <tr><td><code>find()</code></td><td>다건 조회</td><td><code>Promise&lt;T[]&gt;</code></td></tr>
+          <tr><td><code>findOne()</code></td><td>단건 조회</td><td><code>Promise&lt;T | null&gt;</code></td></tr>
+          <tr><td><code>count()</code></td><td>개수 조회</td><td><code>Promise&lt;number&gt;</code></td></tr>
+          <tr><td><code>save()</code></td><td>INSERT / UPDATE</td><td><code>Promise&lt;T&gt;</code></td></tr>
+          <tr><td><code>update()</code></td><td>UPDATE (부분 수정)</td><td><code>Promise&lt;UpdateResult&gt;</code></td></tr>
+          <tr><td><code>delete()</code></td><td>DELETE (조건)</td><td><code>Promise&lt;DeleteResult&gt;</code></td></tr>
+          <tr><td><code>remove()</code></td><td>DELETE (엔티티)</td><td><code>Promise&lt;T&gt;</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <div class="doc-footer">
+    NestJS TypeORM 완전 가이드 · Part 1 · 기초 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

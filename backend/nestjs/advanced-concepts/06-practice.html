@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 6 · 실전 — NestJS TypeORM 완전 가이드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">TypeORM 완전 가이드</span>
+    </a>
+    <div class="logo-sub">기초 CRUD · 연관관계 · 트랜잭션 · N+1 · Lock</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 기초</div>
+    <a class="nav-item" href="01-basics.html#concept">📦 기본 개념 &amp; TypeORM이란?</a>
+    <a class="nav-item" href="01-basics.html#setup">⚙️ 의존성 설정</a>
+    <a class="nav-item" href="01-basics.html#entity">🗂️ Entity 정의</a>
+    <a class="nav-item" href="01-basics.html#no-setter">🔒 Setter 대신 메서드</a>
+    <a class="nav-item" href="01-basics.html#repository">🔌 Repository 사용법</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · CRUD 오퍼레이션</div>
+    <a class="nav-item" href="02-crud.html#find">🔍 find <span class="nav-badge badge-get">GET</span></a>
+    <a class="nav-item" href="02-crud.html#save">➕ save <span class="nav-badge badge-post">POST</span></a>
+    <a class="nav-item" href="02-crud.html#update">✏️ update / save <span class="nav-badge badge-patch">PATCH</span></a>
+    <a class="nav-item" href="02-crud.html#delete">🗑️ delete / remove <span class="nav-badge badge-delete">DELETE</span></a>
+    <a class="nav-item" href="02-crud.html#soft-delete">🧹 softDelete <span class="nav-badge badge-delete">DELETE</span></a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 연관관계 매핑</div>
+    <a class="nav-item" href="03-relations.html#why-relation">🤔 연관관계가 필요한 이유</a>
+    <a class="nav-item" href="03-relations.html#many-to-one">↗️ @ManyToOne</a>
+    <a class="nav-item" href="03-relations.html#one-to-many">↙️ @OneToMany</a>
+    <a class="nav-item" href="03-relations.html#many-to-many">↔️ @ManyToMany</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 고급 쿼리</div>
+    <a class="nav-item" href="04-advanced-query.html#querybuilder">🔧 QueryBuilder</a>
+    <a class="nav-item" href="04-advanced-query.html#pagination">📄 페이지네이션</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 고급 패턴</div>
+    <a class="nav-item" href="05-advanced-patterns.html#transaction">🔒 트랜잭션</a>
+    <a class="nav-item" href="05-advanced-patterns.html#n-plus-1">⚡ N+1 문제</a>
+    <a class="nav-item" href="05-advanced-patterns.html#concurrency">🏁 Race Condition &amp; Lock</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 실전</div>
+    <a class="nav-item" href="#exception">❌ 예외 처리</a>
+    <a class="nav-item" href="#pattern">🏗️ 실전 패턴</a>
+    <a class="nav-item" href="#compare">📊 프레임워크 비교</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="05-advanced-patterns.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 5 · 고급 패턴</span></a>
+    <a class="part-pager-link next" href="index.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">목차로</span></a>
+  </div>
+
+  <!-- ── 예외 처리 ── -->
+  <section class="section" id="exception">
+    <div class="section-header">
+      <div class="section-icon icon-error">❌</div>
+      <h2>예외 처리</h2>
+    </div>
+    <p>NestJS에서는 <code>NotFoundException</code>, <code>ConflictException</code> 등 HTTP 예외를 직접 던집니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>예외 클래스</th><th>HTTP</th><th>발생 상황</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>NotFoundException</code></td>
+            <td><span class="method method-get">404</span></td>
+            <td>조회 결과 없음</td>
+          </tr>
+          <tr>
+            <td><code>ConflictException</code></td>
+            <td><span style="background:#fce7f3;color:#9d174d;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;font-family:var(--mono)">409</span></td>
+            <td>UNIQUE 제약 위반 (중복 이메일 등)</td>
+          </tr>
+          <tr>
+            <td><code>BadRequestException</code></td>
+            <td><span class="method method-patch">400</span></td>
+            <td>잘못된 요청 파라미터</td>
+          </tr>
+          <tr>
+            <td><code>ForbiddenException</code></td>
+            <td><span class="method method-delete">403</span></td>
+            <td>권한 없음</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// 단건 조회 - 없으면 404
+async findOne(id: number): Promise&lt;User&gt; {
+  const user = await this.userRepository.findOne({ where: { id } });
+  if (!user) {
+    throw new NotFoundException(`사용자를 찾을 수 없습니다. id=${id}`);
+  }
+  return user;
+}
+
+// 중복 이메일 처리
+async create(dto: CreateUserDto): Promise&lt;User&gt; {
+  const existing = await this.userRepository.findOne({ where: { email: dto.email } });
+  if (existing) {
+    throw new ConflictException('이미 사용 중인 이메일입니다.');
+  }
+  const user = this.userRepository.create(dto);
+  return this.userRepository.save(user);
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- ── 실전 패턴 ── -->
+  <section class="section" id="pattern">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🏗️</div>
+      <h2>실전 Service + Repository 패턴</h2>
+    </div>
+
+    <h3>users.service.ts</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository&lt;User&gt;,
+  ) {}
+
+  // 전체 조회 (페이지네이션)
+  async findAll(page: number, size: number) {
+    const [data, total] = await this.userRepository.findAndCount({
+      order: { id: 'DESC' },
+      take: size,
+      skip: (page - 1) * size,
+    });
+    return { data, total, page, totalPages: Math.ceil(total / size) };
+  }
+
+  // 단건 조회
+  async findOne(id: number): Promise&lt;User&gt; {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) throw new NotFoundException(`사용자를 찾을 수 없습니다. id=${id}`);
+    return user;
+  }
+
+  // 생성
+  async create(dto: CreateUserDto): Promise&lt;User&gt; {
+    const existing = await this.userRepository.findOne({ where: { email: dto.email } });
+    if (existing) throw new ConflictException('이미 사용 중인 이메일입니다.');
+    const user = this.userRepository.create(dto);
+    return this.userRepository.save(user);
+  }
+
+  // 수정
+  async update(id: number, dto: UpdateUserDto): Promise&lt;User&gt; {
+    const user = await this.findOne(id);  // 없으면 자동 404
+    Object.assign(user, dto);
+    return this.userRepository.save(user);
+  }
+
+  // 삭제
+  async remove(id: number): Promise&lt;void&gt; {
+    const result = await this.userRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`삭제할 사용자가 없습니다. id=${id}`);
+    }
+  }
+}</code></pre>
+    </div>
+
+    <h3>users.controller.ts</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Controller('users')
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  @Get()                              // GET /users?page=1&size=10
+  findAll(
+    @Query('page', ParseIntPipe) page = 1,
+    @Query('size', ParseIntPipe) size = 10,
+  ) {
+    return this.usersService.findAll(page, size);
+  }
+
+  @Get(':id')                         // GET /users/1
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.findOne(id);
+  }
+
+  @Post()                             // POST /users
+  create(@Body() dto: CreateUserDto) {
+    return this.usersService.create(dto);
+  }
+
+  @Patch(':id')                       // PATCH /users/1
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto,
+  ) {
+    return this.usersService.update(id, dto);
+  }
+
+  @Delete(':id')                      // DELETE /users/1
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.remove(id);
+  }
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- ── 비교 ── -->
+  <section class="section" id="compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">📊</div>
+      <h2>프레임워크 비교</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>비교 항목</th>
+            <th>TypeORM</th>
+            <th>Prisma</th>
+            <th>Sequelize</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>SQL 제어</td>
+            <td>자동 생성 (ORM)</td>
+            <td>자동 생성 (Prisma Client)</td>
+            <td>자동 생성 (ORM)</td>
+          </tr>
+          <tr>
+            <td>학습 난이도</td>
+            <td class="star-mid">★★★☆☆</td>
+            <td class="star-high">★★☆☆☆</td>
+            <td class="star-mid">★★★☆☆</td>
+          </tr>
+          <tr>
+            <td>복잡한 쿼리</td>
+            <td>QueryBuilder ✅</td>
+            <td>Raw Query 병행</td>
+            <td>QueryInterface</td>
+          </tr>
+          <tr>
+            <td>타입 안정성</td>
+            <td>데코레이터 기반</td>
+            <td>스키마 자동 생성 ✅</td>
+            <td>타입 지원 약함</td>
+          </tr>
+          <tr>
+            <td>적합한 상황</td>
+            <td>NestJS 표준 프로젝트</td>
+            <td>빠른 개발, 스타트업</td>
+            <td>레거시 JS 프로젝트</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">실무에서는 <strong>TypeORM + Raw Query 혼용</strong> 패턴도 많습니다. 일반 CRUD는 Repository 메서드, 복잡한 통계/집계 쿼리는 QueryBuilder나 <code>query()</code> 직접 실행을 사용합니다.</div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    NestJS TypeORM 완전 가이드 · Part 6 · 실전 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

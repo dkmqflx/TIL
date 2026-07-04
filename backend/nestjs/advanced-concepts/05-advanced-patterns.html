@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 5 · 고급 패턴 — NestJS TypeORM 완전 가이드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">TypeORM 완전 가이드</span>
+    </a>
+    <div class="logo-sub">기초 CRUD · 연관관계 · 트랜잭션 · N+1 · Lock</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 기초</div>
+    <a class="nav-item" href="01-basics.html#concept">📦 기본 개념 &amp; TypeORM이란?</a>
+    <a class="nav-item" href="01-basics.html#setup">⚙️ 의존성 설정</a>
+    <a class="nav-item" href="01-basics.html#entity">🗂️ Entity 정의</a>
+    <a class="nav-item" href="01-basics.html#no-setter">🔒 Setter 대신 메서드</a>
+    <a class="nav-item" href="01-basics.html#repository">🔌 Repository 사용법</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · CRUD 오퍼레이션</div>
+    <a class="nav-item" href="02-crud.html#find">🔍 find <span class="nav-badge badge-get">GET</span></a>
+    <a class="nav-item" href="02-crud.html#save">➕ save <span class="nav-badge badge-post">POST</span></a>
+    <a class="nav-item" href="02-crud.html#update">✏️ update / save <span class="nav-badge badge-patch">PATCH</span></a>
+    <a class="nav-item" href="02-crud.html#delete">🗑️ delete / remove <span class="nav-badge badge-delete">DELETE</span></a>
+    <a class="nav-item" href="02-crud.html#soft-delete">🧹 softDelete <span class="nav-badge badge-delete">DELETE</span></a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 연관관계 매핑</div>
+    <a class="nav-item" href="03-relations.html#why-relation">🤔 연관관계가 필요한 이유</a>
+    <a class="nav-item" href="03-relations.html#many-to-one">↗️ @ManyToOne</a>
+    <a class="nav-item" href="03-relations.html#one-to-many">↙️ @OneToMany</a>
+    <a class="nav-item" href="03-relations.html#many-to-many">↔️ @ManyToMany</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 고급 쿼리</div>
+    <a class="nav-item" href="04-advanced-query.html#querybuilder">🔧 QueryBuilder</a>
+    <a class="nav-item" href="04-advanced-query.html#pagination">📄 페이지네이션</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 고급 패턴</div>
+    <a class="nav-item" href="#transaction">🔒 트랜잭션</a>
+    <a class="nav-item" href="#n-plus-1">⚡ N+1 문제</a>
+    <a class="nav-item" href="#concurrency">🏁 Race Condition &amp; Lock</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 실전</div>
+    <a class="nav-item" href="06-practice.html#exception">❌ 예외 처리</a>
+    <a class="nav-item" href="06-practice.html#pattern">🏗️ 실전 패턴</a>
+    <a class="nav-item" href="06-practice.html#compare">📊 프레임워크 비교</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="04-advanced-query.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 4 · 고급 쿼리</span></a>
+    <a class="part-pager-link next" href="06-practice.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 6 · 실전</span></a>
+  </div>
+
+  <!-- ── 트랜잭션 ── -->
+  <section class="section" id="transaction">
+    <div class="section-header">
+      <div class="section-icon icon-tx">🔒</div>
+      <h2>트랜잭션 처리</h2>
+    </div>
+
+    <p><strong>트랜잭션</strong>이란 여러 DB 작업을 <strong>하나의 묶음(논리적 단위)</strong>으로 처리하는 것입니다.<br>묶음 안의 작업이 <strong>모두 성공하면 반영(commit)</strong>, 하나라도 실패하면 <strong>전부 취소(rollback)</strong>합니다.</p>
+
+    <h3>ACID — 트랜잭션의 4대 성질</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">Atomicity (원자성)</div>
+        <div class="card-body">All or Nothing. 부분 성공 없음.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Consistency (일관성)</div>
+        <div class="card-body">트랜잭션 전후로 DB가 일관된 상태 유지.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Isolation (격리성)</div>
+        <div class="card-body">동시에 실행되는 트랜잭션끼리 간섭 없음. (→ Part 5 Lock)</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Durability (지속성)</div>
+        <div class="card-body">커밋된 트랜잭션은 장애가 나도 유지.</div>
+      </div>
+    </div>
+
+    <h3>왜 필요한가? — 트랜잭션 없는 경우의 문제</h3>
+    <p>예시: 쇼핑몰에서 주문할 때 "주문 생성"과 "재고 차감" 두 작업이 필요합니다.</p>
+
+    <div class="table-wrap" style="margin-bottom: 8px">
+      <table>
+        <thead><tr><th>상황</th><th>주문 생성</th><th>재고 차감</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>정상</td>
+            <td style="color: #10b981">✔ 성공</td>
+            <td style="color: #10b981">✔ 성공</td>
+            <td>정상 주문</td>
+          </tr>
+          <tr>
+            <td>트랜잭션 없음</td>
+            <td style="color: #10b981">✔ 성공</td>
+            <td style="color: #ef4444">✘ 실패 (재고 없음)</td>
+            <td style="color: #ef4444">주문은 생성됐는데 재고는 그대로 → 데이터 불일치</td>
+          </tr>
+          <tr>
+            <td>트랜잭션 있음</td>
+            <td style="color: #10b981">✔ 성공</td>
+            <td style="color: #ef4444">✘ 실패 → 롤백</td>
+            <td style="color: #10b981">주문 생성도 함께 취소 → 데이터 일관성 유지</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>프론트 관점에서:</strong> 트랜잭션은 여러 개의 <code>fetch()</code> 호출을 묶어서 "하나라도 실패하면 나머지도 모두 취소"되도록 보장하는 것과 같습니다. 단, 이 보장을 DB 레벨에서 처리한다는 차이가 있습니다.
+      </div>
+    </div>
+
+    <h3>트랜잭션 핵심 용어</h3>
+    <div class="table-wrap" style="margin-bottom: 20px">
+      <table>
+        <thead><tr><th>용어</th><th>의미</th></tr></thead>
+        <tbody>
+          <tr><td><strong>BEGIN</strong></td><td>트랜잭션 시작 — "지금부터 묶음 시작"</td></tr>
+          <tr><td><strong>COMMIT</strong></td><td>모든 작업 성공 → DB에 최종 반영</td></tr>
+          <tr><td><strong>ROLLBACK</strong></td><td>하나라도 실패 → 모든 작업 취소, 이전 상태로 되돌림</td></tr>
+          <tr><td><strong>manager</strong></td><td>트랜잭션 안에서 사용하는 EntityManager. 같은 트랜잭션 안의 작업임을 보장</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-title">방법 1: dataSource.transaction() ✅ 권장</div>
+        <div class="card-body">콜백 안에서 예외가 나면 자동 롤백. BEGIN/COMMIT/ROLLBACK을 직접 쓸 필요 없음.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">방법 2: QueryRunner</div>
+        <div class="card-body">BEGIN/COMMIT/ROLLBACK을 직접 제어. 트랜잭션 중간에 분기가 필요하거나 savepoint 등 고급 기능이 필요할 때.</div>
+      </div>
+    </div>
+
+    <h3>방법 1: dataSource.transaction() (권장)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import { DataSource } from 'typeorm';
+
+@Injectable()
+export class OrderService {
+  // DataSource: DB 연결 자체를 나타내는 객체
+  // Repository는 특정 Entity 전용이지만, DataSource는 트랜잭션처럼 DB 전체를 다룰 때 사용
+  constructor(private readonly dataSource: DataSource) {}
+
+  async placeOrder(productId: number, quantity: number) {
+    // transaction() 콜백 안의 모든 작업이 하나의 트랜잭션으로 묶임
+    // 콜백이 정상 종료 → 자동 COMMIT
+    // 콜백에서 예외 발생 → 자동 ROLLBACK (이전에 성공한 작업도 모두 취소)
+    await this.dataSource.transaction(async (manager) => {
+
+      // manager를 통해 작업해야 같은 트랜잭션 안에서 실행됨
+      // this.orderRepository.save()처럼 Repository를 직접 쓰면 트랜잭션 밖이 됨 — 주의!
+      await manager.save(Order, { productId, quantity }); // ← 1단계: 주문 생성
+
+      const result = await manager.decrement(             // ← 2단계: 재고 차감
+        Stock, { productId }, 'quantity', quantity
+      );
+
+      if (result.affected === 0) {
+        // 여기서 예외를 던지면 1단계(주문 생성)도 함께 롤백됨
+        throw new BadRequestException('재고가 부족합니다.');
+      }
+      // 모두 성공 → 콜백 종료 → 자동 COMMIT
+    });
+  }
+}</code></pre>
+    </div>
+
+    <h3>방법 2: QueryRunner — 직접 제어</h3>
+    <p>트랜잭션의 시작/커밋/롤백을 직접 코드로 작성합니다. 절차가 복잡한 대신 세밀한 제어가 가능합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">async transfer(fromId: number, toId: number, amount: number) {
+  // QueryRunner: DB 커넥션을 직접 잡고 트랜잭션을 수동으로 제어하는 객체
+  const queryRunner = this.dataSource.createQueryRunner();
+
+  await queryRunner.connect();          // DB 커넥션 풀에서 커넥션 획득
+  await queryRunner.startTransaction(); // BEGIN — 트랜잭션 시작
+
+  try {
+    // queryRunner.manager를 통해 작업 → 같은 트랜잭션 안에서 실행됨
+    await queryRunner.manager.decrement(Account, { id: fromId }, 'balance', amount); // 출금
+    await queryRunner.manager.increment(Account, { id: toId },   'balance', amount); // 입금
+
+    await queryRunner.commitTransaction(); // 모두 성공 → COMMIT (DB에 최종 반영)
+
+  } catch (err) {
+    // 중간에 하나라도 실패하면 ROLLBACK → 출금/입금 모두 취소
+    await queryRunner.rollbackTransaction();
+    throw err; // 에러를 다시 던져서 호출한 쪽에서도 실패를 알 수 있게 함
+
+  } finally {
+    // 성공/실패 여부와 관계없이 반드시 커넥션을 반납
+    // 안 하면 커넥션 풀이 고갈되어 다른 요청들이 DB를 못 씀
+    await queryRunner.release();
+  }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        트랜잭션 안에서는 반드시 <code>manager</code> 또는 <code>queryRunner.manager</code>를 통해 작업해야 합니다.<br>
+        <code>this.userRepository.save()</code>처럼 주입받은 Repository를 직접 쓰면 <strong>트랜잭션 밖에서 실행</strong>되어 롤백이 되지 않습니다.
+      </div>
+    </div>
+
+    <h3>독립 트랜잭션 패턴</h3>
+    <p>"주문은 실패해도 알림 로그는 남겨야 한다"처럼, 메인 트랜잭션과 <strong>별개로 커밋</strong>되어야 하는 작업은 새 <code>QueryRunner</code>로 독립 실행합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Injectable()
+export class OrderService {
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly notificationService: NotificationService,
+  ) {}
+
+  async createOrder(dto: CreateOrderDto): Promise&lt;Order&gt; {
+    // 메인 트랜잭션
+    const order = await this.dataSource.transaction(async (manager) => {
+      // ... 주문 생성 로직
+    });
+
+    // 독립 트랜잭션으로 알림 저장 (메인 실패해도 영향 없음)
+    try {
+      await this.notificationService.logNewOrder(order.id);
+    } catch (e) {
+      // 알림 실패해도 주문은 이미 커밋됨
+      console.error('알림 저장 실패:', e.message);
+    }
+
+    return order;
+  }
+}
+
+@Injectable()
+export class NotificationService {
+  constructor(private readonly dataSource: DataSource) {}
+
+  // 항상 새 QueryRunner로 독립 트랜잭션 실행
+  async logNewOrder(orderId: number): Promise&lt;void&gt; {
+    const qr = this.dataSource.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+    try {
+      await qr.manager.save(NotificationLog, { orderId });
+      await qr.commitTransaction();
+    } catch (err) {
+      await qr.rollbackTransaction();
+      throw err;
+    } finally {
+      await qr.release();
+    }
+  }
+}</code></pre>
+    </div>
+
+    <h3>트랜잭션 사용 원칙</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>원칙</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td>Service 레이어에서 관리</td><td>Controller·Repository에서 직접 트랜잭션 열지 않음</td></tr>
+          <tr><td>짧은 트랜잭션</td><td>외부 API 호출은 트랜잭션 밖에서 실행</td></tr>
+          <tr><td>finally에서 release()</td><td>QueryRunner는 반드시 release() 호출</td></tr>
+          <tr><td>오류 전파</td><td>rollback 후 예외를 다시 throw해야 상위에 전달됨</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── N+1 문제 ── -->
+  <section class="section" id="n-plus-1">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--red-soft)">⚡</div>
+      <h2>N+1 문제</h2>
+    </div>
+
+    <h3>① 프론트엔드 비유로 먼저 이해하기</h3>
+    <p>프론트에서 이런 코드를 짠다고 상상해보세요.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">❌ 이렇게 짜면 안 되는 프론트 코드</span></div>
+      <pre><code class="language-typescript">// 1. 게시글 목록을 가져옴 (API 1번)
+const posts = await fetch('/api/posts').then(r => r.json());
+// posts = [{ id: 1, userId: 3 }, { id: 2, userId: 5 }, { id: 3, userId: 3 }, ...]
+
+// 2. 각 게시글마다 작성자 정보를 따로 요청 (API N번)
+for (const post of posts) {
+  const user = await fetch(`/api/users/${post.userId}`).then(r => r.json());
+  post.author = user;
+}
+// 게시글 100개 → API 호출 101번 발생!</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>N+1 문제는 정확히 이것과 같습니다.</strong><br>
+        백엔드에서 DB를 조회할 때, TypeORM이 위의 프론트 코드처럼 동작합니다.<br>
+        게시글 100개를 가져온 뒤 — 각 게시글의 작성자를 얻으려고 DB에 100번 더 쿼리를 날립니다.<br>
+        결과: DB 쿼리 <strong>1 + 100 = 101번</strong> 실행.
+      </div>
+    </div>
+
+    <h3>② 실제로 어떻게 발생하나</h3>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// ❌ N+1이 발생하는 코드
+const products = await this.productRepository.find();
+//  └─ DB 쿼리 1번: SELECT * FROM products
+//     결과: 상품 100개 (seller 정보 없음)
+
+for (const product of products) {
+  console.log(product.seller.name);
+  //  └─ seller에 처음 접근하는 순간 TypeORM이 자동으로 DB에 쿼리를 날림
+  //     DB 쿼리 N번: SELECT * FROM members WHERE id = ?
+  //     상품마다 한 번씩 → 100번 추가 실행!
+}
+
+// 최종 DB 쿼리 수: 1 + 100 = 101번</code></pre>
+    </div>
+
+    <div class="db-demo">
+      <div class="db-demo-header">DB에 실제로 날아가는 쿼리 (상품 3개 기준)</div>
+      <table>
+        <thead><tr><th>순서</th><th>실행된 SQL</th><th>목적</th></tr></thead>
+        <tbody>
+          <tr><td>1번째</td><td><code>SELECT * FROM products</code></td><td>상품 목록 전체</td></tr>
+          <tr><td style="color:#f85149">2번째</td><td><code>SELECT * FROM members WHERE id = 3</code></td><td>상품1의 seller</td></tr>
+          <tr><td style="color:#f85149">3번째</td><td><code>SELECT * FROM members WHERE id = 5</code></td><td>상품2의 seller</td></tr>
+          <tr><td style="color:#f85149">4번째</td><td><code>SELECT * FROM members WHERE id = 3</code></td><td>상품3의 seller (같은 사람인데 또 조회!)</td></tr>
+          <tr><td colspan="3" style="text-align:center;padding:10px;color:#f85149;font-weight:600">상품이 100개면 총 101번 쿼리 → 응답이 느려지고 DB 부하 증가</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>③ 해결 방법 4가지</h3>
+    <p>공통 아이디어: <strong>"처음부터 한 번에 JOIN해서 가져온다"</strong></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>상황</th><th>해결 방법</th><th>쿼리 수</th></tr></thead>
+        <tbody>
+          <tr><td>가장 흔한 경우</td><td><code>relations</code> 옵션</td><td><span class="badge badge-ok">1번</span></td></tr>
+          <tr><td>WHERE 조건 + JOIN</td><td>QueryBuilder + <code>leftJoinAndSelect</code></td><td><span class="badge badge-ok">1번</span></td></tr>
+          <tr><td>페이지네이션 + 댓글 목록</td><td>Post 목록 → 댓글 IN 쿼리로 분리</td><td><span class="badge badge-warn">2번</span></td></tr>
+          <tr><td>복잡한 집계/통계</td><td>SQL 직접 작성 (Raw Query)</td><td><span class="badge badge-ok">1번</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>해결 1: relations 옵션 — 가장 간단</h3>
+    <p>처음부터 "seller도 같이 가져와"라고 TypeORM에 알려주면 한 번에 JOIN해서 가져옵니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">const products = await this.productRepository.find({
+  relations: {
+    seller: true,    // seller도 JOIN해서 같이 가져와
+    category: true,  // category도 JOIN해서 같이 가져와
+  },
+});
+// DB 쿼리 1번:
+// SELECT p.*, s.*, c.*
+// FROM products p
+// LEFT JOIN members s   ON p.seller_id   = s.id
+// LEFT JOIN categories c ON p.category_id = c.id
+
+for (const product of products) {
+  console.log(product.seller.name);  // 이미 가져온 데이터 → 추가 쿼리 없음!
+}</code></pre>
+    </div>
+
+    <h3>해결 2: QueryBuilder + leftJoinAndSelect — 조건이 필요할 때</h3>
+    <p><code>find()</code>에 WHERE 조건을 걸면서 동시에 JOIN도 하고 싶을 때 QueryBuilder를 씁니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">const products = await this.productRepository
+  .createQueryBuilder('p')
+  .leftJoinAndSelect('p.seller', 'seller')      // seller JOIN + 결과에 포함
+  .leftJoinAndSelect('p.category', 'category')  // category JOIN + 결과에 포함
+  .where('p.categoryId = :categoryId', { categoryId: 1 })  // 카테고리 필터
+  .getMany();
+
+// DB 쿼리 1번:
+// SELECT p.*, seller.*, category.*
+// FROM products p
+// LEFT JOIN members seller     ON p.seller_id   = seller.id
+// LEFT JOIN categories category ON p.category_id = category.id
+// WHERE p.category_id = 1</code></pre>
+    </div>
+
+    <h3>해결 3: 페이지네이션 + 댓글 목록 — 분리 조회</h3>
+    <p>게시글 10개를 페이징하면서 각 게시글의 댓글도 함께 가져오고 싶을 때, 한 번에 JOIN하면 TypeORM에서 페이지 계산이 틀립니다. 그래서 쿼리를 2번으로 분리합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// 1단계: 게시글 목록만 페이징 (쿼리 1번)
+const [posts, total] = await this.postRepository.findAndCount({
+  order: { createdAt: 'DESC' },
+  take: 10,  // 10개만
+  skip: 0,   // 0번째부터
+});
+// SELECT * FROM posts ORDER BY created_at DESC LIMIT 10 OFFSET 0
+
+// 2단계: 해당 게시글들의 댓글을 한 번에 조회 (쿼리 1번)
+// posts에서 id만 추출 → [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+const postIds = posts.map((p) => p.id);
+const comments = await this.commentRepository.find({
+  where: { postId: In(postIds) },  // WHERE post_id IN (1, 2, 3, ...)
+});
+// SELECT * FROM comments WHERE post_id IN (1, 2, 3, ..., 10)
+
+// 3단계: 코드에서 댓글을 각 게시글에 붙이기
+const commentsByPostId = {};
+for (const c of comments) {
+  if (!commentsByPostId[c.postId]) commentsByPostId[c.postId] = [];
+  commentsByPostId[c.postId].push(c);
+}
+posts.forEach((p) => (p.comments = commentsByPostId[p.id] ?? []));
+
+// 결과: 쿼리 2번으로 게시글 + 댓글 완성</code></pre>
+    </div>
+
+    <h3>해결 4: Raw Query — 복잡한 집계가 필요할 때</h3>
+    <p>상품별 리뷰 개수처럼 집계가 섞이면 TypeORM 메서드로 표현하기 어렵습니다. SQL을 직접 작성해서 한 번에 가져옵니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// 상품 목록 + 판매자명 + 카테고리명 + 리뷰 수를 한 번에
+const list = await this.dataSource.query(`
+  SELECT
+    p.id,
+    p.name,
+    p.price,
+    s.name       AS "sellerName",
+    c.name       AS "categoryName",
+    COUNT(r.id)  AS "reviewCount"   -- 리뷰 개수 집계
+  FROM products p
+  JOIN members     s ON p.seller_id   = s.id
+  JOIN categories  c ON p.category_id = c.id
+  LEFT JOIN reviews r ON r.product_id = p.id  -- 리뷰 없는 상품도 포함
+  GROUP BY p.id, s.name, c.name
+  ORDER BY p.created_at DESC
+  LIMIT $1 OFFSET $2
+`, [10, 0]);
+
+// 결과: [{ id:1, name:'노트북', sellerName:'김철수', reviewCount:'5' }, ...]
+// DB 쿼리: 1번</code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>N+1이 발생하고 있는지 확인하는 법</strong><br>
+        <code>app.module.ts</code>의 TypeORM 설정에 <code>logging: true</code>를 추가하면 실행되는 모든 SQL이 콘솔에 출력됩니다.<br>
+        같은 테이블에 대한 SELECT가 반복적으로 찍힌다면 N+1이 발생 중인 겁니다.
+      </div>
+    </div>
+
+    <h3>N+1 방지 체크리스트</h3>
+    <ul class="checklist">
+      <li>연관 데이터가 필요하면 <code>relations</code> 옵션으로 미리 명시</li>
+      <li>WHERE 조건이 있으면 QueryBuilder + <code>leftJoinAndSelect</code></li>
+      <li>페이지네이션 + 댓글 목록은 쿼리 2번으로 분리</li>
+      <li>집계가 필요하면 Raw Query 직접 작성</li>
+      <li><code>logging: true</code>로 SQL 로그 확인해서 반복 쿼리 감지</li>
+    </ul>
+  </section>
+
+  <!-- ── Race Condition & Lock ── -->
+  <section class="section" id="concurrency">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--red-soft)">🏁</div>
+      <h2>Race Condition &amp; 동시성 제어</h2>
+    </div>
+
+    <h3>① Race Condition이란?</h3>
+    <p>서버는 사용자 요청을 <strong>동시에 여러 개</strong> 처리합니다. 그런데 여러 요청이 같은 데이터를 동시에 수정하면 엉뚱한 결과가 나옵니다. 이게 Race Condition입니다.</p>
+
+    <div class="db-demo">
+      <div class="db-demo-header">예시: 잔액 10,000원 계좌에서 두 사람이 동시에 5,000원씩 출금</div>
+      <table class="scenario-table">
+        <thead><tr><th>시간</th><th>요청 A (ATM 1번)</th><th>요청 B (ATM 2번)</th><th>DB 잔액</th></tr></thead>
+        <tbody>
+          <tr><td class="time-col">T1</td><td class="tx-a">잔액 읽음 → 10,000원</td><td></td><td>10,000원</td></tr>
+          <tr><td class="time-col">T2</td><td></td><td class="tx-b">잔액 읽음 → 10,000원</td><td>10,000원</td></tr>
+          <tr><td class="time-col">T3</td><td class="tx-a">10,000 - 5,000 = 5,000원 저장</td><td></td><td>5,000원</td></tr>
+          <tr><td class="time-col">T4</td><td></td><td class="tx-b">10,000 - 5,000 = 5,000원 저장 (A의 결과 덮어씀!)</td><td>5,000원</td></tr>
+          <tr><td colspan="4" class="result-bad" style="text-align:center;padding:10px">10,000원이 빠져나갔는데 잔액은 5,000원만 줄었다 → 5,000원 사라짐!</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn" style="margin-top:12px">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>왜 이런 일이 생기나요?</strong><br>
+        A와 B 둘 다 "10,000원"을 읽은 뒤 각자 계산했기 때문입니다.<br>
+        A가 먼저 저장해서 5,000원이 됐는데, B가 그걸 모르고 자기 계산 결과(5,000원)를 덮어씁니다.<br>
+        결국 5,000원이 두 번 빠져나간 것처럼 동작해야 하는데 한 번만 반영됩니다.
+      </div>
+    </div>
+
+    <h3>② 해결 방법 2가지 — 락(Lock)</h3>
+    <p>락은 "내가 이 데이터를 쓰고 있는 동안 다른 사람은 손대지 마"라고 표시해두는 것입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af">🔄 낙관적 락 (Optimistic Lock)</div>
+        <div style="padding:16px;font-size:0.9rem;line-height:1.9">
+          <strong>가정:</strong> 충돌이 드물다<br>
+          <strong>방식:</strong> 미리 잠그지 않고, 저장할 때 "내가 읽은 뒤 누가 수정했나?" 확인<br>
+          <strong>충돌 시:</strong> 예외 발생 → 처음부터 재시도<br><br>
+          ✅ 잠금이 없어서 빠름<br>
+          ✅ 쿠폰 발급, 이벤트 응모처럼 충돌이 적을 때
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--red-soft);color:#991b1b">🔐 비관적 락 (Pessimistic Lock)</div>
+        <div style="padding:16px;font-size:0.9rem;line-height:1.9">
+          <strong>가정:</strong> 충돌이 자주 일어난다<br>
+          <strong>방식:</strong> 읽는 순간 잠금 → 내가 끝낼 때까지 다른 요청은 대기<br>
+          <strong>충돌 시:</strong> 앞 요청이 끝날 때까지 자동으로 기다림<br><br>
+          ✅ 데이터 정확도 100% 보장<br>
+          ✅ 계좌 이체, 재고 차감처럼 충돌이 잦을 때
+        </div>
+      </div>
+    </div>
+
+    <hr />
+
+    <h3>낙관적 락 — 버전 번호로 충돌 감지</h3>
+    <p><code>@VersionColumn()</code>을 엔티티에 달면 TypeORM이 자동으로 버전을 관리합니다. 저장할 때 "내가 읽었던 버전과 지금 DB 버전이 같은지" 확인합니다.</p>
+
+    <div class="db-demo">
+      <div class="db-demo-header">낙관적 락이 충돌을 잡는 흐름</div>
+      <table class="scenario-table">
+        <thead><tr><th>시간</th><th>요청 A</th><th>요청 B</th><th>DB 버전</th></tr></thead>
+        <tbody>
+          <tr><td class="time-col">T1</td><td class="tx-a">읽음: 잔액 10,000 / version=1</td><td></td><td>version=1</td></tr>
+          <tr><td class="time-col">T2</td><td></td><td class="tx-b">읽음: 잔액 10,000 / version=1</td><td>version=1</td></tr>
+          <tr><td class="time-col">T3</td><td class="tx-a">저장: WHERE version=1 → version=2로 갱신 ✅ 성공</td><td></td><td>version=2</td></tr>
+          <tr><td class="time-col">T4</td><td></td><td class="tx-b">저장: WHERE version=1 → DB는 이미 version=2 ❌ 0건 갱신</td><td>version=2</td></tr>
+          <tr><td colspan="4" style="text-align:center;padding:10px;color:#f0883e">B는 예외 발생 → 처음부터 재시도 (다시 읽으면 version=2를 보게 됨)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">account.entity.ts</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Entity('accounts')
+export class Account {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  balance: number;
+
+  // 이 컬럼만 추가하면 낙관적 락 적용 완료
+  // TypeORM이 save() 시 자동으로 버전 체크 + 버전 증가를 처리
+  @VersionColumn()
+  version: number;
+
+  withdraw(amount: number): void {
+    if (this.balance &lt; amount) throw new BadRequestException('잔액 부족');
+    this.balance -= amount;
+  }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">account.service.ts — 낙관적 락</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">async withdraw(accountId: number, amount: number): Promise&lt;void&gt; {
+  // 1) 계좌 조회 (이때 version도 함께 읽힘, 예: version=1)
+  const account = await this.accountRepository.findOneOrFail({
+    where: { id: accountId },
+  });
+
+  // 2) 잔액 변경 (아직 DB에는 반영 안 됨, 메모리에서만)
+  account.withdraw(amount);
+
+  // 3) 저장 시 TypeORM이 자동으로 아래 SQL을 실행:
+  //    UPDATE accounts
+  //    SET balance = 5000, version = 2      ← version + 1
+  //    WHERE id = 1 AND version = 1         ← 내가 읽었던 version 조건
+  //
+  //    만약 다른 요청이 먼저 저장해서 DB version이 이미 2라면
+  //    WHERE version = 1 조건이 맞지 않아 0건 갱신 → 예외 발생
+  await this.accountRepository.save(account);
+}
+
+// 충돌 시 재시도하는 버전
+async withdrawWithRetry(accountId: number, amount: number): Promise&lt;void&gt; {
+  for (let attempt = 1; attempt &lt;= 3; attempt++) {
+    try {
+      await this.withdraw(accountId, amount);
+      return;  // 성공하면 종료
+    } catch (err) {
+      // 낙관적 락 충돌 예외인 경우만 재시도
+      if (err.name === 'OptimisticLockVersionMismatchError') {
+        if (attempt === 3) {
+          // 3번 모두 실패하면 사용자에게 알림
+          throw new ConflictException('잠시 후 다시 시도해주세요.');
+        }
+        // 100ms, 200ms, 300ms 대기 후 재시도 (충돌 피하기 위해)
+        await new Promise((res) => setTimeout(res, 100 * attempt));
+      } else {
+        throw err;  // 다른 에러는 그대로 던짐
+      }
+    }
+  }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">account.controller.ts — 어디서 호출하나</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Controller('accounts')
+export class AccountController {
+  constructor(private readonly accountService: AccountService) {}
+
+  @Post(':id/withdraw')
+  async withdraw(
+    @Param('id') id: number,
+    @Body() dto: { amount: number },
+  ) {
+    // ❌ withdraw()를 직접 부르면 충돌 시 재시도 없이 바로 500 에러
+    // await this.accountService.withdraw(id, dto.amount);
+
+    // ✅ withdrawWithRetry()를 불러야 충돌 시 자동 재시도
+    // withdrawWithRetry 안에서 withdraw를 최대 3번 시도함
+    await this.accountService.withdrawWithRetry(id, dto.amount);
+    // - 성공: 200 OK
+    // - 3번 모두 충돌: ConflictException → 409 Conflict
+    // - 잔액 부족: BadRequestException → 400 Bad Request
+  }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>호출 흐름 정리</strong><br>
+        <code>Controller</code> → <code>withdrawWithRetry()</code> 호출<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ 내부에서 <code>withdraw()</code> 호출<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <code>save()</code>에서 충돌 예외 발생<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ <code>catch</code>가 잡아서 대기 후 <code>withdraw()</code> 재시도<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ 성공 시 종료 / 3번 모두 실패 시 <code>ConflictException</code>
+      </div>
+    </div>
+
+    <hr />
+
+    <h3>비관적 락 — 읽는 순간 잠금</h3>
+    <p>낙관적 락이 <strong>"일단 작업하고 나중에 충돌 확인"</strong>이라면, 비관적 락은 <strong>"처음부터 잠그고 시작"</strong>입니다. 읽는 순간 DB가 해당 행을 잠가서 내가 커밋할 때까지 다른 요청은 기다려야 합니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ 락 없이 동시 출금 (Race Condition)</div>
+        <div style="padding:14px;font-size:0.88rem;line-height:1.9">
+          A, B 둘 다 잔액 10,000원을 읽음<br>
+          A: 10,000 - 5,000 = 5,000 저장<br>
+          B: 10,000 - 5,000 = 5,000 저장 (덮어씀)<br>
+          <br>
+          결과: 10,000원이 빠져나갔는데 잔액 5,000원<br>
+          <span style="color:#f85149">→ 5,000원 소실</span>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ 비관적 락으로 순서 보장</div>
+        <div style="padding:14px;font-size:0.88rem;line-height:1.9">
+          A가 읽으면서 행을 잠금<br>
+          B는 A가 끝날 때까지 대기<br>
+          A: 10,000 - 5,000 = 5,000 저장 후 해제<br>
+          B: 5,000 읽음 → 5,000 - 5,000 = 0 저장<br>
+          <br>
+          결과: 잔액 0원<br>
+          <span style="color:#3fb950">→ 두 번 모두 정확히 반영</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="db-demo" style="margin-top:16px">
+      <div class="db-demo-header">비관적 락 단계별 흐름</div>
+      <table class="scenario-table">
+        <thead><tr><th>시간</th><th>요청 A</th><th>요청 B</th><th>DB 상태</th></tr></thead>
+        <tbody>
+          <tr><td class="time-col">T1</td><td class="tx-a">SELECT ... FOR UPDATE → 잠금 획득</td><td></td><td>🔒 A가 잠금 보유</td></tr>
+          <tr><td class="time-col">T2</td><td></td><td class="tx-b">SELECT ... FOR UPDATE 시도 → 잠겨있어서 대기 중...</td><td>🔒 B 대기</td></tr>
+          <tr><td class="time-col">T3</td><td class="tx-a">잔액 수정 (5,000원) → 저장 → 커밋</td><td></td><td>✅ 잠금 해제</td></tr>
+          <tr><td class="time-col">T4</td><td></td><td class="tx-b">이제 읽을 수 있음 → 잔액 5,000원 읽음</td><td>B가 잠금 획득</td></tr>
+          <tr><td class="time-col">T5</td><td></td><td class="tx-b">잔액 수정 (0원) → 저장 → 커밋</td><td>✅ 완료</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">account.service.ts — 비관적 락</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// ⚠️ 비관적 락은 반드시 트랜잭션 안에서 사용해야 함
+// 이유: 락은 트랜잭션이 커밋/롤백될 때 자동으로 해제됨
+//       트랜잭션 없이 락을 걸면 언제 해제할지 알 수 없음
+async withdrawWithLock(accountId: number, amount: number): Promise&lt;void&gt; {
+  await this.dataSource.transaction(async (manager) => {
+
+    // lock: { mode: 'pessimistic_write' } 옵션 하나만 추가하면 됨
+    // 실행되는 SQL:
+    //   SELECT * FROM accounts WHERE id = ? FOR UPDATE
+    //
+    // "FOR UPDATE"의 의미:
+    //   이 행을 읽는 순간 잠금 → 내 트랜잭션이 끝날 때까지
+    //   다른 요청은 이 행을 읽지도 못하고 대기
+    const account = await manager.findOne(Account, {
+      where: { id: accountId },
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!account) throw new NotFoundException('계좌 없음');
+
+    // 이 시점부터 커밋 전까지는 나만 이 계좌 수정 가능
+    // 다른 요청들은 모두 이 transaction이 끝날 때까지 대기 중
+    account.withdraw(amount);
+
+    await manager.save(account);
+    // ↑ 커밋 발생 → FOR UPDATE 잠금 자동 해제
+    // → 대기 중이던 다음 요청이 이제 읽기 시작
+  });
+}
+// ⚠️ 주의: 트랜잭션이 길어질수록 다른 요청의 대기 시간도 늘어남
+// 락을 잡는 구간을 최대한 짧게 유지하는 것이 중요</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">account.controller.ts — 컨트롤러에서 호출</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">@Controller('accounts')
+export class AccountController {
+  constructor(private readonly accountService: AccountService) {}
+
+  @Post(':id/withdraw')
+  async withdraw(
+    @Param('id') id: number,
+    @Body() dto: { amount: number },
+  ) {
+    // withdrawWithLock을 호출하면 내부에서 트랜잭션 + 락 적용
+    // - 요청이 동시에 10개 들어와도 DB 레벨에서 순서대로 처리됨
+    // - 각 요청은 앞 요청이 커밋할 때까지 대기 후 최신값을 읽음
+    await this.accountService.withdrawWithLock(id, dto.amount);
+    return { message: '출금 완료' };
+  }
+}</code></pre>
+    </div>
+
+    <h3>락이 너무 오래 걸릴 때 — 즉시 포기 옵션</h3>
+    <p>다른 요청이 이미 락을 잡고 있을 때, 기다리는 대신 즉시 예외를 던지게 할 수 있습니다. 사용자에게 "잠시 후 다시 시도하세요"를 바로 응답할 때 유용합니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">const account = await manager.findOne(Account, {
+  where: { id: accountId },
+  lock: {
+    mode: 'pessimistic_write',
+    onLocked: 'nowait',   // 락이 이미 잡혀있으면 대기하지 말고 즉시 예외
+    // 기본값은 대기 (다른 트랜잭션이 끝날 때까지 기다림)
+  },
+});
+// 다른 요청이 이미 락을 잡고 있다면:
+// onLocked 없음  → 락 해제될 때까지 무한 대기
+// onLocked: 'nowait' → LockNotAvailableError 즉시 발생 → catch에서 처리</code></pre>
+    </div>
+
+    <h3>락 종류 요약</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>TypeORM 옵션</th><th>DB SQL</th><th>동작</th><th>언제 사용</th></tr></thead>
+        <tbody>
+          <tr><td><code>'pessimistic_write'</code></td><td><code>FOR UPDATE</code></td><td>읽기·쓰기 모두 차단</td><td>계좌, 재고 등 수정이 필요한 경우</td></tr>
+          <tr><td><code>'pessimistic_read'</code></td><td><code>LOCK IN SHARE MODE</code></td><td>쓰기만 차단, 읽기는 허용</td><td>읽는 동안 수정만 막고 싶을 때</td></tr>
+          <tr><td><code>onLocked: 'nowait'</code></td><td><code>FOR UPDATE NOWAIT</code></td><td>락 대기 없이 즉시 예외</td><td>응답 속도가 중요한 경우</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr />
+
+    <h3>데드락 — 서로 기다리다 영원히 멈추는 상황</h3>
+    <p>비관적 락을 쓸 때 주의할 점입니다. A가 1번 계좌를 잠그고 2번을 기다리는데, B는 2번을 잠그고 1번을 기다리면 — 둘 다 영원히 기다리게 됩니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">❌ 데드락 발생하는 코드</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 요청 A: 계좌1 → 계좌2 이체
+// 요청 B: 계좌2 → 계좌1 이체 (동시 실행)
+
+// A 실행 순서: 계좌1 락 → 계좌2 락
+// B 실행 순서: 계좌2 락 → 계좌1 락
+
+// A가 계좌1 잠금 획득 ✅
+// B가 계좌2 잠금 획득 ✅
+// A가 계좌2 잠금 시도 → B가 갖고 있어서 대기...
+// B가 계좌1 잠금 시도 → A가 갖고 있어서 대기...
+// → 서로 무한 대기 = 데드락</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ 항상 작은 ID 먼저 잠그기</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">async transfer(fromId: number, toId: number, amount: number) {
+  // 핵심: 어떤 이체든 항상 ID가 작은 계좌를 먼저 잠금
+  // A (1→2): 계좌1 먼저 → 계좌2
+  // B (2→1): 계좌1 먼저 → 계좌2  ← 순서가 같아짐!
+  const firstId  = Math.min(fromId, toId);
+  const secondId = Math.max(fromId, toId);
+
+  await this.dataSource.transaction(async (manager) => {
+    // 두 요청 모두 같은 순서로 잠그니까
+    // B는 A가 계좌1 락 해제할 때까지 순서대로 기다림
+    const first  = await manager.findOne(Account,
+      { where: { id: firstId  }, lock: { mode: 'pessimistic_write' } });
+    const second = await manager.findOne(Account,
+      { where: { id: secondId }, lock: { mode: 'pessimistic_write' } });
+
+    // fromId/toId에 맞게 from/to 변수 재할당
+    const from = fromId === firstId ? first : second;
+    const to   = toId   === firstId ? first : second;
+
+    from.withdraw(amount);
+    to.deposit(amount);
+    await manager.save([from, to]);
+  });
+}</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <h3>낙관적 락 vs 비관적 락 — 선택 기준</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>구분</th><th>낙관적 락</th><th>비관적 락</th></tr></thead>
+        <tbody>
+          <tr><td>핵심 가정</td><td>충돌이 드물다</td><td>충돌이 자주 난다</td></tr>
+          <tr><td>잠그는 시점</td><td>안 잠금 (저장 시 버전 체크만)</td><td>읽는 순간 잠금</td></tr>
+          <tr><td>충돌 났을 때</td><td>예외 → 코드에서 재시도 필요</td><td>앞 요청 끝날 때까지 자동 대기</td></tr>
+          <tr><td>성능</td><td>좋음 (잠금 없음)</td><td>느릴 수 있음 (대기 발생)</td></tr>
+          <tr><td>데드락 위험</td><td>없음</td><td>있음 (순서 주의)</td></tr>
+          <tr><td>TypeORM 코드</td><td><code>@VersionColumn()</code></td><td><code>lock: { mode: 'pessimistic_write' }</code></td></tr>
+          <tr><td>어울리는 기능</td><td>쿠폰 발급, 이벤트 응모, 좋아요</td><td>계좌 이체, 좌석 예약, 재고 차감</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>어떤 걸 써야 할지 모르겠다면</h3>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>동시에 같은 데이터를 여러 명이 수정할 수 있나?</strong><br>아니오 → 락 불필요. 그냥 저장</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>수정이 실패하면 재시도하면 되나?</strong><br>예 (쿠폰, 이벤트) → 낙관적 락<br>아니오 (돈, 좌석 — 실패하면 안 됨) → 비관적 락</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>약간의 오차가 괜찮은가?</strong><br>예 (조회수, 통계) → 락 없이 처리해도 됨</div>
+      </div>
+    </div>
+
+    <h3>동시성 테스트 — Promise.all로 동시 요청 시뮬레이션</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">it('동시 출금 시 잔액이 정확해야 한다', async () => {
+  // 초기 잔액 10,000원으로 계좌 생성
+  const account = await accountRepository.save({ balance: 10000 });
+
+  // 10개의 요청을 동시에 보냄 (각 2,000원 출금)
+  // Promise.all → 10개가 거의 동시에 실행됨
+  const requests = Array.from({ length: 10 }, () =>
+    accountService.withdrawWithLock(account.id, 2000)
+      .catch(() => {})  // 실패한 요청은 무시 (잔액 부족 등)
+  );
+  await Promise.all(requests);
+
+  const result = await accountRepository.findOneOrFail({
+    where: { id: account.id },
+  });
+
+  // 락이 제대로 동작했다면:
+  // 10,000 / 2,000 = 5번만 성공 → 잔액 0원
+  // 나머지 5번은 "잔액 부족" 예외로 실패
+  expect(result.balance).toBe(0);  // 음수가 되면 Race Condition 발생한 것
+});</code></pre>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    NestJS TypeORM 완전 가이드 · Part 5 · 고급 패턴 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

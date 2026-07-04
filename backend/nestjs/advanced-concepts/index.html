@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NestJS TypeORM 완전 가이드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="#top">
+      <span class="logo-badge">NestJS</span>
+      <span class="logo-text">TypeORM 완전 가이드</span>
+    </a>
+    <div class="logo-sub">기초 CRUD · 연관관계 · 트랜잭션 · N+1 · Lock</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 기초</div>
+    <a class="nav-item" href="01-basics.html#concept">📦 기본 개념 &amp; TypeORM이란?</a>
+    <a class="nav-item" href="01-basics.html#setup">⚙️ 의존성 설정</a>
+    <a class="nav-item" href="01-basics.html#entity">🗂️ Entity 정의</a>
+    <a class="nav-item" href="01-basics.html#no-setter">🔒 Setter 대신 메서드</a>
+    <a class="nav-item" href="01-basics.html#repository">🔌 Repository 사용법</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · CRUD 오퍼레이션</div>
+    <a class="nav-item" href="02-crud.html#find">🔍 find <span class="nav-badge badge-get">GET</span></a>
+    <a class="nav-item" href="02-crud.html#save">➕ save <span class="nav-badge badge-post">POST</span></a>
+    <a class="nav-item" href="02-crud.html#update">✏️ update / save <span class="nav-badge badge-patch">PATCH</span></a>
+    <a class="nav-item" href="02-crud.html#delete">🗑️ delete / remove <span class="nav-badge badge-delete">DELETE</span></a>
+    <a class="nav-item" href="02-crud.html#soft-delete">🧹 softDelete <span class="nav-badge badge-delete">DELETE</span></a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 연관관계 매핑</div>
+    <a class="nav-item" href="03-relations.html#why-relation">🤔 연관관계가 필요한 이유</a>
+    <a class="nav-item" href="03-relations.html#many-to-one">↗️ @ManyToOne</a>
+    <a class="nav-item" href="03-relations.html#one-to-many">↙️ @OneToMany</a>
+    <a class="nav-item" href="03-relations.html#many-to-many">↔️ @ManyToMany</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 고급 쿼리</div>
+    <a class="nav-item" href="04-advanced-query.html#querybuilder">🔧 QueryBuilder</a>
+    <a class="nav-item" href="04-advanced-query.html#pagination">📄 페이지네이션</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 고급 패턴</div>
+    <a class="nav-item" href="05-advanced-patterns.html#transaction">🔒 트랜잭션</a>
+    <a class="nav-item" href="05-advanced-patterns.html#n-plus-1">⚡ N+1 문제</a>
+    <a class="nav-item" href="05-advanced-patterns.html#concurrency">🏁 Race Condition &amp; Lock</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 실전</div>
+    <a class="nav-item" href="06-practice.html#exception">❌ 예외 처리</a>
+    <a class="nav-item" href="06-practice.html#pattern">🏗️ 실전 패턴</a>
+    <a class="nav-item" href="06-practice.html#compare">📊 프레임워크 비교</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="hero">
+    <div class="hero-tag">BACKEND STUDY — COMPLETE</div>
+    <h1>NestJS TypeORM 완전 가이드</h1>
+    <p>게시판 API(CRUD) 기초부터 연관관계 · 트랜잭션 · N+1 해결 · 동시성 제어까지 한 번에.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">TypeORM</span>
+      <span class="hero-chip">CRUD</span>
+      <span class="hero-chip">Relations</span>
+      <span class="hero-chip">QueryBuilder</span>
+      <span class="hero-chip">Transaction</span>
+      <span class="hero-chip">N+1</span>
+      <span class="hero-chip">Optimistic Lock</span>
+      <span class="hero-chip">Pessimistic Lock</span>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>학습 순서 추천</strong>: Part 1~2(기초 CRUD)로 손에 익히고 → Part 3(연관관계) → Part 4~5(고급 쿼리·트랜잭션)까지 이해한 뒤,
+    N+1과 동시성 제어는 코드를 먼저 작성해본 다음 다시 읽으면 훨씬 잘 이해됩니다.
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🗂️</div>
+      <h2>목차</h2>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="01-basics.html">
+        <div class="part-card-num">1</div>
+        <div>
+          <div class="part-card-title">Part 1 · 기초</div>
+          <div class="part-card-sub">TypeORM 기본 개념부터 Entity, Repository까지</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="01-basics.html#concept">📦 기본 개념 &amp; TypeORM이란?</a></li>
+        <li><a href="01-basics.html#setup">⚙️ 의존성 설정</a></li>
+        <li><a href="01-basics.html#entity">🗂️ Entity 정의</a></li>
+        <li><a href="01-basics.html#no-setter">🔒 Setter 대신 메서드</a></li>
+        <li><a href="01-basics.html#repository">🔌 Repository 사용법</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="02-crud.html">
+        <div class="part-card-num">2</div>
+        <div>
+          <div class="part-card-title">Part 2 · CRUD 오퍼레이션</div>
+          <div class="part-card-sub">find · save · update · delete · softDelete</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="02-crud.html#find">🔍 find</a></li>
+        <li><a href="02-crud.html#save">➕ save</a></li>
+        <li><a href="02-crud.html#update">✏️ update / save</a></li>
+        <li><a href="02-crud.html#delete">🗑️ delete / remove</a></li>
+        <li><a href="02-crud.html#soft-delete">🧹 softDelete</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="03-relations.html">
+        <div class="part-card-num">3</div>
+        <div>
+          <div class="part-card-title">Part 3 · 연관관계 매핑</div>
+          <div class="part-card-sub">@ManyToOne · @OneToMany · @ManyToMany</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="03-relations.html#why-relation">🤔 연관관계가 필요한 이유</a></li>
+        <li><a href="03-relations.html#many-to-one">↗️ @ManyToOne</a></li>
+        <li><a href="03-relations.html#one-to-many">↙️ @OneToMany</a></li>
+        <li><a href="03-relations.html#many-to-many">↔️ @ManyToMany</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="04-advanced-query.html">
+        <div class="part-card-num">4</div>
+        <div>
+          <div class="part-card-title">Part 4 · 고급 쿼리</div>
+          <div class="part-card-sub">QueryBuilder와 페이지네이션</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="04-advanced-query.html#querybuilder">🔧 QueryBuilder</a></li>
+        <li><a href="04-advanced-query.html#pagination">📄 페이지네이션</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="05-advanced-patterns.html">
+        <div class="part-card-num">5</div>
+        <div>
+          <div class="part-card-title">Part 5 · 고급 패턴</div>
+          <div class="part-card-sub">트랜잭션 · N+1 문제 · 동시성 제어</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="05-advanced-patterns.html#transaction">🔒 트랜잭션</a></li>
+        <li><a href="05-advanced-patterns.html#n-plus-1">⚡ N+1 문제</a></li>
+        <li><a href="05-advanced-patterns.html#concurrency">🏁 Race Condition &amp; Lock</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="06-practice.html">
+        <div class="part-card-num">6</div>
+        <div>
+          <div class="part-card-title">Part 6 · 실전</div>
+          <div class="part-card-sub">예외 처리 · 실전 패턴 · 프레임워크 비교</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="06-practice.html#exception">❌ 예외 처리</a></li>
+        <li><a href="06-practice.html#pattern">🏗️ 실전 패턴</a></li>
+        <li><a href="06-practice.html#compare">📊 프레임워크 비교</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    NestJS TypeORM 완전 가이드 · Backend Study · 기초부터 N+1 · 동시성 제어까지
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

@@ -55,6 +55,7 @@
     <a class="nav-item" href="#transaction">🔒 트랜잭션</a>
     <a class="nav-item" href="#isolation">🎚️ 트랜잭션 격리 레벨</a>
     <a class="nav-item" href="#n-plus-1">⚡ N+1 문제</a>
+    <a class="nav-item" href="#bulk-insert">📥 Bulk Insert</a>
     <a class="nav-item" href="#concurrency">🏁 Race Condition &amp; Lock</a>
 
     <div class="nav-section-title" style="margin-top:8px">Part 6 · 실전</div>
@@ -669,6 +670,124 @@ const list = await this.dataSource.query(`
       <li>페이지네이션 + 댓글 목록은 쿼리 2번으로 분리</li>
       <li>집계가 필요하면 Raw Query 직접 작성</li>
       <li><code>logging: true</code>로 SQL 로그 확인해서 반복 쿼리 감지</li>
+    </ul>
+  </section>
+
+  <!-- ── Bulk Insert ── -->
+  <section class="section" id="bulk-insert">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--green-soft)">📥</div>
+      <h2>대량 삽입 (Bulk Insert)</h2>
+    </div>
+
+    <h3>① 문제: 반복문 안에서 한 건씩 저장</h3>
+    <p>CSV 업로드, 데이터 마이그레이션처럼 대량의 데이터를 저장해야 할 때, 아래처럼 짜기 쉽습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">❌ row-by-row insert</span></div>
+      <pre><code class="language-typescript">async importUsers(users: CreateUserDto[]) {
+  for (const user of users) {
+    await this.userRepository.save(user);
+    // 건마다 DB 왕복 1번 발생
+  }
+}
+// users가 10,000건이면 → INSERT 쿼리 10,000번 실행!</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        N+1 문제와 원인이 같습니다. <strong>DB 왕복(round trip) 횟수</strong>가 데이터 건수만큼 늘어나서 느려집니다.<br>
+        1건당 5ms만 걸려도 10,000건이면 약 50초 — 실제로 타임아웃이 나는 흔한 원인입니다.
+      </div>
+    </div>
+
+    <h3>② Bulk Insert란 — 여러 행을 하나의 쿼리로</h3>
+    <p>여러 row를 <strong>하나의 INSERT문</strong>으로 묶어서 보내면 DB 왕복이 1번으로 줄어듭니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span></div>
+      <pre><code class="language-sql">-- row-by-row (10,000개 쿼리)
+INSERT INTO users (name, age) VALUES ('a', 20);
+INSERT INTO users (name, age) VALUES ('b', 21);
+
+-- bulk insert (1개 쿼리)
+INSERT INTO users (name, age) VALUES
+  ('a', 20), ('b', 21), ('c', 22);</code></pre>
+    </div>
+
+    <h3>③ TypeORM에서 사용하는 방법</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>방법</th><th>변경 감지(dirty check)</th><th>관계(relation) cascade</th><th>속도</th><th>언제 사용</th></tr></thead>
+        <tbody>
+          <tr><td><code>save()</code> 반복문</td><td>O</td><td>O</td><td><span class="badge badge-warn">가장 느림</span></td><td>❌ 대량 데이터에는 쓰지 않기</td></tr>
+          <tr><td><code>save(entities, { chunk })</code></td><td>O (엔티티별)</td><td>O</td><td>보통</td><td>관계까지 함께 저장해야 할 때</td></tr>
+          <tr><td><code>insert(entities)</code></td><td>X</td><td>X</td><td><span class="badge badge-ok">빠름</span></td><td>순수 데이터 적재 (새 row만)</td></tr>
+          <tr><td>QueryBuilder <code>insert()</code></td><td>X</td><td>X</td><td><span class="badge badge-ok">빠름</span></td><td>중복 처리(upsert)까지 필요할 때</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>방법 1: insert() — 가장 간단한 bulk insert</h3>
+    <p><code>save()</code>와 달리 변경 감지(기존 row인지 확인)를 하지 않고 곧바로 INSERT만 실행하기 때문에 더 빠릅니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">async importUsers(users: CreateUserDto[]) {
+  await this.userRepository.insert(users);
+  // INSERT INTO users (name, age) VALUES (...), (...), (...), ...
+  // 쿼리 1번으로 전체 삽입
+}</code></pre>
+    </div>
+
+    <h3>방법 2: save()에 chunk 옵션 — 관계도 함께 저장할 때</h3>
+    <p>연관된 엔티티까지 cascade로 함께 저장해야 한다면 <code>insert()</code> 대신 <code>save()</code>를 써야 합니다. 이때 <code>chunk</code> 옵션으로 여러 번의 배치 쿼리로 나눠 실행할 수 있습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">await this.userRepository.save(users, { chunk: 1000 });
+// 10,000건을 1,000건씩 10번의 쿼리로 나눠서 실행</code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>chunk이 필요한 이유:</strong> 한 쿼리에 다 넣으면 DB의 <strong>파라미터 개수 제한</strong>에 걸릴 수 있습니다 (예: PostgreSQL은 쿼리당 파라미터 65,535개 제한). 그래서 적당한 크기로 나눠서 여러 번의 bulk 쿼리로 처리합니다.
+      </div>
+    </div>
+
+    <h3>방법 3: QueryBuilder insert() — 중복 데이터까지 처리(upsert)</h3>
+    <p>같은 키가 이미 존재할 때 무시하거나(<code>orIgnore</code>) 덮어쓰는(<code>orUpdate</code>) upsert 처리가 필요하면 QueryBuilder를 씁니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">await this.dataSource
+  .createQueryBuilder()
+  .insert()
+  .into(User)
+  .values(users)
+  .orIgnore()                                  // 중복 키면 해당 행만 건너뜀
+  // .orUpdate(['name', 'age'], ['email'])      // 또는 중복 키면 지정 컬럼만 갱신 (upsert)
+  .execute();</code></pre>
+    </div>
+
+    <h3>실무에서 함께 고려할 것</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>고려 사항</th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td>트랜잭션 범위</td><td>전체를 한 트랜잭션으로 묶을지, 청크마다 커밋할지 — 실패 시 어디까지 롤백할지 결정해야 함</td></tr>
+          <tr><td>청크 크기</td><td>너무 크면 파라미터 제한·락·메모리 이슈, 너무 작으면 왕복 횟수가 다시 늘어남</td></tr>
+          <tr><td>중복 데이터 처리</td><td><code>orIgnore</code> / <code>orUpdate</code>로 유니크 제약 충돌을 어떻게 처리할지 미리 정해야 함</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Bulk Insert 체크리스트</h3>
+    <ul class="checklist">
+      <li>반복문 안에서 <code>save()</code>를 한 건씩 호출하고 있지 않은지 확인</li>
+      <li>관계(relation) cascade가 필요 없다면 <code>insert()</code> 사용</li>
+      <li>관계까지 함께 저장해야 하면 <code>save(entities, { chunk })</code> 사용</li>
+      <li>중복 키 처리가 필요하면 QueryBuilder의 <code>orIgnore</code> / <code>orUpdate</code> 사용</li>
+      <li>청크 크기와 트랜잭션 범위를 데이터 규모에 맞게 조정</li>
     </ul>
   </section>
 

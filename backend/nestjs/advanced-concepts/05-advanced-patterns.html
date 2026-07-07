@@ -53,6 +53,7 @@
 
     <div class="nav-section-title" style="margin-top:8px">Part 5 · 고급 패턴</div>
     <a class="nav-item" href="#transaction">🔒 트랜잭션</a>
+    <a class="nav-item" href="#isolation">🎚️ 트랜잭션 격리 레벨</a>
     <a class="nav-item" href="#n-plus-1">⚡ N+1 문제</a>
     <a class="nav-item" href="#concurrency">🏁 Race Condition &amp; Lock</a>
 
@@ -296,6 +297,180 @@ export class NotificationService {
           <tr><td>오류 전파</td><td>rollback 후 예외를 다시 throw해야 상위에 전달됨</td></tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <!-- ── 트랜잭션 격리 레벨 ── -->
+  <section class="section" id="isolation">
+    <div class="section-header">
+      <div class="section-icon" style="background:var(--purple-soft)">🎚️</div>
+      <h2>트랜잭션 격리 레벨</h2>
+    </div>
+
+    <h3>① 비유로 먼저 이해하기 — 콘서트 티켓팅</h3>
+    <p>콘서트 티켓팅 사이트를 떠올려보세요. 나 말고도 수백 명이 동시에 같은 좌석표를 보고, 동시에 예매 버튼을 누릅니다.<br>
+    <strong>격리 레벨(Isolation Level)</strong>은 "내가 화면에서 보는 정보가, 아직 확정되지 않은 다른 사람의 작업 때문에 얼마나 흔들려도 되는가"를 정하는 규칙입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>한 줄 요약:</strong> 격리 수준을 <strong>낮게</strong> 잡으면 → 빠르지만 남의 트랜잭션에 영향을 더 많이 받음 (화면이 자주 흔들림).<br>
+        격리 수준을 <strong>높게</strong> 잡으면 → 화면은 안정적이지만, 그만큼 DB가 다른 요청을 더 많이 기다리게 해서 느려짐.
+      </div>
+    </div>
+
+    <h3>② 격리 수준이 낮을 때 생기는 3가지 문제</h3>
+    <p>격리 레벨을 신경 쓰지 않으면, 콘서트 티켓팅 화면에서 이런 일이 벌어질 수 있습니다.</p>
+
+    <div class="db-demo">
+      <div class="db-demo-header">문제 1. Dirty Read — 아직 결제도 안 끝난 좌석을 "팔린 것"으로 착각</div>
+      <table class="scenario-table">
+        <thead><tr><th>시간</th><th>트랜잭션 A (다른 예매자)</th><th>트랜잭션 B (나)</th><th>실제 DB 상태</th></tr></thead>
+        <tbody>
+          <tr><td class="time-col">T1</td><td class="tx-a">A석을 "선점"으로 표시 (결제 진행 중, 아직 COMMIT 전)</td><td></td><td>A석 = 선점 (미확정)</td></tr>
+          <tr><td class="time-col">T2</td><td></td><td class="tx-b">좌석표 조회 → A석이 "선점됨"으로 보임 → 나는 A석을 포기하고 B석을 고름</td><td>A석 = 선점 (미확정)</td></tr>
+          <tr><td class="time-col">T3</td><td class="tx-a">카드 결제 실패 → ROLLBACK (A석은 사실 계속 빈 자리였음)</td><td></td><td>A석 = 빈 좌석</td></tr>
+          <tr><td colspan="4" class="result-bad" style="text-align:center;padding:10px">나는 커밋되지도 않은(취소될 수도 있는) 정보를 믿고 B석을 골랐다 → Dirty Read</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="db-demo" style="margin-top:16px">
+      <div class="db-demo-header">문제 2. Non-repeatable Read — 같은 좌석을 두 번 봤는데 상태가 바뀜</div>
+      <table class="scenario-table">
+        <thead><tr><th>시간</th><th>트랜잭션 A (나, 예매 진행 중)</th><th>트랜잭션 B (다른 사람)</th><th>실제 DB 상태</th></tr></thead>
+        <tbody>
+          <tr><td class="time-col">T1</td><td class="tx-a">A석 조회 → "빈 좌석" 확인</td><td></td><td>A석 = 빈 좌석</td></tr>
+          <tr><td class="time-col">T2</td><td></td><td class="tx-b">A석 예매 완료 → COMMIT</td><td>A석 = 판매완료</td></tr>
+          <tr><td class="time-col">T3</td><td class="tx-a">결제 직전 다시 한 번 확인 → 방금 전과 달리 "판매완료"</td><td></td><td>A석 = 판매완료</td></tr>
+          <tr><td colspan="4" class="result-bad" style="text-align:center;padding:10px">같은 트랜잭션 안에서 같은 좌석을 두 번 읽었는데 값이 다르다 → Non-repeatable Read</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="db-demo" style="margin-top:16px">
+      <div class="db-demo-header">문제 3. Phantom Read — 목록의 "개수" 자체가 바뀜</div>
+      <table class="scenario-table">
+        <thead><tr><th>시간</th><th>트랜잭션 A (나, 조회 진행 중)</th><th>트랜잭션 B (다른 사람)</th><th>실제 DB 상태</th></tr></thead>
+        <tbody>
+          <tr><td class="time-col">T1</td><td class="tx-a">"1층 빈 좌석" 조회 → 5석</td><td></td><td>1층 빈 좌석 5석</td></tr>
+          <tr><td class="time-col">T2</td><td></td><td class="tx-b">1층 좌석 2석 추가 오픈 → COMMIT</td><td>1층 빈 좌석 7석</td></tr>
+          <tr><td class="time-col">T3</td><td class="tx-a">같은 조건으로 다시 조회 → 7석 (2석이 유령처럼 나타남)</td><td></td><td>1층 빈 좌석 7석</td></tr>
+          <tr><td colspan="4" class="result-bad" style="text-align:center;padding:10px">조회 조건은 같은데 행의 개수가 달라짐 → Phantom Read</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>③ 4단계 격리 레벨 — 어디까지 막아주는가</h3>
+    <p>SQL 표준은 격리 수준을 4단계로 정의합니다. 아래로 갈수록 더 엄격하게 막아주는 대신 더 느려질 수 있습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>격리 레벨</th><th>Dirty Read</th><th>Non-repeatable Read</th><th>Phantom Read</th><th>속도</th></tr></thead>
+        <tbody>
+          <tr><td><strong>READ UNCOMMITTED</strong></td><td style="color:#ef4444">발생</td><td style="color:#ef4444">발생</td><td style="color:#ef4444">발생</td><td>가장 빠름</td></tr>
+          <tr><td><strong>READ COMMITTED</strong></td><td style="color:#10b981">방지</td><td style="color:#ef4444">발생</td><td style="color:#ef4444">발생</td><td>빠름</td></tr>
+          <tr><td><strong>REPEATABLE READ</strong></td><td style="color:#10b981">방지</td><td style="color:#10b981">방지</td><td style="color:#ef4444">발생 <span style="opacity:.7">(MySQL은 예외적으로 방지)</span></td><td>보통</td></tr>
+          <tr><td><strong>SERIALIZABLE</strong></td><td style="color:#10b981">방지</td><td style="color:#10b981">방지</td><td style="color:#10b981">방지</td><td>가장 느림</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>실무 팁:</strong> 대부분의 경우 DB 기본값을 그대로 씁니다. 직접 바꾸는 경우는 드뭅니다.<br>
+        <strong>PostgreSQL</strong> 기본값 = <code>READ COMMITTED</code> · <strong>MySQL(InnoDB)</strong> 기본값 = <code>REPEATABLE READ</code><br>
+        MySQL은 <strong>Next-Key Lock</strong>이라는 내부 메커니즘 덕분에 REPEATABLE READ에서도 대부분의 Phantom Read를 막아줍니다 (표준과 다른 MySQL만의 특징).
+      </div>
+    </div>
+
+    <h3>④ TypeORM에서 격리 레벨 지정하기</h3>
+    <p>기본값으로 충분하지 않을 때(예: 콘서트 좌석처럼 정확성이 매우 중요한 경우) 트랜잭션 단위로 격리 레벨을 직접 지정할 수 있습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">방법 1: dataSource.transaction()</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">async reserveSeat(seatId: number, userId: number) {
+  // 첫 번째 인자로 격리 레벨을 지정
+  // 이 트랜잭션 안에서만 특별히 더 엄격하게 격리시킴
+  await this.dataSource.transaction('SERIALIZABLE', async (manager) => {
+    const seat = await manager.findOne(Seat, { where: { id: seatId } });
+
+    if (seat.status !== 'available') {
+      // 이미 다른 사람이 선점/구매한 좌석 → 예약 불가
+      throw new ConflictException('이미 예약된 좌석입니다.');
+    }
+
+    seat.status = 'reserved';
+    seat.reservedBy = userId;
+    await manager.save(seat);
+  });
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">방법 2: QueryRunner</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">const queryRunner = this.dataSource.createQueryRunner();
+await queryRunner.connect();
+
+// startTransaction()의 인자로 격리 레벨 지정
+await queryRunner.startTransaction('REPEATABLE READ');
+
+try {
+  // ... 작업
+  await queryRunner.commitTransaction();
+} catch (err) {
+  await queryRunner.rollbackTransaction();
+  throw err;
+} finally {
+  await queryRunner.release();
+}</code></pre>
+    </div>
+
+    <h3>⑤ 격리 레벨 vs 락(Lock) — 뭐가 다른가</h3>
+    <p>둘 다 동시성 문제를 다루지만 접근 방식이 다릅니다. 헷갈리기 쉬운 부분이라 표로 비교합니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af">🎚️ 격리 레벨</div>
+        <div style="padding:16px;font-size:0.9rem;line-height:1.9">
+          <strong>역할:</strong> "다른 트랜잭션의 변경사항이 나에게 얼마나 보일지"를 정하는 규칙<br>
+          <strong>방식:</strong> DB 엔진이 알아서 스냅샷/버전을 관리 (암묵적)<br>
+          <strong>범위:</strong> 트랜잭션 전체에 적용
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--red-soft);color:#991b1b">🔐 락</div>
+        <div style="padding:16px;font-size:0.9rem;line-height:1.9">
+          <strong>역할:</strong> 특정 행을 "내가 쓰는 동안 아무도 손대지 마"라고 명시적으로 잠금<br>
+          <strong>방식:</strong> 개발자가 <code>lock: { mode: ... }</code>로 직접 지정<br>
+          <strong>범위:</strong> 지정한 특정 행(row)에만 적용
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>함께 쓰는 경우가 많습니다.</strong> 예: REPEATABLE READ(격리 레벨)로 일관된 스냅샷을 보장하면서, 재고 차감처럼 특정 행 하나만 확실히 잠가야 할 때는 <code>pessimistic_write</code> 락을 추가로 겁니다.<br>
+        락에 대한 자세한 내용은 아래 <a href="#concurrency">Race Condition &amp; Lock</a> 섹션 참고.
+      </div>
+    </div>
+
+    <h3>격리 레벨 선택 기준</h3>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>기본값으로 충분한가?</strong><br>대부분의 CRUD 로직 → DB 기본값 그대로 사용 (PostgreSQL: READ COMMITTED)</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>같은 트랜잭션 안에서 같은 데이터를 여러 번 읽고, 그 값이 중간에 바뀌면 안 되나?</strong><br>예 (재고 계산, 정산) → REPEATABLE READ 이상 고려</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>절대 오차가 있으면 안 되는 결제·정산 로직인가?</strong><br>예 → SERIALIZABLE 또는 비관적 락과 병행 (단, 성능 저하는 감수)</div>
+      </div>
     </div>
   </section>
 

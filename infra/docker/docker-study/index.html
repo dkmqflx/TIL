@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docker 학습 자료</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --blue: #2496ed;
+        --blue-deep: #0b4f8a;
+        --dark: #0b2436;
+        --indigo: #5c6bc0;
+        --green: #34a853;
+        --teal: #00897b;
+        --red: #e53935;
+        --purple: #6366f1;
+        --text: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --surface: #ffffff;
+        --bg: #f9fafb;
+        --blue-soft: #e3f2fd;
+        --indigo-soft: #e8eaf6;
+        --green-soft: #e8f5e9;
+        --red-soft: #ffebee;
+        --teal-soft: #e0f2f1;
+        --purple-soft: #eef2ff;
+        --radius: 10px;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      /* ---------- Page container (사이드바 없는 랜딩 페이지이므로 .main 대신 전체 폭 컨테이너 사용) ---------- */
+      .page-container {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 48px 24px 64px;
+      }
+
+      .hero {
+        background: linear-gradient(135deg, var(--dark) 0%, var(--blue) 100%);
+        border-radius: var(--radius);
+        padding: 36px 40px;
+        margin-bottom: 40px;
+        color: white;
+      }
+      .hero-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.16);
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+      }
+      .hero h1 {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        line-height: 1.3;
+      }
+      .hero-desc {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.6;
+      }
+
+      /* ---------- Hub Page Card Grid (index.html 전용 — 카드 그리드 레이아웃만 신규 작성) ---------- */
+      .hub-page-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+      }
+      .hub-page-card {
+        display: block;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px 22px;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.15s;
+      }
+      .hub-page-card:hover {
+        border-color: var(--blue);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+      .hub-page-num {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--blue);
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+      .hub-page-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+      .hub-page-desc {
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page-container">
+      <div class="hero">
+        <div class="hero-badge">Docker 학습 자료</div>
+        <h1>Docker 학습 자료</h1>
+        <div class="hero-desc">
+          Docker 입문부터 명령어, Dockerfile, Volume, Compose까지 — 이론과 실습을 아우르는
+          8개의 강의 자료입니다. 아래 카드를 클릭해 원하는 강의로 이동하세요.
+        </div>
+      </div>
+
+      <div class="hub-page-grid">
+        <a class="hub-page-card" href="01.docker_intro.html">
+          <div class="hub-page-num">01</div>
+          <div class="hub-page-title">Docker 입문</div>
+          <div class="hub-page-desc">Docker란 무엇인가, 핵심 구성요소, VM과의 차이</div>
+        </a>
+        <a class="hub-page-card" href="02.docker_commands.html">
+          <div class="hub-page-num">02</div>
+          <div class="hub-page-title">Docker 명령어 완전 정복</div>
+          <div class="hub-page-desc">이미지/컨테이너 관리, 디버깅 명령어</div>
+        </a>
+        <a class="hub-page-card" href="03.docker_file.html">
+          <div class="hub-page-num">03</div>
+          <div class="hub-page-title">Dockerfile 완전 정복</div>
+          <div class="hub-page-desc">이미지 빌드 설계도, 레이어 캐시</div>
+        </a>
+        <a class="hub-page-card" href="실습/7.나의 첫번째 Docker image 만들어보기(ft. Flask).html">
+          <div class="hub-page-num">04</div>
+          <div class="hub-page-title">실습 7강: 나의 첫번째 Docker 이미지 (ft. Flask)</div>
+          <div class="hub-page-desc">Flask 앱을 Docker 이미지로 빌드·실행</div>
+        </a>
+        <a class="hub-page-card" href="04.docker_volume.html">
+          <div class="hub-page-num">05</div>
+          <div class="hub-page-title">Docker Volume 완전 정복</div>
+          <div class="hub-page-desc">데이터 영속성, 3가지 볼륨 종류</div>
+        </a>
+        <a class="hub-page-card" href="실습/8.Docker Volume에 대해 알아보자.html">
+          <div class="hub-page-num">06</div>
+          <div class="hub-page-title">실습 8강: Docker Volume 실습</div>
+          <div class="hub-page-desc">볼륨 생성부터 데이터 유지 확인까지</div>
+        </a>
+        <a class="hub-page-card" href="05.docker_compose.html">
+          <div class="hub-page-num">07</div>
+          <div class="hub-page-title">Docker Compose 완전 정복</div>
+          <div class="hub-page-desc">멀티 컨테이너 오케스트레이션</div>
+        </a>
+        <a class="hub-page-card" href="실습/11.Docker Compose로 다양한 서비스 통합 실행.html">
+          <div class="hub-page-num">08</div>
+          <div class="hub-page-title">실습 11강: Compose 다중 서비스 통합 실행</div>
+          <div class="hub-page-desc">Flask + MySQL을 Compose로 실행</div>
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

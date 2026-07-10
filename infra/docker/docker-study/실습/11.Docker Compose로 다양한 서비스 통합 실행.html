@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>실습 11강. Docker Compose로 다양한 서비스 통합 실행</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --blue: #2496ed;
+        --blue-deep: #0b4f8a;
+        --dark: #0b2436;
+        --indigo: #5c6bc0;
+        --green: #34a853;
+        --teal: #00897b;
+        --red: #e53935;
+        --purple: #6366f1;
+        --text: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --surface: #ffffff;
+        --bg: #f9fafb;
+        --blue-soft: #e3f2fd;
+        --indigo-soft: #e8eaf6;
+        --green-soft: #e8f5e9;
+        --red-soft: #ffebee;
+        --teal-soft: #e0f2f1;
+        --purple-soft: #eef2ff;
+        --code-bg: #0f172a;
+        --code-text: #e2e8f0;
+        --code-comment: #94a3b8;
+        --code-keyword: #7dd3fc;
+        --code-flag: #fbbf24;
+        --sidebar-w: 272px;
+        --radius: 10px;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      .layout {
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* ---------- Sidebar ---------- */
+      .sidebar {
+        width: var(--sidebar-w);
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        overflow-y: auto;
+        z-index: 100;
+      }
+      .sidebar-header {
+        padding: 20px 16px;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        z-index: 1;
+      }
+      .sidebar-badge {
+        display: inline-block;
+        background: var(--blue);
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+      .sidebar-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.4;
+      }
+      .sidebar-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .sidebar-nav {
+        padding: 12px 8px;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.15s;
+      }
+      .nav-item:hover {
+        background: var(--bg);
+        color: var(--text);
+      }
+      .nav-item.active {
+        background: var(--blue-soft);
+        color: var(--blue-deep);
+        font-weight: 600;
+      }
+      .nav-icon {
+        font-size: 14px;
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .nav-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 8px 10px;
+      }
+      .nav-section-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        padding: 6px 10px 4px;
+      }
+
+      /* ---------- Main ---------- */
+      .main {
+        margin-left: var(--sidebar-w);
+        flex: 1;
+        min-width: 0;
+        padding: 40px 48px;
+        max-width: calc(var(--sidebar-w) + 860px);
+      }
+
+      .hero {
+        background: linear-gradient(135deg, var(--dark) 0%, var(--blue) 100%);
+        border-radius: var(--radius);
+        padding: 36px 40px;
+        margin-bottom: 40px;
+        color: white;
+      }
+      .hero-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.16);
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+      }
+      .hero h1 {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        line-height: 1.3;
+      }
+      .hero-desc {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.6;
+      }
+      .hero-desc code {
+        background: rgba(255, 255, 255, 0.16);
+        color: white;
+        border: none;
+      }
+
+      section {
+        margin-bottom: 48px;
+        scroll-margin-top: 24px;
+      }
+      .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border);
+      }
+      .section-icon {
+        font-size: 22px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px 24px;
+        margin-bottom: 16px;
+      }
+      .card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .callout {
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin: 14px 0;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .callout-blue {
+        background: var(--blue-soft);
+        border-left: 4px solid var(--blue);
+      }
+      .callout-indigo {
+        background: var(--indigo-soft);
+        border-left: 4px solid var(--indigo);
+      }
+      .callout-green {
+        background: var(--green-soft);
+        border-left: 4px solid var(--green);
+      }
+      .callout-red {
+        background: var(--red-soft);
+        border-left: 4px solid var(--red);
+      }
+      .callout-teal {
+        background: var(--teal-soft);
+        border-left: 4px solid var(--teal);
+      }
+      .callout-purple {
+        background: var(--purple-soft);
+        border-left: 4px solid var(--purple);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        margin: 14px 0;
+      }
+      th {
+        background: var(--bg);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 2px solid var(--border);
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      tr:hover td {
+        background: var(--bg);
+      }
+
+      .h3-accent {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin: 18px 0 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .h3-accent::before {
+        content: "";
+        display: inline-block;
+        width: 4px;
+        height: 16px;
+        background: var(--blue);
+        border-radius: 2px;
+      }
+
+      ul.bullet {
+        list-style: none;
+        padding: 0;
+      }
+      ul.bullet li {
+        padding: 5px 0 5px 20px;
+        position: relative;
+        font-size: 14px;
+        color: var(--text);
+      }
+      ul.bullet li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--blue);
+        font-size: 12px;
+        top: 7px;
+      }
+
+      p {
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--text);
+        margin-bottom: 10px;
+      }
+      code {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 0.9em;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin: 2px;
+      }
+      .tag-blue {
+        background: var(--blue-soft);
+        color: var(--blue-deep);
+      }
+      .tag-indigo {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .tag-green {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .tag-red {
+        background: var(--red-soft);
+        color: #c62828;
+      }
+      .tag-teal {
+        background: var(--teal-soft);
+        color: var(--teal);
+      }
+
+      /* ---------- Method / Feature Cards ---------- */
+      .method-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .method-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+      }
+      .method-num {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--blue);
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+      }
+      .method-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+      .method-card.highlight {
+        border-top: 3px solid var(--blue);
+        background: var(--blue-soft);
+      }
+      .method-card.highlight .method-name {
+        color: var(--blue-deep);
+      }
+
+      /* ---------- Hub Diagram (mindmap / flower / fan 다이어그램 대체) ---------- */
+      .hub-diagram {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin: 14px 0;
+      }
+      .hub-diagram-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 16px;
+        text-align: center;
+      }
+      .hub-center {
+        text-align: center;
+        background: var(--dark);
+        color: #ffffff;
+        border-radius: var(--radius);
+        padding: 14px 22px;
+        font-weight: 700;
+        font-size: 14px;
+        margin: 0 auto 20px;
+        max-width: 320px;
+      }
+      .hub-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+      }
+      .hub-node {
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--muted);
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: var(--bg);
+      }
+      .hub-node-title {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text);
+      }
+      .hub-node-desc {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .hub-node.n1 {
+        border-top-color: var(--blue);
+      }
+      .hub-node.n1 .hub-node-title {
+        color: var(--blue-deep);
+      }
+      .hub-node.n2 {
+        border-top-color: var(--indigo);
+      }
+      .hub-node.n2 .hub-node-title {
+        color: var(--indigo);
+      }
+      .hub-node.n3 {
+        border-top-color: var(--green);
+      }
+      .hub-node.n3 .hub-node-title {
+        color: var(--green);
+      }
+      .hub-node.n4 {
+        border-top-color: var(--red);
+      }
+      .hub-node.n4 .hub-node-title {
+        color: #c62828;
+      }
+      .hub-node.n5 {
+        border-top-color: var(--teal);
+      }
+      .hub-node.n5 .hub-node-title {
+        color: var(--teal);
+      }
+      .hub-node.n6 {
+        border-top-color: var(--purple);
+      }
+      .hub-node.n6 .hub-node-title {
+        color: var(--purple);
+      }
+
+      /* ---------- Architecture / Flow Diagram ---------- */
+      .arch-diagram {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin: 14px 0;
+      }
+      .arch-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 16px;
+      }
+      .arch-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .arch-box {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        min-width: 80px;
+      }
+      .arch-box.highlight {
+        border-color: var(--blue);
+        color: var(--blue-deep);
+        background: var(--blue-soft);
+      }
+      .arch-arrow {
+        color: var(--muted);
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .arch-arrow.accent {
+        color: var(--blue);
+      }
+      .arch-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        margin-top: 4px;
+      }
+
+      /* ---------- Compare Grid ---------- */
+      .compare-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .compare-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px;
+      }
+      .compare-card.pros {
+        border-top: 3px solid var(--green);
+      }
+      .compare-card.cons {
+        border-top: 3px solid var(--red);
+      }
+      .compare-card-name {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .compare-card.pros .compare-card-name {
+        color: var(--green);
+      }
+      .compare-card.cons .compare-card-name {
+        color: var(--red);
+      }
+
+      /* ---------- Summary Card ---------- */
+      .summary-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+
+      /* ---------- Tier Ladder (스택형 / 단계형 다이어그램) ---------- */
+      .tier-ladder {
+        display: flex;
+        flex-direction: column;
+        max-width: 420px;
+      }
+      .tier-step {
+        background: var(--surface);
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        padding: 11px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .tier-step .tier-sub {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .tier-step.start {
+        border-color: var(--blue);
+        color: var(--blue-deep);
+      }
+      .tier-step.end {
+        border-color: var(--purple);
+        color: var(--purple);
+      }
+      .tier-down-arrow {
+        text-align: center;
+        color: var(--blue);
+        font-size: 15px;
+        padding: 2px 0;
+      }
+
+      /* ---------- Filter chips ---------- */
+      .filter-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0 4px;
+      }
+      .filter-chip {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      /* ---------- Code Block (문법 강조) ---------- */
+      .code-lang-label {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      pre.code-block {
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        overflow-x: auto;
+        margin: 6px 0 14px;
+      }
+      pre.code-block code {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        white-space: pre;
+        background: none;
+        border: none;
+        padding: 0;
+      }
+      pre.code-block .cm {
+        color: var(--code-comment);
+        font-style: italic;
+      }
+      pre.code-block .kw {
+        color: var(--code-keyword);
+        font-weight: 700;
+      }
+      pre.code-block .fl {
+        color: var(--code-flag);
+      }
+
+      /* ---------- Chapter Nav (이전/다음) ---------- */
+      .chapter-nav {
+        display: flex;
+        gap: 16px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+      }
+      .chapter-nav-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        text-decoration: none;
+        color: var(--text);
+        transition: all 0.15s;
+      }
+      .chapter-nav-btn:hover {
+        border-color: var(--blue);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+      .chapter-nav-arrow {
+        font-size: 18px;
+        color: var(--blue);
+        flex-shrink: 0;
+      }
+      .chapter-nav-label {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .chapter-nav-title {
+        display: block;
+        font-size: 14px;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-badge">실습 11강</div>
+          <div class="sidebar-title">Docker Compose로 다양한 서비스 통합 실행</div>
+          <div class="sidebar-sub">Flask + MySQL 멀티 서비스 실습</div>
+        </div>
+        <nav class="sidebar-nav">
+          <a class="nav-item active" href="#intro"><span class="nav-icon">🚀</span>1. 들어가며</a>
+          <a class="nav-item" href="#code-dockerfile"><span class="nav-icon">🐳</span>2-1. Dockerfile</a>
+          <a class="nav-item" href="#code-compose"><span class="nav-icon">📄</span>2-2. compose.yml</a>
+          <a class="nav-item" href="#code-app"><span class="nav-icon">🐍</span>2-3. app.py</a>
+          <a class="nav-item" href="#depends-on-retry"><span class="nav-icon">🔁</span>3. depends_on과 재시도</a>
+          <a class="nav-item" href="#run-commands"><span class="nav-icon">💻</span>4. 실행 명령어</a>
+          <a class="nav-item" href="#cross-links"><span class="nav-icon">🔗</span>5. 04강·05강 연결</a>
+          <a class="nav-item" href="#summary"><span class="nav-icon">📋</span>6. 핵심 정리</a>
+        </nav>
+      </aside>
+
+      <!-- MAIN -->
+      <main class="main">
+        <div class="hero">
+          <div class="hero-badge">Docker 강의자료 · 실습 11강</div>
+          <h1>Docker Compose로 다양한 서비스 통합 실행</h1>
+          <div class="hero-desc">
+            Compose로 Flask 앱 + MySQL을 하나로 묶어 실행해봅니다. <code>Dockerfile</code>로 이미지를
+            빌드하고, <code>compose.yml</code>로 두 서비스를 정의한 뒤, <code>app.py</code>의 재시도
+            로직이 <code>depends_on</code>의 한계를 어떻게 보완하는지까지 코드 레벨에서 확인합니다.
+          </div>
+        </div>
+
+        <section id="intro">
+          <div class="section-title"><span class="section-icon">🚀</span>1. 들어가며</div>
+          <p>
+            지금까지는 <code>docker run</code>으로 컨테이너 하나씩을 다뤘습니다. 이번 실습은
+            <strong>Flask 웹 애플리케이션</strong>과 <strong>MySQL 데이터베이스</strong>, 두 개의
+            서비스를 <code>docker compose up</code> 명령어 하나로 함께 띄우는 것이 목표입니다.
+          </p>
+          <p>디렉토리 안에는 4개의 파일이 있습니다.</p>
+          <ul class="bullet">
+            <li><code>Dockerfile</code> — Flask 애플리케이션을 담을 이미지를 빌드하는 설계도</li>
+            <li><code>compose.yml</code> — <code>app</code>(Flask) + <code>db</code>(MySQL) 두 서비스를 정의하고, 둘을 하나의 네트워크로 묶는 설정</li>
+            <li><code>app.py</code> — 환경변수로 MySQL에 접속하고, 메시지를 저장·조회하는 Flask 애플리케이션</li>
+            <li><code>requirements.txt</code> — Flask 애플리케이션이 필요로 하는 Python 패키지 목록</li>
+          </ul>
+          <p>
+            이 문서는 이 4개 파일을 <code>Dockerfile → compose.yml → app.py</code> 순서로 읽으면서,
+            여러 서비스를 하나로 통합 실행할 때 실제로 무엇을 신경 써야 하는지(서비스 간 통신, 데이터
+            영속성, 시작 순서와 준비 상태의 차이)를 코드 레벨에서 확인합니다.
+          </p>
+          <div class="callout callout-blue">
+            <strong>💡 참고:</strong> Compose 자체의 개념(왜 필요한지, <code>depends_on</code>/<code>environment</code>/<code>volumes</code>
+            문법)은 이미 <a href="../05.docker_compose.html">05강. Docker Compose 완전 정복</a>에서 다뤘습니다.
+            이 문서는 그 개념을 실제 동작하는 Flask + MySQL 예제에 적용해보는 실습편입니다.
+          </div>
+        </section>
+
+        <section id="code-dockerfile">
+          <div class="section-title"><span class="section-icon">🐳</span>2-1. Dockerfile — Flask 이미지 빌드</div>
+          <div class="code-lang-label">dockerfile</div>
+          <pre class="code-block"><code># ====================================
+# Flask 애플리케이션 Docker 이미지 빌드
+# ====================================
+# 이 Dockerfile은 Flask 웹 애플리케이션을 Docker 컨테이너에서 실행하기 위한
+# 이미지를 생성합니다. MySQL 데이터베이스와 함께 작동합니다.
+
+# Step 1: Use a lightweight Python base image
+# python:3.13-slim은 전체 Python 이미지보다 크기가 작아 컨테이너 이미지 최적화에 유리함
+FROM python:3.13-slim
+
+# Step 2: Set the working directory inside the container
+# 컨테이너 내부에서 모든 명령이 실행될 기본 디렉토리 설정
+WORKDIR /app
+
+# Step 3: Copy the application code into the container
+# 호스트의 현재 디렉토리의 모든 파일을 컨테이너의 /app 디렉토리로 복사
+# (app.py, requirements.txt 등이 포함됨)
+COPY . /app
+
+# Step 4: Install Python dependencies
+# requirements.txt에 정의된 패키지들을 설치
+# --no-cache-dir 옵션으로 캐시를 저장하지 않아 이미지 크기 감소
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Step 5: Expose the port the application will run on
+# 포트 5000을 외부에 노출 (Flask는 기본적으로 5000 포트에서 실행)
+# 이 포트는 docker-compose.yml에서 호스트 포트와 매핑됨
+EXPOSE 5000
+
+# Step 6: Define the default command to run the application
+# 컨테이너가 시작될 때 자동으로 실행될 명령어
+# Flask 애플리케이션(app.py)을 Python 인터프리터로 실행
+CMD ["python", "app.py"]</code></pre>
+
+          <div class="h3-accent">requirements.txt</div>
+          <div class="code-lang-label">text</div>
+          <pre class="code-block"><code>flask==2.3.2
+mysql-connector-python==8.1.0</code></pre>
+
+          <p>
+            이 Dockerfile은 05강에서 다룬 "Dockerfile은 이미지를 어떻게 빌드할지 정의하고,
+            <code>docker compose build</code>(또는 <code>up</code> 시 자동 빌드)가 이를 읽어 이미지를
+            만든다"는 흐름 그대로입니다. <code>compose.yml</code>의 <code>app</code> 서비스가
+            <code>build: context: .</code>로 바로 이 Dockerfile을 가리킵니다.
+          </p>
+        </section>
+
+        <section id="code-compose">
+          <div class="section-title"><span class="section-icon">📄</span>2-2. compose.yml — app + db 두 서비스 정의</div>
+          <div class="code-lang-label">yaml</div>
+          <pre class="code-block"><code># ================================================
+# Docker Compose 설정 파일
+# ================================================
+# 이 파일은 Flask 웹 애플리케이션과 MySQL 데이터베이스를 함께 실행하는
+# 멀티 컨테이너 Docker 환경을 정의합니다.
+#
+# 실행 명령어: docker-compose up
+# 중지 명령어: docker-compose down
+
+services:
+  # ================================================
+  # Flask 웹 애플리케이션 서비스
+  # ================================================
+  app:
+    build:
+      # 현재 디렉토리의 Dockerfile을 사용하여 이미지 빌드
+      context: .
+
+    ports:
+      # 호스트의 포트 5001 → 컨테이너의 포트 5000으로 매핑
+      # 웹 브라우저에서 localhost:5001로 접근 가능
+      - "5001:5000"
+
+    depends_on:
+      # db 서비스가 먼저 시작된 후에 app 서비스가 시작되도록 순서 지정
+      - db
+
+    # 환경 변수: Flask 앱에서 데이터베이스에 연결하기 위해 필요한 설정
+    environment:
+      - MYSQL_HOST=db          # Docker 네트워크 내에서 MySQL 서비스의 호스트명
+      - MYSQL_USER=root        # MySQL 사용자명
+      - MYSQL_PASSWORD=password # MySQL 루트 사용자 비밀번호
+      - MYSQL_DATABASE=exampledb # 사용할 데이터베이스명
+
+  # ================================================
+  # MySQL 데이터베이스 서비스
+  # ================================================
+  db:
+    # Docker Hub의 공식 MySQL 8.0 이미지 사용
+    image: mysql:8.0
+
+    # MySQL 초기 설정 환경 변수
+    environment:
+      MYSQL_ROOT_PASSWORD: password  # 루트 사용자 비밀번호 설정
+      MYSQL_DATABASE: exampledb      # 초기 데이터베이스 자동 생성
+
+    ports:
+      # 호스트의 포트 3306 → 컨테이너의 포트 3306으로 매핑
+      # 호스트 환경에서 MySQL 클라이언트로 접근 가능
+      - "3306:3306"
+
+    volumes:
+      # db_data 볼륨을 MySQL 데이터 디렉토리에 마운트
+      # 컨테이너가 종료되어도 데이터가 호스트에 지속됨 (데이터 영속성)
+      - db_data:/var/lib/mysql
+
+    # 서비스 상태 확인 설정
+    # Flask 앱이 연결하기 전에 MySQL이 완전히 준비되었는지 확인
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--silent"]  # MySQL 응답 확인
+      interval: 5s     # 5초마다 상태 확인
+      timeout: 10s     # 10초 내에 응답하지 않으면 실패 판정
+      retries: 3       # 최대 3회까지 재시도
+
+# ================================================
+# 볼륨(Storage) 정의
+# ================================================
+volumes:
+  # MySQL 데이터 영속성 보장을 위한 명명 볼륨
+  # Docker에서 자동으로 관리하는 호스트 디렉토리에 저장됨
+  db_data:
+
+# ================================================
+# 문제 해결 (Troubleshooting)
+# ================================================
+# 만약 문제가 발생하면 다음 명령어로 모든 볼륨과 이미지를 제거합니다:
+# docker-compose down --rmi all --volumes --remove-orphans
+#
+# 주의: 이 명령어는 db_data 볼륨의 모든 데이터를 삭제하므로 조심하세요!</code></pre>
+          <p>
+            <code>app</code> 서비스와 <code>db</code> 서비스는 같은 <code>compose.yml</code> 안에
+            정의되었기 때문에 Compose가 자동으로 만들어주는 공통 네트워크에 함께 연결됩니다. 그래서
+            <code>app</code>의 <code>environment</code>에 있는 <code>MYSQL_HOST=db</code>처럼
+            <strong>서비스 이름을 그대로 호스트명으로 사용</strong>할 수 있습니다.
+          </p>
+        </section>
+
+        <section id="code-app">
+          <div class="section-title"><span class="section-icon">🐍</span>2-3. app.py — MySQL 접속과 재시도 로직</div>
+          <div class="code-lang-label">python</div>
+          <pre class="code-block"><code>import os
+from flask import Flask
+import mysql.connector
+import time
+
+app = Flask(__name__)
+
+# Database configuration
+DB_CONFIG = {
+    'host': os.getenv("MYSQL_HOST"),  # MySQL service name from docker-compose.yml
+    'user': os.getenv("MYSQL_USER"),
+    'password': os.getenv("MYSQL_PASSWORD"),
+    'database': os.getenv("MYSQL_DATABASE"),
+}
+
+# Function to retry database connection
+def connect_with_retry(retries=5, delay=2):
+    for attempt in range(retries):
+        try:
+            connection = mysql.connector.connect(
+                host=DB_CONFIG['host'],
+                user=DB_CONFIG['user'],
+                password=DB_CONFIG['password'],
+            )
+            print("Connected to the database!")
+            return connection
+        except mysql.connector.Error as e:
+            print(f"Attempt {attempt + 1} failed: {e}")
+            time.sleep(delay)
+    raise Exception("Failed to connect to the database after multiple attempts.")
+
+# Initialize the database and table
+def initialize_database():
+    try:
+        connection = connect_with_retry()
+        cursor = connection.cursor()
+        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {os.getenv('MYSQL_DATABASE')}")
+        cursor.execute(f"USE {os.getenv('MYSQL_DATABASE')}")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                content VARCHAR(255) NOT NULL
+            )
+        """)
+        connection.commit()
+        print("Database and table initialized.")
+    except Exception as e:
+        print(f"Error initializing the database: {e}")
+    finally:
+        if 'connection' in locals() and connection:
+            connection.close()
+
+@app.route('/')
+def home():
+    try:
+        connection = mysql.connector.connect(**DB_CONFIG)
+        cursor = connection.cursor()
+
+        # Insert a message into the table
+        cursor.execute("INSERT INTO messages (content) VALUES ('Hello from MySQL!')")
+        connection.commit()
+
+        # Retrieve messages from the table
+        cursor.execute("SELECT * FROM messages")
+        rows = cursor.fetchall()
+        return f"Messages in database: {rows}"
+    except Exception as e:
+        return f"Error interacting with the database: {e}"
+    finally:
+        if 'connection' in locals() and connection:
+            connection.close()
+
+if __name__ == "__main__":
+    initialize_database()
+    app.run(host='0.0.0.0', port=5000)</code></pre>
+          <p>흐름은 다음과 같습니다.</p>
+          <ul class="bullet">
+            <li><code>DB_CONFIG</code>는 <code>compose.yml</code>의 <code>environment</code>에 정의된 4개 값(<code>MYSQL_HOST</code>, <code>MYSQL_USER</code>, <code>MYSQL_PASSWORD</code>, <code>MYSQL_DATABASE</code>)을 <code>os.getenv</code>로 그대로 읽어옵니다. 코드에 접속 정보를 하드코딩하지 않고 Compose 쪽에서 주입받는 구조입니다.</li>
+            <li>컨테이너가 시작되면 <code>if __name__ == "__main__":</code> 블록에서 <code>initialize_database()</code>를 먼저 호출해 데이터베이스와 <code>messages</code> 테이블을 준비하고, 그다음 <code>app.run(...)</code>으로 Flask 서버를 띄웁니다.</li>
+            <li><code>initialize_database()</code>는 직접 <code>mysql.connector.connect(...)</code>를 호출하지 않고 <code>connect_with_retry()</code>를 거칩니다.</li>
+            <li><code>/</code> 라우트(<code>home()</code>)에 접속하면 <code>messages</code> 테이블에 <code>'Hello from MySQL!'</code>을 INSERT하고, 다시 전체 행을 SELECT해서 <code>"Messages in database: [...]"</code> 형태로 반환합니다.</li>
+          </ul>
+        </section>
+
+        <section id="depends-on-retry">
+          <div class="section-title"><span class="section-icon">🔁</span>3. depends_on은 시작 순서만 보장한다 — retry 로직과 healthcheck의 역할</div>
+          <p>
+            05강에서 이미 짚었던 <code>depends_on</code>의 주의점이, 이 예제에서는 실제 코드로 어떻게
+            대응되는지 확인할 차례입니다.
+          </p>
+          <div class="callout callout-red">
+            <strong>⚠️ depends_on의 실체:</strong> <code>compose.yml</code>의 <code>app</code> 서비스에 있는
+            <code>depends_on: - db</code>는 "db 컨테이너의 프로세스가 시작된 뒤에 app 컨테이너를
+            시작하라"는 뜻일 뿐입니다. MySQL 컨테이너가 뜨는 것과, MySQL 서버가 커넥션을 받을 수 있을
+            만큼 초기화를 끝내는 것은 전혀 다른 이야기입니다. MySQL은 최초 구동 시 데이터 디렉토리
+            초기화에만 수 초~수십 초가 걸릴 수 있는데, <code>depends_on</code>의 짧은 목록 형식
+            (<code>- db</code>)은 이 준비 시간을 전혀 기다려주지 않습니다.
+          </div>
+          <p>
+            그래서 <code>app.py</code>에는 <code>connect_with_retry(retries=5, delay=2)</code>라는
+            방어 로직이 들어 있습니다. <code>mysql.connector.connect(...)</code>가 실패하면 예외를
+            잡아서 2초를 쉬었다가 다시 시도하기를 최대 5번 반복합니다. 즉 <strong>"db 컨테이너가
+            시작됐다"와 "MySQL이 연결을 받을 준비가 됐다" 사이의 간극을, Compose가 아니라 애플리케이션
+            코드가 재시도로 메꾸는 것</strong>입니다. <code>initialize_database()</code>가 테이블을
+            만들기 전에 반드시 <code>connect_with_retry()</code>를 거치는 이유도 여기에 있습니다 —
+            이 시점이 바로 MySQL이 아직 준비되지 않았을 가능성이 가장 큰 타이밍이기 때문입니다.
+          </p>
+          <p>한편 <code>db</code> 서비스에는 이미 <code>healthcheck</code> 블록이 정의되어 있습니다.</p>
+          <div class="code-lang-label">yaml</div>
+          <pre class="code-block"><code>healthcheck:
+  test: ["CMD", "mysqladmin", "ping", "--silent"]
+  interval: 5s
+  timeout: 10s
+  retries: 3</code></pre>
+          <p>
+            이 설정은 5초마다 컨테이너 내부에서 <code>mysqladmin ping</code>을 실행해서, MySQL이
+            실제로 연결을 받을 수 있는 상태인지 Docker가 스스로 판단하게 합니다. 다만 지금 이
+            <code>compose.yml</code>의 <code>depends_on</code>은 <code>- db</code>라는 짧은 목록
+            형식이라, 이 <code>healthcheck</code> 결과를 참조하지 않습니다. 만약
+          </p>
+          <div class="code-lang-label">yaml</div>
+          <pre class="code-block"><code>depends_on:
+  db:
+    condition: service_healthy</code></pre>
+          <p>
+            처럼 조건부 형식으로 바꾼다면, Compose가 <code>db</code>의 <code>healthcheck</code>가
+            healthy로 판정될 때까지 <code>app</code> 컨테이너 시작 자체를 미뤄줍니다 — 즉 애플리케이션이
+            재시도 로직 없이도 "이미 준비된 DB"에만 연결을 시도하게 만드는, 더 근본적이고 견고한
+            해결책입니다. 지금 이 예제는 그 대신 애플리케이션 레벨의 <code>connect_with_retry</code>로
+            같은 문제를 해결하고 있으며, <code>healthcheck</code> 블록은(조건부 <code>depends_on</code>으로
+            연결하면 그대로 활용 가능한) 더 견고한 대안이 이미 준비되어 있음을 보여줍니다.
+          </p>
+          <div class="callout callout-purple">
+            <strong>🚀 한 줄 정리:</strong> <code>depends_on</code>(순서) + <code>connect_with_retry</code>(코드
+            레벨 방어) + <code>healthcheck</code>(더 견고한 대안)는 같은 문제("DB가 준비되기 전에 앱이
+            연결을 시도하는 상황")를 서로 다른 층위에서 다루는 3가지 접근입니다.
+          </div>
+        </section>
+
+        <section id="run-commands">
+          <div class="section-title"><span class="section-icon">💻</span>4. 실행 명령어 — up → 접속 확인 → down</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 1. app + db 두 서비스를 빌드하고 실행합니다.
+docker compose up
+
+# 2. 브라우저 또는 curl로 Flask 앱에 접속합니다.
+#    compose.yml의 "5001:5000" 포트 매핑에 따라 호스트 포트는 5001입니다.
+#    http://localhost:5001
+
+# 접속할 때마다 messages 테이블에 새 행이 INSERT되고,
+# 응답으로 "Messages in database: [(1, 'Hello from MySQL!'), (2, 'Hello from MySQL!'), ...]" 형태가 출력됩니다.
+
+# 3. 실습이 끝나면 compose.yml 하단의 트러블슈팅 주석에 따라 정리합니다.
+#    --rmi all      : 빌드/사용된 이미지까지 모두 제거
+#    --volumes      : db_data 볼륨까지 제거 (MySQL 데이터가 모두 사라짐, 주의!)
+#    --remove-orphans : compose.yml에 더 이상 없는 orphan 컨테이너까지 정리
+docker compose down --rmi all --volumes --remove-orphans</code></pre>
+          <div class="callout callout-teal">
+            <strong>🔧 안내:</strong> <code>docker compose down --rmi all --volumes --remove-orphans</code>는
+            <code>compose.yml</code> 파일 맨 아래 주석에 이미 적혀 있는 명령어입니다. <code>--volumes</code>가
+            <code>db_data</code> Named Volume까지 삭제하므로, 저장된 메시지 데이터를 보존하고 싶다면
+            이 옵션 없이 <code>docker compose down</code>만 사용하세요.
+          </div>
+        </section>
+
+        <section id="cross-links">
+          <div class="section-title"><span class="section-icon">🔗</span>5. 04강 · 05강과의 연결</div>
+          <div class="card">
+            <div class="card-title">📦 04강 — <a href="../04.docker_volume.html">Docker Volume 완전 정복</a></div>
+            <p style="margin-bottom: 0">
+              <code>compose.yml</code>의 <code>volumes: - db_data:/var/lib/mysql</code>은 04강에서
+              다룬 <strong>Named Volume</strong>입니다. 컨테이너를 <code>docker compose down</code>
+              (볼륨 옵션 없이)으로 내렸다가 다시 <code>docker compose up</code>해도, <code>db_data</code>
+              볼륨에 저장된 MySQL 데이터는 그대로 유지됩니다. 반대로 위 4번 섹션의 <code>--volumes</code>
+              옵션을 붙이면 이 Named Volume 자체가 삭제되어 데이터가 사라진다는 점도 04강의 "볼륨의
+              생명주기는 컨테이너와 분리되어 있다"는 개념과 정확히 맞닿아 있습니다.
+            </p>
+          </div>
+          <div class="card">
+            <div class="card-title">🔗 05강 — <a href="../05.docker_compose.html">Docker Compose 완전 정복</a></div>
+            <p style="margin-bottom: 0">
+              <code>app</code> 서비스의 <code>environment</code>에 있는 <code>MYSQL_HOST=db</code>는
+              05강 7절 "컨테이너 간 통신"에서 설명한 <strong>서비스 이름 = 호스트명</strong> 규칙을
+              그대로 사용한 예시입니다. <code>app.py</code>가 <code>os.getenv("MYSQL_HOST")</code>로
+              읽어온 <code>"db"</code>라는 문자열은, IP 주소가 아니라 <code>compose.yml</code>에
+              정의된 MySQL 서비스의 이름이며, Compose가 두 서비스를 같은 네트워크에 묶어주기 때문에
+              이 이름만으로 연결이 가능합니다. 또한 이 문서 3절에서 다룬 <code>depends_on</code>의
+              한계도 05강 4절에서 이미 "시작 순서만 보장하고 준비 완료는 보장하지 않는다"고 언급했던
+              내용을 실제 코드(<code>connect_with_retry</code>)로 확인한 것입니다.
+            </p>
+          </div>
+        </section>
+
+        <section id="summary">
+          <div class="section-title"><span class="section-icon">📋</span>6. 핵심 정리</div>
+          <div class="summary-card">
+            <table>
+              <thead>
+                <tr><th>개념</th><th>이 실습에서의 역할</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>Dockerfile</code></td><td>Flask 앱 + 의존성을 이미지로 빌드 (<code>python:3.13-slim</code> 베이스)</td></tr>
+                <tr><td><code>compose.yml</code>의 <code>depends_on</code></td><td><code>db</code> → <code>app</code> 시작 순서만 보장</td></tr>
+                <tr><td><code>app.py</code>의 <code>connect_with_retry</code></td><td><code>depends_on</code>이 보장 못 하는 준비 완료 대기를 코드로 구현</td></tr>
+                <tr><td><code>compose.yml</code>의 <code>healthcheck</code></td><td><code>mysqladmin ping</code>으로 DB 준비 상태를 판별하는, 조건부 <code>depends_on</code>과 결합 가능한 더 견고한 대안</td></tr>
+                <tr><td><code>volumes: db_data</code></td><td>04강의 Named Volume — MySQL 데이터 영속화</td></tr>
+                <tr><td><code>MYSQL_HOST=db</code></td><td>05강의 서비스 간 통신 — 서비스 이름이 곧 호스트명</td></tr>
+                <tr><td><code>docker compose down --rmi all --volumes --remove-orphans</code></td><td>이미지·볼륨·orphan 컨테이너까지 모두 정리하는 완전 초기화 명령어</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout callout-purple">
+            <strong>🚀 핵심 한 문장:</strong> 여러 서비스를 하나로 통합 실행할 때는 <code>depends_on</code>으로
+            시작 순서만 맞추는 것으로는 부족하며, 애플리케이션의 재시도 로직이나 <code>healthcheck</code>
+            기반의 조건부 대기로 "준비 완료"까지 보장해야 안정적으로 동작한다.
+          </div>
+        </section>
+
+        <div class="chapter-nav">
+          <a class="chapter-nav-btn chapter-nav-prev" href="../05.docker_compose.html">
+            <span class="chapter-nav-arrow">←</span>
+            <span><span class="chapter-nav-label">이전 강의</span><span class="chapter-nav-title">Docker Compose 완전 정복</span></span>
+          </a>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // 사이드바 스크롤 스파이 — 현재 보이는 section에 해당하는 nav-item에 active 클래스 부여
+      (function () {
+        const items = document.querySelectorAll('.nav-item[href^="#"]');
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                items.forEach((i) => i.classList.remove("active"));
+                const link = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+                if (link) link.classList.add("active");
+              }
+            });
+          },
+          { rootMargin: "-20% 0px -70% 0px" }
+        );
+        document.querySelectorAll("section[id]").forEach((s) => observer.observe(s));
+      })();
+
+      // 코드 블록 문법 강조 — 주석(#) 색 분리 + 주요 키워드/플래그 강조 (외부 라이브러리 없이 순수 JS)
+      (function () {
+        const KEYWORDS = /\b(FROM|WORKDIR|COPY|ADD|RUN|EXPOSE|CMD|ENTRYPOINT|ENV|ARG|VOLUME|LABEL|USER|SHELL|docker|compose|services|image|build|context|ports|volumes|environment|depends_on|healthcheck|networks)\b/g;
+
+        function escapeHtml(str) {
+          return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function highlightKeywords(str) {
+          return str
+            .replace(KEYWORDS, '<span class="kw">$&</span>')
+            .replace(/(^|\s)(-{1,2}[a-zA-Z][\w-]*)/g, '$1<span class="fl">$2</span>');
+        }
+
+        document.querySelectorAll("pre.code-block code").forEach(function (block) {
+          const lines = block.textContent.split("\n");
+          block.innerHTML = lines
+            .map(function (line) {
+              const escaped = escapeHtml(line);
+              const commentIdx = escaped.indexOf("#");
+              if (commentIdx !== -1) {
+                const codePart = escaped.slice(0, commentIdx);
+                const commentPart = escaped.slice(commentIdx);
+                return highlightKeywords(codePart) + '<span class="cm">' + commentPart + "</span>";
+              }
+              return highlightKeywords(escaped);
+            })
+            .join("\n");
+        });
+      })();
+    </script>
+  </body>
+</html>

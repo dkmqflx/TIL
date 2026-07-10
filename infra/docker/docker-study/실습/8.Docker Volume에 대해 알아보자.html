@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>실습 8강. Docker Volume에 대해 알아보자</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --blue: #2496ed;
+        --blue-deep: #0b4f8a;
+        --dark: #0b2436;
+        --indigo: #5c6bc0;
+        --green: #34a853;
+        --teal: #00897b;
+        --red: #e53935;
+        --purple: #6366f1;
+        --text: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --surface: #ffffff;
+        --bg: #f9fafb;
+        --blue-soft: #e3f2fd;
+        --indigo-soft: #e8eaf6;
+        --green-soft: #e8f5e9;
+        --red-soft: #ffebee;
+        --teal-soft: #e0f2f1;
+        --purple-soft: #eef2ff;
+        --code-bg: #0f172a;
+        --code-text: #e2e8f0;
+        --code-comment: #94a3b8;
+        --code-keyword: #7dd3fc;
+        --code-flag: #fbbf24;
+        --sidebar-w: 272px;
+        --radius: 10px;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      .layout {
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* ---------- Sidebar ---------- */
+      .sidebar {
+        width: var(--sidebar-w);
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        overflow-y: auto;
+        z-index: 100;
+      }
+      .sidebar-header {
+        padding: 20px 16px;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        z-index: 1;
+      }
+      .sidebar-badge {
+        display: inline-block;
+        background: var(--blue);
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+      .sidebar-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.4;
+      }
+      .sidebar-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .sidebar-nav {
+        padding: 12px 8px;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.15s;
+      }
+      .nav-item:hover {
+        background: var(--bg);
+        color: var(--text);
+      }
+      .nav-item.active {
+        background: var(--blue-soft);
+        color: var(--blue-deep);
+        font-weight: 600;
+      }
+      .nav-icon {
+        font-size: 14px;
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .nav-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 8px 10px;
+      }
+      .nav-section-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        padding: 6px 10px 4px;
+      }
+
+      /* ---------- Main ---------- */
+      .main {
+        margin-left: var(--sidebar-w);
+        flex: 1;
+        min-width: 0;
+        padding: 40px 48px;
+        max-width: calc(var(--sidebar-w) + 860px);
+      }
+
+      .hero {
+        background: linear-gradient(135deg, var(--dark) 0%, var(--blue) 100%);
+        border-radius: var(--radius);
+        padding: 36px 40px;
+        margin-bottom: 40px;
+        color: white;
+      }
+      .hero-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.16);
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+      }
+      .hero h1 {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        line-height: 1.3;
+      }
+      .hero-desc {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.6;
+      }
+
+      section {
+        margin-bottom: 48px;
+        scroll-margin-top: 24px;
+      }
+      .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border);
+      }
+      .section-icon {
+        font-size: 22px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px 24px;
+        margin-bottom: 16px;
+      }
+      .card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .callout {
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin: 14px 0;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .callout-blue {
+        background: var(--blue-soft);
+        border-left: 4px solid var(--blue);
+      }
+      .callout-indigo {
+        background: var(--indigo-soft);
+        border-left: 4px solid var(--indigo);
+      }
+      .callout-green {
+        background: var(--green-soft);
+        border-left: 4px solid var(--green);
+      }
+      .callout-red {
+        background: var(--red-soft);
+        border-left: 4px solid var(--red);
+      }
+      .callout-teal {
+        background: var(--teal-soft);
+        border-left: 4px solid var(--teal);
+      }
+      .callout-purple {
+        background: var(--purple-soft);
+        border-left: 4px solid var(--purple);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        margin: 14px 0;
+      }
+      th {
+        background: var(--bg);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 2px solid var(--border);
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      tr:hover td {
+        background: var(--bg);
+      }
+
+      .h3-accent {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin: 18px 0 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .h3-accent::before {
+        content: "";
+        display: inline-block;
+        width: 4px;
+        height: 16px;
+        background: var(--blue);
+        border-radius: 2px;
+      }
+
+      ul.bullet {
+        list-style: none;
+        padding: 0;
+      }
+      ul.bullet li {
+        padding: 5px 0 5px 20px;
+        position: relative;
+        font-size: 14px;
+        color: var(--text);
+      }
+      ul.bullet li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--blue);
+        font-size: 12px;
+        top: 7px;
+      }
+
+      p {
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--text);
+        margin-bottom: 10px;
+      }
+      code {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 0.9em;
+        background: var(--bg);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin: 2px;
+      }
+      .tag-blue {
+        background: var(--blue-soft);
+        color: var(--blue-deep);
+      }
+      .tag-indigo {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .tag-green {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .tag-red {
+        background: var(--red-soft);
+        color: #c62828;
+      }
+      .tag-teal {
+        background: var(--teal-soft);
+        color: var(--teal);
+      }
+
+      /* ---------- Method / Feature Cards ---------- */
+      .method-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .method-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+      }
+      .method-num {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--blue);
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+      }
+      .method-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+      .method-card.highlight {
+        border-top: 3px solid var(--blue);
+        background: var(--blue-soft);
+      }
+      .method-card.highlight .method-name {
+        color: var(--blue-deep);
+      }
+
+      /* ---------- Hub Diagram (mindmap / flower / fan 다이어그램 대체) ---------- */
+      .hub-diagram {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin: 14px 0;
+      }
+      .hub-diagram-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 16px;
+        text-align: center;
+      }
+      .hub-center {
+        text-align: center;
+        background: var(--dark);
+        color: #ffffff;
+        border-radius: var(--radius);
+        padding: 14px 22px;
+        font-weight: 700;
+        font-size: 14px;
+        margin: 0 auto 20px;
+        max-width: 320px;
+      }
+      .hub-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+      }
+      .hub-node {
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--muted);
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: var(--bg);
+      }
+      .hub-node-title {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text);
+      }
+      .hub-node-desc {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .hub-node.n1 {
+        border-top-color: var(--blue);
+      }
+      .hub-node.n1 .hub-node-title {
+        color: var(--blue-deep);
+      }
+      .hub-node.n2 {
+        border-top-color: var(--indigo);
+      }
+      .hub-node.n2 .hub-node-title {
+        color: var(--indigo);
+      }
+      .hub-node.n3 {
+        border-top-color: var(--green);
+      }
+      .hub-node.n3 .hub-node-title {
+        color: var(--green);
+      }
+      .hub-node.n4 {
+        border-top-color: var(--red);
+      }
+      .hub-node.n4 .hub-node-title {
+        color: #c62828;
+      }
+      .hub-node.n5 {
+        border-top-color: var(--teal);
+      }
+      .hub-node.n5 .hub-node-title {
+        color: var(--teal);
+      }
+      .hub-node.n6 {
+        border-top-color: var(--purple);
+      }
+      .hub-node.n6 .hub-node-title {
+        color: var(--purple);
+      }
+
+      /* ---------- Architecture / Flow Diagram ---------- */
+      .arch-diagram {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin: 14px 0;
+      }
+      .arch-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 16px;
+      }
+      .arch-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .arch-box {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        min-width: 80px;
+      }
+      .arch-box.highlight {
+        border-color: var(--blue);
+        color: var(--blue-deep);
+        background: var(--blue-soft);
+      }
+      .arch-arrow {
+        color: var(--muted);
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .arch-arrow.accent {
+        color: var(--blue);
+      }
+      .arch-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        margin-top: 4px;
+      }
+
+      /* ---------- Compare Grid ---------- */
+      .compare-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .compare-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px;
+      }
+      .compare-card.pros {
+        border-top: 3px solid var(--green);
+      }
+      .compare-card.cons {
+        border-top: 3px solid var(--red);
+      }
+      .compare-card-name {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .compare-card.pros .compare-card-name {
+        color: var(--green);
+      }
+      .compare-card.cons .compare-card-name {
+        color: var(--red);
+      }
+
+      /* ---------- Summary Card ---------- */
+      .summary-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+
+      /* ---------- Tier Ladder (스택형 / 단계형 다이어그램) ---------- */
+      .tier-ladder {
+        display: flex;
+        flex-direction: column;
+        max-width: 420px;
+      }
+      .tier-step {
+        background: var(--surface);
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        padding: 11px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .tier-step .tier-sub {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .tier-step.start {
+        border-color: var(--blue);
+        color: var(--blue-deep);
+      }
+      .tier-step.end {
+        border-color: var(--purple);
+        color: var(--purple);
+      }
+      .tier-down-arrow {
+        text-align: center;
+        color: var(--blue);
+        font-size: 15px;
+        padding: 2px 0;
+      }
+
+      /* ---------- Filter chips ---------- */
+      .filter-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0 4px;
+      }
+      .filter-chip {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      /* ---------- Code Block (문법 강조) ---------- */
+      .code-lang-label {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      pre.code-block {
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        overflow-x: auto;
+        margin: 6px 0 14px;
+      }
+      pre.code-block code {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        white-space: pre;
+        background: none;
+        padding: 0;
+      }
+      pre.code-block .cm {
+        color: var(--code-comment);
+        font-style: italic;
+      }
+      pre.code-block .kw {
+        color: var(--code-keyword);
+        font-weight: 700;
+      }
+      pre.code-block .fl {
+        color: var(--code-flag);
+      }
+
+      /* ---------- Chapter Nav (이전/다음) ---------- */
+      .chapter-nav {
+        display: flex;
+        gap: 16px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+      }
+      .chapter-nav-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        text-decoration: none;
+        color: var(--text);
+        transition: all 0.15s;
+      }
+      .chapter-nav-btn:hover {
+        border-color: var(--blue);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+      .chapter-nav-next {
+        text-align: right;
+        justify-content: flex-end;
+      }
+      .chapter-nav-arrow {
+        font-size: 18px;
+        color: var(--blue);
+        flex-shrink: 0;
+      }
+      .chapter-nav-label {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .chapter-nav-title {
+        display: block;
+        font-size: 14px;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-badge">실습 8강</div>
+          <div class="sidebar-title">Docker Volume에 대해 알아보자</div>
+          <div class="sidebar-sub">CLI 복습 + 볼륨 핸즈온 실습</div>
+        </div>
+        <nav class="sidebar-nav">
+          <a class="nav-item active" href="#intro"><span class="nav-icon">🚀</span>들어가며</a>
+          <a class="nav-item" href="#cli-review"><span class="nav-icon">💻</span>CLI 명령어 복습</a>
+          <a class="nav-item" href="#volume-cmd"><span class="nav-icon">🗄️</span>Volume 명령어</a>
+          <a class="nav-item" href="#practice1"><span class="nav-icon">🔁</span>실습 1: 전체 흐름</a>
+          <a class="nav-item" href="#practice2"><span class="nav-icon">🤝</span>실습 2: 볼륨 공유</a>
+          <a class="nav-item" href="#summary"><span class="nav-icon">📋</span>핵심 정리</a>
+        </nav>
+      </aside>
+
+      <!-- MAIN -->
+      <main class="main">
+        <div class="hero">
+          <div class="hero-badge">Docker 강의자료 · 실습 8강</div>
+          <h1>Docker Volume 실습</h1>
+          <div class="hero-desc">
+            04강에서 배운 Docker Volume 개념을 바탕으로, 이번에는 명령어를 실제로 손으로
+            타이핑하며 동작을 확인합니다. General/Image/Container 명령어를 다시 한 번 복습하고,
+            <strong>볼륨 생성 → 컨테이너 마운트 → 데이터 쓰기 → 컨테이너 삭제 → 재생성 후 데이터
+            유지 확인</strong>까지 전체 흐름을 순서대로 따라갑니다.
+          </div>
+        </div>
+
+        <section id="intro">
+          <div class="section-title"><span class="section-icon">🚀</span>1. 들어가며</div>
+          <p>
+            이 문서는 <a href="../04.docker_volume.html">04강. Docker Volume 완전 정복</a>의
+            <strong>실습 관점 보충 문서</strong>입니다. Volume이 왜 필요한지, Anonymous/Named
+            Volume과 Bind Mount의 차이, 4가지 핵심 특징 같은 이론은 04강에서 이미 다뤘으므로 여기서는
+            반복하지 않습니다. 대신 지금까지 배운 Docker CLI 명령어 전반을 한 번 더 복습하고,
+            볼륨 명령어를 실제로 타이핑하면서 <strong>컨테이너를 지워도 볼륨 데이터는 남는다</strong>는
+            사실을 직접 확인하는 데 집중합니다.
+          </p>
+          <div class="callout callout-indigo">
+            <strong>📘 참고:</strong> 개념이 헷갈리면 언제든
+            <a href="../04.docker_volume.html">04강 Docker Volume 완전 정복</a> 문서를 다시 열어보세요.
+            이 문서의 모든 실습은 04강에서 설명한 <code>-v [volume-name]:[container-path]</code> 구문을
+            그대로 사용합니다.
+          </div>
+        </section>
+
+        <section id="cli-review">
+          <div class="section-title"><span class="section-icon">💻</span>2. CLI 명령어 복습</div>
+          <p>본격적인 Volume 실습에 앞서, 지금까지 배운 기본 명령어들을 카테고리별로 다시 훑어봅니다.</p>
+
+          <div class="h3-accent">General Docker Commands</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 현재 설치된 Docker의 버전을 출력합니다.
+docker --version
+
+# Docker 전체 시스템 정보를 출력합니다.
+# 실행 중인 컨테이너 수, 이미지 수, 스토리지 드라이버 종류 등을 확인할 수 있습니다.
+docker info
+
+# 사용 가능한 모든 Docker 명령어와 옵션 목록을 출력합니다.
+docker help</code></pre>
+
+          <div class="h3-accent">Image Management</div>
+          <div class="callout callout-blue"><strong>이미지(Image)란?</strong> 컨테이너를 만들기 위한 '설계도'입니다. 예를 들어 nginx 이미지를 받아서 여러 개의 nginx 컨테이너를 실행할 수 있습니다.</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 로컬(내 컴퓨터)에 저장된 이미지 목록을 출력합니다.
+docker images
+
+# Docker Hub(공개 이미지 저장소)에서 이미지를 다운로드합니다.
+# 예: docker pull nginx
+docker pull [image-name]
+
+# 현재 디렉토리의 Dockerfile을 사용해 이미지를 빌드하고 이름을 붙입니다.
+# -t: 이미지에 이름(태그)을 붙이는 옵션
+# . : Dockerfile이 있는 현재 디렉토리를 의미
+docker build -t [image-name] .
+
+# 이미지에 다른 이름이나 버전 태그를 붙입니다.
+# 예: docker tag my-app my-app:v1.0
+docker tag [source-image] [target-image:tag]
+
+# 이미지를 Docker Hub 같은 레지스트리에 업로드합니다.
+docker push [image-name]
+
+# 이미지를 삭제합니다. (실행 중인 컨테이너가 사용 중인 이미지는 삭제 불가)
+docker rmi [image-id]</code></pre>
+
+          <div class="h3-accent">Container Management</div>
+          <div class="callout callout-blue"><strong>컨테이너(Container)란?</strong> 이미지를 실행한 인스턴스입니다. 이미지가 '설계도'라면 컨테이너는 그 설계도로 만든 '실제 건물'입니다.</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 현재 실행 중인 컨테이너 목록을 출력합니다.
+docker ps
+
+# 중지된 컨테이너를 포함해 모든 컨테이너 목록을 출력합니다.
+docker ps -a
+
+# 이미지로부터 컨테이너를 생성하고 실행합니다.
+docker run [options] [image-name]
+    # 자주 쓰이는 옵션들:
+    -d                              # 백그라운드(detached)에서 실행. 터미널을 점유하지 않음
+    -p [host-port]:[container-port] # 호스트 포트와 컨테이너 포트를 연결(포트 포워딩)
+                                    # 예: -p 8080:80 → 내 컴퓨터의 8080으로 접속하면 컨테이너의 80 포트로 연결
+    --name [container-name]         # 컨테이너에 이름을 지정 (없으면 Docker가 랜덤 이름 생성)
+    -v [host-path]:[container-path] # 볼륨(저장소)을 마운트 → 아래 실습에서 직접 다뤄봅니다.
+
+# 컨테이너를 삭제합니다. (먼저 중지한 후 삭제해야 함)
+docker rm [container-id/name]
+
+# 실행 중인 컨테이너를 강제로 삭제합니다. (-f = force)
+docker rm -f [container-id/name]
+
+# 실행 중인 컨테이너를 중지합니다.
+docker stop [container-id/name]
+
+# 중지된 컨테이너를 다시 시작합니다.
+docker start [container-id/name]
+
+# 컨테이너를 재시작합니다. (stop → start를 한 번에)
+docker restart [container-id/name]</code></pre>
+
+          <div class="h3-accent">Container Interaction</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 실행 중인 컨테이너 안에서 명령어를 실행합니다.
+# -it: 인터랙티브 터미널 모드 (직접 입력을 주고받을 수 있게 함)
+# 예: docker exec -it [container-id] /bin/bash → 컨테이너 내부의 bash 셸을 열어 직접 조작
+docker exec [container-id/name] [command]
+
+# 컨테이너의 로그를 출력합니다.
+docker logs [options] [container-id/name]
+    --follow    # 로그를 실시간으로 스트리밍 (Ctrl+C로 종료)
+
+# 실행 중인 컨테이너의 표준 입출력에 내 터미널을 연결합니다.
+# exec와의 차이: exec는 새 프로세스를 실행, attach는 기존 메인 프로세스에 붙음
+docker attach [container-id/name]
+
+# 컨테이너를 즉시 강제 종료합니다.
+# SIGKILL: 프로세스를 즉시 죽이는 신호 (저장 없이 강제 종료)
+# SIGTERM: 정상 종료를 요청하는 신호 (프로세스가 정리 후 종료)
+docker kill [options] [container-id/name]
+    --signal, -s    # 보낼 신호를 지정 (기본값: SIGKILL)</code></pre>
+
+          <div class="h3-accent">Debugging Commands</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 컨테이너, 이미지, 네트워크 등의 상세 정보를 JSON 형식으로 출력합니다.
+# IP 주소, 볼륨 마운트 경로, 환경 변수 등을 확인할 때 유용
+docker inspect [object-id/name]
+
+# 실행 중인 컨테이너들의 CPU, 메모리 등 리소스 사용량을 실시간으로 출력합니다.
+docker stats [container-id/name]
+
+# 컨테이너 안에서 실행 중인 프로세스 목록을 출력합니다.
+docker top [container-id/name]
+
+# Docker 데몬에서 발생하는 이벤트를 실시간으로 출력합니다.
+# 컨테이너 시작/중지, 이미지 pull 등의 이벤트 확인 가능
+docker events</code></pre>
+        </section>
+
+        <section id="volume-cmd">
+          <div class="section-title"><span class="section-icon">🗄️</span>3. Volume 명령어</div>
+          <div class="callout callout-indigo">
+            📌 <strong>개념은 여기서 다시 설명하지 않습니다.</strong> Volume이 왜 필요한지, Anonymous/Named
+            Volume과 Bind Mount의 차이, Volume의 4가지 핵심 특징, best practice 등 이론 전반은
+            <a href="../04.docker_volume.html">04강. Docker Volume 완전 정복</a> 문서를 참고하세요.
+            이 문서(실습 8강)는 그 이론을 바탕으로 <strong>명령어를 실제로 손으로 타이핑하며</strong>
+            볼륨의 동작을 직접 확인하는 데 집중합니다.
+          </div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 새로운 볼륨을 생성합니다.
+# Docker가 내부적으로 저장 공간을 만들어 관리합니다.
+docker volume create my_volume
+
+# 현재 존재하는 볼륨 목록을 출력합니다.
+docker volume ls
+
+# 특정 볼륨의 상세 정보를 출력합니다.
+# 볼륨이 실제로 저장된 호스트 경로(Mountpoint) 등을 확인할 수 있습니다.
+docker volume inspect my_volume
+
+# 볼륨을 삭제합니다. (사용 중인 볼륨은 삭제 불가)
+docker volume rm my_volume
+
+# 어떤 컨테이너에서도 사용되지 않는 볼륨을 모두 삭제합니다.
+# 디스크 공간을 정리할 때 유용 (주의: 복구 불가)
+docker volume prune</code></pre>
+        </section>
+
+        <section id="practice1">
+          <div class="section-title"><span class="section-icon">🔁</span>4. 실습 1: Named Volume 생성부터 데이터 유지 확인까지</div>
+          <p>
+            이 실습의 목표는 "컨테이너를 삭제해도 볼륨에 저장한 데이터는 그대로 남아있다"는 것을
+            직접 눈으로 확인하는 것입니다. 전체 흐름은 다음 5단계로 진행합니다.
+          </p>
+          <div class="arch-diagram">
+            <div class="tier-ladder">
+              <div class="tier-step start">1단계 — 볼륨 생성<div class="tier-sub"><code>docker volume create my_volume</code></div></div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step">2단계 — 컨테이너에 마운트<div class="tier-sub"><code>docker run -v my_volume:/data busybox sh</code></div></div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step">3단계 — 데이터 쓰기<div class="tier-sub"><code>echo "..." > /data/hello.txt</code></div></div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step">4단계 — 컨테이너 삭제 확인<div class="tier-sub"><code>docker ps -a</code>로 컨테이너 소멸 확인</div></div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step end">5단계 — 재생성 후 데이터 유지 확인<div class="tier-sub">새 컨테이너에서 <code>cat /data/hello.txt</code></div></div>
+            </div>
+          </div>
+
+          <div class="h3-accent">0단계: 실습 전 상태 확인</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 현재 존재하는 볼륨 목록을 확인합니다. (아직 my_volume은 없는 것이 정상)
+docker volume ls
+
+# 현재 실행 중이거나 중지된 컨테이너 목록을 확인합니다.
+docker ps -a</code></pre>
+
+          <div class="h3-accent">1단계: 볼륨 생성</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 'my_volume'이라는 이름의 볼륨을 생성합니다.
+docker volume create my_volume
+
+# 목록에 my_volume이 추가됐는지 확인합니다.
+docker volume ls
+# 예시 출력:
+# DRIVER    VOLUME NAME
+# local     my_volume
+
+# 볼륨이 호스트의 어느 경로에 저장되는지 상세 정보로 확인합니다.
+docker volume inspect my_volume
+# "Mountpoint": "/var/lib/docker/volumes/my_volume/_data" 형태의 경로가 출력됩니다.
+# 이 시점에는 아직 아무 파일도 쓰지 않았으므로 비어 있는 폴더입니다.</code></pre>
+
+          <div class="h3-accent">2단계: 컨테이너를 실행하며 볼륨 마운트</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># busybox 컨테이너를 실행하면서 my_volume을 컨테이너 내부 /data 경로에 연결합니다.
+# --rm  : 컨테이너가 종료되면 컨테이너 자체는 자동으로 삭제 (볼륨은 영향 없음)
+# -it   : 인터랙티브 터미널 모드 (직접 명령어를 입력하기 위해 필요)
+# -v my_volume:/data : 'my_volume' 볼륨을 컨테이너 내부의 /data 경로에 연결
+# busybox : 매우 가벼운 리눅스 이미지 (실습용으로 자주 사용)
+# sh    : 컨테이너 실행 후 sh(셸)를 시작
+docker run --rm -it -v my_volume:/data busybox sh</code></pre>
+
+          <div class="h3-accent">3단계: 컨테이너 내부에서 데이터 쓰기</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code>    # --- 여기서부터는 busybox 컨테이너 내부 ---
+
+    # /data 디렉토리 내용을 먼저 확인합니다. (1단계에서 확인한 것처럼 아직 비어 있음)
+    ls -al /data
+
+    # /data 디렉토리에 hello.txt 파일을 생성합니다.
+    # /data 는 my_volume을 마운트한 경로이므로, 이 파일은 컨테이너가 아니라 볼륨에 저장됩니다.
+    echo "Hello, Docker Volumes!" > /data/hello.txt
+
+    # 파일이 제대로 저장됐는지 컨테이너 내부에서 바로 확인합니다.
+    cat /data/hello.txt
+
+    # 컨테이너를 종료합니다. --rm 옵션으로 인해 컨테이너는 자동으로 삭제됩니다.
+    exit</code></pre>
+
+          <div class="h3-accent">4단계: 컨테이너 삭제 확인</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 방금 사용한 컨테이너가 --rm 옵션으로 실제로 삭제됐는지 확인합니다.
+docker ps -a
+# 위 목록에 방금 exit한 컨테이너가 더 이상 보이지 않으면 정상입니다. (자동 삭제됨)
+
+# 컨테이너는 사라졌지만, 볼륨은 컨테이너와 별개로 Docker가 관리하므로 그대로 남아 있습니다.
+docker volume ls
+# my_volume이 여전히 목록에 있어야 합니다.</code></pre>
+          <div class="callout callout-green"><strong>✅ 체크포인트:</strong> 컨테이너는 <code>docker ps -a</code> 목록에서 사라졌지만, <code>docker volume ls</code>에는 <code>my_volume</code>이 그대로 남아 있어야 합니다. 이것이 바로 컨테이너와 볼륨의 생명주기가 분리되어 있다는 증거입니다.</div>
+
+          <div class="h3-accent">5단계: 컨테이너 재생성 후 데이터 유지 확인</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 완전히 새로운 컨테이너를 실행하되, 같은 my_volume을 그대로 마운트합니다.
+# (컨테이너는 3단계에서 쓰던 것과 다른 "새 컨테이너"이지만, 볼륨은 동일한 my_volume입니다.)
+docker run --rm -it -v my_volume:/data busybox sh
+
+    # --- 새로 생성된 컨테이너 내부 ---
+
+    # 이전 컨테이너에서 저장한 파일이 여전히 존재하는지 목록으로 확인합니다.
+    ls -al /data
+
+    # 파일 내용을 읽습니다.
+    # "Hello, Docker Volumes!" 가 그대로 출력되면, 컨테이너를 삭제한 뒤 새로
+    # 만들어도 볼륨의 데이터는 유지된다는 것이 확인된 것입니다.
+    cat /data/hello.txt
+
+    exit</code></pre>
+
+          <div class="h3-accent">정리(clean up)</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 실습이 끝났다면 더 이상 필요 없는 볼륨을 삭제해 정리합니다.
+# (컨테이너는 이미 모두 --rm으로 삭제되었으므로 바로 삭제 가능합니다.)
+docker volume rm my_volume
+
+# 목록에서 my_volume이 사라졌는지 확인합니다.
+docker volume ls</code></pre>
+        </section>
+
+        <section id="practice2">
+          <div class="section-title"><span class="section-icon">🤝</span>5. 실습 2: 두 컨테이너 간 볼륨 공유</div>
+          <p>
+            두 컨테이너가 같은 볼륨을 공유하면 데이터를 서로 주고받을 수 있습니다. 예를 들어 하나의
+            컨테이너가 로그를 쓰고, 다른 컨테이너가 그 로그를 읽는 구조를 만들 수 있습니다.
+          </p>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 1단계: 첫 번째 컨테이너에서 'shared_volume'에 파일을 씁니다.
+# (볼륨을 미리 생성하지 않아도, -v 옵션에서 자동으로 생성됩니다)
+docker run --rm -it -v shared_volume:/shared busybox sh
+
+    # --- 첫 번째 컨테이너 내부 ---
+
+    # /shared 경로(= shared_volume)에 파일을 저장합니다.
+    echo "Shared Data" > /shared/shared_file.txt
+
+    # 컨테이너를 종료합니다.
+    exit
+
+# 2단계: 첫 번째 컨테이너가 삭제된 뒤에도 볼륨 자체는 남아있는지 확인합니다.
+docker volume ls
+# shared_volume이 목록에 있어야 합니다. (-v 옵션이 자동으로 생성한 볼륨)
+
+# 3단계: 두 번째 컨테이너에서 같은 볼륨을 마운트해 파일을 읽습니다.
+docker run --rm -it -v shared_volume:/shared busybox sh
+
+    # --- 두 번째 컨테이너 내부 ---
+
+    # 첫 번째 컨테이너에서 저장한 파일을 읽습니다.
+    # "Shared Data"가 출력되면 볼륨 공유가 성공한 것입니다.
+    cat /shared/shared_file.txt
+
+    # 두 번째 컨테이너에서도 파일을 추가로 써봅니다.
+    echo "Written by second container" >> /shared/shared_file.txt
+
+    exit
+
+# 4단계: 정리 — 실습이 끝났다면 공유 볼륨도 삭제합니다.
+docker volume rm shared_volume
+docker volume ls</code></pre>
+        </section>
+
+        <section id="summary">
+          <div class="section-title"><span class="section-icon">📋</span>6. 핵심 정리</div>
+          <div class="summary-card">
+            <table>
+              <thead>
+                <tr><th>단계</th><th>한 줄 요약</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>볼륨 생성</strong></td><td><code>docker volume create</code>로 Docker가 관리하는 저장 공간을 만듭니다.</td></tr>
+                <tr><td><strong>컨테이너 마운트</strong></td><td><code>-v [volume-name]:[container-path]</code>로 컨테이너 내부 경로에 볼륨을 연결합니다.</td></tr>
+                <tr><td><strong>데이터 쓰기</strong></td><td>마운트된 경로에 쓴 파일은 컨테이너가 아니라 볼륨에 저장됩니다.</td></tr>
+                <tr><td><strong>컨테이너 삭제</strong></td><td>컨테이너를 삭제해도(<code>--rm</code>, <code>docker rm</code>) 볼륨은 영향을 받지 않습니다.</td></tr>
+                <tr><td><strong>재생성 후 확인</strong></td><td>같은 볼륨을 새 컨테이너에 마운트하면 이전 데이터를 그대로 읽을 수 있습니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout callout-purple"><strong>🚀 핵심 한 문장:</strong> 컨테이너의 생명주기와 볼륨의 생명주기는 서로 분리되어 있으며, 이 실습에서 직접 확인한 흐름(생성 → 마운트 → 쓰기 → 삭제 → 재생성 → 확인)이 바로 그 증거입니다. 더 깊은 개념은 언제든 <a href="../04.docker_volume.html">04강</a>을 참고하세요.</div>
+        </section>
+
+        <div class="chapter-nav">
+          <a class="chapter-nav-btn chapter-nav-prev" href="../04.docker_volume.html">
+            <span class="chapter-nav-arrow">←</span>
+            <span><span class="chapter-nav-label">이전 강의</span><span class="chapter-nav-title">Docker Volume 완전 정복</span></span>
+          </a>
+          <a class="chapter-nav-btn chapter-nav-next" href="../05.docker_compose.html">
+            <span><span class="chapter-nav-label">다음 강의</span><span class="chapter-nav-title">Docker Compose 완전 정복</span></span>
+            <span class="chapter-nav-arrow">→</span>
+          </a>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // 사이드바 스크롤 스파이 — 현재 보이는 section에 해당하는 nav-item에 active 클래스 부여
+      (function () {
+        const items = document.querySelectorAll('.nav-item[href^="#"]');
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                items.forEach((i) => i.classList.remove("active"));
+                const link = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+                if (link) link.classList.add("active");
+              }
+            });
+          },
+          { rootMargin: "-20% 0px -70% 0px" }
+        );
+        document.querySelectorAll("section[id]").forEach((s) => observer.observe(s));
+      })();
+
+      // 코드 블록 문법 강조 — 주석(#) 색 분리 + 주요 키워드/플래그 강조 (외부 라이브러리 없이 순수 JS)
+      (function () {
+        const KEYWORDS = /\b(FROM|WORKDIR|COPY|ADD|RUN|EXPOSE|CMD|ENTRYPOINT|ENV|ARG|VOLUME|LABEL|USER|SHELL|docker|compose|services|image|build|context|ports|volumes|environment|depends_on|healthcheck|networks)\b/g;
+
+        function escapeHtml(str) {
+          return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function highlightKeywords(str) {
+          return str
+            .replace(KEYWORDS, '<span class="kw">$&</span>')
+            .replace(/(^|\s)(-{1,2}[a-zA-Z][\w-]*)/g, '$1<span class="fl">$2</span>');
+        }
+
+        document.querySelectorAll("pre.code-block code").forEach(function (block) {
+          const lines = block.textContent.split("\n");
+          block.innerHTML = lines
+            .map(function (line) {
+              const escaped = escapeHtml(line);
+              const commentIdx = escaped.indexOf("#");
+              if (commentIdx !== -1) {
+                const codePart = escaped.slice(0, commentIdx);
+                const commentPart = escaped.slice(commentIdx);
+                return highlightKeywords(codePart) + '<span class="cm">' + commentPart + "</span>";
+              }
+              return highlightKeywords(escaped);
+            })
+            .join("\n");
+        });
+      })();
+    </script>
+  </body>
+</html>

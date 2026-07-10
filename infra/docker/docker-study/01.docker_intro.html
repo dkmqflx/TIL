@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>01. Docker란 무엇인가? — Docker 입문</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --blue: #2496ed;
+        --blue-deep: #0b4f8a;
+        --dark: #0b2436;
+        --indigo: #5c6bc0;
+        --green: #34a853;
+        --teal: #00897b;
+        --red: #e53935;
+        --purple: #6366f1;
+        --text: #1a1a2e;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --surface: #ffffff;
+        --bg: #f9fafb;
+        --blue-soft: #e3f2fd;
+        --indigo-soft: #e8eaf6;
+        --green-soft: #e8f5e9;
+        --red-soft: #ffebee;
+        --teal-soft: #e0f2f1;
+        --purple-soft: #eef2ff;
+        --code-bg: #0f172a;
+        --code-text: #e2e8f0;
+        --code-comment: #94a3b8;
+        --code-keyword: #7dd3fc;
+        --code-flag: #fbbf24;
+        --sidebar-w: 272px;
+        --radius: 10px;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      .layout {
+        display: flex;
+        min-height: 100vh;
+      }
+
+      /* ---------- Sidebar ---------- */
+      .sidebar {
+        width: var(--sidebar-w);
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        overflow-y: auto;
+        z-index: 100;
+      }
+      .sidebar-header {
+        padding: 20px 16px;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        background: var(--surface);
+        z-index: 1;
+      }
+      .sidebar-badge {
+        display: inline-block;
+        background: var(--blue);
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+      .sidebar-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.4;
+      }
+      .sidebar-sub {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 3px;
+      }
+      .sidebar-nav {
+        padding: 12px 8px;
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.15s;
+      }
+      .nav-item:hover {
+        background: var(--bg);
+        color: var(--text);
+      }
+      .nav-item.active {
+        background: var(--blue-soft);
+        color: var(--blue-deep);
+        font-weight: 600;
+      }
+      .nav-icon {
+        font-size: 14px;
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .nav-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 8px 10px;
+      }
+      .nav-section-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        padding: 6px 10px 4px;
+      }
+
+      /* ---------- Main ---------- */
+      .main {
+        margin-left: var(--sidebar-w);
+        flex: 1;
+        min-width: 0;
+        padding: 40px 48px;
+        max-width: calc(var(--sidebar-w) + 860px);
+      }
+
+      .hero {
+        background: linear-gradient(135deg, var(--dark) 0%, var(--blue) 100%);
+        border-radius: var(--radius);
+        padding: 36px 40px;
+        margin-bottom: 40px;
+        color: white;
+      }
+      .hero-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.16);
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 4px;
+        letter-spacing: 0.5px;
+        margin-bottom: 12px;
+      }
+      .hero h1 {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        line-height: 1.3;
+      }
+      .hero-desc {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.6;
+      }
+
+      section {
+        margin-bottom: 48px;
+        scroll-margin-top: 24px;
+      }
+      .section-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border);
+      }
+      .section-icon {
+        font-size: 22px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px 24px;
+        margin-bottom: 16px;
+      }
+      .card-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .callout {
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin: 14px 0;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .callout-blue {
+        background: var(--blue-soft);
+        border-left: 4px solid var(--blue);
+      }
+      .callout-indigo {
+        background: var(--indigo-soft);
+        border-left: 4px solid var(--indigo);
+      }
+      .callout-green {
+        background: var(--green-soft);
+        border-left: 4px solid var(--green);
+      }
+      .callout-red {
+        background: var(--red-soft);
+        border-left: 4px solid var(--red);
+      }
+      .callout-teal {
+        background: var(--teal-soft);
+        border-left: 4px solid var(--teal);
+      }
+      .callout-purple {
+        background: var(--purple-soft);
+        border-left: 4px solid var(--purple);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        margin: 14px 0;
+      }
+      th {
+        background: var(--bg);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 2px solid var(--border);
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      tr:hover td {
+        background: var(--bg);
+      }
+
+      .h3-accent {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin: 18px 0 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .h3-accent::before {
+        content: "";
+        display: inline-block;
+        width: 4px;
+        height: 16px;
+        background: var(--blue);
+        border-radius: 2px;
+      }
+
+      ul.bullet {
+        list-style: none;
+        padding: 0;
+      }
+      ul.bullet li {
+        padding: 5px 0 5px 20px;
+        position: relative;
+        font-size: 14px;
+        color: var(--text);
+      }
+      ul.bullet li::before {
+        content: "▸";
+        position: absolute;
+        left: 0;
+        color: var(--blue);
+        font-size: 12px;
+        top: 7px;
+      }
+
+      p {
+        font-size: 14px;
+        line-height: 1.7;
+        color: var(--text);
+        margin-bottom: 10px;
+      }
+      code {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 0.9em;
+        background: var(--bg);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin: 2px;
+      }
+      .tag-blue {
+        background: var(--blue-soft);
+        color: var(--blue-deep);
+      }
+      .tag-indigo {
+        background: var(--indigo-soft);
+        color: var(--indigo);
+      }
+      .tag-green {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+      .tag-red {
+        background: var(--red-soft);
+        color: #c62828;
+      }
+      .tag-teal {
+        background: var(--teal-soft);
+        color: var(--teal);
+      }
+
+      /* ---------- Method / Feature Cards ---------- */
+      .method-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .method-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+      }
+      .method-num {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--blue);
+        letter-spacing: 0.5px;
+        margin-bottom: 6px;
+      }
+      .method-name {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 8px;
+      }
+      .method-card.highlight {
+        border-top: 3px solid var(--blue);
+        background: var(--blue-soft);
+      }
+      .method-card.highlight .method-name {
+        color: var(--blue-deep);
+      }
+
+      /* ---------- Hub Diagram (mindmap / flower / fan 다이어그램 대체) ---------- */
+      .hub-diagram {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin: 14px 0;
+      }
+      .hub-diagram-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 16px;
+        text-align: center;
+      }
+      .hub-center {
+        text-align: center;
+        background: var(--dark);
+        color: #ffffff;
+        border-radius: var(--radius);
+        padding: 14px 22px;
+        font-weight: 700;
+        font-size: 14px;
+        margin: 0 auto 20px;
+        max-width: 320px;
+      }
+      .hub-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+      }
+      .hub-node {
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--muted);
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: var(--bg);
+      }
+      .hub-node-title {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text);
+      }
+      .hub-node-tags {
+        font-size: 11px;
+        color: var(--muted);
+        font-family: "SF Mono", Consolas, monospace;
+        letter-spacing: 0.01em;
+        margin-bottom: 5px;
+      }
+      .hub-node-desc {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .hub-node.n1 {
+        border-top-color: var(--blue);
+      }
+      .hub-node.n1 .hub-node-title {
+        color: var(--blue-deep);
+      }
+      .hub-node.n2 {
+        border-top-color: var(--indigo);
+      }
+      .hub-node.n2 .hub-node-title {
+        color: var(--indigo);
+      }
+      .hub-node.n3 {
+        border-top-color: var(--green);
+      }
+      .hub-node.n3 .hub-node-title {
+        color: var(--green);
+      }
+      .hub-node.n4 {
+        border-top-color: var(--red);
+      }
+      .hub-node.n4 .hub-node-title {
+        color: #c62828;
+      }
+      .hub-node.n5 {
+        border-top-color: var(--teal);
+      }
+      .hub-node.n5 .hub-node-title {
+        color: var(--teal);
+      }
+      .hub-node.n6 {
+        border-top-color: var(--purple);
+      }
+      .hub-node.n6 .hub-node-title {
+        color: var(--purple);
+      }
+
+      /* ---------- Architecture / Flow Diagram ---------- */
+      .arch-diagram {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+        margin: 14px 0;
+      }
+      .arch-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 16px;
+      }
+      .arch-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .arch-box {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        text-align: center;
+        min-width: 80px;
+      }
+      .arch-box.highlight {
+        border-color: var(--blue);
+        color: var(--blue-deep);
+        background: var(--blue-soft);
+      }
+      .arch-arrow {
+        color: var(--muted);
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .arch-arrow.accent {
+        color: var(--blue);
+      }
+      .arch-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        margin-top: 4px;
+      }
+
+      /* ---------- Compare Grid ---------- */
+      .compare-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+      .compare-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px;
+      }
+      .compare-card.pros {
+        border-top: 3px solid var(--green);
+      }
+      .compare-card.cons {
+        border-top: 3px solid var(--red);
+      }
+      .compare-card-name {
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .compare-card.pros .compare-card-name {
+        color: var(--green);
+      }
+      .compare-card.cons .compare-card-name {
+        color: var(--red);
+      }
+
+      /* ---------- Summary Card ---------- */
+      .summary-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+
+      /* ---------- Tier Ladder (스택형 / 단계형 다이어그램) ---------- */
+      .tier-ladder {
+        display: flex;
+        flex-direction: column;
+        max-width: 420px;
+      }
+      .tier-step {
+        background: var(--surface);
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        padding: 11px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .tier-step .tier-sub {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .tier-step.start {
+        border-color: var(--blue);
+        color: var(--blue-deep);
+      }
+      .tier-step.end {
+        border-color: var(--purple);
+        color: var(--purple);
+      }
+      .tier-down-arrow {
+        text-align: center;
+        color: var(--blue);
+        font-size: 15px;
+        padding: 2px 0;
+      }
+
+      /* ---------- Filter chips ---------- */
+      .filter-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0 4px;
+      }
+      .filter-chip {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      /* ---------- Code Block (문법 강조) ---------- */
+      .code-lang-label {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+      pre.code-block {
+        background: var(--code-bg);
+        color: var(--code-text);
+        border-radius: var(--radius);
+        padding: 16px 18px;
+        overflow-x: auto;
+        margin: 6px 0 14px;
+      }
+      pre.code-block code {
+        font-family: "SF Mono", Monaco, Consolas, monospace;
+        font-size: 13px;
+        line-height: 1.7;
+        white-space: pre;
+        background: none;
+        padding: 0;
+      }
+      pre.code-block .cm {
+        color: var(--code-comment);
+        font-style: italic;
+      }
+      pre.code-block .kw {
+        color: var(--code-keyword);
+        font-weight: 700;
+      }
+      pre.code-block .fl {
+        color: var(--code-flag);
+      }
+
+      /* ---------- Chapter Nav (이전/다음) ---------- */
+      .chapter-nav {
+        display: flex;
+        gap: 16px;
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+      }
+      .chapter-nav-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        text-decoration: none;
+        color: var(--text);
+        transition: all 0.15s;
+      }
+      .chapter-nav-btn:hover {
+        border-color: var(--blue);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+      .chapter-nav-next {
+        text-align: right;
+        justify-content: flex-end;
+      }
+      .chapter-nav-arrow {
+        font-size: 18px;
+        color: var(--blue);
+        flex-shrink: 0;
+      }
+      .chapter-nav-label {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 600;
+        margin-bottom: 2px;
+      }
+      .chapter-nav-title {
+        display: block;
+        font-size: 14px;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-badge">Docker 강의 01</div>
+          <div class="sidebar-title">Docker 입문</div>
+          <div class="sidebar-sub">전체 5강 중 1강</div>
+        </div>
+        <nav class="sidebar-nav">
+          <a class="nav-item active" href="#docker-what"><span class="nav-icon">🐳</span>Docker란 무엇인가?</a>
+          <a class="nav-item" href="#docker-benefits"><span class="nav-icon">⭐</span>5가지 핵심 이점</a>
+          <a class="nav-item" href="#docker-components"><span class="nav-icon">🧩</span>핵심 구성 요소</a>
+          <a class="nav-item" href="#docker-vs-vm"><span class="nav-icon">⚖️</span>VM vs 컨테이너</a>
+          <a class="nav-item" href="#docker-commands"><span class="nav-icon">⌨️</span>기본 명령어</a>
+          <a class="nav-item" href="#docker-workflow"><span class="nav-icon">🔄</span>실전 워크플로우</a>
+          <a class="nav-item" href="#docker-use-cases"><span class="nav-icon">🏭</span>활용 사례</a>
+          <a class="nav-item" href="#docker-summary"><span class="nav-icon">📋</span>핵심 정리</a>
+        </nav>
+      </aside>
+
+      <!-- MAIN -->
+      <main class="main">
+        <div class="hero">
+          <div class="hero-badge">Docker 입문 강의자료 · 01</div>
+          <h1>Docker란 무엇인가?</h1>
+          <div class="hero-desc">
+            컨테이너 기술의 기본 개념부터 Docker의 5가지 핵심 이점, 핵심 구성 요소, VM과의
+            차이, 기본 명령어, 실전 워크플로우, 실제 활용 사례까지 — Docker 입문에 필요한
+            모든 것을 한 페이지로 정리합니다.
+          </div>
+        </div>
+
+        <section id="docker-what">
+          <div class="section-title"><span class="section-icon">🐳</span>1장. Docker란 무엇인가?</div>
+
+          <div class="callout callout-blue">
+            <strong>Docker를 한 마디로 설명하면?</strong><br />
+            "애플리케이션을 컨테이너에 담아서 어디서든 똑같이 실행할 수 있게 해주는 기술"
+          </div>
+
+          <div class="h3-accent">현실에서 만나는 문제</div>
+          <p>개발을 하다 보면 이런 상황을 자주 겪습니다:</p>
+          <ul class="bullet">
+            <li>내 컴퓨터에서는 잘 되는데, 팀원 컴퓨터에서는 안 된다</li>
+            <li>개발 환경에서는 되는데, 실제 서버에 올리면 오류가 난다</li>
+            <li>새 팀원이 와서 개발 환경 세팅하는 데 하루가 걸린다</li>
+          </ul>
+          <p><strong>왜 이런 일이 생길까요?</strong> 각자의 컴퓨터에 설치된 운영체제, 라이브러리, 프로그램 버전이 조금씩 다르기 때문입니다.</p>
+
+          <div class="h3-accent">비유로 이해하기 — 선박 컨테이너</div>
+          <div class="card">
+            <div class="card-title">🚢 표준 컨테이너 이야기</div>
+            <p>옛날에는 물건을 배에 실을 때 짐마다 크기와 모양이 달라서 싣고 내리는 데 시간이 엄청 걸렸습니다.</p>
+            <p>그런데 <strong>표준 컨테이너</strong>가 등장하면서 모든 게 바뀌었습니다:</p>
+            <ul class="bullet">
+              <li>짐을 컨테이너 안에 담으면 → 배든, 기차든, 트럭이든 <strong>어디서나 똑같이 처리</strong></li>
+              <li>내용물이 뭐든 상관없이 <strong>규격이 통일</strong>되어 있음</li>
+            </ul>
+            <p style="margin-top: 10px"><strong>Docker 컨테이너도 똑같습니다:</strong></p>
+            <ul class="bullet">
+              <li>내 앱과 앱이 필요로 하는 모든 것(라이브러리, 설정, 코드)을 컨테이너에 담으면</li>
+              <li>내 노트북이든, 테스트 서버든, 클라우드든 <strong>어디서나 똑같이 실행</strong></li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="docker-benefits">
+          <div class="section-title"><span class="section-icon">⭐</span>2장. Docker의 5가지 핵심 이점</div>
+
+          <div class="h3-accent">Docker Containers의 이점 한눈에 보기</div>
+          <p>Docker를 쓰면 얻을 수 있는 핵심 이점은 아래 5가지로 정리됩니다.</p>
+
+          <div class="hub-diagram">
+            <div class="hub-diagram-title">Key Benefits of Docker</div>
+            <div class="hub-center">Docker Containers의 이점</div>
+            <div class="hub-grid">
+              <div class="hub-node n1">
+                <div class="hub-node-title">Portability (이동성)</div>
+                <div class="hub-node-tags">Developer's Laptop · Testing Environment · Cloud Server</div>
+                <div class="hub-node-desc">개발자 노트북, 테스트 환경, 클라우드 서버 등 어디서든 동일하게 실행됩니다.</div>
+              </div>
+              <div class="hub-node n2">
+                <div class="hub-node-title">Efficiency (효율성)</div>
+                <div class="hub-node-tags">Host OS Kernel 공유 · Lightweight · Fast</div>
+                <div class="hub-node-desc">호스트 OS 커널을 공유하기 때문에 가볍고 빠릅니다.</div>
+              </div>
+              <div class="hub-node n3">
+                <div class="hub-node-title">Scalability (확장성)</div>
+                <div class="hub-node-tags">Kubernetes Integration · Horizontal Scaling</div>
+                <div class="hub-node-desc">쿠버네티스와 연동해 필요한 만큼 수평으로 확장할 수 있습니다.</div>
+              </div>
+              <div class="hub-node n4">
+                <div class="hub-node-title">Consistency (일관성)</div>
+                <div class="hub-node-tags">Application Bundling · Environment Bundling</div>
+                <div class="hub-node-desc">애플리케이션과 실행 환경을 함께 묶어 배포하므로 어디서든 같은 결과를 보장합니다.</div>
+              </div>
+              <div class="hub-node n5">
+                <div class="hub-node-title">Speed (속도)</div>
+                <div class="hub-node-tags">Instant Start · Compared to VMs</div>
+                <div class="hub-node-desc">VM과 비교했을 때 부팅 과정 없이 즉시 시작됩니다.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="docker-components">
+          <div class="section-title"><span class="section-icon">🧩</span>3장. Docker의 핵심 구성 요소</div>
+
+          <div class="h3-accent">구성 요소 전체 그림</div>
+          <div class="arch-diagram">
+            <div class="arch-title">여러분이 작성 → Docker가 만듦 → Docker가 실행</div>
+            <div class="arch-row">
+              <div class="arch-box highlight">Dockerfile<div class="arch-label">설계도</div></div>
+              <div class="arch-arrow accent">→</div>
+              <div class="arch-box">Docker Image<div class="arch-label">패키지/틀</div></div>
+              <div class="arch-arrow accent">→</div>
+              <div class="arch-box">Container<div class="arch-label">실제로 돌아가는 것</div></div>
+            </div>
+          </div>
+
+          <div class="h3-accent">3-1. Dockerfile — "설계도"</div>
+          <div class="card">
+            <p>앱을 어떻게 만들지 <strong>단계별로 지시하는 스크립트</strong>입니다.</p>
+            <p><strong>비유:</strong> 요리 레시피와 같습니다.</p>
+            <ul class="bullet">
+              <li>"재료는 Node.js 18 버전을 써라"</li>
+              <li>"이 파일들을 이 폴더에 복사해라"</li>
+              <li>"npm install 명령을 실행해라"</li>
+            </ul>
+            <div class="code-lang-label">dockerfile</div>
+            <pre class="code-block"><code># 예시 Dockerfile
+FROM node:18          # 기본 재료: Node.js 18 이미지 사용
+WORKDIR /app          # 작업 폴더 설정
+COPY . .              # 내 코드를 컨테이너 안으로 복사
+RUN npm install       # 의존성 설치
+CMD ["node", "app.js"] # 앱 실행</code></pre>
+          </div>
+
+          <div class="h3-accent">3-2. Docker Image — "패키지/틀"</div>
+          <div class="card">
+            <p>Dockerfile을 실행하면 Image가 만들어집니다.</p>
+            <p><strong>특징:</strong></p>
+            <ul class="bullet">
+              <li><strong>읽기 전용</strong> (수정 불가능)</li>
+              <li>앱 실행에 필요한 모든 것이 담긴 완성된 패키지</li>
+              <li>여러 컨테이너를 만들기 위한 <strong>공통 틀</strong></li>
+            </ul>
+            <p style="margin-top: 10px"><strong>비유:</strong> 붕어빵 틀과 같습니다.</p>
+            <ul class="bullet">
+              <li>Image = 붕어빵 틀 (여러 번 사용 가능, 틀 자체는 변하지 않음)</li>
+              <li>Container = 틀에서 찍어낸 붕어빵 (실제로 먹는 것)</li>
+            </ul>
+          </div>
+
+          <div class="h3-accent">3-3. Docker Container — "실제로 돌아가는 것"</div>
+          <div class="card">
+            <p>Image로부터 생성된, <strong>실제로 실행 중인 애플리케이션 인스턴스</strong>입니다.</p>
+            <p><strong>특징:</strong></p>
+            <ul class="bullet">
+              <li>Image를 기반으로 만들어지고, <strong>읽기/쓰기 가능</strong></li>
+              <li>각 컨테이너는 서로 <strong>격리</strong>되어 있음 (다른 컨테이너 영향 안 받음)</li>
+              <li>필요하면 서로 <strong>통신</strong>할 수 있음</li>
+            </ul>
+            <p style="margin-top: 10px"><strong>비유:</strong> 붕어빵 틀(Image)로 붕어빵(Container)을 여러 개 찍어낼 수 있습니다. 붕어빵끼리 서로 독립적이지만, 필요하면 함께 쟁반에 담아 제공(통신)할 수 있습니다.</p>
+          </div>
+
+          <div class="h3-accent">3-4. Docker Engine — "실행 엔진"</div>
+          <div class="card">
+            <p>Docker의 핵심으로, 컨테이너를 만들고 실행하고 관리하는 프로그램입니다. 3가지로 구성됩니다:</p>
+            <table>
+              <thead>
+                <tr><th>구성 요소</th><th>역할</th><th>비유</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>dockerd</strong> (데몬)</td><td>실제로 컨테이너를 실행하는 서버</td><td>주방장</td></tr>
+                <tr><td><strong>REST API</strong></td><td>데몬과 소통하는 인터페이스</td><td>주문서</td></tr>
+                <tr><td><strong>CLI</strong></td><td>사용자가 명령을 입력하는 도구</td><td>키오스크</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="h3-accent">3-5. Docker Hub — "앱 마켓스토어"</div>
+          <div class="card">
+            <p>미리 만들어진 이미지를 올리고 내려받을 수 있는 <strong>클라우드 저장소</strong>입니다.</p>
+            <p><strong>비유:</strong> 앱스토어(App Store)와 동일합니다.</p>
+            <ul class="bullet">
+              <li>남이 만들어둔 이미지를 <strong>무료로 가져와서</strong> 사용 가능</li>
+              <li>내가 만든 이미지를 <strong>올려서 공유</strong> 가능</li>
+              <li>MySQL, Nginx, Redis 등 공식 이미지가 준비되어 있음</li>
+            </ul>
+            <div class="code-lang-label">bash</div>
+            <pre class="code-block"><code>docker pull nginx   # Docker Hub에서 Nginx 이미지 다운로드</code></pre>
+          </div>
+
+          <div class="h3-accent">3-6. Docker Compose — "여러 컨테이너 한번에 관리"</div>
+          <div class="card">
+            <p>실제 서비스는 보통 여러 컨테이너가 함께 동작합니다.</p>
+            <p><strong>예시:</strong> 웹 서비스를 만든다면</p>
+            <ul class="bullet">
+              <li>웹 서버 컨테이너 (Nginx)</li>
+              <li>앱 서버 컨테이너 (Node.js)</li>
+              <li>데이터베이스 컨테이너 (MySQL)</li>
+            </ul>
+            <p style="margin-top: 10px">이걸 하나하나 실행하면 복잡합니다. Docker Compose를 쓰면 <strong>설정 파일 하나</strong>로 한 번에 관리할 수 있습니다.</p>
+            <div class="code-lang-label">yaml</div>
+            <pre class="code-block"><code># docker-compose.yml 예시
+services:
+  web:
+    image: nginx
+  app:
+    build: .
+  db:
+    image: mysql</code></pre>
+            <div class="code-lang-label">bash</div>
+            <pre class="code-block"><code>docker compose up   # 모든 컨테이너 한번에 실행</code></pre>
+          </div>
+        </section>
+
+        <section id="docker-vs-vm">
+          <div class="section-title"><span class="section-icon">⚖️</span>4장. VM(가상머신) vs Docker 컨테이너</div>
+          <p>Docker를 처음 배울 때 가장 많이 헷갈리는 부분입니다.</p>
+
+          <div class="h3-accent">차이점 비교</div>
+          <table>
+            <thead>
+              <tr><th></th><th>가상머신 (VM)</th><th>Docker 컨테이너</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>구조</td><td>운영체제 전체를 가상화</td><td>운영체제 커널을 공유</td></tr>
+              <tr><td>크기</td><td>수 GB</td><td>수십 ~ 수백 MB</td></tr>
+              <tr><td>시작 시간</td><td>수 분</td><td>수 초 (거의 즉시)</td></tr>
+              <tr><td>성능</td><td>무거움</td><td>가벼움</td></tr>
+              <tr><td>격리 수준</td><td>완전 격리</td><td>프로세스 수준 격리</td></tr>
+            </tbody>
+          </table>
+
+          <div class="h3-accent">비유로 이해하기</div>
+          <div class="card">
+            <p><strong>가상머신</strong> = 집 안에 통째로 또 다른 집을 짓는 것 (방, 주방, 화장실 모두 따로)</p>
+            <p><strong>Docker</strong> = 집 안에 방만 여러 개 만드는 것 (화장실, 주방은 공유하되 각 방은 독립적)</p>
+          </div>
+          <div class="callout callout-green">→ 방(컨테이너)이 훨씬 <strong>빠르고 효율적</strong>입니다.</div>
+        </section>
+
+        <section id="docker-commands">
+          <div class="section-title"><span class="section-icon">⌨️</span>5장. Docker 기본 명령어</div>
+
+          <div class="h3-accent">필수 명령어 모음</div>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 이미지 관련
+docker build -t my-app .        # 현재 폴더의 Dockerfile로 이미지 빌드
+docker images                   # 로컬에 있는 이미지 목록 보기
+docker pull nginx               # Docker Hub에서 이미지 다운로드
+docker push my-app              # Docker Hub에 이미지 업로드
+
+# 컨테이너 관련
+docker run -d -p 8080:80 my-app # 컨테이너 실행 (백그라운드, 포트 연결)
+docker ps                       # 실행 중인 컨테이너 목록
+docker ps -a                    # 모든 컨테이너 목록 (중지된 것 포함)
+docker stop &lt;컨테이너ID&gt;         # 컨테이너 중지
+docker rm &lt;컨테이너ID&gt;           # 컨테이너 삭제
+docker logs &lt;컨테이너ID&gt;         # 컨테이너 로그 보기</code></pre>
+
+          <div class="h3-accent">-p 8080:80 이해하기</div>
+          <div class="arch-diagram">
+            <div class="arch-title">docker run -p 8080:80 nginx</div>
+            <div class="arch-row">
+              <div class="arch-box highlight">8080<div class="arch-label">내 PC 포트</div></div>
+              <div class="arch-arrow accent">:</div>
+              <div class="arch-box">80<div class="arch-label">컨테이너 포트</div></div>
+            </div>
+            <p style="margin-top: 14px; margin-bottom: 0">브라우저에서 <code>localhost:8080</code>으로 접속하면 컨테이너 내부의 80번 포트로 연결됩니다.</p>
+          </div>
+        </section>
+
+        <section id="docker-workflow">
+          <div class="section-title"><span class="section-icon">🔄</span>6장. Docker 실전 워크플로우</div>
+
+          <div class="h3-accent">전체 흐름</div>
+          <div class="arch-diagram">
+            <div class="tier-ladder">
+              <div class="tier-step start">1. Dockerfile 작성</div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step">2. 이미지 빌드<div class="tier-sub"><code>docker build -t my-app .</code></div></div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step">3. 컨테이너 실행<div class="tier-sub"><code>docker run -d -p 8080:80 my-app</code></div></div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step">4. Docker Hub에 업로드<div class="tier-sub"><code>docker push my-app</code></div></div>
+              <div class="tier-down-arrow">↓</div>
+              <div class="tier-step end">5. 서버/클라우드에 배포<div class="tier-sub">docker pull + docker run</div></div>
+            </div>
+          </div>
+
+          <div class="h3-accent">간단한 실습 예시</div>
+          <p>Node.js 앱을 Docker로 실행해봅시다:</p>
+          <div class="code-lang-label">dockerfile</div>
+          <pre class="code-block"><code># Dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["node", "index.js"]</code></pre>
+          <div class="code-lang-label">bash</div>
+          <pre class="code-block"><code># 빌드하고 실행
+docker build -t my-node-app .
+docker run -d -p 3000:3000 my-node-app
+
+# 브라우저에서 localhost:3000 접속하면 앱이 실행됨!</code></pre>
+        </section>
+
+        <section id="docker-use-cases">
+          <div class="section-title"><span class="section-icon">🏭</span>7장. Docker가 쓰이는 곳</div>
+          <table>
+            <thead>
+              <tr><th>분야</th><th>활용 방법</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>개발/테스트</strong></td><td>팀 전체가 동일한 환경에서 개발</td></tr>
+              <tr><td><strong>마이크로서비스</strong></td><td>서비스별로 독립 컨테이너로 배포</td></tr>
+              <tr><td><strong>CI/CD</strong></td><td>자동화된 빌드·테스트·배포 파이프라인</td></tr>
+              <tr><td><strong>멀티 클라우드</strong></td><td>AWS, GCP, Azure 어디서든 동일하게 실행</td></tr>
+              <tr><td><strong>빅데이터 / 머신러닝</strong></td><td>Apache Spark 같은 데이터 처리 프레임워크의 환경 설정을 컨테이너로 단순화</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="docker-summary">
+          <div class="section-title"><span class="section-icon">📋</span>핵심 정리</div>
+          <div class="summary-card">
+            <table>
+              <thead>
+                <tr><th>개념</th><th>한 줄 요약</th><th>비유</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Dockerfile</strong></td><td>이미지를 만드는 설계도</td><td>요리 레시피</td></tr>
+                <tr><td><strong>Image</strong></td><td>실행 가능한 패키지/틀</td><td>붕어빵 틀</td></tr>
+                <tr><td><strong>Container</strong></td><td>실제로 실행 중인 앱</td><td>붕어빵</td></tr>
+                <tr><td><strong>Docker Hub</strong></td><td>이미지 저장소</td><td>앱스토어</td></tr>
+                <tr><td><strong>Docker Compose</strong></td><td>여러 컨테이너 통합 관리</td><td>오케스트라 지휘자</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout callout-purple"><strong>🚀 핵심 한 문장:</strong> Docker는 "내 컴퓨터에서는 되는데..."를 영원히 없애기 위해 만들어진 기술입니다.</div>
+        </section>
+
+        <div class="chapter-nav">
+          <a class="chapter-nav-btn chapter-nav-next" href="02.docker_commands.html">
+            <span><span class="chapter-nav-label">다음 강의</span><span class="chapter-nav-title">Docker 명령어 완전 정복</span></span>
+            <span class="chapter-nav-arrow">→</span>
+          </a>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // 사이드바 스크롤 스파이 — 현재 보이는 section에 해당하는 nav-item에 active 클래스 부여
+      (function () {
+        const items = document.querySelectorAll('.nav-item[href^="#"]');
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                items.forEach((i) => i.classList.remove("active"));
+                const link = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+                if (link) link.classList.add("active");
+              }
+            });
+          },
+          { rootMargin: "-20% 0px -70% 0px" }
+        );
+        document.querySelectorAll("section[id]").forEach((s) => observer.observe(s));
+      })();
+
+      // 코드 블록 문법 강조 — 주석(#) 색 분리 + 주요 키워드/플래그 강조 (외부 라이브러리 없이 순수 JS)
+      (function () {
+        const KEYWORDS = /\b(FROM|WORKDIR|COPY|ADD|RUN|EXPOSE|CMD|ENTRYPOINT|ENV|ARG|VOLUME|LABEL|USER|SHELL|docker|compose|services|image|build|context|ports|volumes|environment|depends_on|healthcheck|networks|networks|services)\b/g;
+
+        function escapeHtml(str) {
+          return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function highlightKeywords(str) {
+          return str
+            .replace(KEYWORDS, '<span class="kw">$&</span>')
+            .replace(/(^|\s)(-{1,2}[a-zA-Z][\w-]*)/g, '$1<span class="fl">$2</span>');
+        }
+
+        document.querySelectorAll("pre.code-block code").forEach(function (block) {
+          const lines = block.textContent.split("\n");
+          block.innerHTML = lines
+            .map(function (line) {
+              const escaped = escapeHtml(line);
+              const commentIdx = escaped.indexOf("#");
+              if (commentIdx !== -1) {
+                const codePart = escaped.slice(0, commentIdx);
+                const commentPart = escaped.slice(commentIdx);
+                return highlightKeywords(codePart) + '<span class="cm">' + commentPart + "</span>";
+              }
+              return highlightKeywords(escaped);
+            })
+            .join("\n");
+        });
+      })();
+    </script>
+  </body>
+</html>

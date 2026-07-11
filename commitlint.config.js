@@ -34,6 +34,7 @@ module.exports = {
         "infra(git)",
         "infra(linux)",
         "seo",
+        "system-design",
       ],
     ],
     "scope-empty": [2, "never"],

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 1 · 시스템 디자인이란? — 시스템 디자인 101</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 101</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 시스템 디자인 첫걸음</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 시스템 디자인이란?</div>
+    <a class="nav-item" href="#what">🧭 시스템 디자인이 뭐예요?</a>
+    <a class="nav-item" href="#why">🤔 왜 배워야 하나요?</a>
+    <a class="nav-item" href="#goals">🎯 좋은 시스템의 4가지 목표</a>
+    <a class="nav-item" href="#scaling">📈 수직 확장 vs 수평 확장</a>
+    <a class="nav-item" href="#requirements">📋 기능적 vs 비기능적 요구사항</a>
+    <a class="nav-item" href="#components">🗺️ 시스템을 이루는 구성요소</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 브라우저 &amp; 클라이언트</div>
+    <a class="nav-item" href="02-browser-client.html#client-vs-browser">🖥️ 클라이언트 vs 브라우저</a>
+    <a class="nav-item" href="02-browser-client.html#browser-role">🌐 브라우저가 하는 일</a>
+    <a class="nav-item" href="02-browser-client.html#url-journey">🚀 URL 입력하면 벌어지는 일</a>
+    <a class="nav-item" href="02-browser-client.html#dns">📇 DNS: 인터넷 전화번호부</a>
+    <a class="nav-item" href="02-browser-client.html#rendering">🎨 화면에 그려지는 과정</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 프록시</div>
+    <a class="nav-item" href="03-proxy.html#what-proxy">🔀 프록시란?</a>
+    <a class="nav-item" href="03-proxy.html#forward">➡️ Forward Proxy</a>
+    <a class="nav-item" href="03-proxy.html#reverse">⬅️ Reverse Proxy</a>
+    <a class="nav-item" href="03-proxy.html#compare">⚖️ Forward vs Reverse</a>
+    <a class="nav-item" href="03-proxy.html#cdn">🌍 한 걸음 더: CDN</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 로드 밸런서</div>
+    <a class="nav-item" href="04-load-balancer.html#scaling-recap">📈 확장 복습: 수직의 한계</a>
+    <a class="nav-item" href="04-load-balancer.html#what-lb">⚖️ 로드 밸런서란?</a>
+    <a class="nav-item" href="04-load-balancer.html#algorithms">🧮 분산 알고리즘 4가지</a>
+    <a class="nav-item" href="04-load-balancer.html#health">🩺 헬스 체크 &amp; L4/L7</a>
+    <a class="nav-item" href="04-load-balancer.html#spof">🛡️ 단일 장애점과 다중 LB</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="index.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">목차로</span></a>
+    <a class="part-pager-link next" href="02-browser-client.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 2 · 브라우저 &amp; 클라이언트</span></a>
+  </div>
+
+  <!-- ── 시스템 디자인이 뭐예요? ── -->
+  <section class="section" id="what">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🧭</div>
+      <h2>시스템 디자인이 뭐예요?</h2>
+    </div>
+
+    <p>딱 한 문장으로 말하면, 시스템 디자인은 <strong>"어떤 문제를 풀기 위해, 필요한 부품들을 어떻게 배치하고 서로 연결할지 큰 그림을 그리는 일"</strong>입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 집을 짓기 전 설계도</strong><br>
+        집을 지을 때 벽돌부터 쌓지 않습니다. 먼저 <strong>설계도</strong>를 그리죠. "방은 몇 개, 화장실은 어디, 부엌은 거실 옆에, 배관은 이렇게…"
+        시스템 디자인이 바로 이 설계도입니다. 벽돌을 쌓는 일(=코딩)을 시작하기 <strong>전에</strong>, 전체 구조를 먼저 정하는 단계예요.
+      </div>
+    </div>
+
+    <h3>좀 더 풀어서 설명하면</h3>
+    <p>우리가 소프트웨어를 만드는 이유는 항상 <strong>"해결하고 싶은 문제(=비즈니스 요구사항)"</strong>가 있기 때문입니다. 시스템 디자인은 그 요구사항을 만족시키는 <strong>솔루션(해결책)의 구조를 설계</strong>하는 과정이에요. 구체적으로는 이런 것들을 정합니다.</p>
+
+    <ul>
+      <li><strong>어떤 부품(자원)이 필요한가?</strong> — 서버, 데이터베이스, 캐시 같은 하드웨어·소프트웨어 자원</li>
+      <li><strong>부품들을 어떻게 배치할까?</strong> — 무엇을 앞에 두고 무엇을 뒤에 둘지</li>
+      <li><strong>부품들이 어떻게 서로 대화할까?</strong> — 데이터가 어디서 어디로 흐르는지</li>
+      <li><strong>어떻게 하면 더 효율적일까?</strong> — 더 빠르고, 더 안정적이고, 더 잘 늘어나게</li>
+    </ul>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>핵심 — 시스템 디자인은 "추상적"이고 "하이 레벨"입니다.</strong><br>
+        코드 한 줄 한 줄이 아니라 <strong>"구현(코드)"이 아닌 "구조(뼈대)"</strong>에 집중합니다. 세세한 함수 이름이 아니라
+        "요청이 들어오면 → 로드 밸런서 → 서버 → DB 순으로 흐른다" 같은 <strong>큰 그림</strong>을 그리는 거예요.
+      </div>
+    </div>
+
+    <h3>코딩과 시스템 디자인은 뭐가 다를까?</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">🔍 코딩 (구현 / Low Level)</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151">
+          "이 함수는 어떻게 짜지?"<br>
+          "이 반복문을 어떻게 최적화하지?"<br>
+          "변수 이름을 뭐라고 하지?"<br><br>
+          → <strong>나무 한 그루</strong>를 자세히 봅니다.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">🗺️ 시스템 디자인 (구조 / High Level)</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151">
+          "서버를 몇 대 둘까?"<br>
+          "DB가 터지면 어떻게 하지?"<br>
+          "사용자가 100배 늘면 감당될까?"<br><br>
+          → <strong>숲 전체</strong>를 멀리서 봅니다.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 왜 배워야 하나요? ── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🤔</div>
+      <h2>왜 배워야 하나요?</h2>
+    </div>
+
+    <p>"난 그냥 기능만 잘 만들면 되는 거 아냐?"라고 생각할 수 있어요. 하지만 서비스가 커지는 순간, 시스템 디자인을 모르면 벽에 부딪힙니다.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🌱</div>
+        <div class="card-title">트래픽이 늘어도 안 터진다</div>
+        <div class="card-body">사용자가 100명일 때는 아무 구조나 괜찮습니다. 하지만 10만 명이 되면? 미리 대비한 사람만 살아남습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧩</div>
+        <div class="card-title">전체 그림이 보인다</div>
+        <div class="card-body">내가 짠 코드가 거대한 시스템 어디에 붙어 돌아가는지 이해하면, 훨씬 좋은 결정을 내릴 수 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💬</div>
+        <div class="card-title">개발자끼리 대화가 된다</div>
+        <div class="card-body">"여기 캐시 하나 두죠", "리버스 프록시로 받읍시다" 같은 대화가 통해야 협업이 됩니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">면접에 나온다</div>
+        <div class="card-body">"URL 하나 검색 시스템을 설계해 보세요" 같은 <strong>시스템 디자인 인터뷰</strong>는 개발자 채용의 단골 주제입니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 좋은 시스템의 4가지 목표 ── -->
+  <section class="section" id="goals">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🎯</div>
+      <h2>좋은 시스템의 4가지 목표</h2>
+    </div>
+
+    <p>시스템을 설계할 때 우리는 무작정 만들지 않습니다. <strong>"좋은 시스템이란 무엇인가"</strong>라는 기준을 놓고 그걸 향해 설계하죠. 대표적인 4가지 목표는 다음과 같습니다.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">1. 신뢰성 (Reliability)</div>
+        <div class="card-body">일부가 고장 나도 <strong>서비스가 멈추지 않는</strong> 것. 24시간 불 켜진 편의점처럼요.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🧱</div>
+        <div class="card-title">2. 유지보수성 (Maintainability)</div>
+        <div class="card-body">부품을 <strong>레고처럼 갈아끼우기</strong> 쉬운 것. 한 곳을 고쳐도 전체가 무너지지 않아야 합니다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">3. 성능 (Performance)</div>
+        <div class="card-body"><strong>빠르고 안정적인</strong> 것. 버튼을 눌렀는데 5초씩 기다리면 사용자는 떠납니다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">📈</div>
+        <div class="card-title">4. 확장성 (Scalability)</div>
+        <div class="card-body">사용자·데이터가 <strong>늘어나도 감당</strong>되는 것. 손님이 몰려도 대처할 수 있어야 합니다.</div>
+      </div>
+    </div>
+
+    <h3>하나씩, 비유로 이해하기</h3>
+
+    <h4>🛡️ 신뢰성 — 언제 가도 열려 있는 편의점</h4>
+    <p>편의점 알바생 한 명이 갑자기 아파도 편의점은 문을 닫지 않죠. 다른 알바생이 대신 나옵니다. 좋은 시스템도 마찬가지로 서버 한 대가 죽어도 다른 서버가 대신 일해서 <strong>사용자는 아무 일 없었다는 듯</strong> 서비스를 계속 씁니다.</p>
+
+    <h4>🧱 유지보수성 — 레고 블록처럼</h4>
+    <p>시스템을 하나의 커다란 덩어리로 만들면, 작은 수정 하나에도 전체가 흔들립니다. 대신 <strong>부품(모듈) 단위로 나눠</strong> 두면 필요한 블록만 쏙 빼서 갈아끼울 수 있어요. 이렇게 나눠 두는 걸 <strong>모듈화(modularization)</strong>라고 합니다.</p>
+
+    <h4>⚡ 성능 — 빠르고 안정적으로</h4>
+    <p>성능을 높이는 대표적인 도구가 두 가지 있는데, 이 가이드에서 앞으로 다룰 주제와 바로 연결됩니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>도구</th><th>무슨 역할?</th><th>어디서 다루나</th></tr></thead>
+        <tbody>
+          <tr><td><strong>로드 밸런서</strong></td><td>요청을 여러 서버에 나눠줘서 한 곳에 몰리지 않게 함</td><td>Part 4</td></tr>
+          <tr><td><strong>DB 인덱싱</strong></td><td>데이터베이스 조회를 빠르게 (책의 '찾아보기 색인'과 같음)</td><td>아래 💡 참고</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>DB 인덱싱이 뭐예요?</strong> 500쪽짜리 책에서 "로드 밸런서"라는 단어를 찾는다고 해봅시다. 1쪽부터 다 읽으면 느리죠.
+        하지만 책 뒤 <strong>'찾아보기(색인)'</strong>를 보면 "로드 밸런서 … 321쪽"이라고 바로 알려줍니다. 데이터베이스 인덱스도 똑같이,
+        자주 찾는 값에 대해 미리 '색인'을 만들어 두어 조회를 <strong>훨씬 빠르게</strong> 만드는 기술입니다.
+      </div>
+    </div>
+
+    <h4>📈 확장성 — 손님이 몰려도 대처하기</h4>
+    <p>확장성은 워낙 중요해서 바로 다음 섹션에서 <strong>수직 확장 / 수평 확장</strong>이라는 두 가지 방법으로 자세히 다룹니다.</p>
+  </section>
+
+  <!-- ── 수직 확장 vs 수평 확장 ── -->
+  <section class="section" id="scaling">
+    <div class="section-header">
+      <div class="section-icon icon-page">📈</div>
+      <h2>수직 확장 vs 수평 확장</h2>
+    </div>
+
+    <p>사용자가 늘어서 서버 한 대가 버거워졌습니다. 어떻게 감당할까요? 방법은 크게 <strong>두 가지</strong>입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 손님이 몰리는 1인 식당</strong><br>
+        요리사 한 명이 주문을 다 처리하다가 손님이 몰려 감당이 안 됩니다. 두 가지 선택지가 있어요.<br>
+        ① <strong>그 요리사에게 더 좋은 칼·더 큰 화구를 준다</strong> (한 명을 더 강하게) → <strong>수직 확장</strong><br>
+        ② <strong>똑같은 요리사를 여러 명 더 고용한다</strong> (사람 수를 늘림) → <strong>수평 확장</strong>
+      </div>
+    </div>
+
+    <h3>⬆️ 수직 확장 (Vertical Scaling) — 한 대를 더 강하게</h3>
+    <p>서버 <strong>한 대의 하드웨어 성능을 업그레이드</strong>하는 방법입니다. CPU 코어를 늘리고, RAM을 키우고, 더 빠른 디스크로 교체하는 거죠.</p>
+    <div class="flow-row">
+      <div class="flow-step">🖥️ 서버 (약함)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🖥️ 서버 (CPU↑ RAM↑ 디스크↑)</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>수직 확장의 한계 두 가지</strong><br>
+        ① <strong>물리적 한계</strong>: 하드웨어는 아무리 좋은 걸로 바꿔도 어느 순간 더 이상 올릴 수 없습니다. (사람도 아무리 훈련해도 한계가 있듯)<br>
+        ② <strong>단일 장애점</strong>: 결국 서버는 <strong>한 대</strong>입니다. 그 한 대가 죽으면 <strong>전체 서비스가 멈춥니다.</strong>
+      </div>
+    </div>
+
+    <h3>➡️ 수평 확장 (Horizontal Scaling) — 여러 대로 나누기</h3>
+    <p>같은 일을 하는 <strong>서버를 여러 대로 늘리는</strong> 방법입니다. A 서버가 있으면 똑같은 B, C 서버를 만들어서 요청을 나눠 처리하죠.</p>
+    <div class="flow-row">
+      <div class="flow-step">🖥️ 서버 A</div>
+      <div class="flow-step">🖥️ 서버 B</div>
+      <div class="flow-step">🖥️ 서버 C</div>
+      <div class="flow-arrow">…필요하면 계속 추가</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        서버가 여러 대가 되면 "들어온 요청을 어느 서버로 보낼까?"를 정해주는 교통정리 담당이 필요합니다.
+        그게 바로 <strong>로드 밸런서(Part 4)</strong>예요. 한 대가 죽어도 나머지가 일하니 <strong>신뢰성</strong>까지 좋아집니다.
+      </div>
+    </div>
+
+    <h3>한눈에 비교</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>⬆️ 수직 확장 (Vertical)</th><th>➡️ 수평 확장 (Horizontal)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>방법</strong></td><td>서버 1대의 스펙을 올림</td><td>같은 서버를 여러 대로 늘림</td></tr>
+          <tr><td><strong>비유</strong></td><td>요리사 1명을 강하게</td><td>요리사를 여러 명 고용</td></tr>
+          <tr><td><strong>한계</strong></td><td>하드웨어 성능 한계가 있음</td><td>이론상 거의 무제한</td></tr>
+          <tr><td><strong>고장 나면</strong></td><td>전체 서비스 중단 위험 (단일 장애점)</td><td>나머지 서버가 대신 처리</td></tr>
+          <tr><td><strong>추가 장비</strong></td><td>필요 없음 (간단)</td><td>로드 밸런서 등이 필요</td></tr>
+          <tr><td><strong>언제?</strong></td><td>빠른 임시방편, 작은 규모</td><td>대규모 트래픽을 고려할 때</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: <strong>수직 확장은 "임시방편", 수평 확장은 "제대로 된 확장"</strong>이라고 기억하세요. 큰 서비스는 대부분 수평 확장으로 갑니다.</div>
+    </div>
+  </section>
+
+  <!-- ── 기능적 vs 비기능적 요구사항 ── -->
+  <section class="section" id="requirements">
+    <div class="section-header">
+      <div class="section-icon icon-tx">📋</div>
+      <h2>기능적 vs 비기능적 요구사항</h2>
+    </div>
+
+    <p>설계는 항상 <strong>요구사항</strong>에서 출발합니다. 그런데 요구사항은 성격이 다른 두 종류로 나뉩니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 자동차로 이해하기</strong><br>
+        <strong>기능적 요구사항</strong> = 자동차가 <strong>"무엇을 하는가"</strong> → 앞으로 간다, 멈춘다, 방향을 튼다<br>
+        <strong>비기능적 요구사항</strong> = 그걸 <strong>"얼마나 잘 하는가"</strong> → 얼마나 빠르게, 얼마나 안전하게, 연비는 얼마나 좋게
+      </div>
+    </div>
+
+    <h3>검색 엔진을 만든다고 해봅시다</h3>
+    <p>영상의 예시를 따라가 볼게요. 검색 엔진을 설계한다면 요구사항은 이렇게 나뉩니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header good">✅ 기능적 요구사항 — "무엇을 하는가"</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          시스템이 <strong>해야 하는 일(기능)</strong>을 나열합니다.<br><br>
+          🔍 <strong>검색</strong> — 키워드로 검색할 수 있어야 함<br>
+          📄 <strong>결과 출력</strong> — 검색 결과를 보여줘야 함<br>
+          ↕️ <strong>정렬</strong> — 결과를 원하는 순서로 정렬<br>
+          🔽 <strong>필터링</strong> — 조건으로 결과를 걸러냄<br>
+          🖥️ <strong>UI</strong> — 사용자가 쓸 화면
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">📐 비기능적 요구사항 — "얼마나 잘 하는가"</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          시스템의 <strong>품질 기준</strong>을 정합니다.<br><br>
+          ⚡ <strong>성능</strong> — 검색 결과를 2초 안에 응답<br>
+          📈 <strong>확장성</strong> — 사용자 1천 명 → 10만 명 대비<br>
+          🔁 <strong>일관성</strong> — 검색 색인이 항상 정확하게 유지<br>
+          🛡️ <strong>가용성</strong> — 언제 접속해도 잘 동작<br>
+          🔒 <strong>보안</strong> — 안전하게 보호
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>왜 이 구분이 중요할까?</strong> 초보자는 보통 기능적 요구사항(무엇을 만들지)만 생각합니다. 하지만 서비스가 죽고 사는 건
+        대부분 <strong>비기능적 요구사항</strong>에서 갈립니다. "기능은 되는데 너무 느려서", "사람 몰리니까 터져서" 같은 문제가 전부 여기에 속하거든요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 시스템을 이루는 구성요소 ── -->
+  <section class="section" id="components">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🗺️</div>
+      <h2>시스템을 이루는 구성요소 (전체 지도)</h2>
+    </div>
+
+    <p>앞으로 이 가이드에서 하나씩 배울 부품들이, 실제 시스템에서 어떻게 이어져 있는지 <strong>전체 지도</strong>를 먼저 보여드릴게요. 지금은 이름만 눈에 익혀도 충분합니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 인터넷은 거대한 음식 배달 시스템</strong><br>
+        여러분(브라우저)이 앱으로 주문하면, 그 주문이 여러 단계를 거쳐 주방(서버)에 도착하고, 음식(데이터)이 다시 여러분에게 돌아옵니다.
+        아래 각 부품은 이 배달 과정의 담당자들이라고 생각하면 됩니다.
+      </div>
+    </div>
+
+    <h3>요청이 흐르는 길</h3>
+    <div class="flow-row">
+      <div class="flow-step blue">🖥️ 클라이언트<br>(브라우저)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">📇 DNS</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⚖️ 로드 밸런서<br>(리버스 프록시)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🖥️ 웹 서버들</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⚡ 캐시</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🗄️ 데이터베이스</div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>부품</th><th>한 줄 설명 (배달 비유)</th><th>어디서 배우나</th></tr></thead>
+        <tbody>
+          <tr><td><strong>🖥️ 클라이언트 / 브라우저</strong></td><td>주문하는 손님. 사용자와 가장 가까운 부품</td><td>Part 2</td></tr>
+          <tr><td><strong>📇 DNS</strong></td><td>가게 이름을 실제 주소(전화번호)로 바꿔주는 전화번호부</td><td>Part 2</td></tr>
+          <tr><td><strong>⚖️ 로드 밸런서 / 리버스 프록시</strong></td><td>주문을 여러 주방에 나눠주는 배차 담당</td><td>Part 3, 4</td></tr>
+          <tr><td><strong>🖥️ 웹 서버</strong></td><td>실제로 요리를 하는 주방</td><td>전 과정에서 등장</td></tr>
+          <tr><td><strong>⚡ 캐시</strong></td><td>자주 나가는 음식을 미리 만들어 두는 곳 (더 빠름)</td><td>Part 3에서 맛보기</td></tr>
+          <tr><td><strong>🗄️ 데이터베이스</strong></td><td>모든 재료와 기록을 보관하는 창고</td><td>다음 시리즈에서</td></tr>
+          <tr><td><strong>🌍 CDN</strong></td><td>손님 동네마다 둔 '가까운 지점' (사진·영상을 빠르게)</td><td>Part 3</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>지금 기억할 것</strong>: 시스템 디자인은 이렇게 여러 부품을 <strong>목적에 맞게 배치하고 연결</strong>하는 일입니다.
+        다음 Part부터 이 부품들을 하나씩, 가장 사용자와 가까운 <strong>브라우저·클라이언트</strong>부터 뜯어봅니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    System Design 101 · Part 1 · 시스템 디자인이란? · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

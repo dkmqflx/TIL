@@ -4,262 +4,236 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FastAPI 백엔드 개발자 되기 — 10주 셀프 스터디</title>
-<link rel="stylesheet" href="assets/style.css">
-<style>
-  /* index 전용 보강 */
-  .hero {
-    position: relative; z-index: 1; max-width: var(--maxw); margin: 0 auto;
-    padding: 70px 24px 0; text-align: center;
-  }
-  .hero h1 { font-size: clamp(2.4rem, 7vw, 4.2rem); }
-  .hero .subtitle { margin: 18px auto 0; }
-  .stats { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 34px 0 0; }
-  .stat {
-    background: #fff; border: 1.5px solid var(--line); border-radius: var(--radius);
-    padding: 14px 22px; box-shadow: var(--shadow); min-width: 110px;
-  }
-  .stat b { display: block; font-family: var(--serif); font-size: 2rem; font-weight: 900; color: var(--teal-deep); line-height: 1; }
-  .stat span { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.08em; text-transform: uppercase; }
-
-  .week {
-    background: #fff; border: 1.5px solid var(--line); border-radius: var(--radius);
-    margin: 18px 0; box-shadow: var(--shadow); overflow: hidden;
-    transition: transform 0.15s, box-shadow 0.15s;
-  }
-  .week:hover { transform: translate(-2px,-2px); box-shadow: var(--shadow-lift); }
-  .week__head { display: flex; align-items: center; gap: 16px; padding: 18px 22px; }
-  .week__no {
-    font-family: var(--serif); font-weight: 900; font-size: 1.8rem; color: var(--paper);
-    background: var(--ink); width: 54px; height: 54px; border-radius: 12px;
-    display: grid; place-items: center; flex-shrink: 0;
-  }
-  .week.star .week__no { background: var(--coral); }
-  .week__title { font-weight: 700; font-size: 1.15rem; }
-  .week__title .tag {
-    font-family: var(--mono); font-size: 10px; background: var(--coral-tint);
-    color: var(--coral); padding: 2px 8px; border-radius: 5px; margin-left: 8px;
-    vertical-align: 2px; letter-spacing: 0.05em;
-  }
-  .week__sub { font-size: 0.9rem; color: var(--ink-faint); margin-top: 2px; }
-  .lessons { list-style: none; margin: 0; padding: 0 22px 16px 70px; }
-  .lessons li { padding: 7px 0; border-top: 1px dashed var(--line); }
-  .lessons a { color: var(--ink); text-decoration: none; display: flex; gap: 10px; align-items: baseline; }
-  .lessons a:hover { color: var(--teal-deep); }
-  .lessons a:hover .ln { text-decoration: underline; }
-  .lessons .idx { font-family: var(--mono); font-size: 12px; color: var(--coral); flex-shrink: 0; }
-  .lessons .soon { color: var(--ink-faint); cursor: default; }
-  .badge-ready { font-family: var(--mono); font-size: 10px; color: var(--teal); border: 1px solid var(--teal); border-radius: 5px; padding: 1px 6px; margin-left: auto; }
-  .badge-soon { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; margin-left: auto; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+<div class="layout">
 
-<nav class="topbar">
-  <span class="crumb"><b>FastAPI 셀프 스터디</b></span>
-  <span>10 WEEKS · uv · PostgreSQL · Redis</span>
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="#top">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">백엔드 개발자 되기</span>
+    </a>
+    <div class="logo-sub">10주 셀프 스터디 · async · 인증 · 실시간 · 배포</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="week01-overview-typehints/01-msa-client-server-rest.html"><span class="wk-no">1</span> Week 1 · 큰 그림 &amp; 타입힌트</a>
+    <a class="nav-week" href="week02-request-http/01-path-query-body-header.html"><span class="wk-no">2</span> Week 2 · Request &amp; HTTP</a>
+    <a class="nav-week" href="week03-pydantic-response/01-pydantic-models-validation.html"><span class="wk-no">3</span> Week 3 · Pydantic &amp; 응답 설계</a>
+    <a class="nav-week" href="week04-async-internals/01-sync-async-eventloop.html"><span class="wk-no">4</span> Week 4 · 비동기 원리 &amp; 내부 동작 <span class="star">★</span></a>
+    <a class="nav-week" href="week05-postgres-sqlalchemy/01-docker-postgres-connection.html"><span class="wk-no">5</span> Week 5 · PostgreSQL &amp; SQLAlchemy</a>
+    <a class="nav-week" href="week06-json-api-structure/01-rest-api-crud.html"><span class="wk-no">6</span> Week 6 · JSON API 구축 &amp; 구조화 <span class="star">★</span></a>
+    <a class="nav-week" href="week07-async-db-external/01-async-db-asyncpg.html"><span class="wk-no">7</span> Week 7 · 비동기 DB &amp; 외부 통신</a>
+    <a class="nav-week" href="week08-auth/01-jwt-oauth2-hashing.html"><span class="wk-no">8</span> Week 8 · 인증 / 인가 <span class="star">★</span></a>
+    <a class="nav-week" href="week09-realtime-events/01-websocket.html"><span class="wk-no">9</span> Week 9 · 실시간 · 이벤트 · 성능 <span class="star">★</span></a>
+    <a class="nav-week" href="week10-test-deploy/01-pytest-mocking-fixture.html"><span class="wk-no">10</span> Week 10 · 테스트 심화 &amp; 배포</a>
+  </div>
 </nav>
 
-<header class="hero">
-  <span class="kicker">◆ 프론트엔드 → 백엔드 전환 로드맵</span>
-  <h1>FastAPI 백엔드<br>개발자 되기</h1>
-  <p class="subtitle">React·NestJS 개발자가 <strong>실무에 필요한 지식을 갖춘 FastAPI 백엔드 개발자</strong>로 전환하기 위한 갭 중심 10주 커리큘럼. 4개 강의를 종합·재구성했습니다.</p>
-  <div class="stats">
-    <div class="stat"><b>10</b><span>Weeks</span></div>
-    <div class="stat"><b>30+</b><span>Lessons</span></div>
-    <div class="stat"><b>1</b><span>Capstone API</span></div>
-    <div class="stat"><b>↔</b><span>NestJS 비교</span></div>
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="hero">
+    <div class="hero-tag">◆ 프론트엔드 → 백엔드 전환 로드맵</div>
+    <h1>FastAPI 백엔드 개발자 되기</h1>
+    <p>React·NestJS 개발자가 <strong>실무에 필요한 지식을 갖춘 FastAPI 백엔드 개발자</strong>로 전환하기 위한 갭 중심 10주 커리큘럼. 4개 강의를 종합·재구성했습니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">PostgreSQL</span>
+      <span class="hero-chip">SQLAlchemy 2.0</span>
+      <span class="hero-chip">asyncio</span>
+      <span class="hero-chip">Redis</span>
+      <span class="hero-chip">JWT / OAuth2</span>
+      <span class="hero-chip">WebSocket</span>
+      <span class="hero-chip">pytest</span>
+      <span class="hero-chip">Docker / CI</span>
+    </div>
   </div>
-</header>
 
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">“</span>
-    <p>이미 아는 것은 <b>압축</b>하고, 부족한 핵심(<b>async 내부 · SQLAlchemy · 인증 · 실시간 · 테스트 · 배포</b>)에 집중한다. DB는 PostgreSQL, 캐시는 Redis, 패키지 관리는 uv. 모든 자료는 <b>비유 + 시각화</b>로.</p>
+  <div class="tip-box">
+    <strong>학습 순서 추천</strong>: Week 1~3(기초)로 감을 잡고 → Week 4(⭐ 비동기 원리)를 반드시 이해한 뒤 →
+    Week 5~7(DB · 구조화 · 비동기 통신)로 손에 익히고 → Week 8~9(⭐ 인증 · 실시간)까지 진행한 뒤 →
+    Week 10(테스트 · 배포)으로 마무리하면 가장 잘 이어집니다.
   </div>
-</div>
 
-<main class="wrap">
-
-  <div class="section-divider">커리큘럼</div>
-
-  <!-- WEEK 1 -->
-  <section class="week">
-    <div class="week__head">
-      <div class="week__no">1</div>
-      <div>
-        <div class="week__title">큰 그림 &amp; 타입힌트</div>
-        <div class="week__sub">백엔드의 지도를 그리고, TypeScript 경험으로 타입 힌트를 정복</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🗂️</div>
+      <h2>목차</h2>
     </div>
-    <ul class="lessons">
-      <li><a href="week01-overview-typehints/01-msa-client-server-rest.html"><span class="idx">01</span><span class="ln">큰 그림: 클라이언트–서버 · API · REST · MSA</span></a></li>
-      <li><a href="week01-overview-typehints/02-python-typehints.html"><span class="idx">02</span><span class="ln">Python 타입 힌트 (↔ TypeScript)</span></a></li>
-      <li><a href="week01-overview-typehints/03-fastapi-flow-swagger-curl.html"><span class="idx">03</span><span class="ln">첫 FastAPI 앱 · 동작 흐름 · Swagger · cURL</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 2 -->
-  <section class="week">
-    <div class="week__head">
-      <div class="week__no">2</div>
-      <div>
-        <div class="week__title">Request &amp; HTTP</div>
-        <div class="week__sub">요청의 모든 입구와 HTTP 메서드·상태 코드</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card">
+      <a class="part-card-head" href="week01-overview-typehints/01-msa-client-server-rest.html">
+        <div class="part-card-num">1</div>
+        <div>
+          <div class="part-card-title">Week 1 · 큰 그림 &amp; 타입힌트</div>
+          <div class="part-card-sub">백엔드의 지도를 그리고, TypeScript 경험으로 타입 힌트를 정복</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week01-overview-typehints/01-msa-client-server-rest.html">01 · 큰 그림: 클라이언트–서버 · API · REST · MSA</a></li>
+        <li><a href="week01-overview-typehints/02-python-typehints.html">02 · Python 타입 힌트 (↔ TypeScript)</a></li>
+        <li><a href="week01-overview-typehints/03-fastapi-flow-swagger-curl.html">03 · 첫 FastAPI 앱 · 동작 흐름 · Swagger · cURL</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week02-request-http/01-path-query-body-header.html"><span class="idx">01</span><span class="ln">Path · Query · Body · Header · Cookie · Form</span></a></li>
-      <li><a href="week02-request-http/02-http-methods-status.html"><span class="idx">02</span><span class="ln">HTTP 메서드 &amp; 상태 코드 설계</span></a></li>
-      <li><a href="week02-request-http/03-exception-basic.html"><span class="idx">03</span><span class="ln">예외 처리 기본 · HTTPException</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 3 -->
-  <section class="week">
-    <div class="week__head">
-      <div class="week__no">3</div>
-      <div>
-        <div class="week__title">Pydantic &amp; 응답 설계</div>
-        <div class="week__sub">검증의 핵심 Pydantic과 response_model</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card">
+      <a class="part-card-head" href="week02-request-http/01-path-query-body-header.html">
+        <div class="part-card-num">2</div>
+        <div>
+          <div class="part-card-title">Week 2 · Request &amp; HTTP</div>
+          <div class="part-card-sub">요청의 모든 입구와 HTTP 메서드·상태 코드</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week02-request-http/01-path-query-body-header.html">01 · Path · Query · Body · Header · Cookie · Form</a></li>
+        <li><a href="week02-request-http/02-http-methods-status.html">02 · HTTP 메서드 &amp; 상태 코드 설계</a></li>
+        <li><a href="week02-request-http/03-exception-basic.html">03 · 예외 처리 기본 · HTTPException</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week03-pydantic-response/01-pydantic-models-validation.html"><span class="idx">01</span><span class="ln">Pydantic 모델 · 중첩 · Field · validator (↔ class-validator)</span></a></li>
-      <li><a href="week03-pydantic-response/02-response-model.html"><span class="idx">02</span><span class="ln">response_model &amp; Response 클래스 · 직렬화</span></a></li>
-      <li><a href="week03-pydantic-response/03-apirouter.html"><span class="idx">03</span><span class="ln">APIRouter 모듈 분할 (↔ Nest Module)</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 4 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">4</div>
-      <div>
-        <div class="week__title">비동기 원리 &amp; 내부 동작 <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">"왜 async가 빠른가"를 원리로 설명할 수 있게</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card">
+      <a class="part-card-head" href="week03-pydantic-response/01-pydantic-models-validation.html">
+        <div class="part-card-num">3</div>
+        <div>
+          <div class="part-card-title">Week 3 · Pydantic &amp; 응답 설계</div>
+          <div class="part-card-sub">검증의 핵심 Pydantic과 response_model</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week03-pydantic-response/01-pydantic-models-validation.html">01 · Pydantic 모델 · 중첩 · Field · validator (↔ class-validator)</a></li>
+        <li><a href="week03-pydantic-response/02-response-model.html">02 · response_model &amp; Response 클래스 · 직렬화</a></li>
+        <li><a href="week03-pydantic-response/03-apirouter.html">03 · APIRouter 모듈 분할 (↔ Nest Module)</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week04-async-internals/01-sync-async-eventloop.html"><span class="idx">01</span><span class="ln">동기/비동기 · 멀티태스킹 · asyncio · Event Loop</span></a></li>
-      <li><a href="week04-async-internals/02-async-await-threadpool.html"><span class="idx">02</span><span class="ln">async/await 처리 · ThreadPool 함정</span></a></li>
-      <li><a href="week04-async-internals/03-multiprocess-uvicorn-starlette.html"><span class="idx">03</span><span class="ln">멀티프로세스 · Uvicorn/Starlette/FastAPI 역할</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 5 -->
-  <section class="week">
-    <div class="week__head">
-      <div class="week__no">5</div>
-      <div>
-        <div class="week__title">PostgreSQL &amp; SQLAlchemy</div>
-        <div class="week__sub">Docker로 DB 띄우고 ORM으로 다루기</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card star">
+      <a class="part-card-head" href="week04-async-internals/01-sync-async-eventloop.html">
+        <div class="part-card-num">4</div>
+        <div>
+          <div class="part-card-title">Week 4 · 비동기 원리 &amp; 내부 동작 <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">"왜 async가 빠른가"를 원리로 설명할 수 있게</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week04-async-internals/01-sync-async-eventloop.html">01 · 동기/비동기 · 멀티태스킹 · asyncio · Event Loop</a></li>
+        <li><a href="week04-async-internals/02-async-await-threadpool.html">02 · async/await 처리 · ThreadPool 함정</a></li>
+        <li><a href="week04-async-internals/03-multiprocess-uvicorn-starlette.html">03 · 멀티프로세스 · Uvicorn/Starlette/FastAPI 역할</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week05-postgres-sqlalchemy/01-docker-postgres-connection.html"><span class="idx">01</span><span class="ln">Docker Compose로 PostgreSQL · DB 연결</span></a></li>
-      <li><a href="week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html"><span class="idx">02</span><span class="ln">SQLAlchemy 2.0 ORM 모델링 · DDL</span></a></li>
-      <li><a href="week05-postgres-sqlalchemy/03-connection-pool-session.html"><span class="idx">03</span><span class="ln">Connection Pool · Session · fetch · bind 변수</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 6 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">6</div>
-      <div>
-        <div class="week__title">JSON API 구축 &amp; 구조화 <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">실제 ToDo/Blog API를 DI와 서비스 계층으로</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card">
+      <a class="part-card-head" href="week05-postgres-sqlalchemy/01-docker-postgres-connection.html">
+        <div class="part-card-num">5</div>
+        <div>
+          <div class="part-card-title">Week 5 · PostgreSQL &amp; SQLAlchemy</div>
+          <div class="part-card-sub">Docker로 DB 띄우고 ORM으로 다루기</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week05-postgres-sqlalchemy/01-docker-postgres-connection.html">01 · Docker Compose로 PostgreSQL · DB 연결</a></li>
+        <li><a href="week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html">02 · SQLAlchemy 2.0 ORM 모델링 · DDL</a></li>
+        <li><a href="week05-postgres-sqlalchemy/03-connection-pool-session.html">03 · Connection Pool · Session · fetch · bind 변수</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week06-json-api-structure/01-rest-api-crud.html"><span class="idx">01</span><span class="ln">REST API 명세 · CRUD 구현</span></a></li>
-      <li><a href="week06-json-api-structure/02-dependency-injection-mvc.html"><span class="idx">02</span><span class="ln">Dependency Injection (↔ Nest Provider) · MVC 리팩터링</span></a></li>
-      <li><a href="week06-json-api-structure/03-exception-handler-pytest.html"><span class="idx">03</span><span class="ln">Exception Handler · dotenv · pytest 입문</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 7 -->
-  <section class="week">
-    <div class="week__head">
-      <div class="week__no">7</div>
-      <div>
-        <div class="week__title">비동기 DB &amp; 외부 통신</div>
-        <div class="week__sub">asyncpg와 httpx로 진짜 비동기 백엔드</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card star">
+      <a class="part-card-head" href="week06-json-api-structure/01-rest-api-crud.html">
+        <div class="part-card-num">6</div>
+        <div>
+          <div class="part-card-title">Week 6 · JSON API 구축 &amp; 구조화 <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">실제 ToDo/Blog API를 DI와 서비스 계층으로</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week06-json-api-structure/01-rest-api-crud.html">01 · REST API 명세 · CRUD 구현</a></li>
+        <li><a href="week06-json-api-structure/02-dependency-injection-mvc.html">02 · Dependency Injection (↔ Nest Provider) · MVC 리팩터링</a></li>
+        <li><a href="week06-json-api-structure/03-exception-handler-pytest.html">03 · Exception Handler · dotenv · pytest 입문</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week07-async-db-external/01-async-db-asyncpg.html"><span class="idx">01</span><span class="ln">비동기 SQLAlchemy(asyncpg) · async Session · Lifespan</span></a></li>
-      <li><a href="week07-async-db-external/02-httpx-external-api.html"><span class="idx">02</span><span class="ln">외부 API 요청 (httpx async client)</span></a></li>
-      <li><a href="week07-async-db-external/03-cors-middleware.html"><span class="idx">03</span><span class="ln">CORS · 미들웨어</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 8 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">8</div>
-      <div>
-        <div class="week__title">인증 / 인가 <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">JWT · OAuth2 · Redis 세션 · OTP</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card">
+      <a class="part-card-head" href="week07-async-db-external/01-async-db-asyncpg.html">
+        <div class="part-card-num">7</div>
+        <div>
+          <div class="part-card-title">Week 7 · 비동기 DB &amp; 외부 통신</div>
+          <div class="part-card-sub">asyncpg와 httpx로 진짜 비동기 백엔드</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week07-async-db-external/01-async-db-asyncpg.html">01 · 비동기 SQLAlchemy(asyncpg) · async Session · Lifespan</a></li>
+        <li><a href="week07-async-db-external/02-httpx-external-api.html">02 · 외부 API 요청 (httpx async client)</a></li>
+        <li><a href="week07-async-db-external/03-cors-middleware.html">03 · CORS · 미들웨어</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week08-auth/01-jwt-oauth2-hashing.html"><span class="idx">01</span><span class="ln">JWT · OAuth2PasswordBearer · 패스워드 해싱</span></a></li>
-      <li><a href="week08-auth/02-dependency-auth-redis.html"><span class="idx">02</span><span class="ln">의존성 기반 권한 (↔ Nest Guard) · Redis 세션/캐시</span></a></li>
-      <li><a href="week08-auth/03-otp-background-tasks.html"><span class="idx">03</span><span class="ln">OTP 생성·검증 · Background Tasks</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 9 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">9</div>
-      <div>
-        <div class="week__title">실시간 · 이벤트 · 성능 <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">WebSocket · Pub/Sub · 성능 개선</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card star">
+      <a class="part-card-head" href="week08-auth/01-jwt-oauth2-hashing.html">
+        <div class="part-card-num">8</div>
+        <div>
+          <div class="part-card-title">Week 8 · 인증 / 인가 <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">JWT · OAuth2 · Redis 세션 · OTP</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week08-auth/01-jwt-oauth2-hashing.html">01 · JWT · OAuth2PasswordBearer · 패스워드 해싱</a></li>
+        <li><a href="week08-auth/02-dependency-auth-redis.html">02 · 의존성 기반 권한 (↔ Nest Guard) · Redis 세션/캐시</a></li>
+        <li><a href="week08-auth/03-otp-background-tasks.html">03 · OTP 생성·검증 · Background Tasks</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week09-realtime-events/01-websocket.html"><span class="idx">01</span><span class="ln">WebSocket 실시간 통신</span></a></li>
-      <li><a href="week09-realtime-events/02-message-broker-pubsub.html"><span class="idx">02</span><span class="ln">메시지 브로커 · Redis Pub/Sub</span></a></li>
-      <li><a href="week09-realtime-events/03-performance-test.html"><span class="idx">03</span><span class="ln">동기/비동기 성능 테스트 &amp; 개선</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 10 -->
-  <section class="week">
-    <div class="week__head">
-      <div class="week__no">10</div>
-      <div>
-        <div class="week__title">테스트 심화 &amp; 배포</div>
-        <div class="week__sub">pytest · Alembic · Docker · CI</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+    <div class="part-card star">
+      <a class="part-card-head" href="week09-realtime-events/01-websocket.html">
+        <div class="part-card-num">9</div>
+        <div>
+          <div class="part-card-title">Week 9 · 실시간 · 이벤트 · 성능 <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">WebSocket · Pub/Sub · 성능 개선</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week09-realtime-events/01-websocket.html">01 · WebSocket 실시간 통신</a></li>
+        <li><a href="week09-realtime-events/02-message-broker-pubsub.html">02 · 메시지 브로커 · Redis Pub/Sub</a></li>
+        <li><a href="week09-realtime-events/03-performance-test.html">03 · 동기/비동기 성능 테스트 &amp; 개선</a></li>
+      </ul>
     </div>
-    <ul class="lessons">
-      <li><a href="week10-test-deploy/01-pytest-mocking-fixture.html"><span class="idx">01</span><span class="ln">pytest · Mocking · Fixture · TestClient</span></a></li>
-      <li><a href="week10-test-deploy/02-alembic-migration.html"><span class="idx">02</span><span class="ln">Alembic 마이그레이션</span></a></li>
-      <li><a href="week10-test-deploy/03-docker-cicd-retrospective.html"><span class="idx">03</span><span class="ln">Docker 프로덕션 빌드 · GitHub Actions CI · 회고</span></a></li>
-    </ul>
-  </section>
 
-  <div class="box note" style="margin-top:40px">
-    <span class="ic">📂</span>
-    <span class="label">자료 구조 안내</span>
-    <p>각 주차 폴더 안에 토픽별 <code>.html</code> 강의와 실행 가능한 <code>code/</code> 예제가 있습니다. 텍스트 버전 계획표와 진행 체크리스트는 <a href="README.md">README.md</a>에서 볼 수 있습니다. HTML 자료는 <strong>브라우저로 직접 열어</strong> 학습하세요.</p>
+    <div class="part-card">
+      <a class="part-card-head" href="week10-test-deploy/01-pytest-mocking-fixture.html">
+        <div class="part-card-num">10</div>
+        <div>
+          <div class="part-card-title">Week 10 · 테스트 심화 &amp; 배포</div>
+          <div class="part-card-sub">pytest · Alembic · Docker · CI</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week10-test-deploy/01-pytest-mocking-fixture.html">01 · pytest · Mocking · Fixture · TestClient</a></li>
+        <li><a href="week10-test-deploy/02-alembic-migration.html">02 · Alembic 마이그레이션</a></li>
+        <li><a href="week10-test-deploy/03-docker-cicd-retrospective.html">03 · Docker 프로덕션 빌드 · GitHub Actions CI · 회고</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>자료 구조 안내.</strong> 각 주차 폴더 안에 토픽별 <code>.html</code> 강의와 실행 가능한 <code>code/</code> 예제가 있습니다. 텍스트 버전 계획표와 진행 체크리스트는 <a href="README.md">README.md</a>에서 볼 수 있습니다. HTML 자료는 브라우저로 직접 열어 학습하세요.</div>
+  </div>
+
+  <div class="doc-footer">
+    FastAPI 백엔드 개발자 되기 · 프론트엔드 개발자를 위한 백엔드 전환 로드맵 · 10주 커리큘럼
   </div>
 
 </main>
+</div>
 
-<footer class="foot">FastAPI 셀프 스터디 · 프론트엔드 개발자를 위한 백엔드 전환 로드맵 · made with 🍵</footer>
+<script src="assets/script.js"></script>
 </body>
 </html>

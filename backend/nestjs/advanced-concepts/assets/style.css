@@ -449,6 +449,9 @@
     .callout-danger .callout-icon::before { content: '🚨'; }
     .callout-good { background: var(--green-soft); border-left: 3px solid var(--green); }
     .callout-good .callout-icon::before { content: '✅'; }
+    .callout-analogy { background: var(--purple-soft); border-left: 3px solid var(--purple); }
+    .callout-analogy .callout-icon::before { content: '🔍'; }
+    .callout-analogy .callout-body strong:first-child { color: #6d28d9; }
 
     /* Compare grid (good vs bad) */
     .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 12px 0; }

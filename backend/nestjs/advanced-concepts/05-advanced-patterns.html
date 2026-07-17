@@ -80,9 +80,18 @@
       <h2>트랜잭션 처리</h2>
     </div>
 
-    <p><strong>트랜잭션</strong>이란 여러 DB 작업을 <strong>하나의 묶음(논리적 단위)</strong>으로 처리하는 것입니다.<br>묶음 안의 작업이 <strong>모두 성공하면 반영(commit)</strong>, 하나라도 실패하면 <strong>전부 취소(rollback)</strong>합니다.</p>
+    <p>이번 파트는 실무에서 가장 자주 만나면서도 초보자가 가장 어려워하는 주제들을 모아 놓았습니다. 그 첫 번째가 <strong>트랜잭션</strong>입니다. 트랜잭션이란 여러 개의 DB 작업을 <strong>하나의 묶음(논리적 단위)</strong>으로 처리하는 것을 말합니다. 묶음 안의 작업이 <strong>전부 성공하면 그때 한꺼번에 반영(commit)</strong>하고, 그중 <strong>하나라도 실패하면 이미 성공했던 작업까지 전부 없던 일로 되돌립니다(rollback)</strong>. 왜 이런 장치가 필요한지, 아래 비유부터 천천히 살펴보겠습니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 계좌이체는 "모두 성공하거나, 모두 없던 일"</strong><br>
+        내 통장에서 5만 원을 <strong>빼는 작업</strong>과 친구 통장에 5만 원을 <strong>넣는 작업</strong>은 사실 별개의 두 동작입니다. 그런데 만약 내 돈은 빠져나갔는데 넣는 도중 시스템이 멈춰서 친구에게는 들어가지 않는다면 어떻게 될까요? 5만 원이 세상에서 그냥 사라져 버립니다. 그래서 은행은 이 두 동작을 <strong>하나의 묶음</strong>으로 취급합니다. 둘 다 성공해야 이체가 "완료"되고, 중간에 하나라도 어긋나면 <strong>빠져나갔던 5만 원까지 도로 채워 넣어</strong> 이체 자체를 처음부터 없던 일로 만듭니다. 트랜잭션이 바로 이 "모 아니면 도(All or Nothing)" 장치입니다.
+      </div>
+    </div>
 
     <h3>ACID — 트랜잭션의 4대 성질</h3>
+    <p>트랜잭션이 지켜 주는 약속을 네 글자로 정리한 것이 <strong>ACID</strong>입니다. 낯선 용어처럼 보이지만, 방금 본 계좌이체 비유에 그대로 대입해 보면 어렵지 않습니다. 이체가 <strong>중간에 반쪽만 처리되지 않는 것</strong>이 원자성(Atomicity), 이체 전후로 <strong>모든 계좌 잔액의 합이 맞아떨어지는 것</strong>이 일관성(Consistency), <strong>내 이체가 옆 사람의 이체와 뒤엉키지 않는 것</strong>이 격리성(Isolation), 그리고 <strong>이체 완료 문자를 받은 뒤에는 정전이 나도 그 결과가 남아 있는 것</strong>이 지속성(Durability)입니다. 아래 카드는 이 네 가지를 한눈에 정리한 것입니다.</p>
     <div class="card-grid">
       <div class="card">
         <div class="card-title">Atomicity (원자성)</div>
@@ -103,7 +112,7 @@
     </div>
 
     <h3>왜 필요한가? — 트랜잭션 없는 경우의 문제</h3>
-    <p>예시: 쇼핑몰에서 주문할 때 "주문 생성"과 "재고 차감" 두 작업이 필요합니다.</p>
+    <p>계좌이체 말고 우리가 매일 쓰는 쇼핑몰로 옮겨 와도 똑같은 문제가 생깁니다. 상품을 하나 주문하면 서버는 보통 두 가지 일을 해야 합니다. 하나는 <strong>주문 내역을 만드는 것</strong>이고, 다른 하나는 그만큼 <strong>재고를 깎는 것</strong>입니다. 이 두 작업을 묶지 않고 따로따로 실행하면, 주문은 만들어졌는데 재고 차감이 실패하는 상황이 생길 수 있습니다. 그러면 장부상으로는 "팔린 주문"인데 창고 재고는 그대로라, 데이터가 서로 어긋나 버립니다. 아래 표에서 트랜잭션이 있을 때와 없을 때가 어떻게 갈리는지 비교해 보겠습니다.</p>
 
     <div class="table-wrap" style="margin-bottom: 8px">
       <table>
@@ -151,6 +160,9 @@
       </table>
     </div>
 
+    <h3>TypeORM에서 트랜잭션을 여는 두 가지 방법</h3>
+    <p>TypeORM은 트랜잭션을 여는 방법을 두 가지 제공합니다. 하나는 <strong>편의를 위해 대부분을 자동으로 처리해 주는 방식</strong>(<code>dataSource.transaction()</code>)이고, 다른 하나는 <strong>시작·커밋·롤백을 우리가 직접 손으로 쓰는 방식</strong>(<code>QueryRunner</code>)입니다. 앞의 것은 코드가 짧고 실수할 여지가 적어 대부분의 경우에 권장되고, 뒤의 것은 트랜잭션 도중에 조건에 따라 갈라지는 복잡한 흐름이 필요할 때 씁니다. 특별한 이유가 없다면 <strong>1번을 기본으로</strong> 생각하면 됩니다.</p>
+
     <div class="card-grid">
       <div class="card">
         <div class="card-title">방법 1: dataSource.transaction() ✅ 권장</div>
@@ -163,6 +175,7 @@
     </div>
 
     <h3>방법 1: dataSource.transaction() (권장)</h3>
+    <p>이 방식의 핵심은 <strong>콜백 함수 하나</strong>입니다. <code>transaction(async (manager) =&gt; { ... })</code>의 중괄호 안에 넣은 작업들이 통째로 한 묶음이 됩니다. 콜백이 <strong>끝까지 무사히 실행되면 자동으로 커밋</strong>되고, 중간에 <strong>예외가 하나라도 던져지면 자동으로 롤백</strong>됩니다. 우리가 BEGIN·COMMIT·ROLLBACK을 직접 쓸 필요가 없다는 게 가장 큰 장점입니다. 아래 코드에서 재고 차감이 실패해 <code>throw</code>가 실행되면, 바로 위에서 이미 성공했던 "주문 생성"까지 함께 취소된다는 점에 주목해 주세요. 이것이 계좌이체 비유에서 말한 "모 아니면 도"가 코드로 구현된 모습입니다.</p>
     <div class="code-block">
       <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-typescript">import { DataSource } from 'typeorm';
@@ -198,7 +211,7 @@ export class OrderService {
     </div>
 
     <h3>방법 2: QueryRunner — 직접 제어</h3>
-    <p>트랜잭션의 시작/커밋/롤백을 직접 코드로 작성합니다. 절차가 복잡한 대신 세밀한 제어가 가능합니다.</p>
+    <p>방법 1이 자동이라면, 방법 2는 <strong>수동 기어</strong>라고 생각하면 됩니다. 트랜잭션의 시작(BEGIN)·커밋(COMMIT)·롤백(ROLLBACK)을 우리가 손으로 하나씩 적어 줍니다. 대신 흐름이 눈에 다 보여서, 조건에 따라 중간에 다르게 처리해야 할 때 유용합니다. 여기서 반드시 기억할 구조가 <strong><code>try / catch / finally</code></strong> 세트입니다. <code>try</code> 안에서 작업하다가 성공하면 커밋하고, 실패하면 <code>catch</code>에서 롤백한 뒤 에러를 다시 던지고, 성공하든 실패하든 <code>finally</code>에서 반드시 커넥션을 반납합니다. 이 반납(<code>release</code>)을 빠뜨리면 커넥션이 새어 나가 결국 서버 전체가 DB에 접속하지 못하게 되므로, <code>finally</code>는 선택이 아니라 필수입니다.</p>
     <div class="code-block">
       <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-typescript">async transfer(fromId: number, toId: number, amount: number) {
@@ -308,9 +321,18 @@ export class NotificationService {
       <h2>트랜잭션 격리 레벨</h2>
     </div>
 
+    <p>앞에서 트랜잭션이 "작업을 하나의 묶음으로 안전하게 처리하는 장치"라는 걸 배웠습니다. 그런데 현실의 서버에는 <strong>이런 트랜잭션 수십, 수백 개가 동시에 돌아갑니다.</strong> 여기서 새로운 고민이 생깁니다. 내가 트랜잭션을 진행하는 동안, <strong>아직 끝나지 않은 옆 사람의 트랜잭션이 나에게 얼마나 보여야 할까요?</strong> 전혀 안 보여야 할까요, 아니면 조금은 보여도 될까요? 이 "얼마나 보여줄지"를 정하는 규칙이 바로 <strong>트랜잭션 격리 레벨(Isolation Level)</strong>입니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 같은 문서를 여러 명이 동시에 고칠 때, 칸막이를 얼마나 두껍게 세울까</strong><br>
+        여러 사람이 <strong>같은 문서를 동시에 편집</strong>하는 상황을 떠올려 보세요. 옆 사람이 <strong>아직 저장도 안 한 수정 중인 글자</strong>가 내 화면에 실시간으로 비치면, 편하긴 해도 그 사람이 방금 지워 버리면 나는 헛것을 본 셈이 됩니다. 반대로 옆 사람의 작업을 <strong>두꺼운 칸막이로 완전히 가려</strong> 아무것도 안 보이게 하면, 내 화면은 안정적이지만 그만큼 서로 순서를 기다려야 해서 느려집니다. 격리 레벨은 이 <strong>칸막이의 두께</strong>를 정하는 다이얼입니다. 얇게(느슨하게) 두면 빠른 대신 남의 미완성 작업에 자주 흔들리고, 두껍게(엄격하게) 두면 화면은 정확하지만 느려집니다. 뒤에서 볼 네 단계(READ UNCOMMITTED → SERIALIZABLE)는 이 칸막이를 점점 더 두껍게 세우는 과정입니다.
+      </div>
+    </div>
+
     <h3>① 비유로 먼저 이해하기 — 콘서트 티켓팅</h3>
-    <p>콘서트 티켓팅 사이트를 떠올려보세요. 나 말고도 수백 명이 동시에 같은 좌석표를 보고, 동시에 예매 버튼을 누릅니다.<br>
-    <strong>격리 레벨(Isolation Level)</strong>은 "내가 화면에서 보는 정보가, 아직 확정되지 않은 다른 사람의 작업 때문에 얼마나 흔들려도 되는가"를 정하는 규칙입니다.</p>
+    <p>칸막이 비유를 좀 더 구체적인 장면으로 옮겨 보겠습니다. 콘서트 티켓팅 사이트를 떠올려보세요. 나 말고도 수백 명이 동시에 같은 좌석표를 보고, 동시에 예매 버튼을 누릅니다. 이때 <strong>격리 레벨(Isolation Level)</strong>은 "내가 화면에서 보는 좌석 정보가, 아직 결제를 끝내지 않은 다른 사람의 작업 때문에 얼마나 흔들려도 되는가"를 정하는 규칙이 됩니다. 아래 세 가지 문제는 모두 "칸막이를 너무 얇게 세워서" 생기는 현상이라고 보면 이해가 쉽습니다.</p>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
@@ -363,7 +385,7 @@ export class NotificationService {
     </div>
 
     <h3>③ 4단계 격리 레벨 — 어디까지 막아주는가</h3>
-    <p>SQL 표준은 격리 수준을 4단계로 정의합니다. 아래로 갈수록 더 엄격하게 막아주는 대신 더 느려질 수 있습니다.</p>
+    <p>SQL 표준은 격리 수준을 4단계로 정의합니다. 위에서 본 세 가지 문제(Dirty Read → Non-repeatable Read → Phantom Read)를 <strong>어디까지 막아 주느냐</strong>에 따라 단계가 나뉩니다. 앞의 칸막이 비유로 말하면, <code>READ UNCOMMITTED</code>는 칸막이가 거의 없는 상태이고 <code>SERIALIZABLE</code>은 칸막이를 가장 두껍게 세운 상태입니다. 아래로 내려갈수록 더 많은 문제를 막아 주지만, 그만큼 다른 트랜잭션을 더 오래 기다리게 만들어 느려질 수 있습니다. 표에서 "발생/방지" 표시가 아래 단계로 갈수록 하나씩 "방지"로 바뀌는 흐름을 눈으로 따라가 보세요.</p>
 
     <div class="table-wrap">
       <table>
@@ -482,8 +504,18 @@ try {
       <h2>N+1 문제</h2>
     </div>
 
+    <p>지금부터는 성능 이야기입니다. 코드가 <strong>기능적으로는 멀쩡하게 동작하는데도</strong> 데이터가 많아지면 갑자기 느려지는, 가장 흔하고 악명 높은 원인이 바로 <strong>N+1 문제</strong>입니다. 이름이 어려워 보이지만 원리는 아주 단순합니다. "목록을 한 번 가져온 뒤, 그 목록의 각 항목에 딸린 정보를 <strong>하나씩 따로따로</strong> 또 물어보러 가는" 비효율입니다. 먼저 일상 비유로 감을 잡아 보겠습니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 학생 30명의 성적을 한 명씩 30번 따로 물어보러 다니기</strong><br>
+        선생님이 우리 반 학생 <strong>30명의 명단</strong>을 교무실에서 한 번에 받아 왔습니다(<strong>여기까지 왕복 1번</strong>). 그런데 각 학생의 <strong>성적</strong>이 필요해서, 명단을 보며 "1번 학생 성적 주세요" 하고 성적실에 다녀오고, 다시 "2번 학생 성적 주세요" 하고 또 다녀오고… 이렇게 <strong>학생마다 한 번씩, 총 30번</strong>을 따로 왕복합니다. 결국 걸음 수는 <strong>1(명단) + 30(성적) = 31번</strong>이 됩니다. 성적도 처음 명단 받을 때 "성적까지 같이 주세요" 한마디만 했으면 <strong>딱 1번</strong>에 끝났을 텐데 말이죠. N+1 문제가 바로 이 "명단 1번 + 항목마다 N번"의 낭비입니다. 여기서 N은 학생 수, 즉 목록의 개수입니다.
+      </div>
+    </div>
+
     <h3>① 프론트엔드 비유로 먼저 이해하기</h3>
-    <p>프론트에서 이런 코드를 짠다고 상상해보세요.</p>
+    <p>이 낭비를 우리에게 더 익숙한 프론트엔드 코드로 옮겨 보면 정체가 확실히 드러납니다. 아래처럼 짠다고 상상해보세요.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">❌ 이렇게 짜면 안 되는 프론트 코드</span></div>
@@ -543,7 +575,7 @@ for (const product of products) {
     </div>
 
     <h3>③ 해결 방법 4가지</h3>
-    <p>공통 아이디어: <strong>"처음부터 한 번에 JOIN해서 가져온다"</strong></p>
+    <p>해결책 네 가지는 방법만 다를 뿐 <strong>속마음은 전부 똑같습니다</strong>. 학생 명단을 받을 때 "성적까지 같이 주세요"라고 미리 말하는 것, 즉 <strong>"처음부터 한 번에 JOIN해서 가져온다"</strong>는 것입니다. 상황에 따라 어떤 도구를 쓸지만 달라집니다. 조건 없이 그냥 같이 가져오면 되는 가장 흔한 경우, WHERE 조건이 붙는 경우, 페이지네이션이 얽혀 부득이하게 두 번으로 나눠야 하는 경우, 그리고 집계까지 필요해 SQL을 직접 쓰는 경우로 나뉩니다. 아래 표에서 상황별로 어떤 방법이 맞는지 먼저 훑어보고, 하나씩 코드로 확인하겠습니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -680,8 +712,18 @@ const list = await this.dataSource.query(`
       <h2>대량 삽입 (Bulk Insert)</h2>
     </div>
 
+    <p>N+1 문제가 "읽을 때"의 왕복 낭비였다면, Bulk Insert는 그 쌍둥이인 "쓸 때"의 왕복 낭비 이야기입니다. 수천, 수만 건의 데이터를 저장해야 할 때 <strong>한 건씩 따로 저장하면</strong> DB를 그 횟수만큼 왕복하게 되어 엄청나게 느려집니다. 해법은 간단합니다. <strong>여러 건을 한 번에 몰아서 보내는 것</strong>, 이것이 Bulk Insert(대량 삽입)입니다. 역시 일상 비유로 먼저 감을 잡아 보겠습니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 편지 30통을 한 통씩 30번 부치러 갈까, 한 번에 들고 갈까</strong><br>
+        부쳐야 할 편지가 <strong>30통</strong> 있습니다. 한 가지 방법은 편지 한 통을 들고 우체국까지 다녀오고, 돌아와서 또 한 통 들고 다녀오고… 이렇게 <strong>30번 왕복</strong>하는 것입니다. 편지를 넣는 시간은 잠깐이지만, <strong>오가는 길에 걸리는 시간(왕복 비용)</strong>이 30배로 쌓입니다. 다른 방법은 <strong>30통을 한꺼번에 들고 우체국에 딱 한 번</strong> 가는 것입니다. 편지 개수는 똑같지만 왕복이 한 번으로 줄어드니 비교할 수 없이 빠릅니다. DB도 똑같습니다. <code>save()</code>를 반복문에서 한 건씩 부르는 건 30번 왕복이고, Bulk Insert는 한 번에 몰아 보내는 것입니다. 여기서 느려지는 진짜 원인은 저장 그 자체가 아니라 <strong>DB를 오가는 왕복(round trip) 횟수</strong>라는 점이 핵심입니다.
+      </div>
+    </div>
+
     <h3>① 문제: 반복문 안에서 한 건씩 저장</h3>
-    <p>CSV 업로드, 데이터 마이그레이션처럼 대량의 데이터를 저장해야 할 때, 아래처럼 짜기 쉽습니다.</p>
+    <p>CSV 업로드, 데이터 마이그레이션처럼 대량의 데이터를 저장해야 할 때, 아래처럼 편지를 한 통씩 부치러 가는 코드를 짜기 쉽습니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">❌ row-by-row insert</span></div>
@@ -798,8 +840,18 @@ INSERT INTO users (name, age) VALUES
       <h2>Race Condition &amp; 동시성 제어</h2>
     </div>
 
+    <p>이 파트의 마지막이자, 초보자가 가장 무섭게 느끼는 주제입니다. 하지만 겁먹을 필요 없습니다. 문제의 정체(<strong>Race Condition</strong>)와 두 가지 해결 도구(<strong>낙관적 락</strong>과 <strong>비관적 락</strong>)만 비유로 확실히 잡아 두면, 나머지 코드는 그 개념에 살을 붙인 것에 불과합니다. 하나씩 천천히 가 보겠습니다.</p>
+
     <h3>① Race Condition이란?</h3>
-    <p>서버는 사용자 요청을 <strong>동시에 여러 개</strong> 처리합니다. 그런데 여러 요청이 같은 데이터를 동시에 수정하면 엉뚱한 결과가 나옵니다. 이게 Race Condition입니다.</p>
+    <p>서버는 사용자 요청을 <strong>동시에 여러 개</strong> 처리합니다. 그런데 여러 요청이 같은 데이터를 동시에 읽고 수정하면, 각자 <strong>낡은 정보를 바탕으로 판단</strong>해서 엉뚱한 결과가 나올 수 있습니다. 이렇게 "누가 먼저 도착하느냐(race)"에 따라 결과가 달라지는 상황을 <strong>Race Condition(경쟁 상태)</strong>이라고 합니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 잠금장치가 없는 화장실 문</strong><br>
+        <strong>잠금장치가 고장 난 화장실 문</strong>을 떠올려 보세요. 두 사람이 각자 복도에서 문틈으로 힐끗 보고 "어, 비어 있네" 하고 판단합니다. 그런데 둘 다 <strong>같은 순간에</strong> "비어 있다"고 본 뒤 동시에 들어가면? 안에서 부딪히는 사고가 납니다. 두 사람 모두 잘못한 게 없습니다. 단지 각자 본 "비어 있음"이라는 정보가 <strong>이미 낡은 정보</strong>였을 뿐이죠. DB에서도 똑같은 일이 벌어집니다. 두 요청이 같은 잔액 "10,000원"을 동시에 읽고, 각자 그 낡은 값으로 계산해서 저장하면 한쪽의 결과가 다른 쪽을 덮어써 버립니다. 해결의 방향은 명확합니다. <strong>문에 어떤 형태로든 "사용 중" 표시를 달아 주는 것</strong> — 이것이 바로 락(Lock)입니다.
+      </div>
+    </div>
 
     <div class="db-demo">
       <div class="db-demo-header">예시: 잔액 10,000원 계좌에서 두 사람이 동시에 5,000원씩 출금</div>
@@ -826,7 +878,17 @@ INSERT INTO users (name, age) VALUES
     </div>
 
     <h3>② 해결 방법 2가지 — 락(Lock)</h3>
-    <p>락은 "내가 이 데이터를 쓰고 있는 동안 다른 사람은 손대지 마"라고 표시해두는 것입니다.</p>
+    <p>락(Lock)은 "내가 이 데이터를 쓰고 있는 동안 다른 사람은 손대지 마"라고 표시해 두는 장치입니다. 그런데 이 표시를 하는 방식이 성격이 정반대인 두 가지로 나뉩니다. 하나는 <strong>충돌이 거의 안 날 거라 믿고 일단 진행하는</strong> 낙관적 락, 다른 하나는 <strong>충돌이 날 거라 각오하고 아예 처음부터 문을 잠그는</strong> 비관적 락입니다. 이름의 "낙관/비관"은 <strong>"충돌이 얼마나 자주 날 거라고 예상하느냐"</strong>는 태도의 차이라고 이해하면 됩니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 화장실 문을 "미리 잠글까" vs "다녀간 흔적을 나중에 확인할까"</strong><br>
+        아까 그 화장실 문으로 다시 돌아가 봅시다. 사고를 막는 방법은 두 가지입니다.<br>
+        <strong>① 비관적(Pessimistic) — 아예 문을 걸어 잠그고 들어간다.</strong> 내가 안에 있는 동안 다음 사람은 잠긴 문 앞에서 <strong>기다려야</strong> 합니다. 부딪힐 일이 원천적으로 없으니 확실하지만, 사람이 몰리면 문 앞에 <strong>줄이 생겨</strong> 느려집니다. "충돌이 자주 나겠지"라고 <strong>비관</strong>하는 상황에 어울립니다.<br>
+        <strong>② 낙관적(Optimistic) — 문은 잠그지 않되, 다녀간 흔적을 확인한다.</strong> 대신 벽에 붙은 <strong>방문 횟수 표지판</strong>을 들어갈 때 기억해 둡니다("지금 3번"). 볼일을 마치고 나올 때 표지판이 <strong>여전히 3번이면</strong> "그 사이 아무도 안 왔구나" 하고 정상 처리하고, <strong>4번으로 바뀌어 있으면</strong> "누가 다녀갔네, 내 판단이 낡았을 수 있으니 처음부터 다시" 합니다. 잠그지 않으니 평소엔 빠르지만, 충돌이 잦으면 다시 하는 일이 많아집니다. "충돌은 어쩌다 한 번이겠지"라고 <strong>낙관</strong>하는 상황에 어울립니다.
+      </div>
+    </div>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -854,7 +916,7 @@ INSERT INTO users (name, age) VALUES
     <hr />
 
     <h3>낙관적 락 — 버전 번호로 충돌 감지</h3>
-    <p><code>@VersionColumn()</code>을 엔티티에 달면 TypeORM이 자동으로 버전을 관리합니다. 저장할 때 "내가 읽었던 버전과 지금 DB 버전이 같은지" 확인합니다.</p>
+    <p>낙관적 락의 정체는 방금 비유에서 본 <strong>"방문 횟수 표지판"</strong>입니다. 그 표지판 역할을 하는 것이 바로 <strong>버전 번호(version)</strong>입니다. 엔티티에 <code>@VersionColumn()</code>을 달아 두면 TypeORM이 이 숫자를 자동으로 관리해 줍니다. 데이터를 읽을 때 현재 버전을 함께 기억해 두었다가, <strong>저장하는 순간 "내가 읽었던 버전과 지금 DB의 버전이 여전히 같은지"</strong>를 확인합니다. 같으면 그 사이 아무도 손대지 않은 것이니 정상 저장하며 버전을 1 올리고, 다르면 누군가 먼저 수정한 것이므로 저장을 거부하고 예외를 던집니다. 아래 흐름표에서 요청 B가 어떻게 충돌을 감지당하는지 시간 순서대로 따라가 보세요.</p>
 
     <div class="db-demo">
       <div class="db-demo-header">낙관적 락이 충돌을 잡는 흐름</div>
@@ -1105,7 +1167,15 @@ export class AccountController {
     <hr />
 
     <h3>데드락 — 서로 기다리다 영원히 멈추는 상황</h3>
-    <p>비관적 락을 쓸 때 주의할 점입니다. A가 1번 계좌를 잠그고 2번을 기다리는데, B는 2번을 잠그고 1번을 기다리면 — 둘 다 영원히 기다리게 됩니다.</p>
+    <p>비관적 락은 강력하지만 한 가지 함정이 있습니다. 바로 <strong>데드락(교착 상태)</strong>입니다. A가 1번 계좌를 잠근 채 2번을 기다리는데, 하필 B는 2번 계좌를 잠근 채 1번을 기다리고 있다면 — 둘 다 상대가 먼저 놓아주기만을 바라며 <strong>영원히 멈춰</strong> 버립니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 좁은 일방통행 골목에서 마주 선 두 자동차</strong><br>
+        차 한 대만 지나갈 수 있는 <strong>좁은 골목</strong>에서 두 차가 <strong>서로 마주 보고</strong> 들어왔습니다. A는 "네가 뒤로 빠져야 내가 간다"며 버티고, B도 똑같이 버팁니다. 둘 다 한 발도 물러서지 않으니 <strong>아무도 못 가고 길이 완전히 막힙니다.</strong> 이것이 데드락입니다. 해결책은 의외로 단순합니다. <strong>"항상 정해진 순서를 따른다"</strong>는 규칙 하나면 됩니다. 예를 들어 "누구든 항상 번호가 작은 계좌부터 잠근다"고 정해 두면, 두 요청이 <strong>같은 순서로</strong> 자원을 잡으려 하므로 서로 엇갈려 마주 보는 일 자체가 생기지 않습니다. 아래 오른쪽 코드가 바로 이 "작은 ID 먼저 잠그기" 규칙입니다.
+      </div>
+    </div>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -1188,6 +1258,7 @@ export class AccountController {
     </div>
 
     <h3>동시성 테스트 — Promise.all로 동시 요청 시뮬레이션</h3>
+    <p>락을 걸었다고 끝이 아니라, <strong>정말 동시에 요청이 쏟아져도 안전한지</strong>를 확인해 봐야 합니다. 그런데 사람이 손으로 버튼을 아무리 빨리 눌러도 "완벽하게 동시"를 만들기는 어렵습니다. 그래서 테스트 코드에서 <code>Promise.all</code>로 <strong>여러 요청을 거의 같은 순간에 한꺼번에 발사</strong>해 Race Condition 상황을 인위적으로 재현합니다. 락이 제대로 걸려 있다면 최종 잔액이 <strong>정확한 값</strong>으로 떨어지고, 락이 없다면 앞에서 본 것처럼 금액이 어긋나거나 심지어 음수가 나옵니다.</p>
     <div class="code-block">
       <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-typescript">it('동시 출금 시 잔액이 정확해야 한다', async () => {

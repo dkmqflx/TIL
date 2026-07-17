@@ -78,7 +78,46 @@
       <div class="section-icon icon-error">❌</div>
       <h2>예외 처리</h2>
     </div>
-    <p>NestJS에서는 <code>NotFoundException</code>, <code>ConflictException</code> 등 HTTP 예외를 직접 던집니다.</p>
+    <p>
+      지금까지는 주로 "일이 잘 풀리는 경우"의 코드를 봤습니다. 하지만 실제 서비스에서는
+      <strong>없는 사용자를 조회하거나, 이미 있는 이메일로 다시 가입을 시도</strong>하는 것 같은
+      예외 상황이 오히려 더 자주 일어납니다. 이럴 때 아무 처리도 하지 않으면 클라이언트는
+      정체불명의 <code>500 서버 오류</code>만 받게 되어, 대체 무엇이 잘못됐는지 알 방법이 없습니다.
+      NestJS는 바로 이런 순간을 위해 <strong>상황별 HTTP 예외 클래스</strong>를 미리 준비해 두었습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 주방과 손님 사이의 통역사</strong>
+        식당을 떠올려 보세요. 주방(데이터베이스)은 "그런 메뉴는 없는데요", "같은 주문이 이미 들어왔어요"처럼
+        <strong>주방만의 언어</strong>로 말합니다. 반면 손님(브라우저·프론트엔드)이 알아듣는 건 메뉴판의 언어,
+        즉 <strong>HTTP 상태 코드</strong>(404 없음, 409 중복)뿐입니다. NestJS의 예외 클래스는 그 사이에 선
+        <strong>통역사</strong>예요. 주방의 "재료 없음"을 손님이 이해할 "404 Not Found"로 바꿔 전해 줍니다.
+        통역사가 없으면 손님은 그저 "500 서버 오류"라는 막막한 한마디만 듣게 되죠.
+      </div>
+    </div>
+
+    <p>
+      사용법은 생각보다 단순합니다. 우리는 조건을 확인하고 문제가 있으면 <strong>상황에 맞는 예외를 던지기(throw)만</strong>
+      하면 됩니다. 거기에 상태 코드를 붙이고 JSON 응답으로 포장하는 나머지 일은 NestJS가 알아서 처리해 주죠.
+      대표적으로 네 가지 장면을 기억하면 됩니다. <strong>조회했는데 결과가 없으면</strong> <code>NotFoundException</code>(404),
+      <strong>이미 있는 값과 충돌하면</strong>(중복 이메일 등) <code>ConflictException</code>(409),
+      <strong>요청 값 자체가 잘못됐으면</strong> <code>BadRequestException</code>(400),
+      <strong>로그인은 했지만 권한이 없으면</strong> <code>ForbiddenException</code>(403)을 던집니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 비상 정지 버튼</strong>
+        <code>throw</code>는 공장 라인의 <strong>비상 정지 버튼</strong>과 같습니다. 버튼을 누르는 순간
+        그 아래에 있던 작업들은 <strong>전부 멈추고</strong>, 관리자(NestJS)가 상황을 넘겨받아 뒷정리를 합니다.
+        그래서 아래 <code>findOne</code> 코드에서 예외를 던진 뒤 "그다음 <code>return</code>이 잘못 실행되면
+        어쩌지?" 하고 걱정할 필요가 없어요. <code>throw</code>를 만나면 함수는 그 자리에서 끝나고,
+        <code>return user</code>는 <strong>사용자가 확실히 존재할 때만</strong> 도달하기 때문입니다.
+      </div>
+    </div>
+
+    <p>아래 표는 자주 쓰는 예외 클래스를 한눈에 정리한 것입니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -108,6 +147,14 @@
       </table>
     </div>
 
+    <p>
+      실제 코드로 옮기면 이렇게 됩니다. 두 함수 모두 "먼저 확인하고, 문제가 있으면 통역사(예외)를 부른다"는
+      같은 흐름을 따릅니다. <code>findOne</code>은 DB에 물어본 결과가 <code>null</code>이면(찾는 사용자가 없으면)
+      곧바로 <code>NotFoundException</code>을 던지고, 그 아래 <code>return user</code>는 사용자가 있을 때만 도달합니다.
+      <code>create</code>는 저장하기 전에 같은 이메일이 이미 있는지 확인해서, 있으면 <code>ConflictException</code>으로
+      "중복입니다"라고 알려 준 뒤 멈춥니다.
+    </p>
+
     <div class="code-block">
       <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-typescript">// 단건 조회 - 없으면 404
@@ -129,6 +176,16 @@ async create(dto: CreateUserDto): Promise&lt;User&gt; {
   return this.userRepository.save(user);
 }</code></pre>
     </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">이 "먼저 확인하고 저장"만으로는 사실 완벽하지 않습니다. 두 요청이
+        <strong>거의 동시에</strong> 들어오면 둘 다 "중복 없음" 검사를 통과한 뒤 나란히 저장을 시도할 수 있어요
+        (Part 5에서 본 <strong>Race Condition</strong>). 그래서 최종 방어선은 DB에 걸어 둔 <strong>UNIQUE 제약</strong>이고,
+        그 제약이 막아 세우며 던지는 에러를 잡아 <code>ConflictException</code>으로 바꿔 주는 것이 완성형입니다.
+        위 사전 확인은 대부분의 경우를 빠르고 친절하게 걸러 주는 <strong>1차 관문</strong>이라고 이해하면 됩니다.
+      </div>
+    </div>
   </section>
 
   <!-- ── 실전 패턴 ── -->
@@ -137,6 +194,33 @@ async create(dto: CreateUserDto): Promise&lt;User&gt; {
       <div class="section-icon icon-pattern">🏗️</div>
       <h2>실전 Service + Repository 패턴</h2>
     </div>
+
+    <p>
+      방금 배운 예외 처리, 그리고 Part 1~5에서 익힌 조회·저장·연관관계·트랜잭션을 하나로 합치면
+      실무에서 그대로 쓰는 <strong>표준 구조</strong>가 만들어집니다. 그 뼈대가 바로
+      <strong>Controller → Service → Repository</strong>로 이어지는 3단 구조예요. 낯선 이름이 세 개나 나오지만,
+      역할을 나눠 맡는 방식은 우리가 이미 잘 아는 곳에서 그대로 가져왔습니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 홀 직원, 셰프, 창고 담당</strong>
+        잘 돌아가는 식당은 한 사람이 모든 걸 하지 않습니다. <strong>홀 직원(Controller)</strong>은 손님의 주문을 받아
+        주방에 전달하고 완성된 요리를 내갑니다 — 직접 요리하지는 않죠. <strong>셰프(Service)</strong>는 실제 요리,
+        즉 "재료가 없으면 손님에게 알린다" 같은 판단과 조리(비즈니스 로직)를 맡습니다.
+        <strong>창고 담당(Repository)</strong>은 셰프가 요청한 재료를 창고(데이터베이스)에서 꺼내 오고 새 재료를 넣어 둡니다.
+        각자 한 가지 일만 하기 때문에, 문제가 생겨도 <strong>어디를 고쳐야 할지 금방 찾을 수 있습니다.</strong>
+      </div>
+    </div>
+
+    <p>
+      이 그림을 코드에 그대로 대응시켜 보겠습니다. <strong>Service</strong>는 셰프답게 가장 두껍습니다 —
+      Repository를 통해 DB와 대화하고, 규칙을 어기면(없는 사용자, 중복 이메일) 앞에서 배운 예외를 던집니다.
+      한 가지 눈여겨볼 점은 <code>update</code>가 <code>findOne</code>을 <strong>재사용</strong>한다는 것입니다.
+      "없으면 404" 규칙을 <code>findOne</code> 한 곳에만 적어 두고 여기저기서 불러 쓰기 때문에, 같은 검사를
+      매번 다시 쓸 필요가 없어요. <code>remove</code>는 삭제 결과의 <code>affected</code>(실제로 지워진 행 수)가
+      0이면 지울 대상이 없었다는 뜻이므로 404를 던집니다.
+    </p>
 
     <h3>users.service.ts</h3>
     <div class="code-block">
@@ -190,6 +274,14 @@ export class UsersService {
 }</code></pre>
     </div>
 
+    <p>
+      반대로 <strong>Controller</strong>는 홀 직원처럼 <strong>얇게</strong> 유지합니다. 하는 일은 HTTP의 세계
+      — URL, 쿼리 파라미터, 요청 body — 를 받아 Service에 그대로 넘기고, 돌아온 결과를 다시 내보내는 것뿐입니다.
+      <code>if</code>문이나 DB를 직접 만지는 코드가 거의 없다는 점에 주목해 보세요. 요청의 문자열 <code>id</code>를
+      숫자로 바꾸는 일도 <code>ParseIntPipe</code>가 대신 해 주어, Controller는 순수하게 "받아서 넘기고, 받아서 내보내는"
+      역할에 집중합니다.
+    </p>
+
     <h3>users.controller.ts</h3>
     <div class="code-block">
       <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -229,6 +321,14 @@ export class UsersController {
   }
 }</code></pre>
     </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Controller는 얇게, Service는 두껍게.</strong> 실무에서 자주 쓰는 원칙입니다.
+        비즈니스 로직을 Controller에 몰아넣으면 나중에 같은 로직을 다른 곳에서 재사용하기 어렵고, 테스트도 까다로워집니다.
+        판단과 규칙은 Service에 모으고, Controller는 HTTP 입출력만 담당하게 두면 구조가 오래도록 깔끔하게 유지됩니다.
+      </div>
+    </div>
   </section>
 
   <!-- ── 비교 ── -->
@@ -237,6 +337,34 @@ export class UsersController {
       <div class="section-icon icon-compare">📊</div>
       <h2>프레임워크 비교</h2>
     </div>
+
+    <p>
+      마지막으로, TypeORM이 <strong>유일한 정답은 아니라는 점</strong>을 짚고 마무리하겠습니다.
+      Node.js 생태계에는 Prisma, Sequelize 같은 다른 ORM도 있고, 저마다 잘하는 것과 아쉬운 점이 다릅니다.
+      여기서 중요한 건 "무엇이 최고인가"를 가리는 게 아니라, <strong>각각이 어떤 상황에 어울리는지</strong>
+      감을 잡는 것입니다.
+    </p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — "세상에서 제일 좋은 차"는 없다</strong>
+        차를 고를 때 우리는 "세상에서 제일 좋은 차가 뭐예요?"라고 묻지 않습니다. "출퇴근용으로", "아이가 셋이라",
+        "비포장길을 자주 달려서"처럼 <strong>내 상황에 맞는 차</strong>를 찾죠. ORM도 똑같습니다.
+        <strong>TypeORM</strong>은 NestJS에 기본 장착된 순정 옵션 같아서 데코레이터 방식이 손에 잘 붙고,
+        복잡한 쿼리는 QueryBuilder로 직접 몰 수 있습니다. <strong>Prisma</strong>는 최신형처럼 편의 기능이 많아
+        스키마만 적으면 타입까지 자동으로 맞춰 주고 배우기도 쉽습니다. <strong>Sequelize</strong>는 오래 검증된 모델이라
+        예전 JS 프로젝트에 이미 깔려 있는 경우가 많죠. 정답은 "제일 좋은 것"이 아니라 "지금 프로젝트에 맞는 것"입니다.
+      </div>
+    </div>
+
+    <p>
+      아래 표를 위 비유에 얹어 읽으면 이해가 쉽습니다. <strong>SQL 제어</strong> 면에서는 세 도구 모두 쿼리를
+      자동으로 만들어 주지만, TypeORM은 필요할 때 <strong>QueryBuilder로 직접 개입</strong>할 여지가 넓습니다.
+      <strong>학습 난이도</strong>는 스키마 기반으로 깔끔하게 정리되는 Prisma가 가장 낮은 편이고, TypeORM과 Sequelize는
+      중간 정도입니다. <strong>타입 안정성</strong>은 스키마에서 타입을 자동 생성하는 Prisma가 강점이고, TypeORM은
+      데코레이터에 적어 둔 타입을 활용합니다. 그래서 <strong>적합한 상황</strong>도 갈립니다 — NestJS 표준 프로젝트라면
+      TypeORM, 빠르게 밀어붙이는 스타트업이라면 Prisma, 손보던 레거시 JS 프로젝트라면 Sequelize가 자연스러운 선택이죠.
+    </p>
 
     <div class="table-wrap">
       <table class="compare-table">
@@ -286,6 +414,16 @@ export class UsersController {
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
       <div class="callout-body">실무에서는 <strong>TypeORM + Raw Query 혼용</strong> 패턴도 많습니다. 일반 CRUD는 Repository 메서드, 복잡한 통계/집계 쿼리는 QueryBuilder나 <code>query()</code> 직접 실행을 사용합니다.</div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기까지 오시느라 정말 고생 많으셨습니다.</strong>
+        Part 1에서 Entity 하나를 정의하는 것으로 시작해 CRUD, 연관관계, 고급 쿼리, 트랜잭션과 동시성 문제,
+        그리고 오늘의 예외 처리와 실전 구조까지 한 바퀴를 다 돌았습니다. 처음엔 낯설던 데코레이터와 Repository가
+        이제 하나의 그림으로 이어져 보이길 바랍니다. 모든 걸 완벽하게 외우려 하기보다, 필요할 때 이 문서로 다시 돌아와
+        확인하며 손에 익히면 충분합니다. 여러분의 다음 프로젝트에 이 내용이 든든한 밑바탕이 되기를 바랍니다.
+      </div>
     </div>
   </section>
 

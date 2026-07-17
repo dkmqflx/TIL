@@ -37,7 +37,7 @@ for (const file of htmlFiles) {
 
   const need = isIndex
     ? ['class="topbar"', 'class="week"']
-    : ['class="topbar"', 'class="summary"', 'class="goals"', 'class="qa"', 'class="pager"'];
+    : ['class="lesson-head"', 'class="section"', 'class="part-pager"', 'class="qa-list"', 'class="doc-footer"'];
   for (const n of need) if (!html.includes(n)) err(file, `missing element: ${n}`);
 }
 

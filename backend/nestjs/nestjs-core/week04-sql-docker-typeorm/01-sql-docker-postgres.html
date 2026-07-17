@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Week 4·01 — SQL 기본기 + Docker로 PostgreSQL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -42,238 +50,261 @@
 </nav>
 
 <!-- ── Main ── -->
-<div class="sidebar-main">
+<main class="main" id="top">
 
-<nav class="topbar">
-  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 4 · SQL · Docker · TypeORM</b></span>
-  <span>01 / 03</span>
-</nav>
-
-<header class="head">
-  <span class="kicker">◆ Week 4 — Lesson 01</span>
-  <h1>SQL 기본기<br>Docker로 PostgreSQL</h1>
-  <p class="subtitle">관계형 데이터베이스의 핵심 개념을 빠르게 정리하고, <strong>Docker Compose 한 파일</strong>로 PostgreSQL을 로컬에서 바로 띄운다. TypeORM을 배우기 전에 DB가 실제로 무슨 일을 하는지 손으로 느껴 보자.</p>
-</header>
-
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">"</span>
-    <p>TypeORM은 결국 SQL을 대신 써 주는 번역가다. 번역가를 잘 쓰려면 <b>원어(SQL)를 조금은 알아야</b> 한다. 그리고 그 DB는 <code>docker compose up</code> 한 줄로 어디서든 동일하게 켤 수 있어야 한다.</p>
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../week03-service-module-di/03-module-provider-appmodule.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Module · Provider · AppModule · main.ts</span></a>
+    <a class="part-pager-link next" href="02-typeorm-setup-entity-repo.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">TypeORM 설정 · Entity · Repository</span></a>
   </div>
-</div>
 
-<main class="wrap">
+  <div class="lesson-head">
+    <h1>SQL 기본기 Docker로 PostgreSQL</h1>
+    <p class="lesson-subtitle">관계형 데이터베이스의 핵심 개념을 빠르게 정리하고, <strong>Docker Compose 한 파일</strong>로 PostgreSQL을 로컬에서 바로 띄운다. TypeORM을 배우기 전에 DB가 실제로 무슨 일을 하는지 손으로 느껴 보자.</p>
+  </div>
 
-  <ul class="goals">
+  <div class="tip-box"><strong>한 줄 요약.</strong> TypeORM은 결국 SQL을 대신 써 주는 번역가다. 번역가를 잘 쓰려면 <b>원어(SQL)를 조금은 알아야</b> 한다. 그리고 그 DB는 <code>docker compose up</code> 한 줄로 어디서든 동일하게 켤 수 있어야 한다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
     <li>테이블·행·열·PK가 무엇인지 한 문장으로 설명할 수 있다</li>
     <li><code>SELECT / INSERT / UPDATE / DELETE</code> 구문의 기본 형태를 안다</li>
     <li>Docker 이미지와 컨테이너의 차이를 설명할 수 있다</li>
     <li><code>docker-compose.yml</code>을 작성해 PostgreSQL 컨테이너를 띄울 수 있다</li>
   </ul>
 
-  <h2 id="s1"><span class="num">1</span>SQL 기초 — 테이블, PK, 4가지 명령</h2>
-  <p class="lead">관계형 DB는 데이터를 <strong>표(Table)</strong>에 저장합니다. 각 표는 <strong>열(Column)</strong>과 <strong>행(Row)</strong>으로 이루어지고, 모든 행을 고유하게 식별하는 열이 <strong>기본 키(Primary Key, PK)</strong>입니다. SQL은 이 표를 읽고 쓰는 언어입니다.</p>
+  <section class="section" id="s1">
+    <div class="section-header">
+      <div class="section-icon icon-query">🗄️</div>
+      <h2>SQL 기초 — 테이블, PK, 4가지 명령</h2>
+    </div>
+    <p>관계형 DB는 데이터를 <strong>표(Table)</strong>에 저장합니다. 각 표는 <strong>열(Column)</strong>과 <strong>행(Row)</strong>으로 이루어지고, 모든 행을 고유하게 식별하는 열이 <strong>기본 키(Primary Key, PK)</strong>입니다. SQL은 이 표를 읽고 쓰는 언어입니다.</p>
 
-  <table class="tbl">
-    <thead><tr><th>SQL 명령</th><th>CRUD</th><th>예시</th></tr></thead>
-    <tbody>
-      <tr><td><code>SELECT</code></td><td>Read</td><td><code>SELECT * FROM posts WHERE id = 1;</code></td></tr>
-      <tr><td><code>INSERT</code></td><td>Create</td><td><code>INSERT INTO posts (title) VALUES ('첫 글');</code></td></tr>
-      <tr><td><code>UPDATE</code></td><td>Update</td><td><code>UPDATE posts SET title = '수정' WHERE id = 1;</code></td></tr>
-      <tr><td><code>DELETE</code></td><td>Delete</td><td><code>DELETE FROM posts WHERE id = 1;</code></td></tr>
-    </tbody>
-  </table>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>SQL 명령</th><th>CRUD</th><th>예시</th></tr></thead>
+        <tbody>
+          <tr><td><code>SELECT</code></td><td>Read</td><td><code>SELECT * FROM posts WHERE id = 1;</code></td></tr>
+          <tr><td><code>INSERT</code></td><td>Create</td><td><code>INSERT INTO posts (title) VALUES ('첫 글');</code></td></tr>
+          <tr><td><code>UPDATE</code></td><td>Update</td><td><code>UPDATE posts SET title = '수정' WHERE id = 1;</code></td></tr>
+          <tr><td><code>DELETE</code></td><td>Delete</td><td><code>DELETE FROM posts WHERE id = 1;</code></td></tr>
+        </tbody>
+      </table>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">SQL — posts 테이블 예제</span></div><pre><span class="c">-- 테이블 생성</span>
-<span class="k">CREATE TABLE</span> posts (
-  id      <span class="t">SERIAL</span> <span class="k">PRIMARY KEY</span>,
-  title   <span class="t">TEXT</span>    <span class="k">NOT NULL</span>,
-  content <span class="t">TEXT</span>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">posts 테이블 예제</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-sql">-- 테이블 생성
+CREATE TABLE posts (
+  id      SERIAL PRIMARY KEY,
+  title   TEXT    NOT NULL,
+  content TEXT
 );
 
-<span class="c">-- 행 추가</span>
-<span class="k">INSERT INTO</span> posts (title, content)
-  <span class="k">VALUES</span> (<span class="s">'첫 글'</span>, <span class="s">'안녕하세요!'</span>);
+-- 행 추가
+INSERT INTO posts (title, content)
+  VALUES ('첫 글', '안녕하세요!');
 
-<span class="c">-- 전체 조회</span>
-<span class="k">SELECT</span> * <span class="k">FROM</span> posts;
+-- 전체 조회
+SELECT * FROM posts;
 
-<span class="c">-- 특정 행만 수정</span>
-<span class="k">UPDATE</span> posts <span class="k">SET</span> title = <span class="s">'수정된 글'</span> <span class="k">WHERE</span> id = <span class="n">1</span>;
+-- 특정 행만 수정
+UPDATE posts SET title = '수정된 글' WHERE id = 1;
 
-<span class="c">-- 삭제</span>
-<span class="k">DELETE FROM</span> posts <span class="k">WHERE</span> id = <span class="n">1</span>;</pre></div>
+-- 삭제
+DELETE FROM posts WHERE id = 1;</code></pre>
+    </div>
 
-  <div class="box tip">
-    <span class="ic">💡</span>
-    <span class="label">PK는 절대 중복·NULL 불가</span>
-    <p><code>SERIAL PRIMARY KEY</code>는 PostgreSQL에서 자동 증가하는 정수 PK를 만드는 가장 간단한 방법입니다. TypeORM의 <code>@PrimaryGeneratedColumn()</code>이 이 SQL을 대신 생성합니다.</p>
-  </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>PK는 절대 중복·NULL 불가.</strong> <code>SERIAL PRIMARY KEY</code>는 PostgreSQL에서 자동 증가하는 정수 PK를 만드는 가장 간단한 방법입니다. TypeORM의 <code>@PrimaryGeneratedColumn()</code>이 이 SQL을 대신 생성합니다.</div>
+    </div>
 
-  <div class="box note">
-    <span class="ic">🧭</span>
-    <span class="label">요즘은 SERIAL 대신 IDENTITY를 더 권장</span>
-    <p>PostgreSQL 10부터는 SQL 표준 문법인 <code>GENERATED ALWAYS AS IDENTITY</code>가 공식 권장 방식입니다. <code>SERIAL</code>은 컬럼·시퀀스·기본값을 자동으로 엮어주는 문법 설탕이라 시퀀스 소유권·권한 관리가 꼬이기 쉽기 때문입니다. TypeORM은 <code>@PrimaryGeneratedColumn('identity')</code>로 이 방식을 지원하지만, 인자 없는 <code>@PrimaryGeneratedColumn()</code>의 기본값은 여전히 <code>SERIAL</code>입니다. 분산 시스템이거나 ID 노출을 피하고 싶은 API라면 <code>@PrimaryGeneratedColumn('uuid')</code>로 UUID PK를 쓰는 것도 흔한 선택입니다.</p>
-  </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>요즘은 SERIAL 대신 IDENTITY를 더 권장.</strong> PostgreSQL 10부터는 SQL 표준 문법인 <code>GENERATED ALWAYS AS IDENTITY</code>가 공식 권장 방식입니다. <code>SERIAL</code>은 컬럼·시퀀스·기본값을 자동으로 엮어주는 문법 설탕이라 시퀀스 소유권·권한 관리가 꼬이기 쉽기 때문입니다. TypeORM은 <code>@PrimaryGeneratedColumn('identity')</code>로 이 방식을 지원하지만, 인자 없는 <code>@PrimaryGeneratedColumn()</code>의 기본값은 여전히 <code>SERIAL</code>입니다. 분산 시스템이거나 ID 노출을 피하고 싶은 API라면 <code>@PrimaryGeneratedColumn('uuid')</code>로 UUID PK를 쓰는 것도 흔한 선택입니다.</div>
+    </div>
+  </section>
 
-  <h2 id="s2"><span class="num">2</span>Docker — Dockerfile · 이미지 · 컨테이너</h2>
-  <p>Docker를 이해하는 핵심 개념은 세 가지입니다. <strong>Dockerfile</strong>은 이미지를 어떻게 만들지 적어 둔 <em>텍스트 설계도</em>입니다. <strong>이미지(Image)</strong>는 그 설계도를 <code>docker build</code>로 직접 빌드했거나, 레지스트리(Docker Hub 등)에서 <code>docker pull</code>로 이미 완성된 것을 받아 온 실행 가능한 패키지 — 프로그램 코드·환경·설정을 모두 담은 <em>청사진</em>입니다. <strong>컨테이너(Container)</strong>는 그 이미지를 실제로 실행한 <em>프로세스</em>입니다. 같은 이미지에서 여러 컨테이너를 만들 수 있고, 컨테이너를 지워도 이미지는(이미지를 지워도 Dockerfile은) 남습니다.</p>
+  <section class="section" id="s2">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🐳</div>
+      <h2>Docker — Dockerfile · 이미지 · 컨테이너</h2>
+    </div>
+    <p>Docker를 이해하는 핵심 개념은 세 가지입니다. <strong>Dockerfile</strong>은 이미지를 어떻게 만들지 적어 둔 <em>텍스트 설계도</em>입니다. <strong>이미지(Image)</strong>는 그 설계도를 <code>docker build</code>로 직접 빌드했거나, 레지스트리(Docker Hub 등)에서 <code>docker pull</code>로 이미 완성된 것을 받아 온 실행 가능한 패키지 — 프로그램 코드·환경·설정을 모두 담은 <em>청사진</em>입니다. <strong>컨테이너(Container)</strong>는 그 이미지를 실제로 실행한 <em>프로세스</em>입니다. 같은 이미지에서 여러 컨테이너를 만들 수 있고, 컨테이너를 지워도 이미지는(이미지를 지워도 Dockerfile은) 남습니다.</p>
 
-  <div class="box analogy">
-    <span class="ic">🍔</span>
-    <span class="label">비유 — 레시피로 포장한 도시락, 데우면 컨테이너</span>
-    <p><strong>Dockerfile</strong>은 도시락 <strong>조리법(레시피)</strong> 그 자체입니다 — 어떤 재료(베이스 이미지)를 어떤 순서로 손질할지 적은 텍스트일 뿐, 아직 먹을 수는 없습니다. 그 레시피대로 조리해서 <strong>밀폐 포장</strong>까지 마친 결과물이 <strong>이미지</strong>입니다(<code>docker build</code>). 직접 조리하지 않고 이미 포장된 도시락을 편의점(레지스트리)에서 사 올 수도 있습니다(<code>docker pull</code>) — 이번 예제의 <code>postgres:16</code>이 그 경우입니다. <strong>컨테이너</strong>는 그 도시락을 <strong>전자레인지에 넣고 돌린 상태</strong> — 실제로 열이 나고 먹을 수 있는 실행 중인 인스턴스입니다. 도시락을 버려도(컨테이너 삭제) 레시피(Dockerfile)도 완성 도시락(이미지)도 사라지지 않습니다. 다시 꺼내 돌리면 그만입니다.</p>
-  </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 레시피로 포장한 도시락, 데우면 컨테이너.</strong> <strong>Dockerfile</strong>은 도시락 <strong>조리법(레시피)</strong> 그 자체입니다 — 어떤 재료(베이스 이미지)를 어떤 순서로 손질할지 적은 텍스트일 뿐, 아직 먹을 수는 없습니다. 그 레시피대로 조리해서 <strong>밀폐 포장</strong>까지 마친 결과물이 <strong>이미지</strong>입니다(<code>docker build</code>). 직접 조리하지 않고 이미 포장된 도시락을 편의점(레지스트리)에서 사 올 수도 있습니다(<code>docker pull</code>) — 이번 예제의 <code>postgres:16</code>이 그 경우입니다. <strong>컨테이너</strong>는 그 도시락을 <strong>전자레인지에 넣고 돌린 상태</strong> — 실제로 열이 나고 먹을 수 있는 실행 중인 인스턴스입니다. 도시락을 버려도(컨테이너 삭제) 레시피(Dockerfile)도 완성 도시락(이미지)도 사라지지 않습니다. 다시 꺼내 돌리면 그만입니다.</div>
+    </div>
 
-  <figure class="diagram">
-    <svg viewBox="0 0 940 220" role="img" aria-label="Dockerfile에서 이미지, 컨테이너가 생성되는 흐름">
-      <!-- Dockerfile box -->
-      <rect x="20" y="60" width="190" height="110" rx="12" fill="#16140f" stroke="#2c281f" stroke-width="2"/>
-      <text x="115" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#ece6d6">Dockerfile</text>
-      <text x="115" y="114" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#a89f8c">이미지 설계도</text>
-      <text x="115" y="132" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#7d7666">(텍스트 · FROM/COPY/RUN)</text>
-      <!-- Arrow: Dockerfile -> Image -->
-      <line x1="214" y1="115" x2="290" y2="115" stroke="#e0552f" stroke-width="2.5" marker-end="url(#w4l1-arr-orange)"/>
-      <text x="252" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">docker build</text>
-      <!-- Image box -->
-      <rect x="294" y="60" width="200" height="110" rx="12" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
-      <text x="394" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#a8401f">postgres:16</text>
-      <text x="394" y="114" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#7a3018">Docker 이미지</text>
-      <text x="394" y="132" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a7060">(청사진 · read-only)</text>
-      <text x="394" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">(이번 예제는 docker pull)</text>
-      <!-- Arrow: Image -> Container -->
-      <line x1="498" y1="115" x2="574" y2="115" stroke="#0d6e64" stroke-width="2.5" marker-end="url(#w4l1-arr)"/>
-      <text x="536" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#0d6e64">docker run</text>
-      <!-- Container box -->
-      <rect x="578" y="40" width="330" height="148" rx="12" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
-      <text x="743" y="68" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#0a4f48">컨테이너 (실행 중)</text>
-      <!-- Inner port box -->
-      <rect x="602" y="82" width="140" height="90" rx="8" fill="#16140f" stroke="#0d6e64" stroke-width="1.5"/>
-      <text x="672" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#6fd6c7">PostgreSQL</text>
-      <text x="672" y="122" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a9382">포트 5432</text>
-      <text x="672" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">내부(컨테이너)</text>
-      <text x="672" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c98a16">:5432</text>
-      <!-- Port mapping arrow -->
-      <line x1="746" y1="127" x2="854" y2="127" stroke="#c98a16" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#w4l1-port)"/>
-      <!-- Host port box -->
-      <rect x="758" y="95" width="130" height="60" rx="8" fill="#f6e9c8" stroke="#c98a16" stroke-width="1.5"/>
-      <text x="823" y="117" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#9a6a05">호스트(localhost)</text>
-      <text x="823" y="135" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#9a6a05">:5432</text>
-      <!-- Labels -->
-      <text x="115" y="196" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#807a6c">Dockerfile = 설계도</text>
-      <text x="394" y="196" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#807a6c">이미지 = 청사진</text>
-      <text x="743" y="205" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10.5" fill="#807a6c">컨테이너 = 실행 인스턴스 · 포트 매핑으로 호스트에서 접근</text>
-      <defs>
-        <marker id="w4l1-arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#0d6e64"/></marker>
-        <marker id="w4l1-arr-orange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#e0552f"/></marker>
-        <marker id="w4l1-port" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#c98a16"/></marker>
-      </defs>
-    </svg>
-    <figcaption><code>Dockerfile</code>을 <code>docker build</code>하거나 레지스트리에서 <code>docker pull</code>하면 이미지가 되고, <code>docker run</code>으로 그 이미지를 컨테이너로 실행한다. 컨테이너 내부 5432가 호스트 5432로 매핑된다.</figcaption>
-  </figure>
+    <div class="diagram-card">
+      <svg viewBox="0 0 940 220" role="img" aria-label="Dockerfile에서 이미지, 컨테이너가 생성되는 흐름">
+        <!-- Dockerfile box -->
+        <rect x="20" y="60" width="190" height="110" rx="12" fill="#0d1117" stroke="#30363d" stroke-width="2"/>
+        <text x="115" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#f87171">Dockerfile</text>
+        <text x="115" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#c9d1d9">이미지 설계도</text>
+        <text x="115" y="132" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#8b949e">(텍스트 · FROM/COPY/RUN)</text>
+        <!-- Arrow: Dockerfile -> Image -->
+        <line x1="214" y1="115" x2="290" y2="115" stroke="#ef4444" stroke-width="2.5" marker-end="url(#w4l1-arr-orange)"/>
+        <text x="252" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#b91c1c">docker build</text>
+        <!-- Image box -->
+        <rect x="294" y="60" width="200" height="110" rx="12" fill="#fff0f3" stroke="#e0234e" stroke-width="2"/>
+        <text x="394" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#9f1239">postgres:16</text>
+        <text x="394" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#9f1239">Docker 이미지</text>
+        <text x="394" y="132" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#9f1239">(청사진 · read-only)</text>
+        <text x="394" y="152" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#b45309">(이번 예제는 docker pull)</text>
+        <!-- Arrow: Image -> Container -->
+        <line x1="498" y1="115" x2="574" y2="115" stroke="#10b981" stroke-width="2.5" marker-end="url(#w4l1-arr)"/>
+        <text x="536" y="106" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#059669">docker run</text>
+        <!-- Container box -->
+        <rect x="578" y="40" width="330" height="148" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/>
+        <text x="743" y="68" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#059669">컨테이너 (실행 중)</text>
+        <!-- Inner port box -->
+        <rect x="602" y="82" width="140" height="90" rx="8" fill="#0d1117" stroke="#10b981" stroke-width="1.5"/>
+        <text x="672" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#6ee7b7">PostgreSQL</text>
+        <text x="672" y="122" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#8b949e">포트 5432</text>
+        <text x="672" y="140" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#facc15">내부(컨테이너)</text>
+        <text x="672" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#facc15">:5432</text>
+        <!-- Port mapping arrow -->
+        <line x1="746" y1="127" x2="854" y2="127" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#w4l1-port)"/>
+        <!-- Host port box -->
+        <rect x="758" y="95" width="130" height="60" rx="8" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="823" y="117" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#b45309">호스트(localhost)</text>
+        <text x="823" y="135" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="700" fill="#b45309">:5432</text>
+        <!-- Labels -->
+        <text x="115" y="196" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#6b7280">Dockerfile = 설계도</text>
+        <text x="394" y="196" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#6b7280">이미지 = 청사진</text>
+        <text x="743" y="205" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#6b7280">컨테이너 = 실행 인스턴스 · 포트 매핑으로 호스트에서 접근</text>
+        <defs>
+          <marker id="w4l1-arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#10b981"/></marker>
+          <marker id="w4l1-arr-orange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#ef4444"/></marker>
+          <marker id="w4l1-port" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f59e0b"/></marker>
+        </defs>
+      </svg>
+      <div class="diagram-caption"><code>Dockerfile</code>을 <code>docker build</code>하거나 레지스트리에서 <code>docker pull</code>하면 이미지가 되고, <code>docker run</code>으로 그 이미지를 컨테이너로 실행한다. 컨테이너 내부 5432가 호스트 5432로 매핑된다.</div>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">Dockerfile — 우리 앱을 직접 빌드한다면 (예시)</span></div><pre><span class="c"># 베이스 이미지</span>
-<span class="k">FROM</span> node:20-alpine
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">dockerfile</span><span class="code-filename">Dockerfile — 우리 앱을 직접 빌드한다면 (예시)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-dockerfile"># 베이스 이미지
+FROM node:20-alpine
 
-<span class="k">WORKDIR</span> /app
+WORKDIR /app
 
-<span class="c"># 의존성 파일 먼저 복사 → 레이어 캐시 활용</span>
-<span class="k">COPY</span> package*.json ./
-<span class="k">RUN</span> npm ci
+# 의존성 파일 먼저 복사 → 레이어 캐시 활용
+COPY package*.json ./
+RUN npm ci
 
-<span class="c"># 소스 복사 후 빌드</span>
-<span class="k">COPY</span> . .
-<span class="k">RUN</span> npm run build
+# 소스 복사 후 빌드
+COPY . .
+RUN npm run build
 
-<span class="k">EXPOSE</span> <span class="n">3000</span>
-<span class="k">CMD</span> [<span class="s">"node"</span>, <span class="s">"dist/main.js"</span>]</pre></div>
+EXPOSE 3000
+CMD ["node", "dist/main.js"]</code></pre>
+    </div>
 
-  <div class="box note">
-    <span class="ic">🧭</span>
-    <span class="label">왜 이 레슨엔 Dockerfile이 없을까</span>
-    <p>PostgreSQL은 이미 공식 팀이 빌드해서 Docker Hub에 올려 둔 이미지가 있으므로, 우리는 <code>docker-compose.yml</code>의 <code>image: postgres:16</code>처럼 <code>docker pull</code>로 받아 쓰기만 하면 됩니다. Dockerfile은 <strong>세상에 없는 이미지</strong> — 이를테면 우리가 만든 NestJS 애플리케이션 — 를 직접 빌드해야 할 때 필요합니다. 위 예시처럼 <code>FROM</code>으로 베이스를 정하고, <code>COPY</code>·<code>RUN</code>으로 필요한 파일과 설치 과정을 쌓은 뒤 <code>docker build</code>하면 우리만의 이미지가 만들어집니다.</p>
-  </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>왜 이 레슨엔 Dockerfile이 없을까.</strong> PostgreSQL은 이미 공식 팀이 빌드해서 Docker Hub에 올려 둔 이미지가 있으므로, 우리는 <code>docker-compose.yml</code>의 <code>image: postgres:16</code>처럼 <code>docker pull</code>로 받아 쓰기만 하면 됩니다. Dockerfile은 <strong>세상에 없는 이미지</strong> — 이를테면 우리가 만든 NestJS 애플리케이션 — 를 직접 빌드해야 할 때 필요합니다. 위 예시처럼 <code>FROM</code>으로 베이스를 정하고, <code>COPY</code>·<code>RUN</code>으로 필요한 파일과 설치 과정을 쌓은 뒤 <code>docker build</code>하면 우리만의 이미지가 만들어집니다.</div>
+    </div>
+  </section>
 
-  <h2 id="s3"><span class="num">3</span><code>docker-compose.yml</code>로 PostgreSQL 띄우기</h2>
-  <p><strong>Docker Compose</strong>는 여러 컨테이너를 하나의 파일로 선언하고, <code>docker compose up</code> 한 줄로 모두 시작합니다. 실무에서는 보통 DB · 앱 · 캐시 서버를 함께 정의합니다. 지금은 PostgreSQL 하나만 띄워 봅니다.</p>
+  <section class="section" id="s3">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🐘</div>
+      <h2><code>docker-compose.yml</code>로 PostgreSQL 띄우기</h2>
+    </div>
+    <p><strong>Docker Compose</strong>는 여러 컨테이너를 하나의 파일로 선언하고, <code>docker compose up</code> 한 줄로 모두 시작합니다. 실무에서는 보통 DB · 앱 · 캐시 서버를 함께 정의합니다. 지금은 PostgreSQL 하나만 띄워 봅니다.</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">docker-compose.yml</span></div><pre><span class="k">version</span>: <span class="s">'3.9'</span>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><span class="code-filename">docker-compose.yml</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-yaml">version: '3.9'
 
-<span class="k">services</span>:
-  <span class="k">postgres</span>:
-    <span class="k">image</span>: <span class="s">postgres:16</span>
-    <span class="k">container_name</span>: <span class="s">nestjs_postgres</span>
-    <span class="k">environment</span>:
-      POSTGRES_USER: <span class="s">admin</span>
-      POSTGRES_PASSWORD: <span class="s">secret</span>
-      POSTGRES_DB: <span class="s">nestjs_db</span>
-    <span class="k">ports</span>:
-      - <span class="s">"5432:5432"</span>       <span class="c"># 호스트:컨테이너</span>
-    <span class="k">volumes</span>:
-      - postgres_data:/var/lib/postgresql/data  <span class="c"># 데이터 영속화</span>
+services:
+  postgres:
+    image: postgres:16
+    container_name: nestjs_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: nestjs_db
+    ports:
+      - "5432:5432"       # 호스트:컨테이너
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # 데이터 영속화
 
-<span class="k">volumes</span>:
-  postgres_data:</pre></div>
+volumes:
+  postgres_data:</code></pre>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">terminal — 컨테이너 시작 / 중지</span></div><pre><span class="c"># 백그라운드로 컨테이너 시작 (-d: detached)</span>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">terminal — 컨테이너 시작 / 중지</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash"># 백그라운드로 컨테이너 시작 (-d: detached)
 docker compose up -d
 
-<span class="c"># 실행 중인 컨테이너 확인</span>
+# 실행 중인 컨테이너 확인
 docker compose ps
 
-<span class="c"># 컨테이너 중지 (데이터는 volume에 유지)</span>
-docker compose down</pre></div>
+# 컨테이너 중지 (데이터는 volume에 유지)
+docker compose down</code></pre>
+    </div>
 
-  <div class="box tip">
-    <span class="ic">💡</span>
-    <span class="label">volumes: 가 없으면 컨테이너를 지울 때 DB 데이터도 사라진다</span>
-    <p><code>volumes</code> 선언으로 데이터 디렉터리를 Docker 관리 볼륨에 마운트하면, 컨테이너를 재시작하거나 삭제 후 재생성해도 데이터가 보존됩니다. <code>docker compose down -v</code>를 쓰면 볼륨까지 삭제됩니다 — 개발 환경 초기화 시에만 사용하세요.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>volumes: 가 없으면 컨테이너를 지울 때 DB 데이터도 사라진다.</strong> <code>volumes</code> 선언으로 데이터 디렉터리를 Docker 관리 볼륨에 마운트하면, 컨테이너를 재시작하거나 삭제 후 재생성해도 데이터가 보존됩니다. <code>docker compose down -v</code>를 쓰면 볼륨까지 삭제됩니다 — 개발 환경 초기화 시에만 사용하세요.</div>
+    </div>
+  </section>
+
+  <section class="section" id="s4">
+    <div class="section-header">
+      <div class="section-icon icon-repo">🔌</div>
+      <h2>VSCode Postgres 익스플로러로 연결 확인</h2>
+    </div>
+    <p>컨테이너가 뜨면 VSCode의 <strong>PostgreSQL</strong> 익스텐션(또는 <strong>Database Client</strong>)으로 시각적으로 확인할 수 있습니다. 다음 정보를 입력합니다.</p>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>VSCode 연결 정보.</strong> Host: <code>localhost</code> &nbsp;/&nbsp; Port: <code>5432</code> &nbsp;/&nbsp; Database: <code>nestjs_db</code><br>
+      Username: <code>admin</code> &nbsp;/&nbsp; Password: <code>secret</code><br>
+      이는 <code>docker-compose.yml</code>의 <code>POSTGRES_*</code> 환경변수와 일치해야 합니다. 연결이 성공하면 테이블 탐색기에서 TypeORM이 생성한 테이블을 바로 확인할 수 있습니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="s5">
+    <div class="section-header">
+      <div class="section-icon icon-compare">✅</div>
+      <h2>셀프 체크 — 면접관처럼 물어보기</h2>
+    </div>
+
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> Docker 이미지와 컨테이너의 차이를 설명해 보세요.</summary>
+        <div class="qa-answer"><p><strong>이미지</strong>는 실행 가능한 청사진 — 파일 시스템·환경 변수·실행 명령이 담긴 읽기 전용 패키지입니다. <strong>컨테이너</strong>는 그 이미지를 바탕으로 실제 실행 중인 격리된 프로세스입니다. 같은 이미지에서 여러 컨테이너를 만들 수 있고, 컨테이너를 삭제해도 이미지는 남아 있어 언제든 새 컨테이너를 만들 수 있습니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> Dockerfile은 이미지·컨테이너와 어떤 관계인가요?</summary>
+        <div class="qa-answer"><p><strong>Dockerfile</strong>은 이미지를 어떻게 만들지 적어 둔 텍스트 설계도이고, 이미지도 컨테이너도 아닙니다. <code>docker build</code>로 Dockerfile을 빌드하면 <strong>이미지</strong>가 만들어지고, 그 이미지를 <code>docker run</code>으로 실행하면 <strong>컨테이너</strong>가 됩니다. 다만 이미지를 얻는 방법이 <code>docker build</code>만 있는 건 아닙니다 — <code>postgres:16</code>처럼 이미 공식 팀이 빌드해 레지스트리에 올려 둔 이미지는 <code>docker pull</code>로 받아 오면 되고, 이 경우 우리가 Dockerfile을 직접 작성할 필요가 없습니다. Dockerfile은 세상에 없는, 우리만의 이미지(예: 우리가 만든 NestJS 앱)를 만들 때 필요합니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>docker run postgres:16</code>이 아니라 <code>docker-compose.yml</code>을 쓰는 이유는 무엇인가요?</summary>
+        <div class="qa-answer"><p><code>docker run</code>은 명령줄에 모든 옵션(포트·환경 변수·볼륨)을 직접 넣어야 해서 길어지고 실수하기 쉽습니다. Compose 파일은 같은 설정을 <strong>선언적으로 코드로 관리</strong>할 수 있어 팀 전체가 동일한 환경을 공유하고, 버전 관리(git)도 됩니다. 또한 여러 서비스(DB + 앱 + Redis)를 동시에 관리하기 쉽고, <code>docker compose up</code> 한 줄로 전체를 시작할 수 있습니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>ports: "5432:5432"</code>에서 앞의 숫자와 뒤의 숫자는 각각 무엇을 의미하나요?</summary>
+        <div class="qa-answer"><p>형식은 <code>호스트포트:컨테이너포트</code>입니다. 뒤의 <code>5432</code>는 <strong>컨테이너 내부</strong>에서 PostgreSQL이 수신하는 포트이고, 앞의 <code>5432</code>는 <strong>호스트(내 PC)</strong>에서 그 컨테이너 포트로 포워딩되는 포트입니다. 앞을 <code>5433</code>으로 바꾸면 <code>localhost:5433</code>으로 접속할 수 있습니다. 이렇게 컨테이너 내부 포트와 호스트 포트를 분리하면 여러 DB 컨테이너를 충돌 없이 띄울 수 있습니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    NestJS 코어 셀프 스터디 · Week 4 · Lesson 01 · SQL 기본기 + Docker로 PostgreSQL · <a href="../index.html">전체 커리큘럼으로</a>
   </div>
 
-  <h2 id="s4"><span class="num">4</span>VSCode Postgres 익스플로러로 연결 확인</h2>
-  <p>컨테이너가 뜨면 VSCode의 <strong>PostgreSQL</strong> 익스텐션(또는 <strong>Database Client</strong>)으로 시각적으로 확인할 수 있습니다. 다음 정보를 입력합니다.</p>
-
-  <div class="box note">
-    <span class="ic">🧭</span>
-    <span class="label">VSCode 연결 정보</span>
-    <p>Host: <code>localhost</code> &nbsp;/&nbsp; Port: <code>5432</code> &nbsp;/&nbsp; Database: <code>nestjs_db</code><br>
-    Username: <code>admin</code> &nbsp;/&nbsp; Password: <code>secret</code><br>
-    이는 <code>docker-compose.yml</code>의 <code>POSTGRES_*</code> 환경변수와 일치해야 합니다. 연결이 성공하면 테이블 탐색기에서 TypeORM이 생성한 테이블을 바로 확인할 수 있습니다.</p>
-  </div>
-
-  <div class="section-divider">복습</div>
-
-  <h2 id="s5"><span class="num">5</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
-
-  <details class="qa">
-    <summary><span class="qmark">Q</span> Docker 이미지와 컨테이너의 차이를 설명해 보세요.</summary>
-    <div class="answer"><p><strong>이미지</strong>는 실행 가능한 청사진 — 파일 시스템·환경 변수·실행 명령이 담긴 읽기 전용 패키지입니다. <strong>컨테이너</strong>는 그 이미지를 바탕으로 실제 실행 중인 격리된 프로세스입니다. 같은 이미지에서 여러 컨테이너를 만들 수 있고, 컨테이너를 삭제해도 이미지는 남아 있어 언제든 새 컨테이너를 만들 수 있습니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> Dockerfile은 이미지·컨테이너와 어떤 관계인가요?</summary>
-    <div class="answer"><p><strong>Dockerfile</strong>은 이미지를 어떻게 만들지 적어 둔 텍스트 설계도이고, 이미지도 컨테이너도 아닙니다. <code>docker build</code>로 Dockerfile을 빌드하면 <strong>이미지</strong>가 만들어지고, 그 이미지를 <code>docker run</code>으로 실행하면 <strong>컨테이너</strong>가 됩니다. 다만 이미지를 얻는 방법이 <code>docker build</code>만 있는 건 아닙니다 — <code>postgres:16</code>처럼 이미 공식 팀이 빌드해 레지스트리에 올려 둔 이미지는 <code>docker pull</code>로 받아 오면 되고, 이 경우 우리가 Dockerfile을 직접 작성할 필요가 없습니다. Dockerfile은 세상에 없는, 우리만의 이미지(예: 우리가 만든 NestJS 앱)를 만들 때 필요합니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>docker run postgres:16</code>이 아니라 <code>docker-compose.yml</code>을 쓰는 이유는 무엇인가요?</summary>
-    <div class="answer"><p><code>docker run</code>은 명령줄에 모든 옵션(포트·환경 변수·볼륨)을 직접 넣어야 해서 길어지고 실수하기 쉽습니다. Compose 파일은 같은 설정을 <strong>선언적으로 코드로 관리</strong>할 수 있어 팀 전체가 동일한 환경을 공유하고, 버전 관리(git)도 됩니다. 또한 여러 서비스(DB + 앱 + Redis)를 동시에 관리하기 쉽고, <code>docker compose up</code> 한 줄로 전체를 시작할 수 있습니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>ports: "5432:5432"</code>에서 앞의 숫자와 뒤의 숫자는 각각 무엇을 의미하나요?</summary>
-    <div class="answer"><p>형식은 <code>호스트포트:컨테이너포트</code>입니다. 뒤의 <code>5432</code>는 <strong>컨테이너 내부</strong>에서 PostgreSQL이 수신하는 포트이고, 앞의 <code>5432</code>는 <strong>호스트(내 PC)</strong>에서 그 컨테이너 포트로 포워딩되는 포트입니다. 앞을 <code>5433</code>으로 바꾸면 <code>localhost:5433</code>으로 접속할 수 있습니다. 이렇게 컨테이너 내부 포트와 호스트 포트를 분리하면 여러 DB 컨테이너를 충돌 없이 띄울 수 있습니다.</p></div>
-  </details>
-
-  <nav class="pager">
-    <a class="prev" href="../week03-service-module-di/03-module-provider-appmodule.html"><span class="dir">← 이전</span><span class="ttl">Module · Provider · AppModule · main.ts</span></a>
-    <a class="next" href="02-typeorm-setup-entity-repo.html"><span class="dir">다음 →</span><span class="ttl">TypeORM 설정 · Entity · Repository</span></a>
-  </nav>
 </main>
-
-<footer class="foot">NestJS 코어 셀프 스터디 · Week 4 · Lesson 01 · SQL 기본기 + Docker로 PostgreSQL</footer>
-</div><!-- sidebar-main -->
 </div><!-- layout -->
 
 <script>
-  const sections = document.querySelectorAll('h2[id]');
+  const sections = document.querySelectorAll('.section[id]');
   const navLinks = document.querySelectorAll('.nav-item.sec');
   const observer = new IntersectionObserver(entries => {
     entries.forEach(e => {
@@ -286,5 +317,6 @@ docker compose down</pre></div>
   }, { rootMargin: '-20% 0px -70% 0px' });
   sections.forEach(s => observer.observe(s));
 </script>
+<script src="../assets/script.js"></script>
 </body>
 </html>

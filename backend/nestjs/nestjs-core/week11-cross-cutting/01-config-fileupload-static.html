@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Week 11·01 — Config 모듈(ENV) + 파일 업로드(Multer) + Static Serving</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -41,225 +49,240 @@
 </nav>
 
 <!-- ── Main ── -->
-<div class="sidebar-main">
+<main class="main" id="top">
 
-<nav class="topbar">
-  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 11 · 횡단 관심사 + 파일/설정</b></span>
-  <span>01 / 03</span>
-</nav>
-
-<header class="head">
-  <span class="kicker">◆ Week 11 — Lesson 01</span>
-  <h1>Config · 파일 업로드 · Static<br>환경 변수부터 URL 제공까지</h1>
-  <p class="subtitle"><code>ConfigModule</code>로 <code>.env</code>를 읽고, <code>Multer</code>로 파일을 서버에 저장하고, <code>ServeStaticModule</code>로 <strong>업로드한 파일을 URL로 제공</strong>하는 세 단계를 이어붙인다.</p>
-</header>
-
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">"</span>
-    <p>환경 변수는 코드 밖에, 파일은 서버 디스크에, URL은 정해진 경로로. 세 모듈을 연결하면 <b>이미지 업로드 → 저장 → URL 응답</b>이 한 흐름으로 완성된다.</p>
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../week10-pagination/03-paginate-generalize.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Pagination 일반화</span></a>
+    <a class="part-pager-link next" href="02-transaction-interceptor.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Transaction · Interceptor</span></a>
   </div>
-</div>
 
-<main class="wrap">
+  <div class="lesson-head">
+    <h1>Config · 파일 업로드 · Static 환경 변수부터 URL 제공까지</h1>
+    <p class="lesson-subtitle"><code>ConfigModule</code>로 <code>.env</code>를 읽고, <code>Multer</code>로 파일을 서버에 저장하고, <code>ServeStaticModule</code>로 <strong>업로드한 파일을 URL로 제공</strong>하는 세 단계를 이어붙인다.</p>
+  </div>
 
-  <ul class="goals">
+  <div class="tip-box"><strong>한 줄 요약.</strong> 환경 변수는 코드 밖에, 파일은 서버 디스크에, URL은 정해진 경로로. 세 모듈을 연결하면 <b>이미지 업로드 → 저장 → URL 응답</b>이 한 흐름으로 완성된다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
     <li><code>ConfigModule.forRoot({ isGlobal: true })</code>로 전역 환경 변수를 설정하고 <code>ConfigService.get()</code>으로 값을 읽을 수 있다</li>
     <li><code>@UseInterceptors(FileInterceptor('image'))</code>와 <code>@UploadedFile()</code>로 멀티파트 파일을 수신한다</li>
     <li><code>ServeStaticModule.forRoot({ rootPath, serveRoot })</code>로 업로드 파일을 특정 URL 경로로 제공한다</li>
   </ul>
 
-  <h2 id="s1"><span class="num">1</span><code>ConfigModule</code> — <code>.env</code> 읽기</h2>
-  <p class="lead">개발 중인 내 컴퓨터는 로컬 DB를 보고, 운영 서버는 클라우드 DB를 봅니다. 포트 번호도, JWT 시크릿도 환경마다 다릅니다. 이런 값을 <code>const PORT = 3000</code>처럼 코드 안에 직접 적어두면(하드코딩), 환경이 바뀔 때마다 코드를 고치고 다시 빌드해야 하고, 무엇보다 DB 비밀번호 같은 민감한 값이 소스코드 그대로 저장소에 남게 됩니다. <code>@nestjs/config</code>의 <code>ConfigModule</code>은 이런 값들을 코드 밖, <code>.env</code>라는 파일로 떼어놓고, 코드는 그저 "이 키의 값을 읽어와라"라고만 요청하도록 만들어 줍니다.</p>
+  <section class="section" id="s1">
+    <div class="section-header">
+      <div class="section-icon icon-setup">⚙️</div>
+      <h2><code>ConfigModule</code> — <code>.env</code> 읽기</h2>
+    </div>
+    <p>개발 중인 내 컴퓨터는 로컬 DB를 보고, 운영 서버는 클라우드 DB를 봅니다. 포트 번호도, JWT 시크릿도 환경마다 다릅니다. 이런 값을 <code>const PORT = 3000</code>처럼 코드 안에 직접 적어두면(하드코딩), 환경이 바뀔 때마다 코드를 고치고 다시 빌드해야 하고, 무엇보다 DB 비밀번호 같은 민감한 값이 소스코드 그대로 저장소에 남게 됩니다. <code>@nestjs/config</code>의 <code>ConfigModule</code>은 이런 값들을 코드 밖, <code>.env</code>라는 파일로 떼어놓고, 코드는 그저 "이 키의 값을 읽어와라"라고만 요청하도록 만들어 줍니다.</p>
 
-  <div class="box analogy">
-    <span class="ic">🍔</span>
-    <span class="label">비유 — 체인점의 지점별 설정표</span>
-    <p>커피 체인은 모든 지점이 같은 레시피(코드)를 씁니다. 하지만 지점 전화번호, 원두 납품업체, 결제 단말기 코드처럼 지점마다 다른 값도 있습니다. 이런 값을 레시피북 자체에 적어두고 매장마다 다시 인쇄하는 대신, 계산대 옆에 걸린 <strong>지점 설정표</strong> 한 장에 적어두면 됩니다. 직원은 필요할 때 그 표를 펼쳐보기만 하면 되고, 레시피는 손댈 필요가 없습니다. <code>.env</code>가 이 설정표이고, <code>ConfigService.get('KEY')</code>가 표를 펼쳐보는 동작입니다.</p>
-  </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 체인점의 지점별 설정표.</strong> 커피 체인은 모든 지점이 같은 레시피(코드)를 씁니다. 하지만 지점 전화번호, 원두 납품업체, 결제 단말기 코드처럼 지점마다 다른 값도 있습니다. 이런 값을 레시피북 자체에 적어두고 매장마다 다시 인쇄하는 대신, 계산대 옆에 걸린 <strong>지점 설정표</strong> 한 장에 적어두면 됩니다. 직원은 필요할 때 그 표를 펼쳐보기만 하면 되고, 레시피는 손댈 필요가 없습니다. <code>.env</code>가 이 설정표이고, <code>ConfigService.get('KEY')</code>가 표를 펼쳐보는 동작입니다.</div>
+    </div>
 
-  <p>등록 방법은 루트 모듈에서 <code>ConfigModule.forRoot()</code>를 한 번 호출하는 것으로 끝입니다. <code>isGlobal: true</code>를 주면 다른 모듈은 매번 <code>imports</code>에 <code>ConfigModule</code>을 추가하지 않아도, 어디서든 <code>ConfigService</code>를 주입받아 곧바로 쓸 수 있습니다.</p>
+    <p>등록 방법은 루트 모듈에서 <code>ConfigModule.forRoot()</code>를 한 번 호출하는 것으로 끝입니다. <code>isGlobal: true</code>를 주면 다른 모듈은 매번 <code>imports</code>에 <code>ConfigModule</code>을 추가하지 않아도, 어디서든 <code>ConfigService</code>를 주입받아 곧바로 쓸 수 있습니다.</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">app.module.ts — ConfigModule 전역 등록</span></div><pre><span class="k">import</span> { <span class="t">Module</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
-<span class="k">import</span> { <span class="t">ConfigModule</span> } <span class="k">from</span> <span class="s">'@nestjs/config'</span>;
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">app.module.ts — ConfigModule 전역 등록</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 
-<span class="d">@Module</span>({
+@Module({
   imports: [
-    <span class="t">ConfigModule</span>.<span class="f">forRoot</span>({
-      isGlobal: <span class="k">true</span>,   <span class="c">// 모든 모듈에서 imports 없이 사용 가능</span>
-      envFilePath: <span class="s">'.env'</span>,
+    ConfigModule.forRoot({
+      isGlobal: true,   // 모든 모듈에서 imports 없이 사용 가능
+      envFilePath: '.env',
     }),
   ],
 })
-<span class="k">export class</span> <span class="t">AppModule</span> {}</pre></div>
+export class AppModule {}</code></pre>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">some.service.ts — ConfigService로 값 읽기</span></div><pre><span class="k">import</span> { <span class="t">Injectable</span> } <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
-<span class="k">import</span> { <span class="t">ConfigService</span> } <span class="k">from</span> <span class="s">'@nestjs/config'</span>;
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">some.service.ts — ConfigService로 값 읽기</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
-<span class="d">@Injectable</span>()
-<span class="k">export class</span> <span class="t">SomeService</span> {
-  <span class="f">constructor</span>(<span class="k">private readonly</span> configService: <span class="t">ConfigService</span>) {}
+@Injectable()
+export class SomeService {
+  constructor(private readonly configService: ConfigService) {}
 
-  <span class="f">getPort</span>(): <span class="t">number</span> {
-    <span class="k">return</span> <span class="k">this</span>.configService.<span class="f">get</span>&lt;<span class="t">number</span>&gt;(<span class="s">'PORT'</span>) ?? <span class="n">3000</span>;
+  getPort(): number {
+    return this.configService.get&lt;number&gt;('PORT') ?? 3000;
   }
-}</pre></div>
+}</code></pre>
+    </div>
 
-  <p><code>?? 3000</code>처럼 기본값을 함께 적어 두면, <code>.env</code>에 <code>PORT</code>가 없거나 파일 자체가 빠져 있어도 앱이 기본 포트로 조용히 뜹니다. 값이 없다고 앱이 죽어버리는 것보다, 개발 환경에서는 이런 안전장치가 훨씬 편합니다.</p>
+    <p><code>?? 3000</code>처럼 기본값을 함께 적어 두면, <code>.env</code>에 <code>PORT</code>가 없거나 파일 자체가 빠져 있어도 앱이 기본 포트로 조용히 뜹니다. 값이 없다고 앱이 죽어버리는 것보다, 개발 환경에서는 이런 안전장치가 훨씬 편합니다.</p>
 
-  <div class="box note">
-    <span class="ic">🧭</span>
-    <span class="label"><code>.env</code>는 절대 커밋하지 않는다</span>
-    <p><code>.env</code>에는 DB 비밀번호, JWT 시크릿, AWS 키 같은 민감 정보가 담깁니다. 반드시 <code>.gitignore</code>에 추가하고, 팀원 공유는 별도 보안 채널(Vault, AWS Secrets Manager)을 이용하세요. 레포에 커밋하면 이미 유출입니다.</p>
-  </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>.env</code>는 절대 커밋하지 않는다.</strong> <code>.env</code>에는 DB 비밀번호, JWT 시크릿, AWS 키 같은 민감 정보가 담깁니다. 반드시 <code>.gitignore</code>에 추가하고, 팀원 공유는 별도 보안 채널(Vault, AWS Secrets Manager)을 이용하세요. 레포에 커밋하면 이미 유출입니다.</div>
+    </div>
+  </section>
 
-  <h2 id="s2"><span class="num">2</span>파일 업로드 — Multer + <code>FileInterceptor</code></h2>
-  <p>지금까지 다룬 요청 바디는 전부 JSON이었습니다. JSON은 순수 텍스트라서 <code>JSON.parse()</code> 한 번이면 객체로 바뀝니다. 하지만 이미지·동영상 같은 파일은 텍스트가 아닌 <strong>바이너리 데이터</strong>이고, 폼에 텍스트 필드와 파일이 함께 올라오기도 합니다. 이런 요청은 <code>Content-Type: multipart/form-data</code>로 전송되는데, 이 형식은 일반 JSON 파서로는 읽을 수 없어 별도의 파서가 필요합니다.</p>
+  <section class="section" id="s2">
+    <div class="section-header">
+      <div class="section-icon icon-insert">📤</div>
+      <h2>파일 업로드 — Multer + <code>FileInterceptor</code></h2>
+    </div>
+    <p>지금까지 다룬 요청 바디는 전부 JSON이었습니다. JSON은 순수 텍스트라서 <code>JSON.parse()</code> 한 번이면 객체로 바뀝니다. 하지만 이미지·동영상 같은 파일은 텍스트가 아닌 <strong>바이너리 데이터</strong>이고, 폼에 텍스트 필드와 파일이 함께 올라오기도 합니다. 이런 요청은 <code>Content-Type: multipart/form-data</code>로 전송되는데, 이 형식은 일반 JSON 파서로는 읽을 수 없어 별도의 파서가 필요합니다.</p>
 
-  <div class="box analogy">
-    <span class="ic">🍔</span>
-    <span class="label">비유 — 편지와 소포는 접수 창구가 다르다</span>
-    <p>우체국에서 편지(JSON, 순수 텍스트)는 창구 하나에서 바로 접수되지만, 소포(파일)는 무게를 재고 포장 상태를 확인하는 <strong>별도의 소포 접수대</strong>를 거칩니다. NestJS에서 이 소포 접수대 역할을 하는 것이 <strong>Multer</strong>입니다. 컨트롤러 메서드에 <code>@UseInterceptors(FileInterceptor('필드명'))</code>을 달아두면, 요청이 핸들러에 도착하기 전에 Multer가 먼저 파일을 받아 디스크에 내려놓습니다. 핸들러는 파일 원본을 직접 다루지 않고, <code>@UploadedFile()</code>로 "그 파일이 어디에 저장됐는지"에 대한 메타데이터만 건네받습니다.</p>
-  </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 편지와 소포는 접수 창구가 다르다.</strong> 우체국에서 편지(JSON, 순수 텍스트)는 창구 하나에서 바로 접수되지만, 소포(파일)는 무게를 재고 포장 상태를 확인하는 <strong>별도의 소포 접수대</strong>를 거칩니다. NestJS에서 이 소포 접수대 역할을 하는 것이 <strong>Multer</strong>입니다. 컨트롤러 메서드에 <code>@UseInterceptors(FileInterceptor('필드명'))</code>을 달아두면, 요청이 핸들러에 도착하기 전에 Multer가 먼저 파일을 받아 디스크에 내려놓습니다. 핸들러는 파일 원본을 직접 다루지 않고, <code>@UploadedFile()</code>로 "그 파일이 어디에 저장됐는지"에 대한 메타데이터만 건네받습니다.</div>
+    </div>
 
-  <p>실제 코드에서 컨트롤러 메서드에 붙는 데코레이터를 하나씩 뜯어보면, <code>FileInterceptor('image')</code>의 <code>'image'</code>는 클라이언트가 보낸 폼 데이터에서 파일이 담긴 필드 이름과 정확히 일치해야 합니다. <code>diskStorage</code>는 "받은 파일을 어디에, 어떤 이름으로 저장할지"를 정하는 설정입니다.</p>
+    <p>실제 코드에서 컨트롤러 메서드에 붙는 데코레이터를 하나씩 뜯어보면, <code>FileInterceptor('image')</code>의 <code>'image'</code>는 클라이언트가 보낸 폼 데이터에서 파일이 담긴 필드 이름과 정확히 일치해야 합니다. <code>diskStorage</code>는 "받은 파일을 어디에, 어떤 이름으로 저장할지"를 정하는 설정입니다.</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">posts.controller.ts — 파일 업로드 엔드포인트</span></div><pre><span class="k">import</span> {
-  <span class="t">Controller</span>, <span class="t">Post</span>, <span class="t">UseInterceptors</span>, <span class="t">UploadedFile</span>,
-} <span class="k">from</span> <span class="s">'@nestjs/common'</span>;
-<span class="k">import</span> { <span class="t">FileInterceptor</span> } <span class="k">from</span> <span class="s">'@nestjs/platform-express'</span>;
-<span class="k">import</span> { diskStorage } <span class="k">from</span> <span class="s">'multer'</span>;
-<span class="k">import</span> { <span class="f">extname</span> } <span class="k">from</span> <span class="s">'path'</span>;
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">posts.controller.ts — 파일 업로드 엔드포인트</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import {
+  Controller, Post, UseInterceptors, UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
-<span class="d">@Controller</span>(<span class="s">'posts'</span>)
-<span class="k">export class</span> <span class="t">PostsController</span> {
+@Controller('posts')
+export class PostsController {
 
-  <span class="d">@Post</span>(<span class="s">'image'</span>)
-  <span class="d">@UseInterceptors</span>(
-    <span class="f">FileInterceptor</span>(<span class="s">'image'</span>, {
-      storage: <span class="f">diskStorage</span>({
-        destination: <span class="s">'./public/images'</span>,
+  @Post('image')
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './public/images',
         filename: (req, file, cb) =&gt; {
-          <span class="k">const</span> unique = <span class="t">Date</span>.<span class="f">now</span>() + <span class="s">'-'</span> + <span class="t">Math</span>.<span class="f">round</span>(<span class="t">Math</span>.<span class="f">random</span>() * <span class="n">1e9</span>);
-          cb(<span class="k">null</span>, unique + <span class="f">extname</span>(file.originalname));
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, unique + extname(file.originalname));
         },
       }),
     }),
   )
-  <span class="f">uploadImage</span>(<span class="d">@UploadedFile</span>() file: <span class="t">Express</span>.<span class="t">Multer</span>.<span class="t">File</span>) {
-    <span class="k">return</span> { filename: file.filename };
+  uploadImage(@UploadedFile() file: Express.Multer.File) {
+    return { filename: file.filename };
   }
-}</pre></div>
+}</code></pre>
+    </div>
 
-  <p><code>filename</code> 콜백을 눈여겨봐야 합니다. 업로드된 파일의 원본 이름(<code>file.originalname</code>)을 그대로 저장 파일명으로 쓰지 않고, <code>Date.now()</code>(타임스탬프)와 난수를 조합해 새 이름을 만듭니다. 만약 원본 이름을 그대로 쓰면 서로 다른 사용자가 우연히 같은 이름(예: <code>profile.jpg</code>)의 파일을 올렸을 때 먼저 저장된 파일을 덮어써 버립니다. 매번 고유한 이름을 새로 만들어야 이런 충돌을 막을 수 있습니다.</p>
+    <p><code>filename</code> 콜백을 눈여겨봐야 합니다. 업로드된 파일의 원본 이름(<code>file.originalname</code>)을 그대로 저장 파일명으로 쓰지 않고, <code>Date.now()</code>(타임스탬프)와 난수를 조합해 새 이름을 만듭니다. 만약 원본 이름을 그대로 쓰면 서로 다른 사용자가 우연히 같은 이름(예: <code>profile.jpg</code>)의 파일을 올렸을 때 먼저 저장된 파일을 덮어써 버립니다. 매번 고유한 이름을 새로 만들어야 이런 충돌을 막을 수 있습니다.</p>
 
-  <div class="box tip">
-    <span class="ic">💡</span>
-    <span class="label">여러 파일 업로드 — <code>FilesInterceptor</code></span>
-    <p>한 필드에서 여러 파일을 받으려면 <code>FilesInterceptor('images', 10)</code>(최대 10개)를 쓰고 파라미터를 <code>@UploadedFiles()</code>로 변경합니다. 파일 유형 검증은 <code>fileFilter</code> 옵션에서 <code>file.mimetype</code>을 확인하면 됩니다.</p>
-  </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여러 파일 업로드 — <code>FilesInterceptor</code>.</strong> 한 필드에서 여러 파일을 받으려면 <code>FilesInterceptor('images', 10)</code>(최대 10개)를 쓰고 파라미터를 <code>@UploadedFiles()</code>로 변경합니다. 파일 유형 검증은 <code>fileFilter</code> 옵션에서 <code>file.mimetype</code>을 확인하면 됩니다.</div>
+    </div>
+  </section>
 
-  <h2 id="s3"><span class="num">3</span>정적 파일 서빙 — <code>ServeStaticModule</code></h2>
-  <p>파일이 디스크에 저장됐다고 해서 브라우저가 저절로 그 파일을 볼 수 있는 것은 아닙니다. <code>public/images/abc.jpg</code>라는 <strong>디스크 경로</strong>와, 브라우저가 접속할 <strong>URL</strong>은 서로 완전히 다른 개념입니다. 이 둘을 이어주는 다리가 없으면 파일은 서버 어딘가에 존재할 뿐, 누구도 URL로 꺼내볼 수 없습니다. <code>@nestjs/serve-static</code>의 <code>ServeStaticModule</code>이 그 다리 역할을 합니다. <code>rootPath</code>는 다리의 시작점(디스크 경로), <code>serveRoot</code>는 다리의 끝점(URL 접두사)입니다.</p>
+  <section class="section" id="s3">
+    <div class="section-header">
+      <div class="section-icon icon-select">🌐</div>
+      <h2>정적 파일 서빙 — <code>ServeStaticModule</code></h2>
+    </div>
+    <p>파일이 디스크에 저장됐다고 해서 브라우저가 저절로 그 파일을 볼 수 있는 것은 아닙니다. <code>public/images/abc.jpg</code>라는 <strong>디스크 경로</strong>와, 브라우저가 접속할 <strong>URL</strong>은 서로 완전히 다른 개념입니다. 이 둘을 이어주는 다리가 없으면 파일은 서버 어딘가에 존재할 뿐, 누구도 URL로 꺼내볼 수 없습니다. <code>@nestjs/serve-static</code>의 <code>ServeStaticModule</code>이 그 다리 역할을 합니다. <code>rootPath</code>는 다리의 시작점(디스크 경로), <code>serveRoot</code>는 다리의 끝점(URL 접두사)입니다.</p>
 
-  <div class="box analogy">
-    <span class="ic">🍔</span>
-    <span class="label">비유 — 사물함과 열람 창구</span>
-    <p>업로드는 파일을 <strong>사물함(public/)</strong>에 넣는 것, Static Serving은 <strong>열람 창구</strong>를 여는 것입니다. 사물함 번호(<code>rootPath</code>)를 알려주고 창구 번호(<code>serveRoot</code>)를 정하면, 누구든 그 창구 URL로 파일을 꺼내 볼 수 있습니다. NestJS 코드 없이 파일 자체가 응답이 됩니다.</p>
-  </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 사물함과 열람 창구.</strong> 업로드는 파일을 <strong>사물함(public/)</strong>에 넣는 것, Static Serving은 <strong>열람 창구</strong>를 여는 것입니다. 사물함 번호(<code>rootPath</code>)를 알려주고 창구 번호(<code>serveRoot</code>)를 정하면, 누구든 그 창구 URL로 파일을 꺼내 볼 수 있습니다. NestJS 코드 없이 파일 자체가 응답이 됩니다.</div>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">app.module.ts — ServeStaticModule 등록</span></div><pre><span class="k">import</span> { <span class="t">ServeStaticModule</span> } <span class="k">from</span> <span class="s">'@nestjs/serve-static'</span>;
-<span class="k">import</span> { <span class="f">join</span> } <span class="k">from</span> <span class="s">'path'</span>;
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">app.module.ts — ServeStaticModule 등록</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
-<span class="d">@Module</span>({
+@Module({
   imports: [
-    <span class="t">ServeStaticModule</span>.<span class="f">forRoot</span>({
-      rootPath: <span class="f">join</span>(__dirname, <span class="s">'..'</span>, <span class="s">'public'</span>),  <span class="c">// 디스크 경로</span>
-      serveRoot: <span class="s">'/public'</span>,                           <span class="c">// URL 접두사</span>
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),  // 디스크 경로
+      serveRoot: '/public',                           // URL 접두사
     }),
   ],
 })
-<span class="k">export class</span> <span class="t">AppModule</span> {}</pre></div>
+export class AppModule {}</code></pre>
+    </div>
 
-  <p>등록하면 <code>public/images/abc.jpg</code>는 <code>GET /public/images/abc.jpg</code>로 접근 가능합니다. 업로드 응답에서 <code>filename</code>을 반환하면 클라이언트는 <code>/public/images/{filename}</code>으로 이미지를 표시할 수 있습니다.</p>
+    <p>등록하면 <code>public/images/abc.jpg</code>는 <code>GET /public/images/abc.jpg</code>로 접근 가능합니다. 업로드 응답에서 <code>filename</code>을 반환하면 클라이언트는 <code>/public/images/{filename}</code>으로 이미지를 표시할 수 있습니다.</p>
 
-  <figure class="diagram">
-    <svg viewBox="0 0 700 210" role="img" aria-label="파일 업로드 요청이 Multer를 거쳐 디스크에 저장되고, ServeStaticModule이 URL로 서빙하는 흐름">
-      <!-- Client -->
-      <rect x="10" y="60" width="130" height="80" rx="10" fill="#e3f0ec" stroke="#0d6e64" stroke-width="2"/>
-      <text x="75" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#0a4f48">Client</text>
-      <text x="75" y="114" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#4a463d">multipart POST</text>
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 210" role="img" aria-label="파일 업로드 요청이 Multer를 거쳐 디스크에 저장되고, ServeStaticModule이 URL로 서빙하는 흐름">
+        <!-- Client -->
+        <rect x="10" y="60" width="130" height="80" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="2"/>
+        <text x="75" y="94" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#1d4ed8">Client</text>
+        <text x="75" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#374151">multipart POST</text>
 
-      <!-- Arrow POST -->
-      <line x1="142" y1="100" x2="192" y2="100" stroke="#e0552f" stroke-width="2" marker-end="url(#w11l1-arr1)"/>
+        <!-- Arrow POST -->
+        <line x1="142" y1="100" x2="192" y2="100" stroke="#ef4444" stroke-width="2" marker-end="url(#w11l1-arr1)"/>
 
-      <!-- Multer box -->
-      <rect x="194" y="60" width="150" height="80" rx="10" fill="#f7e2d8" stroke="#e0552f" stroke-width="2"/>
-      <text x="269" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#a8401f">FileInterceptor</text>
-      <text x="269" y="108" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#a8401f">Multer + diskStorage</text>
-      <text x="269" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#a8401f">filename 생성</text>
+        <!-- Multer box -->
+        <rect x="194" y="60" width="150" height="80" rx="10" fill="#fff0f3" stroke="#e0234e" stroke-width="2"/>
+        <text x="269" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#9f1239">FileInterceptor</text>
+        <text x="269" y="108" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#9f1239">Multer + diskStorage</text>
+        <text x="269" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#9f1239">filename 생성</text>
 
-      <!-- Arrow save -->
-      <line x1="346" y1="100" x2="396" y2="100" stroke="#c98a16" stroke-width="2" marker-end="url(#w11l1-arr2)"/>
+        <!-- Arrow save -->
+        <line x1="346" y1="100" x2="396" y2="100" stroke="#f59e0b" stroke-width="2" marker-end="url(#w11l1-arr2)"/>
 
-      <!-- Disk box -->
-      <rect x="398" y="60" width="140" height="80" rx="10" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
-      <text x="468" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#7d5604">public/images/</text>
-      <text x="468" y="108" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#7d5604">디스크 저장</text>
-      <text x="468" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7d5604">abc-123.jpg</text>
+        <!-- Disk box -->
+        <rect x="398" y="60" width="140" height="80" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+        <text x="468" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#b45309">public/images/</text>
+        <text x="468" y="108" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#b45309">디스크 저장</text>
+        <text x="468" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#b45309">abc-123.jpg</text>
 
-      <!-- Arrow serve -->
-      <line x1="540" y1="100" x2="590" y2="100" stroke="#0d6e64" stroke-width="2" marker-end="url(#w11l1-arr3)"/>
+        <!-- Arrow serve -->
+        <line x1="540" y1="100" x2="590" y2="100" stroke="#10b981" stroke-width="2" marker-end="url(#w11l1-arr3)"/>
 
-      <!-- ServeStatic box -->
-      <rect x="592" y="60" width="96" height="80" rx="10" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
-      <text x="640" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#6fd6c7">ServeStatic</text>
-      <text x="640" y="108" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#6fd6c7">GET /public/</text>
-      <text x="640" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6fd6c7">images/...</text>
+        <!-- ServeStatic box -->
+        <rect x="592" y="60" width="96" height="80" rx="10" fill="#0d1117" stroke="#10b981" stroke-width="2"/>
+        <text x="640" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700" fill="#c9d1d9">ServeStatic</text>
+        <text x="640" y="108" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#8b949e">GET /public/</text>
+        <text x="640" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#8b949e">images/...</text>
 
-      <!-- Labels below -->
-      <text x="350" y="175" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#5a8f87">업로드 → 저장 → URL 제공 세 단계가 순서대로 연결된다</text>
+        <!-- Labels below -->
+        <text x="350" y="175" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6b7280">업로드 → 저장 → URL 제공 세 단계가 순서대로 연결된다</text>
 
-      <defs>
-        <marker id="w11l1-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#e0552f"/></marker>
-        <marker id="w11l1-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c98a16"/></marker>
-        <marker id="w11l1-arr3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#0d6e64"/></marker>
-      </defs>
-    </svg>
-    <figcaption>POST → Multer(diskStorage) → public/ 디스크 → ServeStaticModule → GET URL. 코드 없이 파일 자체가 응답이 된다.</figcaption>
-  </figure>
+        <defs>
+          <marker id="w11l1-arr1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ef4444"/></marker>
+          <marker id="w11l1-arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
+          <marker id="w11l1-arr3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#10b981"/></marker>
+        </defs>
+      </svg>
+      <div class="diagram-caption">POST → Multer(diskStorage) → public/ 디스크 → ServeStaticModule → GET URL. 코드 없이 파일 자체가 응답이 된다.</div>
+    </div>
+  </section>
 
-  <div class="section-divider">복습</div>
+  <section class="section" id="s4">
+    <div class="section-header">
+      <div class="section-icon icon-compare">✅</div>
+      <h2>셀프 체크 — 면접관처럼 물어보기</h2>
+    </div>
 
-  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>.env</code> 값을 NestJS 코드에서 읽는 방법을 설명하세요.</summary>
+        <div class="qa-answer"><p><code>AppModule</code>에 <code>ConfigModule.forRoot({ isGlobal: true })</code>를 등록합니다. <code>isGlobal: true</code>로 설정하면 다른 모듈에서 <code>ConfigModule</code>을 <code>imports</code>하지 않아도 됩니다.<br>
+        값이 필요한 서비스 생성자에 <code>ConfigService</code>를 주입하고 <code>this.configService.get&lt;타입&gt;('KEY')</code>으로 읽습니다. <code>.env</code> 파일에 <code>KEY=value</code> 형식으로 선언하면 됩니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 업로드한 파일을 URL로 보이게 하는 설정은 무엇인가요?</summary>
+        <div class="qa-answer"><p><code>@nestjs/serve-static</code>의 <code>ServeStaticModule.forRoot({ rootPath, serveRoot })</code>를 사용합니다. <code>rootPath</code>에 디스크 경로(예: <code>join(__dirname, '..', 'public')</code>), <code>serveRoot</code>에 URL 접두사(예: <code>'/public'</code>)를 지정합니다.<br>
+        그러면 <code>public/images/abc.jpg</code> 파일이 <code>GET /public/images/abc.jpg</code>로 접근 가능해집니다. NestJS 컨트롤러 없이 파일 자체가 응답이 됩니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>FileInterceptor</code>와 <code>FilesInterceptor</code>의 차이는 무엇인가요?</summary>
+        <div class="qa-answer"><p><code>FileInterceptor('fieldName')</code>은 단일 파일 하나를 받고 파라미터에 <code>@UploadedFile()</code>을 씁니다. <code>FilesInterceptor('fieldName', maxCount)</code>는 같은 필드에서 여러 파일을 받고 파라미터에 <code>@UploadedFiles()</code>를 씁니다. 두 경우 모두 <code>@UseInterceptors()</code>로 메서드에 적용합니다.</p></div>
+      </details>
+    </div>
+  </section>
 
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>.env</code> 값을 NestJS 코드에서 읽는 방법을 설명하세요.</summary>
-    <div class="answer"><p><code>AppModule</code>에 <code>ConfigModule.forRoot({ isGlobal: true })</code>를 등록합니다. <code>isGlobal: true</code>로 설정하면 다른 모듈에서 <code>ConfigModule</code>을 <code>imports</code>하지 않아도 됩니다.<br>
-    값이 필요한 서비스 생성자에 <code>ConfigService</code>를 주입하고 <code>this.configService.get&lt;타입&gt;('KEY')</code>으로 읽습니다. <code>.env</code> 파일에 <code>KEY=value</code> 형식으로 선언하면 됩니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> 업로드한 파일을 URL로 보이게 하는 설정은 무엇인가요?</summary>
-    <div class="answer"><p><code>@nestjs/serve-static</code>의 <code>ServeStaticModule.forRoot({ rootPath, serveRoot })</code>를 사용합니다. <code>rootPath</code>에 디스크 경로(예: <code>join(__dirname, '..', 'public')</code>), <code>serveRoot</code>에 URL 접두사(예: <code>'/public'</code>)를 지정합니다.<br>
-    그러면 <code>public/images/abc.jpg</code> 파일이 <code>GET /public/images/abc.jpg</code>로 접근 가능해집니다. NestJS 컨트롤러 없이 파일 자체가 응답이 됩니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>FileInterceptor</code>와 <code>FilesInterceptor</code>의 차이는 무엇인가요?</summary>
-    <div class="answer"><p><code>FileInterceptor('fieldName')</code>은 단일 파일 하나를 받고 파라미터에 <code>@UploadedFile()</code>을 씁니다. <code>FilesInterceptor('fieldName', maxCount)</code>는 같은 필드에서 여러 파일을 받고 파라미터에 <code>@UploadedFiles()</code>를 씁니다. 두 경우 모두 <code>@UseInterceptors()</code>로 메서드에 적용합니다.</p></div>
-  </details>
+  <div class="doc-footer">NestJS 코어 셀프 스터디 · Week 11 · Lesson 01 · Config · 파일 업로드 · Static Serving · <a href="../index.html">전체 커리큘럼으로</a></div>
 
-  <nav class="pager">
-    <a class="prev" href="../week10-pagination/03-paginate-generalize.html"><span class="dir">← 이전</span><span class="ttl">Pagination 일반화</span></a>
-    <a class="next" href="02-transaction-interceptor.html"><span class="dir">다음 →</span><span class="ttl">Transaction · Interceptor</span></a>
-  </nav>
 </main>
-
-<footer class="foot">NestJS 코어 셀프 스터디 · Week 11 · Lesson 01 · Config · 파일 업로드 · Static Serving</footer>
-</div><!-- sidebar-main -->
 </div><!-- layout -->
 
 <script>
-  const sections = document.querySelectorAll('h2[id]');
+  const sections = document.querySelectorAll('.section[id]');
   const navLinks = document.querySelectorAll('.nav-item.sec');
   const observer = new IntersectionObserver(entries => {
     entries.forEach(e => {
@@ -272,5 +295,6 @@
   }, { rootMargin: '-20% 0px -70% 0px' });
   sections.forEach(s => observer.observe(s));
 </script>
+<script src="../assets/script.js"></script>
 </body>
 </html>

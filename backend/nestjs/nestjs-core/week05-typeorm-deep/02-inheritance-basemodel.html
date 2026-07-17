@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Week 5·02 — Table Inheritance · BaseModel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
 <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -41,231 +49,248 @@
 </nav>
 
 <!-- ── Main ── -->
-<div class="sidebar-main">
+<main class="main" id="top">
 
-<nav class="topbar">
-  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · TypeORM 심화 이론</b></span>
-  <span>02 / 03</span>
-</nav>
-
-<header class="head">
-  <span class="kicker">◆ Week 5 — Lesson 02</span>
-  <h1>Table Inheritance<br>BaseModel 상속</h1>
-  <p class="subtitle"><code>@CreateDateColumn</code> · <code>@UpdateDateColumn</code>으로 타임스탬프를 자동화하고, 추상 <code>BaseModel</code>을 만들어 모든 Entity에 공통 필드를 상속한다. TypeORM 상속 전략의 종류도 간단히 살펴본다.</p>
-</header>
-
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">"</span>
-    <p>실무 코드베이스에서 <code>createdAt</code>과 <code>updatedAt</code>을 <b>직접 채워 넣는 Entity는 없다</b>. <code>BaseModel</code>을 한 번 만들어 두면 모든 Entity가 공통 필드를 자동으로 물려받는다 — 코드 중복 없이, 자동으로.</p>
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-columns-enum-embedding.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Column 옵션 · Enum · Embedding</span></a>
+    <a class="part-pager-link next" href="03-findoptions-utils-methods.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">FindManyOptions · 유틸 · 메서드</span></a>
   </div>
-</div>
 
-<main class="wrap">
+  <div class="lesson-head">
+    <h1>Table Inheritance · BaseModel 상속</h1>
+    <p class="lesson-subtitle"><code>@CreateDateColumn</code> · <code>@UpdateDateColumn</code>으로 타임스탬프를 자동화하고, 추상 <code>BaseModel</code>을 만들어 모든 Entity에 공통 필드를 상속한다. TypeORM 상속 전략의 종류도 간단히 살펴본다.</p>
+  </div>
 
-  <ul class="goals">
+  <div class="tip-box"><strong>한 줄 요약.</strong> 실무 코드베이스에서 <code>createdAt</code>과 <code>updatedAt</code>을 <b>직접 채워 넣는 Entity는 없다</b>. <code>BaseModel</code>을 한 번 만들어 두면 모든 Entity가 공통 필드를 자동으로 물려받는다 — 코드 중복 없이, 자동으로.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
     <li><code>@CreateDateColumn</code>과 <code>@UpdateDateColumn</code>이 언제 어떻게 값을 채우는지 설명할 수 있다</li>
     <li>추상 <code>BaseModel</code> 클래스를 만들고, Entity가 이를 상속하는 패턴을 구현할 수 있다</li>
     <li>TypeORM의 단일 테이블 상속(STI)과 구체 테이블 상속(CTI)의 차이를 설명할 수 있다</li>
   </ul>
 
-  <h2 id="s1"><span class="num">1</span><code>@CreateDateColumn</code> / <code>@UpdateDateColumn</code> — 자동 타임스탬프</h2>
-  <p class="lead">타임스탬프를 직접 관리해야 한다면 이런 코드를 여기저기 반복해서 써야 합니다 — <code>post.createdAt = new Date()</code>, 그리고 수정할 때마다 <code>post.updatedAt = new Date()</code>. 깜빡 잊고 안 넣으면 그 레코드만 날짜가 비어버리는 사고도 생깁니다. TypeORM이 제공하는 두 특수 데코레이터는 이런 반복 작업을 아예 없애버립니다. <code>@Column()</code>을 직접 쓸 필요 없이 데코레이터만 붙여두면, 시각을 채우는 일은 TypeORM이 알아서 처리합니다.</p>
+  <section class="section" id="s1">
+    <div class="section-header">
+      <div class="section-icon icon-tx">🕒</div>
+      <h2><code>@CreateDateColumn</code> / <code>@UpdateDateColumn</code> — 자동 타임스탬프</h2>
+    </div>
+    <p>타임스탬프를 직접 관리해야 한다면 이런 코드를 여기저기 반복해서 써야 합니다 — <code>post.createdAt = new Date()</code>, 그리고 수정할 때마다 <code>post.updatedAt = new Date()</code>. 깜빡 잊고 안 넣으면 그 레코드만 날짜가 비어버리는 사고도 생깁니다. TypeORM이 제공하는 두 특수 데코레이터는 이런 반복 작업을 아예 없애버립니다. <code>@Column()</code>을 직접 쓸 필요 없이 데코레이터만 붙여두면, 시각을 채우는 일은 TypeORM이 알아서 처리합니다.</p>
 
-  <div class="box analogy">
-    <span class="ic">🕒</span>
-    <span class="label">비유 — 회사 출입구의 카드 리더기</span>
-    <p>회사 출입구의 카드 리더기는 직원이 카드를 대는 순간 자동으로 "출근 시각"을 찍습니다. 직원이 수첩에 직접 시각을 적어 넣을 필요가 없죠. <code>@CreateDateColumn()</code>이 딱 이 역할입니다 — Entity가 처음 저장되는(INSERT) 순간, TypeORM이 자동으로 "이 레코드가 태어난 시각"을 찍어줍니다. <code>@UpdateDateColumn()</code>은 조금 더 부지런한 리더기입니다. 처음 들어올 때뿐 아니라 그 후로도 자리를 옮길 때마다(= <code>save()</code>로 수정될 때마다) 매번 최신 시각으로 다시 찍어줍니다.</p>
-  </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 회사 출입구의 카드 리더기.</strong> 회사 출입구의 카드 리더기는 직원이 카드를 대는 순간 자동으로 "출근 시각"을 찍습니다. 직원이 수첩에 직접 시각을 적어 넣을 필요가 없죠. <code>@CreateDateColumn()</code>이 딱 이 역할입니다 — Entity가 처음 저장되는(INSERT) 순간, TypeORM이 자동으로 "이 레코드가 태어난 시각"을 찍어줍니다. <code>@UpdateDateColumn()</code>은 조금 더 부지런한 리더기입니다. 처음 들어올 때뿐 아니라 그 후로도 자리를 옮길 때마다(= <code>save()</code>로 수정될 때마다) 매번 최신 시각으로 다시 찍어줍니다.</div>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">post.entity.ts — 자동 타임스탬프</span></div><pre><span class="k">import</span> {
-  <span class="t">Entity</span>, <span class="t">PrimaryGeneratedColumn</span>, <span class="t">Column</span>,
-  <span class="t">CreateDateColumn</span>, <span class="t">UpdateDateColumn</span>,
-} <span class="k">from</span> <span class="s">'typeorm'</span>;
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">post.entity.ts — 자동 타임스탬프</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import {
+  Entity, PrimaryGeneratedColumn, Column,
+  CreateDateColumn, UpdateDateColumn,
+} from 'typeorm';
 
-<span class="d">@Entity</span>()
-<span class="k">export class</span> <span class="t">Post</span> {
-  <span class="d">@PrimaryGeneratedColumn</span>()
-  id: <span class="t">number</span>;
+@Entity()
+export class Post {
+  @PrimaryGeneratedColumn()
+  id: number;
 
-  <span class="d">@Column</span>()
-  title: <span class="t">string</span>;
+  @Column()
+  title: string;
 
-  <span class="c">// INSERT 시 자동으로 현재 시각 기록, 이후 수정 불가</span>
-  <span class="d">@CreateDateColumn</span>()
-  createdAt: <span class="t">Date</span>;
+  // INSERT 시 자동으로 현재 시각 기록, 이후 수정 불가
+  @CreateDateColumn()
+  createdAt: Date;
 
-  <span class="c">// INSERT 및 UPDATE 시마다 현재 시각으로 자동 갱신</span>
-  <span class="d">@UpdateDateColumn</span>()
-  updatedAt: <span class="t">Date</span>;
-}</pre></div>
+  // INSERT 및 UPDATE 시마다 현재 시각으로 자동 갱신
+  @UpdateDateColumn()
+  updatedAt: Date;
+}</code></pre>
+    </div>
 
-  <table class="tbl">
-    <thead><tr><th>데코레이터</th><th>값이 채워지는 시점</th><th>이후 수정</th></tr></thead>
-    <tbody>
-      <tr><td><code>@CreateDateColumn()</code></td><td>INSERT (최초 저장)</td><td>TypeORM이 자동으로 변경하지 않음</td></tr>
-      <tr><td><code>@UpdateDateColumn()</code></td><td>INSERT + <code>save()</code> 호출마다</td><td>매번 현재 시각으로 갱신</td></tr>
-    </tbody>
-  </table>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>데코레이터</th><th>값이 채워지는 시점</th><th>이후 수정</th></tr></thead>
+        <tbody>
+          <tr><td><code>@CreateDateColumn()</code></td><td>INSERT (최초 저장)</td><td>TypeORM이 자동으로 변경하지 않음</td></tr>
+          <tr><td><code>@UpdateDateColumn()</code></td><td>INSERT + <code>save()</code> 호출마다</td><td>매번 현재 시각으로 갱신</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-  <div class="box tip">
-    <span class="ic">💡</span>
-    <span class="label">직접 값을 넣지 않아도 됩니다</span>
-    <p>두 데코레이터는 TypeORM이 내부적으로 관리합니다. <code>post.createdAt = new Date()</code>처럼 직접 할당하거나, DTO에서 createdAt 필드를 받을 필요가 없습니다. <code>save()</code>를 호출하면 알아서 채워집니다.</p>
-  </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>직접 값을 넣지 않아도 됩니다.</strong> 두 데코레이터는 TypeORM이 내부적으로 관리합니다. <code>post.createdAt = new Date()</code>처럼 직접 할당하거나, DTO에서 createdAt 필드를 받을 필요가 없습니다. <code>save()</code>를 호출하면 알아서 채워집니다.</div>
+    </div>
+  </section>
 
-  <h2 id="s2"><span class="num">2</span>추상 <code>BaseModel</code> — 공통 필드를 상속으로 재사용</h2>
-  <p>대부분의 Entity는 <code>id</code>, <code>createdAt</code>, <code>updatedAt</code>을 공통으로 가집니다. 이 세 필드를 추상 클래스 <code>BaseModel</code>에 한 번만 선언하고, 나머지 Entity들이 <code>extends</code>로 상속받으면 코드 중복을 없앨 수 있습니다.</p>
+  <section class="section" id="s2">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🏛️</div>
+      <h2>추상 <code>BaseModel</code> — 공통 필드를 상속으로 재사용</h2>
+    </div>
+    <p>대부분의 Entity는 <code>id</code>, <code>createdAt</code>, <code>updatedAt</code>을 공통으로 가집니다. 이 세 필드를 추상 클래스 <code>BaseModel</code>에 한 번만 선언하고, 나머지 Entity들이 <code>extends</code>로 상속받으면 코드 중복을 없앨 수 있습니다.</p>
 
-  <div class="box analogy">
-    <span class="ic">🍔</span>
-    <span class="label">비유 — 서류의 공통 머리말</span>
-    <p>회사에서 작성하는 모든 서류(계약서, 보고서, 결재문서)에는 공통으로 들어가는 항목이 있습니다 — <strong>문서번호(id)</strong>, <strong>작성일시(createdAt)</strong>, <strong>최종수정일시(updatedAt)</strong>. 이 항목을 매번 각 서류 양식에 새로 그리는 대신, <strong>"표준 머리말 양식"(BaseModel)</strong>을 한 번 만들어 두고 모든 서류가 그 양식을 <strong>물려받아(extends)</strong> 쓰는 것과 같습니다.</p>
-  </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 서류의 공통 머리말.</strong> 회사에서 작성하는 모든 서류(계약서, 보고서, 결재문서)에는 공통으로 들어가는 항목이 있습니다 — <strong>문서번호(id)</strong>, <strong>작성일시(createdAt)</strong>, <strong>최종수정일시(updatedAt)</strong>. 이 항목을 매번 각 서류 양식에 새로 그리는 대신, <strong>"표준 머리말 양식"(BaseModel)</strong>을 한 번 만들어 두고 모든 서류가 그 양식을 <strong>물려받아(extends)</strong> 쓰는 것과 같습니다.</div>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">base.entity.ts — 추상 BaseModel</span></div><pre><span class="k">import</span> {
-  <span class="t">PrimaryGeneratedColumn</span>,
-  <span class="t">CreateDateColumn</span>,
-  <span class="t">UpdateDateColumn</span>,
-} <span class="k">from</span> <span class="s">'typeorm'</span>;
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">base.entity.ts — 추상 BaseModel</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import {
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
-<span class="c">// @Entity() 없음 — 테이블을 직접 만들지 않는 추상 클래스</span>
-<span class="k">export abstract class</span> <span class="t">BaseModel</span> {
-  <span class="d">@PrimaryGeneratedColumn</span>()
-  id: <span class="t">number</span>;
+// @Entity() 없음 — 테이블을 직접 만들지 않는 추상 클래스
+export abstract class BaseModel {
+  @PrimaryGeneratedColumn()
+  id: number;
 
-  <span class="d">@CreateDateColumn</span>()
-  createdAt: <span class="t">Date</span>;
+  @CreateDateColumn()
+  createdAt: Date;
 
-  <span class="d">@UpdateDateColumn</span>()
-  updatedAt: <span class="t">Date</span>;
-}</pre></div>
+  @UpdateDateColumn()
+  updatedAt: Date;
+}</code></pre>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">post.entity.ts — BaseModel 상속</span></div><pre><span class="k">import</span> { <span class="t">Entity</span>, <span class="t">Column</span> } <span class="k">from</span> <span class="s">'typeorm'</span>;
-<span class="k">import</span> { <span class="t">BaseModel</span> } <span class="k">from</span> <span class="s">'./base.entity'</span>;
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><span class="code-filename">post.entity.ts — BaseModel 상속</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">import { Entity, Column } from 'typeorm';
+import { BaseModel } from './base.entity';
 
-<span class="d">@Entity</span>()
-<span class="k">export class</span> <span class="t">Post</span> <span class="k">extends</span> <span class="t">BaseModel</span> {
-  <span class="c">// id, createdAt, updatedAt은 BaseModel에서 상속</span>
-  <span class="d">@Column</span>({ type: <span class="s">'varchar'</span>, length: <span class="n">200</span> })
-  title: <span class="t">string</span>;
+@Entity()
+export class Post extends BaseModel {
+  // id, createdAt, updatedAt은 BaseModel에서 상속
+  @Column({ type: 'varchar', length: 200 })
+  title: string;
 
-  <span class="d">@Column</span>({ type: <span class="s">'text'</span>, nullable: <span class="n">true</span> })
-  content: <span class="t">string</span> | <span class="t">null</span>;
+  @Column({ type: 'text', nullable: true })
+  content: string | null;
 }
 
-<span class="c">// User도 마찬가지로 extends BaseModel 하면 동일한 id/createdAt/updatedAt을 가짐</span></pre></div>
+// User도 마찬가지로 extends BaseModel 하면 동일한 id/createdAt/updatedAt을 가짐</code></pre>
+    </div>
 
-  <figure class="diagram">
-    <svg viewBox="0 0 680 290" role="img" aria-label="추상 BaseModel이 User와 Post에 id, createdAt, updatedAt을 상속하는 구조">
-      <!-- BaseModel box -->
-      <rect x="220" y="20" width="240" height="130" rx="12" fill="#f6e9c8" stroke="#c98a16" stroke-width="2"/>
-      <text x="340" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#7d5604">abstract BaseModel</text>
-      <rect x="238" y="58" width="204" height="24" rx="5" fill="#fff8e7" stroke="#c98a16" stroke-width="1" stroke-opacity="0.6"/>
-      <text x="252" y="75" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#9a6a05">id: number</text>
-      <rect x="238" y="86" width="204" height="24" rx="5" fill="#fff8e7" stroke="#c98a16" stroke-width="1" stroke-opacity="0.6"/>
-      <text x="252" y="103" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#9a6a05">createdAt: Date</text>
-      <rect x="238" y="114" width="204" height="24" rx="5" fill="#fff8e7" stroke="#c98a16" stroke-width="1" stroke-opacity="0.6"/>
-      <text x="252" y="131" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#9a6a05">updatedAt: Date</text>
+    <div class="diagram-card">
+      <svg viewBox="0 0 680 290" role="img" aria-label="추상 BaseModel이 User와 Post에 id, createdAt, updatedAt을 상속하는 구조">
+        <!-- BaseModel box -->
+        <rect x="220" y="20" width="240" height="130" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+        <text x="340" y="46" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="13" font-weight="700" fill="#b45309">abstract BaseModel</text>
+        <rect x="238" y="58" width="204" height="24" rx="5" fill="#fff" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.6"/>
+        <text x="252" y="75" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#b45309">id: number</text>
+        <rect x="238" y="86" width="204" height="24" rx="5" fill="#fff" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.6"/>
+        <text x="252" y="103" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#b45309">createdAt: Date</text>
+        <rect x="238" y="114" width="204" height="24" rx="5" fill="#fff" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.6"/>
+        <text x="252" y="131" font-family="JetBrains Mono, monospace" font-size="11.5" fill="#b45309">updatedAt: Date</text>
 
-      <!-- Arrow left: BaseModel -> User -->
-      <line x1="240" y1="150" x2="150" y2="195" stroke="#c98a16" stroke-width="2" marker-end="url(#w5l2-ext1)"/>
-      <text x="175" y="173" font-family="Pretendard, sans-serif" font-size="10" fill="#c98a16">extends</text>
+        <!-- Arrow left: BaseModel -> User -->
+        <line x1="240" y1="150" x2="150" y2="195" stroke="#f59e0b" stroke-width="2" marker-end="url(#w5l2-ext1)"/>
+        <text x="175" y="173" font-family="Inter, sans-serif" font-size="10" fill="#b45309">extends</text>
 
-      <!-- Arrow right: BaseModel -> Post -->
-      <line x1="440" y1="150" x2="530" y2="195" stroke="#c98a16" stroke-width="2" marker-end="url(#w5l2-ext2)"/>
-      <text x="495" y="173" font-family="Pretendard, sans-serif" font-size="10" fill="#c98a16">extends</text>
+        <!-- Arrow right: BaseModel -> Post -->
+        <line x1="440" y1="150" x2="530" y2="195" stroke="#f59e0b" stroke-width="2" marker-end="url(#w5l2-ext2)"/>
+        <text x="495" y="173" font-family="Inter, sans-serif" font-size="10" fill="#b45309">extends</text>
 
-      <!-- User box -->
-      <rect x="30" y="195" width="240" height="70" rx="12" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
-      <text x="150" y="217" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">User @Entity()</text>
-      <rect x="48" y="225" width="204" height="22" rx="5" fill="#1c1a16" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.6"/>
-      <text x="62" y="241" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece6d6">email, password, nickname …</text>
-      <text x="150" y="280" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#6fd6c7">+ id / createdAt / updatedAt (상속)</text>
+        <!-- User box -->
+        <rect x="30" y="195" width="240" height="70" rx="12" fill="#0d1117" stroke="#3b82f6" stroke-width="2"/>
+        <text x="150" y="217" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#93c5fd">User @Entity()</text>
+        <rect x="48" y="225" width="204" height="22" rx="5" fill="#161b22" stroke="#3b82f6" stroke-width="1" stroke-opacity="0.6"/>
+        <text x="62" y="241" font-family="JetBrains Mono, monospace" font-size="11" fill="#c9d1d9">email, password, nickname …</text>
+        <text x="150" y="280" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#93c5fd">+ id / createdAt / updatedAt (상속)</text>
 
-      <!-- Post box -->
-      <rect x="410" y="195" width="240" height="70" rx="12" fill="#16140f" stroke="#0d6e64" stroke-width="2"/>
-      <text x="530" y="217" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#6fd6c7">Post @Entity()</text>
-      <rect x="428" y="225" width="204" height="22" rx="5" fill="#1c1a16" stroke="#0d6e64" stroke-width="1" stroke-opacity="0.6"/>
-      <text x="442" y="241" font-family="JetBrains Mono, monospace" font-size="11" fill="#ece6d6">title, content, status …</text>
-      <text x="530" y="280" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#6fd6c7">+ id / createdAt / updatedAt (상속)</text>
+        <!-- Post box -->
+        <rect x="410" y="195" width="240" height="70" rx="12" fill="#0d1117" stroke="#3b82f6" stroke-width="2"/>
+        <text x="530" y="217" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#93c5fd">Post @Entity()</text>
+        <rect x="428" y="225" width="204" height="22" rx="5" fill="#161b22" stroke="#3b82f6" stroke-width="1" stroke-opacity="0.6"/>
+        <text x="442" y="241" font-family="JetBrains Mono, monospace" font-size="11" fill="#c9d1d9">title, content, status …</text>
+        <text x="530" y="280" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#93c5fd">+ id / createdAt / updatedAt (상속)</text>
 
-      <defs>
-        <marker id="w5l2-ext1" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#c98a16"/></marker>
-        <marker id="w5l2-ext2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#c98a16"/></marker>
-      </defs>
-    </svg>
-    <figcaption>추상 <code>BaseModel</code>(amber)은 테이블을 만들지 않는다. <code>User</code>와 <code>Post</code>가 각각 <code>extends</code>해서 공통 필드를 물려받는다.</figcaption>
-  </figure>
+        <defs>
+          <marker id="w5l2-ext1" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f59e0b"/></marker>
+          <marker id="w5l2-ext2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#f59e0b"/></marker>
+        </defs>
+      </svg>
+      <div class="diagram-caption">추상 <code>BaseModel</code>(노랑)은 테이블을 만들지 않는다. <code>User</code>와 <code>Post</code>가 각각 <code>extends</code>해서 공통 필드를 물려받는다.</div>
+    </div>
 
-  <div class="box warn">
-    <span class="ic">⚠️</span>
-    <span class="label"><code>BaseModel</code>에는 <code>@Entity()</code>를 붙이지 않습니다</span>
-    <p><code>abstract class BaseModel</code>에 <code>@Entity()</code>를 붙이면 TypeORM이 <code>base_model</code>이라는 실제 테이블을 만들려고 합니다. 추상 기반 클래스에는 <code>@Entity()</code>가 없어야 합니다 — 테이블을 만드는 건 상속받은 구체 Entity(User, Post)의 역할입니다.</p>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>BaseModel</code>에는 <code>@Entity()</code>를 붙이지 않습니다.</strong> <code>abstract class BaseModel</code>에 <code>@Entity()</code>를 붙이면 TypeORM이 <code>base_model</code>이라는 실제 테이블을 만들려고 합니다. 추상 기반 클래스에는 <code>@Entity()</code>가 없어야 합니다 — 테이블을 만드는 건 상속받은 구체 Entity(User, Post)의 역할입니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="s3">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗄️</div>
+      <h2>상속 전략 — 단일 테이블 vs 구체 테이블</h2>
+    </div>
+    <p>TypeORM은 Entity 상속에 두 가지 전략을 지원합니다. 위에서 본 <code>BaseModel</code> 패턴은 TypeScript 추상 클래스 상속이지 TypeORM의 공식 상속 전략이 아닙니다. TypeORM 공식 상속 전략은 아래 두 가지입니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 서류철 하나에 넣을까, 종류별로 나눌까.</strong> 회사에 "정직원"과 "계약직" 두 종류의 인사 서류가 있다고 해봅시다. 방법은 두 가지입니다. 첫째, 서류철 하나에 두 종류를 다 넣고 각 서류 맨 위에 "정직원" 또는 "계약직"이라는 태그만 붙이는 방법(단일 테이블 상속, STI) — 서류철이 하나라 찾기는 편하지만, 계약직 서류에는 필요 없는 "정직원 전용 항목"이 빈 칸으로 남습니다. 둘째, 아예 서류철을 두 개로 나눠서 "정직원 서류철", "계약직 서류철"을 따로 두는 방법(구체 테이블 상속, CTI) — 각 서류철은 깔끔하지만, "이름", "입사일"처럼 공통 항목은 두 서류철 모두에 똑같이 반복해서 적어야 합니다.</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>전략</th><th>데코레이터</th><th>DB 구조</th><th>특징</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>단일 테이블 상속 (STI)</td>
+            <td><code>@TableInheritance({ column: 'type' })</code></td>
+            <td>하나의 테이블에 모든 서브클래스 컬럼 + 구분자 컬럼</td>
+            <td>JOIN 없음. 컬럼이 많아질수록 NULL이 늘어남</td>
+          </tr>
+          <tr>
+            <td>구체 테이블 상속 (CTI)</td>
+            <td><code>@Entity()</code> on each child class</td>
+            <td>자식마다 별도 테이블. 공통 컬럼 반복</td>
+            <td>테이블이 분리. 공통 쿼리가 번거로움</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무에서는 <code>BaseModel</code> 추상 클래스 패턴이 가장 흔합니다.</strong> 공식 상속 전략(STI/CTI)보다는, <code>abstract class BaseModel</code>을 만들고 각 Entity가 TypeScript <code>extends</code>로 상속하는 패턴이 실무에서 가장 널리 쓰입니다. TypeORM이 각 Entity를 독립된 테이블로 생성하면서도, 공통 필드 선언은 BaseModel 한 곳에만 있어 코드 중복이 없습니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="s4">
+    <div class="section-header">
+      <div class="section-icon icon-compare">✅</div>
+      <h2>셀프 체크 — 면접관처럼 물어보기</h2>
+    </div>
+
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>BaseModel</code>을 상속받는 이유는 무엇인가요?</summary>
+        <div class="qa-answer"><p>거의 모든 Entity가 가져야 하는 <code>id</code>, <code>createdAt</code>, <code>updatedAt</code>을 <strong>한 번만 선언하고 여러 Entity에 재사용</strong>하기 위해서입니다. <code>BaseModel</code>에 선언해 두면, 새로운 Entity를 만들 때 <code>extends BaseModel</code>만 하면 세 필드를 자동으로 갖게 됩니다. 타임스탬프 컬럼 추가/수정이 필요할 때도 <code>BaseModel</code> 한 곳만 고치면 됩니다. 코드 중복을 줄이고 일관성을 유지하는 것이 핵심 이유입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>createdAt</code>을 자동으로 기록하는 방법은?</summary>
+        <div class="qa-answer"><p><code>@CreateDateColumn()</code> 데코레이터를 사용합니다. 이 데코레이터가 붙은 컬럼은 <code>save()</code>로 Entity를 최초 INSERT할 때 TypeORM이 자동으로 현재 시각을 채워 넣습니다. 개발자가 <code>post.createdAt = new Date()</code>처럼 직접 값을 지정할 필요가 없습니다. 이후 <code>save()</code>를 다시 호출해도(UPDATE) <code>createdAt</code>은 변경되지 않습니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>@UpdateDateColumn</code>과 <code>@CreateDateColumn</code>의 차이는?</summary>
+        <div class="qa-answer"><p><code>@CreateDateColumn()</code>은 <strong>INSERT 시 딱 한 번</strong> 현재 시각을 기록하고 이후에는 TypeORM이 변경하지 않습니다. <code>@UpdateDateColumn()</code>은 INSERT 시 기록하고, 이후 <code>save()</code>를 통해 해당 Entity가 수정될 때마다 <strong>현재 시각으로 덮어씁니다</strong>. "언제 만들어졌나"는 <code>createdAt</code>, "마지막으로 언제 수정됐나"는 <code>updatedAt</code>으로 구분됩니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    NestJS 코어 셀프 스터디 · Week 5 · 02 · Table Inheritance · BaseModel 상속 · <a href="../index.html">전체 커리큘럼으로</a>
   </div>
 
-  <h2 id="s3"><span class="num">3</span>상속 전략 — 단일 테이블 vs 구체 테이블</h2>
-  <p>TypeORM은 Entity 상속에 두 가지 전략을 지원합니다. 위에서 본 <code>BaseModel</code> 패턴은 TypeScript 추상 클래스 상속이지 TypeORM의 공식 상속 전략이 아닙니다. TypeORM 공식 상속 전략은 아래 두 가지입니다.</p>
-
-  <div class="box analogy">
-    <span class="ic">🗄️</span>
-    <span class="label">비유 — 서류철 하나에 넣을까, 종류별로 나눌까</span>
-    <p>회사에 "정직원"과 "계약직" 두 종류의 인사 서류가 있다고 해봅시다. 방법은 두 가지입니다. 첫째, 서류철 하나에 두 종류를 다 넣고 각 서류 맨 위에 "정직원" 또는 "계약직"이라는 태그만 붙이는 방법(단일 테이블 상속, STI) — 서류철이 하나라 찾기는 편하지만, 계약직 서류에는 필요 없는 "정직원 전용 항목"이 빈 칸으로 남습니다. 둘째, 아예 서류철을 두 개로 나눠서 "정직원 서류철", "계약직 서류철"을 따로 두는 방법(구체 테이블 상속, CTI) — 각 서류철은 깔끔하지만, "이름", "입사일"처럼 공통 항목은 두 서류철 모두에 똑같이 반복해서 적어야 합니다.</p>
-  </div>
-
-  <table class="tbl">
-    <thead><tr><th>전략</th><th>데코레이터</th><th>DB 구조</th><th>특징</th></tr></thead>
-    <tbody>
-      <tr>
-        <td>단일 테이블 상속 (STI)</td>
-        <td><code>@TableInheritance({ column: 'type' })</code></td>
-        <td>하나의 테이블에 모든 서브클래스 컬럼 + 구분자 컬럼</td>
-        <td>JOIN 없음. 컬럼이 많아질수록 NULL이 늘어남</td>
-      </tr>
-      <tr>
-        <td>구체 테이블 상속 (CTI)</td>
-        <td><code>@Entity()</code> on each child class</td>
-        <td>자식마다 별도 테이블. 공통 컬럼 반복</td>
-        <td>테이블이 분리. 공통 쿼리가 번거로움</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <div class="box note">
-    <span class="ic">🧭</span>
-    <span class="label">실무에서는 <code>BaseModel</code> 추상 클래스 패턴이 가장 흔합니다</span>
-    <p>공식 상속 전략(STI/CTI)보다는, <code>abstract class BaseModel</code>을 만들고 각 Entity가 TypeScript <code>extends</code>로 상속하는 패턴이 실무에서 가장 널리 쓰입니다. TypeORM이 각 Entity를 독립된 테이블로 생성하면서도, 공통 필드 선언은 BaseModel 한 곳에만 있어 코드 중복이 없습니다.</p>
-  </div>
-
-  <div class="section-divider">복습</div>
-
-  <h2 id="s4"><span class="num">4</span>✅ 셀프 체크 — 면접관처럼 물어보기</h2>
-
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>BaseModel</code>을 상속받는 이유는 무엇인가요?</summary>
-    <div class="answer"><p>거의 모든 Entity가 가져야 하는 <code>id</code>, <code>createdAt</code>, <code>updatedAt</code>을 <strong>한 번만 선언하고 여러 Entity에 재사용</strong>하기 위해서입니다. <code>BaseModel</code>에 선언해 두면, 새로운 Entity를 만들 때 <code>extends BaseModel</code>만 하면 세 필드를 자동으로 갖게 됩니다. 타임스탬프 컬럼 추가/수정이 필요할 때도 <code>BaseModel</code> 한 곳만 고치면 됩니다. 코드 중복을 줄이고 일관성을 유지하는 것이 핵심 이유입니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>createdAt</code>을 자동으로 기록하는 방법은?</summary>
-    <div class="answer"><p><code>@CreateDateColumn()</code> 데코레이터를 사용합니다. 이 데코레이터가 붙은 컬럼은 <code>save()</code>로 Entity를 최초 INSERT할 때 TypeORM이 자동으로 현재 시각을 채워 넣습니다. 개발자가 <code>post.createdAt = new Date()</code>처럼 직접 값을 지정할 필요가 없습니다. 이후 <code>save()</code>를 다시 호출해도(UPDATE) <code>createdAt</code>은 변경되지 않습니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>@UpdateDateColumn</code>과 <code>@CreateDateColumn</code>의 차이는?</summary>
-    <div class="answer"><p><code>@CreateDateColumn()</code>은 <strong>INSERT 시 딱 한 번</strong> 현재 시각을 기록하고 이후에는 TypeORM이 변경하지 않습니다. <code>@UpdateDateColumn()</code>은 INSERT 시 기록하고, 이후 <code>save()</code>를 통해 해당 Entity가 수정될 때마다 <strong>현재 시각으로 덮어씁니다</strong>. "언제 만들어졌나"는 <code>createdAt</code>, "마지막으로 언제 수정됐나"는 <code>updatedAt</code>으로 구분됩니다.</p></div>
-  </details>
-
-  <nav class="pager">
-    <a class="prev" href="01-columns-enum-embedding.html"><span class="dir">← 이전</span><span class="ttl">Column 옵션 · Enum · Embedding</span></a>
-    <a class="next" href="03-findoptions-utils-methods.html"><span class="dir">다음 →</span><span class="ttl">FindManyOptions · 유틸 · 메서드</span></a>
-  </nav>
 </main>
-
-<footer class="foot">NestJS 코어 셀프 스터디 · Week 5 · Lesson 02 · Table Inheritance · BaseModel 상속</footer>
-</div><!-- sidebar-main -->
 </div><!-- layout -->
 
 <script>
-  const sections = document.querySelectorAll('h2[id]');
+  const sections = document.querySelectorAll('.section[id]');
   const navLinks = document.querySelectorAll('.nav-item.sec');
   const observer = new IntersectionObserver(entries => {
     entries.forEach(e => {
@@ -278,5 +303,6 @@
   }, { rootMargin: '-20% 0px -70% 0px' });
   sections.forEach(s => observer.observe(s));
 </script>
+<script src="../assets/script.js"></script>
 </body>
 </html>

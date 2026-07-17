@@ -9,6 +9,7 @@ module.exports = {
         "ai",
         "be(nodejs)",
         "be(nestjs)",
+        "be(interview)",
         "be(supabase)",
         "be(fastapi)",
         "be(postgresql)",

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>캐시 &amp; 트래픽 처리 — 신입 백엔드 기술 면접 실전 문제집</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">면접</span>
+      <span class="logo-text">신입 백엔드 기술 면접 문제집</span>
+    </a>
+    <div class="logo-sub">23문항 · 예상 답변 + 꼬리 질문</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">📀 데이터베이스</div>
+    <a class="nav-item" href="01-database.html#q1">Q1. B-Tree 인덱스</a>
+    <a class="nav-item" href="01-database.html#q2">Q2. 팬텀 리드 방지</a>
+    <a class="nav-item" href="01-database.html#q7">Q7. InnoDB Repeatable Read</a>
+    <a class="nav-item" href="01-database.html#q9">Q9. 커버링 인덱스</a>
+    <a class="nav-item" href="01-database.html#q10">Q10. 낙관적 락 vs 비관적 락</a>
+    <a class="nav-item" href="01-database.html#q11">Q11. 정규화 / 비정규화</a>
+
+    <div class="nav-section-title" style="margin-top:8px">⚡ 캐시 &amp; 트래픽 처리</div>
+    <a class="nav-item" href="#q3">Q3. 서버 병목 진단</a>
+    <a class="nav-item" href="#q4">Q4. Redis 캐시 주의점</a>
+    <a class="nav-item" href="#q6">Q6. 대량 동시 요청 처리</a>
+    <a class="nav-item" href="#q14">Q14. 캐시 Avalanche</a>
+    <a class="nav-item" href="#q23">Q23. API 요청 급증 대응</a>
+
+    <div class="nav-section-title" style="margin-top:8px">🏗️ 설계 &amp; 아키텍처</div>
+    <a class="nav-item" href="03-design-architecture.html#q5">Q5. OrderService 리팩토링</a>
+    <a class="nav-item" href="03-design-architecture.html#q13">Q13. 도메인 서비스 vs 애플리케이션 서비스</a>
+    <a class="nav-item" href="03-design-architecture.html#q16">Q16. REST API 응답 설계</a>
+    <a class="nav-item" href="03-design-architecture.html#q21">Q21. MSA 장단점</a>
+
+    <div class="nav-section-title" style="margin-top:8px">🐈 NestJS &amp; TypeORM</div>
+    <a class="nav-item" href="04-nestjs-typeorm.html#q19">Q19. IoC와 DI</a>
+    <a class="nav-item" href="04-nestjs-typeorm.html#q20">Q20. 트랜잭션 처리 방식</a>
+    <a class="nav-item" href="04-nestjs-typeorm.html#q22">Q22. TypeORM N+1 문제</a>
+
+    <div class="nav-section-title" style="margin-top:8px">🧪 테스트 &amp; 운영</div>
+    <a class="nav-item" href="05-testing-ops.html#q8">Q8. 테스트 코드 구분 기준</a>
+    <a class="nav-item" href="05-testing-ops.html#q12">Q12. 단위 vs 통합 테스트</a>
+    <a class="nav-item" href="05-testing-ops.html#q15">Q15. 메모리 누수 · 이벤트 루프 감지</a>
+    <a class="nav-item" href="05-testing-ops.html#q17">Q17. CI vs CD</a>
+    <a class="nav-item" href="05-testing-ops.html#q18">Q18. 장애 발생 시 대응</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-database.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">📀 데이터베이스</span></a>
+    <a class="part-pager-link next" href="03-design-architecture.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">🏗️ 설계 &amp; 아키텍처</span></a>
+  </div>
+
+  <div class="group-heading">⚡ 캐시 &amp; 트래픽 처리</div>
+  <div class="group-sub">병목 진단, Redis, 대량 트래픽, 캐시 장애 패턴</div>
+
+  <section class="section" id="q3">
+    <div class="section-header"><div class="section-icon icon-cache">⚡</div><h2>Q3. 트래픽이 몰릴 때 서버 병목을 진단하는 방법은?</h2></div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <p>CPU, Memory, Disk, Network 사용률 확인 → 이벤트 루프 지연(event loop lag), 힙 사용량, DB 커넥션 풀 확인. Prometheus + Grafana, 또는 자체 로깅 사용. Node.js는 싱글 스레드 이벤트 루프 기반이라 CPU 바운드 작업이 루프를 막으면 전체 지연으로 이어지므로, 이벤트 루프 지연 모니터링이 특히 중요합니다. APM 도구(예: Datadog, Sentry, clinic.js)를 활용하면 트랜잭션 레벨의 병목 지점도 식별할 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="followup">
+      <div class="followup-tag">🔁 꼬리 질문</div>
+      <div class="followup-a">
+        <p class="followup-q"><span class="qa-mark">Q.</span> 이벤트 루프 지연이 심하거나 메모리가 계속 늘어난다면 어떻게 조치할 수 있나요?</p>
+        <p><span class="qa-mark">A.</span> 이벤트 루프가 막힌다면 동기(sync) 블로킹 연산이나 무거운 CPU 작업이 루프를 점유하고 있을 가능성이 높고, 메모리가 계속 늘어난다면 참조가 해제되지 않는 누수를 의심해야 합니다. 구체적인 조치로는 다음과 같은 고민을 할 수 있습니다.</p>
+        <ul>
+          <li>동기 블로킹 API(예: <code>fs.readFileSync</code>, 무거운 <code>JSON.parse</code>)를 비동기/스트리밍으로 전환</li>
+          <li>CPU 바운드 작업(암호화, 이미지 처리 등)은 Worker Threads나 별도 큐(BullMQ)로 오프로드</li>
+          <li>대용량 응답은 한 번에 메모리에 올리지 말고 스트림으로 처리</li>
+          <li>불필요하게 큰 객체를 전역/모듈 스코프에 캐싱하지 않기 (클로저·이벤트 리스너 참조 정리)</li>
+          <li>힙 스냅샷(<code>--inspect</code>, clinic.js, heapdump) 분석으로 메모리 누수 추적</li>
+          <li>필요 시 <code>--max-old-space-size</code>로 힙 상한을 조정하되, 근본 원인(누수) 해결이 우선</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="q4">
+    <div class="section-header"><div class="section-icon icon-cache">⚡</div><h2>Q4. Redis를 캐시로 사용할 때 주의해야 할 점은?</h2></div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <p>캐시 일관성 문제(Cache-Aside 패턴), TTL 관리, 캐시 무효화 전략이 필요합니다. 또한 Redis는 인메모리 데이터 저장소이므로 메모리 사용량 모니터링이 중요합니다. 메모리가 부족해지면 <code>maxmemory-policy</code> 설정에 따라 데이터 제거가 일어날 수 있습니다. 또한 Redis는 기본적으로 싱글 스레드로 동작하므로, 시간 복잡도가 O(N) 이상인 명령어 사용 시 전체 성능에 영향을 줄 수 있어 주의해야 합니다. 분산 환경에서는 Sentinel이나 Cluster 구성도 고려해야 합니다.</p>
+      </div>
+    </div>
+    <div class="followup">
+      <div class="followup-tag">🔁 꼬리 질문</div>
+      <div class="followup-a">
+        <p class="followup-q"><span class="qa-mark">Q.</span> Redis에 저장된 캐시와 DB의 일관성이 깨졌을 때 대응 방법은?</p>
+        <p><span class="qa-mark">A.</span> DB와의 정합성 유지를 위해 다음과 같은 전략을 사용할 수 있습니다.</p>
+        <ul>
+          <li>Cache-Aside 패턴: 데이터 갱신 시 캐시를 먼저 무효화하고 DB를 업데이트</li>
+          <li>Write-Through 패턴: DB 업데이트와 캐시 업데이트를 동시에 수행</li>
+          <li>Write-Behind 패턴: 캐시를 먼저 업데이트하고 비동기적으로 DB 업데이트</li>
+          <li>이벤트 기반 캐시 무효화: DB 변경 이벤트를 구독하여 캐시 업데이트</li>
+          <li>적절한 TTL 설정으로 오래된 데이터 자동 제거</li>
+          <li>배치 작업으로 주기적 캐시-DB 동기화</li>
+        </ul>
+        <p>일관성이 깨진 것이 감지되면 해당 키만 선택적으로 무효화하고, 심각한 불일치 시 전체 캐시를 리프레시 할 수 있습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="q6">
+    <div class="section-header"><div class="section-icon icon-cache">⚡</div><h2>Q6. 1000개의 티켓에 대해 수십만 요청이 동시에 들어오는 상황을 어떻게 처리할 수 있을까요?</h2></div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <p>Skip Locked, Redis 분산락, 메모리 큐 사용 등으로 RDB 부하를 줄이거나 처리 순서를 제어합니다. 구체적인 아키텍처는 다음과 같습니다.</p>
+        <ul>
+          <li>초기 요청은 API Gateway에서 Rate Limiting으로 서버 보호</li>
+          <li>모든 요청을 Kafka나 RabbitMQ 같은 메시지 큐에 넣어 비동기 처리</li>
+          <li>Redis Sorted Set으로 요청 순서 보장 및 선착순 처리</li>
+          <li>작업자(Worker)를 여러 개 두어 병렬 처리하되 분산락으로 동시성 제어</li>
+          <li>DB 업데이트는 배타적 락(<code>FOR UPDATE</code>)이나 낙관적 락으로 처리</li>
+          <li>처리 결과는 웹소켓이나 이벤트 스트림으로 클라이언트에 실시간 전달</li>
+        </ul>
+      </div>
+    </div>
+    <div class="followup">
+      <div class="followup-tag">🔁 꼬리 질문</div>
+      <div class="followup-a">
+        <p class="followup-q"><span class="qa-mark">Q.</span> SKIP LOCKED는 MySQL 8.0부터 제공되는데, 그 이전(5.7 등) 환경이라면 어떤 대안이 있을까요?</p>
+        <p><span class="qa-mark">A.</span> SKIP LOCKED·NOWAIT는 MySQL 8.0부터 표준 지원되므로(5.7은 2023-10 EOL, 8.0이 현재 기준) 8.0 이상이라면 SKIP LOCKED를 쓰는 게 가장 깔끔합니다. 5.7 이하 레거시 환경이라면 다음 대안을 사용할 수 있습니다.</p>
+        <ul>
+          <li>FOR UPDATE로 레코드 락을 걸되, 트랜잭션 타임아웃 설정으로 데드락 방지</li>
+          <li>Redis를 활용한 분산락 구현 (SETNX + TTL 활용)</li>
+          <li>애플리케이션 레벨에서 <code>p-limit</code>이나 큐(BullMQ)의 concurrency 옵션으로 동시 처리 수 제한</li>
+          <li>처리 상태 컬럼을 추가하여 낙관적 락 기반 처리 (예: 대기→처리중→완료)</li>
+          <li>샤딩 기법으로 테이블을 분할하여 락 경합 감소</li>
+          <li>배치 프로세싱으로 일정 간격마다 처리하여 부하 분산</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="q14">
+    <div class="section-header"><div class="section-icon icon-cache">⚡</div><h2>Q14. 캐시 Avalanche란 무엇이며, 어떻게 방지할 수 있을까요?</h2></div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <p>캐시 Avalanche는 다수의 캐시 항목이 동시에 만료되어 데이터베이스나 백엔드 시스템에 갑작스러운 부하가 몰리는 현상입니다. 이는 서비스 장애로 이어질 수 있습니다. 방지 방법은 다음과 같습니다.</p>
+        <ul>
+          <li>TTL 분산: 캐시 항목마다 만료 시간에 랜덤 지연 추가</li>
+          <li>백그라운드 갱신: 캐시 만료 전 비동기적으로 데이터 갱신</li>
+          <li>계층형 캐시 구조: 로컬 캐시와 분산 캐시 함께 사용</li>
+          <li>캐시 웜업: 시스템 재시작이나 배포 전 주요 항목 미리 로딩</li>
+        </ul>
+      </div>
+    </div>
+    <div class="followup">
+      <div class="followup-tag">🔁 꼬리 질문</div>
+      <p class="followup-q"><span class="qa-mark">Q.</span> TTL 분산 전략을 적용했던 경험이 있나요?</p>
+      <p class="followup-a"><span class="qa-mark">A.</span> TTL을 고정값이 아니라 기본값에 ±10% 정도의 랜덤 지연을 추가하여 동시 만료를 방지하거나, 서비스 시작 시 미리 Warm-up 캐시를 준비하면 캐시 어밸런치(Avalanche)를 효과적으로 완화할 수 있습니다.</p>
+    </div>
+  </section>
+
+  <section class="section" id="q23">
+    <div class="section-header"><div class="section-icon icon-cache">⚡</div><h2>Q23. API 요청량이 급증할 때 어떻게 대응할 수 있나요?</h2></div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <p>서버 스케일 아웃, 로드 밸런서 도입, 캐싱 적용, DB 인덱싱 최적화, 비동기 처리 적용, CDN 활용 등 다양한 기법을 사용할 수 있습니다.</p>
+      </div>
+    </div>
+    <div class="followup">
+      <div class="followup-tag">🔁 꼬리 질문</div>
+      <p class="followup-q"><span class="qa-mark">Q.</span> Rate Limiting을 구현하는 방법에는 어떤 것들이 있나요?</p>
+      <p class="followup-a"><span class="qa-mark">A.</span> Redis를 활용한 counting, token bucket, leaky bucket 알고리즘을 구현하거나, API Gateway의 rate limiting 기능을 활용할 수 있습니다. 또한 NestJS의 경우 <code>@nestjs/throttler</code>나 <code>rate-limiter-flexible</code> 같은 라이브러리를 활용할 수 있습니다.</p>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    신입 백엔드 기술 면접 실전 문제집 · ⚡ 캐시 &amp; 트래픽 처리 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

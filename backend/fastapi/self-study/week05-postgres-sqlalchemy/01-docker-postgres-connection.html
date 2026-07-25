@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="../week04-async-internals/03-multiprocess-uvicorn-starlette.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Week 4 · Uvicorn/Starlette 역할</span></a>
-    <a class="part-pager-link next" href="02-sqlalchemy-orm-modeling.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">SQLAlchemy 2.0 ORM 모델링 &amp; DDL</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>Docker로 PostgreSQL 띄우기 그리고 DB에 연결하기</h1>
     <p class="lesson-subtitle">로컬에 DB를 설치하지 않고도, <code>docker-compose.yml</code> 한 장으로 PostgreSQL을 켜고 끕니다. 그리고 <strong>SQLAlchemy Engine</strong>으로 그 DB에 처음 연결해 봅니다.</p>
@@ -287,6 +282,11 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True)</code></pre>
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../week04-async-internals/03-multiprocess-uvicorn-starlette.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Week 4 · Uvicorn/Starlette 역할</span></a>
+    <a class="part-pager-link next" href="02-sqlalchemy-orm-modeling.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">SQLAlchemy 2.0 ORM 모델링 &amp; DDL</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 5 · 01 · Docker PostgreSQL &amp; 연결 · <a href="../index.html">전체 커리큘럼으로</a>

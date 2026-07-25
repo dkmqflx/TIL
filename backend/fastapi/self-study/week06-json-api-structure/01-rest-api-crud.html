@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="../week05-postgres-sqlalchemy/03-connection-pool-session.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Week 5 · Connection Pool &amp; Session</span></a>
-    <a class="part-pager-link next" href="02-dependency-injection-mvc.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Dependency Injection &amp; 서비스 계층</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>REST API 명세 &amp; CRUD 스키마 · 모델 · 라우터를 묶다</h1>
     <p class="lesson-subtitle">Week 3의 <strong>Pydantic</strong>, Week 5의 <strong>SQLAlchemy 모델</strong>, 그리고 라우터 — 흩어져 있던 부품을 하나로 합쳐 <strong>진짜로 DB에 저장되는 ToDo REST API</strong>를 완성합니다.</p>
@@ -342,6 +337,11 @@ def delete_todo(todo_id: int, db: Session = Depends(get_db)):
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../week05-postgres-sqlalchemy/03-connection-pool-session.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Week 5 · Connection Pool &amp; Session</span></a>
+    <a class="part-pager-link next" href="02-dependency-injection-mvc.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Dependency Injection &amp; 서비스 계층</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 6 · 01 · REST API &amp; CRUD · <a href="../index.html">전체 커리큘럼으로</a>

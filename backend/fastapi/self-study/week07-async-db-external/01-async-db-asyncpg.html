@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="../week06-json-api-structure/03-exception-handler-pytest.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Week 6 · Exception Handler &amp; pytest</span></a>
-    <a class="part-pager-link next" href="02-httpx-external-api.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">httpx로 외부 API 호출</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>비동기 DB (asyncpg) — 이벤트 루프를 막지 마라</h1>
     <p class="lesson-subtitle">Week 4에서 "<strong>async 함수 안에서 동기 I/O를 호출하면 이벤트 루프가 멈춘다</strong>"고 배웠죠. DB 호출도 똑같은 I/O입니다. 이번엔 SQLAlchemy 2.0 + asyncpg로 DB까지 <strong>완전 비동기</strong>로 만듭니다.</p>
@@ -321,6 +316,11 @@ app = FastAPI(lifespan=lifespan)</code></pre>
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../week06-json-api-structure/03-exception-handler-pytest.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Week 6 · Exception Handler &amp; pytest</span></a>
+    <a class="part-pager-link next" href="02-httpx-external-api.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">httpx로 외부 API 호출</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 7 · 01 · 비동기 DB (asyncpg) · <a href="../index.html">전체 커리큘럼으로</a>

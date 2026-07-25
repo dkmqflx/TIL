@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="01-docker-postgres-connection.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Docker PostgreSQL &amp; 연결</span></a>
-    <a class="part-pager-link next" href="03-connection-pool-session.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Connection Pool · Session · fetch</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>SQLAlchemy 2.0 ORM 모델링 클래스로 테이블을 그리기</h1>
     <p class="lesson-subtitle">파이썬 <strong>클래스 하나가 테이블 하나</strong>가 됩니다. NestJS의 <strong>TypeORM @Entity</strong>가 하던 일을, SQLAlchemy 2.0의 <code>DeclarativeBase</code> + <code>Mapped[]</code>로 합니다.</p>
@@ -310,6 +305,11 @@ Base.metadata.create_all(engine)</code></pre>
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-docker-postgres-connection.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Docker PostgreSQL &amp; 연결</span></a>
+    <a class="part-pager-link next" href="03-connection-pool-session.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Connection Pool · Session · fetch</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 5 · 02 · SQLAlchemy ORM 모델링 · <a href="../index.html">전체 커리큘럼으로</a>

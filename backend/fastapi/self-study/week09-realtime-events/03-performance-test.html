@@ -65,11 +65,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="02-message-broker-pubsub.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">메시지 브로커 · Redis Pub/Sub</span></a>
-    <a class="part-pager-link next" href="../week10-test-deploy/01-pytest-mocking-fixture.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">pytest · Mocking · Fixture · TestClient</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>성능, 추측하지 말고 측정하라</h1>
     <p class="lesson-subtitle">"느린 것 같다"는 느낌이 아니라 <strong>숫자</strong>로 말해야 합니다. 부하 테스트로 RPS와 지연을 재고, I/O 바운드 작업에서 <strong>async가 처리량을 어떻게 끌어올리는지</strong> 확인한 뒤, 흔한 병목을 하나씩 걷어냅니다.</p>
@@ -314,6 +309,11 @@ uvicorn main:app --workers 4
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-message-broker-pubsub.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">메시지 브로커 · Redis Pub/Sub</span></a>
+    <a class="part-pager-link next" href="../week10-test-deploy/01-pytest-mocking-fixture.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">pytest · Mocking · Fixture · TestClient</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 9 · 03 · 동기/비동기 성능 테스트 &amp; 개선 · <a href="../index.html">전체 커리큘럼으로</a>

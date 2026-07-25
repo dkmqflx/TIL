@@ -64,11 +64,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="02-async-await-threadpool.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">async/await &amp; ThreadPool 함정</span></a>
-    <a class="part-pager-link next" href="../week05-postgres-sqlalchemy/01-docker-postgres-connection.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 5 · Docker Compose · PostgreSQL 연결</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>멀티프로세스 &amp; 3층 구조 — Uvicorn · Starlette · FastAPI</h1>
     <p class="lesson-subtitle">비동기는 <strong>한 코어 안의 동시성</strong>을 줍니다. 여러 코어를 쓰려면 <strong>멀티프로세스(워커)</strong>가 필요하죠. 그리고 그 위에 올라탄 <strong>3층 구조</strong>가 FastAPI 요청 한 건을 처리합니다.</p>
@@ -240,6 +235,11 @@ class FastAPI(Starlette):   # ← Starlette를 그대로 상속
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-async-await-threadpool.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">async/await &amp; ThreadPool 함정</span></a>
+    <a class="part-pager-link next" href="../week05-postgres-sqlalchemy/01-docker-postgres-connection.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 5 · Docker Compose · PostgreSQL 연결</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 4 · 03 · 멀티프로세스 &amp; Uvicorn/Starlette/FastAPI · <a href="../index.html">전체 커리큘럼으로</a>

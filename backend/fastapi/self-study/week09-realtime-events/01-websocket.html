@@ -65,11 +65,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="../week08-auth/03-otp-background-tasks.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">OTP 생성·검증 · Background Tasks</span></a>
-    <a class="part-pager-link next" href="02-message-broker-pubsub.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">메시지 브로커 · Redis Pub/Sub</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>WebSocket 서버가 먼저 말을 거는 채널</h1>
     <p class="lesson-subtitle">지금까지의 HTTP는 클라이언트가 <strong>물어봐야만</strong> 서버가 답했습니다. WebSocket은 한 번 연결해두면 <strong>양쪽이 아무 때나 메시지를 던질 수 있는</strong> 지속 회선입니다. 채팅·알림·실시간 대시보드의 토대죠.</p>
@@ -325,6 +320,11 @@ async def chat(websocket: WebSocket, name: str):
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../week08-auth/03-otp-background-tasks.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">OTP 생성·검증 · Background Tasks</span></a>
+    <a class="part-pager-link next" href="02-message-broker-pubsub.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">메시지 브로커 · Redis Pub/Sub</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 9 · 01 · WebSocket 실시간 통신 · <a href="../index.html">전체 커리큘럼으로</a>

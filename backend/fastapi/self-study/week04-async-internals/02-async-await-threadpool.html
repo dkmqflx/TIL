@@ -64,11 +64,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="01-sync-async-eventloop.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">동기/비동기 &amp; Event Loop</span></a>
-    <a class="part-pager-link next" href="03-multiprocess-uvicorn-starlette.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">멀티프로세스 &amp; Uvicorn/Starlette/FastAPI</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>async def vs def — 그리고 블로킹의 함정</h1>
     <p class="lesson-subtitle">FastAPI는 <code>async def</code>와 일반 <code>def</code> 경로 함수를 <strong>서로 다른 방식</strong>으로 실행합니다. 이 차이를 모르면 <strong>서버 전체가 멈추는</strong> 가장 흔한 사고를 냅니다.</p>
@@ -263,6 +258,11 @@ async def mixed():
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-sync-async-eventloop.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">동기/비동기 &amp; Event Loop</span></a>
+    <a class="part-pager-link next" href="03-multiprocess-uvicorn-starlette.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">멀티프로세스 &amp; Uvicorn/Starlette/FastAPI</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 4 · 02 · async/await &amp; ThreadPool · <a href="../index.html">전체 커리큘럼으로</a>

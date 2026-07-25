@@ -64,11 +64,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="01-jwt-oauth2-hashing.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">JWT · OAuth2 · 해싱</span></a>
-    <a class="part-pager-link next" href="03-otp-background-tasks.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">OTP &amp; Background Tasks</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>의존성으로 보호하기 — 그리고 Redis</h1>
     <p class="lesson-subtitle">발급한 토큰을 <strong>매 요청마다 검증</strong>하는 일은 <code>Depends</code> 하나로 깔끔하게 처리됩니다. NestJS의 <strong>Guard</strong>에 정확히 대응하죠. 더해서 세션·캐시의 단골 도구 <strong>Redis</strong>를 익힙니다.</p>
@@ -314,6 +309,11 @@ async def demo():
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-jwt-oauth2-hashing.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">JWT · OAuth2 · 해싱</span></a>
+    <a class="part-pager-link next" href="03-otp-background-tasks.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">OTP &amp; Background Tasks</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 8 · 02 · 의존성 권한 · Redis · <a href="../index.html">전체 커리큘럼으로</a>

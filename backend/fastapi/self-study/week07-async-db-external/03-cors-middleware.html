@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="02-httpx-external-api.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">httpx로 외부 API 호출</span></a>
-    <a class="part-pager-link next" href="../week08-auth/01-jwt-oauth2-hashing.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 8 · JWT · OAuth2 · 패스워드 해싱</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>CORS &amp; 미들웨어 — 모든 요청을 가로채는 계층</h1>
     <p class="lesson-subtitle">프론트(:5173)에서 API(:8000)를 부르면 십중팔구 만나는 <strong>CORS 에러</strong>. 그 정체와 해결법, 그리고 모든 요청을 전·후로 감싸는 <strong>미들웨어</strong>를 배웁니다. Week 2에서 예고했던 쿠키/credentials 이야기도 여기서 매듭짓습니다.</p>
@@ -350,6 +345,11 @@ async def timing(req, call_next):
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-httpx-external-api.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">httpx로 외부 API 호출</span></a>
+    <a class="part-pager-link next" href="../week08-auth/01-jwt-oauth2-hashing.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 8 · JWT · OAuth2 · 패스워드 해싱</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 7 · 03 · CORS &amp; 미들웨어 · <a href="../index.html">전체 커리큘럼으로</a>

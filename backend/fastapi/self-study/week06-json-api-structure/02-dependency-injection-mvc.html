@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="01-rest-api-crud.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">REST API 명세 &amp; CRUD</span></a>
-    <a class="part-pager-link next" href="03-exception-handler-pytest.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">전역 예외 핸들러 · 설정 · pytest</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>Dependency Injection 서비스 계층으로 리팩터링</h1>
     <p class="lesson-subtitle">FastAPI의 <strong>Depends</strong>는 NestJS의 DI 컨테이너에 대응합니다. 공통 의존성(DB 세션)을 주입받고, 라우터에 뭉쳐 있던 로직을 <strong>서비스 계층(MVC)</strong>으로 분리합니다.</p>
@@ -317,6 +312,11 @@ def create_todo(payload: TodoCreate, db: DbSession):
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-rest-api-crud.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">REST API 명세 &amp; CRUD</span></a>
+    <a class="part-pager-link next" href="03-exception-handler-pytest.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">전역 예외 핸들러 · 설정 · pytest</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 6 · 02 · DI &amp; 서비스 계층 · <a href="../index.html">전체 커리큘럼으로</a>

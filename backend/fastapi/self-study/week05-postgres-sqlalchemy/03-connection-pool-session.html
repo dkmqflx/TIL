@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="02-sqlalchemy-orm-modeling.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">SQLAlchemy ORM 모델링 &amp; DDL</span></a>
-    <a class="part-pager-link next" href="../week06-json-api-structure/01-rest-api-crud.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 6 · REST API · CRUD 구현</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>Connection Pool · Session 그리고 안전한 쿼리</h1>
     <p class="lesson-subtitle">DB 연결은 <strong>비싼 자원</strong>입니다. 미리 만들어 돌려 쓰는 <strong>Connection Pool</strong>, 작업 단위인 <strong>Session</strong>, 그리고 SQL Injection을 막는 <strong>bind 변수</strong>까지 — DB를 실제로 다루는 마지막 조각들입니다.</p>
@@ -334,6 +329,11 @@ def list_todos(db: Session = Depends(get_db)):
       <div class="callout-body"><strong>Week 5 마무리.</strong> Docker로 PostgreSQL을 띄우고 → 2.0 스타일로 모델을 그리고 → 풀·세션·바인딩으로 안전하게 데이터를 다루기까지, 이제 <strong>FastAPI에서 실제 DB를 쓰는 한 바퀴</strong>를 완성했습니다. 다음 Week 6에서는 이 위에 <strong>Repository·서비스 계층과 Depends 주입</strong>을 얹어, 라우트에서 DB 로직을 깔끔히 분리합니다.</div>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-sqlalchemy-orm-modeling.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">SQLAlchemy ORM 모델링 &amp; DDL</span></a>
+    <a class="part-pager-link next" href="../week06-json-api-structure/01-rest-api-crud.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 6 · REST API · CRUD 구현</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 5 · 03 · Pool · Session · bind · <a href="../index.html">전체 커리큘럼으로</a>

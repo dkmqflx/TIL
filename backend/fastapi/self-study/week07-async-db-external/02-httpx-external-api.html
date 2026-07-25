@@ -67,11 +67,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="01-async-db-asyncpg.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">비동기 DB (asyncpg)</span></a>
-    <a class="part-pager-link next" href="03-cors-middleware.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">CORS &amp; 미들웨어</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>외부 API 호출 — 이번엔 우리가 클라이언트다</h1>
     <p class="lesson-subtitle">백엔드는 혼자 일하지 않습니다. 결제·알림·다른 마이크로서비스를 <strong>HTTP로 호출</strong>하죠. 그 순간 <strong>우리 서버가 또 다른 서버의 클라이언트</strong>가 됩니다. 비동기 환경의 표준 도구 <code>httpx.AsyncClient</code>를 익힙니다.</p>
@@ -317,6 +312,11 @@ async def get_weather(city: str):
       </details>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-async-db-asyncpg.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">비동기 DB (asyncpg)</span></a>
+    <a class="part-pager-link next" href="03-cors-middleware.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">CORS &amp; 미들웨어</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 7 · 02 · httpx 외부 API · <a href="../index.html">전체 커리큘럼으로</a>

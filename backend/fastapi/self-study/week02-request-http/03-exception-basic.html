@@ -65,11 +65,6 @@
 
 <main class="main" id="top">
 
-  <div class="part-pager">
-    <a class="part-pager-link prev" href="02-http-methods-status.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">HTTP 메서드 &amp; 상태 코드</span></a>
-    <a class="part-pager-link next" href="../week03-pydantic-response/01-pydantic-models-validation.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 3 · Pydantic 모델 · 검증</span></a>
-  </div>
-
   <div class="lesson-head">
     <h1>예외 처리 — HTTPException으로 정중하게 거절하기</h1>
     <p class="lesson-subtitle">좋은 API는 잘못된 요청에도 <strong>친절하고 일관된 에러</strong>를 돌려줍니다. 서버가 그냥 터져 500을 뱉는 것과, "42번 할 일은 없습니다(404)"라고 말해주는 것의 차이입니다.</p>
@@ -244,6 +239,11 @@ if id not in todos:
       <div class="callout-body"><strong>Week 2 마무리.</strong> 요청의 입구 → 메서드·상태 코드 → 예외 처리까지, 이제 <strong>HTTP를 제대로 다루는 손</strong>을 갖췄습니다. 다음 주는 검증의 핵심 <strong>Pydantic</strong>과 응답 설계(<code>response_model</code>)로 들어갑니다 — NestJS DTO·class-validator가 어떻게 한 곳으로 합쳐지는지 보게 됩니다.</div>
     </div>
   </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-http-methods-status.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">HTTP 메서드 &amp; 상태 코드</span></a>
+    <a class="part-pager-link next" href="../week03-pydantic-response/01-pydantic-models-validation.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Week 3 · Pydantic 모델 · 검증</span></a>
+  </div>
 
   <div class="doc-footer">
     FastAPI 백엔드 개발자 되기 · Week 2 · 03 · 예외 처리 · <a href="../index.html">전체 커리큘럼으로</a>

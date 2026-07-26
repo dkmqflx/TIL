@@ -115,7 +115,15 @@
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>파이썬의 GIL — 왜 스레드로는 병렬 CPU가 안 되나.</strong> CPython에는 <strong>GIL(Global Interpreter Lock)</strong>이 있어 한 순간에 파이썬 바이트코드를 실행하는 스레드는 <strong>하나뿐</strong>입니다. 그래서 멀티스레드를 써도 CPU 연산은 진짜 병렬이 되지 않죠. 다만 I/O 대기 중에는 GIL을 놓아주므로, I/O 작업의 동시 처리는 가능합니다. "CPU 병렬"이 필요하면 스레드가 아니라 <strong>프로세스</strong>를 늘려야 합니다.</div>
+      <div class="callout-body"><strong>파이썬의 GIL — 점원(스레드)을 여러 명 둬도 왜 CPU 계산은 빨라지지 않을까?</strong>
+        <p style="margin:.5em 0 .3em">CPython에는 <strong>GIL(Global Interpreter Lock)</strong>이라는 규칙이 있습니다. 어렵게 들리지만 핵심은 한 문장이에요 — <strong>"파이썬 코드는 반드시 '계산대'를 거쳐야 처리되는데, 그 계산대가 매장에 딱 하나뿐"</strong>이라는 뜻입니다.</p>
+        <p style="margin:.3em 0"><strong>비유.</strong> 점원(스레드)이 열 명 있어도 <strong>계산대가 하나</strong>면, 실제로 일을 '처리 완료'하는 건 <em>한 번에 한 명</em>뿐입니다. 나머지 점원은 계산대가 빌 때까지 기다려야 하죠.</p>
+        <ul style="margin:.3em 0">
+          <li><strong>CPU 작업</strong>(머릿속으로 긴 계산을 하는 일)은 계산대를 <em>계속 붙잡고</em> 있어야 합니다. 그래서 점원을 아무리 늘려도 결국 한 명씩 순서대로 → <strong>진짜 병렬이 안 됩니다.</strong></li>
+          <li><strong>I/O 작업</strong>(에스프레소 추출을 기다리는 일)은 기다리는 동안 계산대를 <em>잠깐 비워줍니다.</em> 그 틈에 다른 점원이 계산대를 쓸 수 있으니 → <strong>I/O는 여러 개를 겹쳐서 처리할 수 있어요.</strong></li>
+        </ul>
+        <p style="margin:.3em 0 0">그래서 <strong>진짜 CPU 병렬</strong>이 필요하면, 계산대를 아예 여러 개 두는 길 — 즉 스레드가 아니라 <strong>프로세스를 늘려야</strong> 합니다(프로세스마다 계산대가 따로 생기니까요).</p>
+      </div>
     </div>
   </section>
 
@@ -124,28 +132,42 @@
       <div class="section-icon icon-compare">📊</div>
       <h2>멀티태스킹 3방식 비교</h2>
     </div>
-    <p>"여러 일을 한꺼번에 처리"하는 방법은 크게 셋입니다. 무엇을 고르느냐는 작업이 <strong>I/O 바운드인지 CPU 바운드인지</strong>에 달렸습니다.</p>
+    <p>"여러 일을 한꺼번에 처리"한다는 건 결국 <strong>일꾼을 어떻게 배치하느냐</strong>의 문제입니다. 앞에서 본 <strong>카페</strong>로 계속 비유해볼게요. 손님이 밀려들 때 카페가 택할 수 있는 길은 크게 <strong>세 가지</strong>입니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 밀려드는 손님, 카페의 세 가지 선택.</strong>
+        <p style="margin:.6em 0 .3em"><strong>① 지점을 여러 개 낸다 = 멀티프로세스.</strong> 옆 건물에 똑같은 카페를 몇 곳 더 엽니다. 각 지점은 <em>주방·창고·점원이 완전히 따로</em>라 여러 곳이 <strong>정말 같은 순간에</strong> 음료를 만듭니다(= 진짜 병렬, 여러 코어 활용). 대신 지점을 하나 낼 때마다 임대료·집기가 통째로 드니(= 메모리 많이 씀) 비싸고, 지점끼리 재료를 나눠 쓰려면 택배로 주고받아야 합니다(= 프로세스 간 통신 비쌈).</p>
+        <p style="margin:.3em 0"><strong>② 한 지점에 점원을 여러 명 둔다 = 멀티스레드.</strong> 주방·창고를 <em>다 같이 공유</em>하니 자리(메모리)는 아낍니다. 문제는 계산대(금전등록기)가 <strong>딱 하나뿐</strong>이라, '계산' 같은 순수 머리 쓰는 일은 <strong>한 번에 한 명만</strong> 할 수 있다는 것 — 이게 파이썬의 <strong>GIL</strong>입니다. 그래도 한 점원이 에스프레소 추출을 <em>기다리는 동안</em> 다른 점원이 계산대를 쓸 수 있어, 기다림(I/O)이 많은 일엔 도움이 됩니다. 단, 여러 명이 같은 재료통에 동시에 손대면 뒤섞여 사고가 날 수 있죠(= 경쟁 상태 race).</p>
+        <p style="margin:.3em 0 0"><strong>③ 점원 한 명이 요령껏 번갈아 = 비동기.</strong> 사람을 <em>안 늘리고</em>, 그 한 명이 "머신 걸어두고 → 다음 주문 받고 → 삐 울리면 건네고"를 재빠르게 반복합니다(앞 절의 비동기 점원 그대로). 사람을 안 늘리니 인건비·자리(오버헤드)가 거의 안 들고, 손님이 수천 명 줄 서도 잘 버팁니다. 단, 이 한 명이 '반죽을 10분간 치대는' 손 못 떼는 일(= CPU 작업)을 시작하면 그동안 <strong>줄 전체가 멈춥니다</strong>.</p>
+      </div>
+    </div>
+
+    <p>정리하면 <strong>지점 = 프로세스</strong>, <strong>점원 = 스레드</strong>, <strong>한 점원의 요령 = 코루틴 + 이벤트 루프</strong>입니다. 그리고 셋 중 무엇을 고를지는 딱 한 가지 질문에 달려 있어요 — <strong>"기다림이 많은 일(I/O 바운드)이냐, 머리 쓰는 일(CPU 바운드)이냐?"</strong> 기다림이 대부분이면 ②·③, 계산이 무거우면 ①이 정답입니다.</p>
+
+    <p>같은 내용을 한눈에 정리하면 다음과 같습니다.</p>
 
     <div class="table-wrap">
       <table>
         <thead><tr><th>방식</th><th>구조</th><th>장점</th><th>단점</th><th>어울리는 작업</th></tr></thead>
         <tbody>
           <tr>
-            <td><b>멀티프로세스</b></td>
+            <td><b>멀티프로세스</b><br><span style="color:var(--text-muted);font-weight:400">🏬 지점 여러 곳</span></td>
             <td>독립된 프로세스 여러 개<br>(각자 메모리·인터프리터)</td>
             <td>진짜 병렬(여러 코어 활용)<br>GIL 영향 없음</td>
             <td>메모리 많이 씀<br>프로세스 간 통신 비쌈</td>
             <td><b>CPU 바운드</b><br>(이미지 처리, 계산)</td>
           </tr>
           <tr>
-            <td><b>멀티스레드</b></td>
+            <td><b>멀티스레드</b><br><span style="color:var(--text-muted);font-weight:400">👥 점원 여러 명</span></td>
             <td>한 프로세스 안 스레드 여러 개<br>(메모리 공유)</td>
             <td>메모리 적게 씀<br>I/O 대기 시 다른 스레드 진행</td>
             <td>GIL로 CPU 병렬 불가<br>경쟁 상태(race) 위험</td>
             <td>I/O 바운드<br>(동기 라이브러리 사용 시)</td>
           </tr>
           <tr>
-            <td><b>비동기</b><br>(단일 스레드<br>+이벤트 루프)</td>
+            <td><b>비동기</b><br><span style="color:var(--text-muted);font-weight:400">🙋 점원 한 명 요령껏</span></td>
             <td>스레드 1개<br>+ 코루틴 + 이벤트 루프</td>
             <td>스레드/메모리 오버헤드 최소<br>수천 동시 연결에 강함</td>
             <td>코드 전체가 async여야 효과<br>CPU 작업 한 개가 전체를 막음</td>

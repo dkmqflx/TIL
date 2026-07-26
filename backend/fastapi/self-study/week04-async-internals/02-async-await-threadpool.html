@@ -164,6 +164,24 @@ async def good():
       </svg>
       <div class="diagram-caption">블로킹은 같은 워커의 다른 요청까지 멈춘다. await는 대기 중 다른 요청을 처리하게 한다.</div>
     </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>진짜 함정은 블로킹 코드가 아니라 <code>async def</code>입니다.</strong> <code>time.sleep(5)</code> 같은 동기 코드가 그 자체로 죄인 건 아닙니다. 문제는 그걸 <strong><code>async def</code> 안에</strong> 넣는 것 — 이벤트 루프 위에서 직접 돌기 때문이죠. <strong>똑같은 코드를 <code>def</code>에 두면</strong> FastAPI가 자동으로 threadpool로 빼주므로, 그 요청 하나만 느려질 뿐 <strong>서버 전체는 멀쩡</strong>합니다.</div>
+    </div>
+
+    <p>그래서 "5초 기다림" 한 줄도 <strong>어디에 놓이느냐</strong>에 따라 운명이 갈립니다. 같은 대기를 세 가지로 써 보면:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>선언 + 코드</th><th>실행 위치</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td><code>async def</code> + <code>time.sleep(5)</code></td><td>이벤트 루프</td><td>🚨 루프 정지 → <b>모든 요청이 5초 대기</b></td></tr>
+          <tr><td><code>async def</code> + <code>await asyncio.sleep(5)</code></td><td>이벤트 루프 (양보)</td><td>✅ 대기 중 다른 요청 처리 → <b>그 요청만 5초</b></td></tr>
+          <tr><td><code>def</code> + <code>time.sleep(5)</code></td><td>threadpool (워커 스레드)</td><td>✅ 별도 스레드로 오프로딩 → <b>그 요청만 5초</b>, 루프는 자유</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>가운데와 아래는 <strong>방법은 다르지만(양보 vs 오프로딩) 결과는 같습니다</strong> — 나머지 요청이 안 멈춰요. 진짜 사고는 오직 맨 위, <strong><code>async def</code> 안에서의 블로킹</strong> 하나뿐입니다.</p>
   </section>
 
   <section class="section" id="sync-lib-def">
@@ -172,6 +190,87 @@ async def good():
       <h2>그럼 동기 라이브러리만 있으면? — def로 두기</h2>
     </div>
     <p>async 버전이 없는 라이브러리(예: 어떤 SDK, 동기 ORM)를 써야 할 때가 있습니다. 그땐 억지로 <code>async def</code>에 넣지 말고, <strong>그냥 <code>def</code>로 선언</strong>하세요. FastAPI가 알아서 threadpool로 보내 이벤트 루프를 보호합니다.</p>
+
+    <p>그런데 여기 계속 나오는 <strong>threadpool(스레드풀)</strong>이 대체 뭘까요? 이 개념 하나만 잡으면 아래 이야기가 전부 쉬워집니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>threadpool = 별관 작업실에 대기 중인 "일꾼 무리".</strong> 앞에서 이벤트 루프를 <strong>관제탑 한 명</strong>에 비유했죠. threadpool은 그 옆 <strong>별관 작업실에 미리 뽑아 대기시켜 둔 일꾼들</strong>입니다. 멈출 수 있는 동기 작업(<code>def</code>)이 들어오면, 관제탑은 직접 하지 않고 <strong>노는 일꾼 한 명에게 그 일을 통째로 맡깁니다</strong>. 일꾼이 5초 동안 멈춰 서 있어도 관제탑은 그동안 다른 항공기를 계속 관제하죠.</div>
+    </div>
+
+    <p>이름을 두 단어로 쪼개 보면 더 또렷합니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>용어</th><th>쉽게 말하면</th></tr></thead>
+        <tbody>
+          <tr><td><b>스레드 (thread)</b></td><td>코드를 <b>실제로 실행하는 일꾼 한 명</b>. 이벤트 루프는 일꾼이 딱 한 명뿐이라, 그 한 명이 멈추면 전부 멈춘다.</td></tr>
+          <tr><td><b>풀 (pool)</b></td><td>일꾼을 <b>미리 뽑아 대기시켜 둔 무리</b>. 요청마다 새로 고용·해고하면 비싸니, 서버 시작 때 한 무리(기본 ~40명)를 만들어 두고 <b>빌려 쓰고 반납</b>한다.</td></tr>
+          <tr><td><b>threadpool</b></td><td>= 스레드(일꾼) + 풀(대기 무리). 동기 <code>def</code> 작업을 대신 처리해 <b>이벤트 루프를 막지 않게</b> 지켜주는 별동대.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 720 250" role="img" aria-label="threadpool이 동기 def 작업을 일꾼들에게 나눠 처리하고, 40명이 다 차면 나머지 요청은 큐에서 대기하는 구조">
+        <defs>
+          <marker id="arwtp" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/>
+          </marker>
+        </defs>
+
+        <!-- Event loop -->
+        <rect x="20" y="95" width="140" height="60" rx="8" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="90" y="120" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="13" font-weight="700" fill="#00695c">이벤트 루프</text>
+        <text x="90" y="139" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#6b7280">관제탑 · 1명</text>
+
+        <!-- arrow to pool -->
+        <line x1="160" y1="125" x2="198" y2="125" stroke="#94a3b8" stroke-width="2" marker-end="url(#arwtp)"/>
+        <text x="179" y="116" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">def</text>
+
+        <!-- threadpool box -->
+        <rect x="202" y="30" width="330" height="190" rx="10" fill="#f8fafc" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="367" y="52" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="13" font-weight="700" fill="#0369a1">threadpool · 별관 작업실</text>
+
+        <!-- worker slots row 1 (all busy) -->
+        <rect x="220" y="66" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="278" y="66" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="336" y="66" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="394" y="66" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="452" y="66" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <!-- worker slots row 2 (3 busy, 2 free) -->
+        <rect x="220" y="110" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="278" y="110" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="336" y="110" width="50" height="34" rx="5" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="394" y="110" width="50" height="34" rx="5" fill="#fff" stroke="#cbd5e1" stroke-dasharray="3 2"/>
+        <rect x="452" y="110" width="50" height="34" rx="5" fill="#fff" stroke="#cbd5e1" stroke-dasharray="3 2"/>
+
+        <!-- legend -->
+        <rect x="232" y="158" width="14" height="14" rx="3" fill="#b2dfdb" stroke="#009688"/>
+        <text x="252" y="169" font-family="Pretendard, sans-serif" font-size="11" fill="#374151">처리 중</text>
+        <rect x="322" y="158" width="14" height="14" rx="3" fill="#fff" stroke="#cbd5e1" stroke-dasharray="3 2"/>
+        <text x="342" y="169" font-family="Pretendard, sans-serif" font-size="11" fill="#374151">노는 일꾼</text>
+        <text x="367" y="196" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#6b7280">… 이런 칸이 총 ~40개 · 5초 작업이어도 그 칸 하나만 붙잡힌다</text>
+
+        <!-- arrow to queue -->
+        <line x1="532" y1="90" x2="570" y2="90" stroke="#f59e0b" stroke-width="2" marker-end="url(#arwtp)"/>
+
+        <!-- queue (overflow) -->
+        <text x="636" y="52" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="12" font-weight="700" fill="#b45309">대기 줄 (큐)</text>
+        <rect x="576" y="62" width="120" height="26" rx="5" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="636" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#92400e">요청 41 ⏳</text>
+        <rect x="576" y="94" width="120" height="26" rx="5" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="636" y="111" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#92400e">요청 42 ⏳</text>
+        <rect x="576" y="126" width="120" height="26" rx="5" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="636" y="143" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#92400e">요청 43 ⏳</text>
+        <text x="636" y="170" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#6b7280">일꾼이 빌 때까지 대기</text>
+      </svg>
+      <div class="diagram-caption">동기 def 작업은 풀의 일꾼이 대신 처리 → 이벤트 루프는 안 멈춘다. 하지만 40명이 다 차면 나머지 요청은 큐에서 대기(= 풀 고갈).</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>자주 하는 오해 — "<code>await</code>를 만나면 그때 <code>def</code>가 threadpool로 넘어간다"? 아닙니다.</strong> <code>await</code>와 threadpool은 <strong>서로 무관한 별개 장치</strong>입니다. 어느 쪽으로 갈지는 <code>await</code> 여부가 아니라 <strong>함수 선언(<code>async def</code>냐 <code>def</code>냐)으로, 요청이 들어온 순간 "문 앞에서" 결정</strong>됩니다. 정리하면 — <code>await</code>는 <strong>이벤트 루프 위의 <code>async def</code>들끼리</strong> 양보하는 장치(관제탑 혼자 저글링)이고, threadpool은 <code>def</code>를 <strong>아예 다른 스레드로</strong> 빼는 장치(별관에 외주)입니다. <code>await</code>가 나온 "이후"에 <code>def</code>가 threadpool로 가는 게 아니라, 시작부터 길이 갈려 있는 거예요.</div>
+    </div>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -199,6 +298,29 @@ def report():
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>threadpool은 무한하지 않다 (기본 ~40 스레드).</strong> "동기는 def로 두면 안전"은 맞지만 <strong>무제한은 아닙니다</strong>. FastAPI의 threadpool(AnyIO 기반)은 기본적으로 <strong>약 40개 스레드</strong>로 제한됩니다. 동시 요청이 이 수를 넘기면 나머지는 <strong>큐에서 대기</strong>하죠. 느린 동기 작업이 폭주하면 풀이 고갈되어 결국 지연이 생깁니다. 트래픽이 높은 I/O라면 <strong>진짜 비동기 라이브러리 + async def</strong>가 정답입니다.</div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>JavaScript/Node 개발자라면 — 이렇게 매핑됩니다.</strong> 좋은 소식: <strong>이벤트 루프 부분은 JS와 거의 판박이</strong>예요. Python asyncio 이벤트 루프 = JS 이벤트 루프, <code>async def</code>+<code>await</code> ≈ JS <code>async function</code>+<code>await</code>, 싱글 스레드·협력적 동시성까지 같습니다. JS에서 무거운 동기 연산이 루프를 멈추듯, <code>async def</code> 안 <code>time.sleep</code>도 똑같이 멈추죠. <strong>딱 하나 다른 건 FastAPI의 <code>def</code> → threadpool 자동 오프로딩</strong>입니다.</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>항목</th><th>JavaScript (Node)</th><th>FastAPI (Python)</th></tr></thead>
+        <tbody>
+          <tr><td>이벤트 루프</td><td>1개 · 싱글 스레드</td><td>1개 · 싱글 스레드 <b>— 같음</b></td></tr>
+          <tr><td>async / await</td><td>Promise 기반</td><td>코루틴 기반 <b>— 개념 같음</b></td></tr>
+          <tr><td>동기 블로킹을 넣으면</td><td>루프가 멈춤</td><td>루프가 멈춤 <b>— 함정도 같음</b></td></tr>
+          <tr><td><code>def</code> 자동 threadpool</td><td>❌ 없음 (블로킹 JS는 그냥 멈춤)</td><td>✅ 있음 (<code>def</code>면 자동 오프로딩)</td></tr>
+          <tr><td>그 이유</td><td>생태계가 async-first</td><td>동기 라이브러리가 많아서</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>사실 Node에도 숨은 스레드풀이 있습니다 (libuv, 기본 4개).</strong> 다만 그건 파일 I/O·DNS·crypto 같은 <strong>엔진 내부 작업용</strong>이지, 여러분이 짠 JS 코드를 돌리는 게 아니에요. FastAPI의 threadpool은 <strong>여러분이 짠 <code>def</code> 함수 자체</strong>를 워커 스레드에서 돌린다는 게 결정적 차이입니다. 한 줄로 — <strong>이벤트 루프 = JS와 판박이, threadpool = Python이 동기 라이브러리 때문에 덧붙인 것.</strong></div>
     </div>
   </section>
 
@@ -251,6 +373,10 @@ async def mixed():
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>async def</code> 안에 <code>time.sleep(5)</code>를 쓰면 무슨 일이 일어나죠?</summary>
         <div class="qa-answer"><p><code>time.sleep</code>은 블로킹이라 <code>await</code> 양보 없이 이벤트 루프를 5초간 붙잡습니다. 그동안 같은 워커가 처리하던 <strong>모든 요청이 함께 멈춥니다</strong>. <code>await asyncio.sleep(5)</code>로 바꾸면 대기 중 루프가 다른 요청을 처리합니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 그럼 일반 <code>def</code> 안에 <code>time.sleep(5)</code>를 두면 서버 전체가 멈추나요?</summary>
+        <div class="qa-answer"><p>아니요. 같은 블로킹 코드라도 <code>def</code>로 선언하면 FastAPI가 <strong>threadpool(워커 스레드)로 오프로딩</strong>하므로 이벤트 루프는 자유롭습니다. 그 요청 하나만 5초 걸릴 뿐, 나머지 요청은 정상 처리됩니다. 즉 <strong>함정은 블로킹 코드 자체가 아니라 그걸 <code>async def</code> 안에 넣는 것</strong>입니다. (단, threadpool은 기본 ~40 스레드라 무제한은 아닙니다.)</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> "동기 라이브러리는 그냥 def로 두면 항상 안전"한가요?</summary>

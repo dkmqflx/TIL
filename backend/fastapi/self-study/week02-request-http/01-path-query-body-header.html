@@ -36,6 +36,7 @@
       <a class="nav-item" href="#query-params">🔍 Query 파라미터</a>
       <a class="nav-item" href="#request-body">📦 Request Body</a>
       <a class="nav-item" href="#header-cookie-form">🍪 Header · Cookie · Form</a>
+      <a class="nav-item" href="#param-inference">🧩 뭘 보고 구분하지?</a>
       <a class="nav-item" href="#decision-table">🧭 언제 무엇을 쓸까</a>
       <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · 메서드 &amp; 상태 코드</div>
@@ -381,6 +382,58 @@ def me(
     return {"ua": user_agent, "session": session}</code></pre>
     </div>
     <p>옛 방식 <code>q: str = Query(...)</code>는 "기본값처럼" 취급돼 순서 제약에 걸리지만, <code>q: Annotated[str, Query()]</code>는 기본값이 없으니 어디 둬도 됩니다. <strong>한 줄 요약: 순서는 의미를 바꾸지 않되, "필수 → 선택" 순으로만 적으면 되고, <code>Annotated</code>를 쓰면 그 고민조차 거의 사라집니다.</strong></p>
+  </section>
+
+  <section class="section" id="param-inference">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🧩</div>
+      <h2>그래서 뭘 보고 구분하지? — NestJS와의 결정적 차이</h2>
+    </div>
+    <p>지금까지 Path·Query·Body·Header·Cookie·Form을 하나씩 봤습니다. 그런데 가장 헷갈리는 지점은 따로 있죠 — <strong>"그래서 FastAPI는 이 여섯 개를 대체 뭘 보고 구분하는 거야?"</strong> NestJS는 매 파라미터마다 데코레이터로 못 박아주니 헷갈릴 일이 없는데, FastAPI는 Path·Query·Body에 한해서 <strong>그런 키워드가 아예 없습니다.</strong></p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — 전부 데코레이터로 표시</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Patch(':id')
+update(
+  @Param('id') id: number,
+  @Query('notify') notify: boolean,
+  @Body() dto: UpdateTodoDto,
+) { ... }</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — 아무 표시 없음</div>
+        <div class="code-block">
+          <pre><code class="language-python">@app.patch("/todos/{id}")
+def update(id: int, notify: bool, dto: UpdateTodoDto):
+    ...</code></pre>
+        </div>
+      </div>
+    </div>
+    <p>세 파라미터 앞에 아무 표시도 없지만, FastAPI는 딱 <strong>3가지 신호</strong>만으로 정확히 구분합니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>신호</th><th>판정</th><th>위 예시</th></tr></thead>
+        <tbody>
+          <tr><td>경로 <code>{}</code>에 같은 이름이 있다</td><td><strong>Path</strong></td><td><code>id</code></td></tr>
+          <tr><td>경로에 없고, 타입이 기본형(<code>int</code>·<code>str</code>·<code>bool</code>…)이다</td><td><strong>Query</strong></td><td><code>notify: bool</code></td></tr>
+          <tr><td>타입이 Pydantic 모델(<code>BaseModel</code> 상속)이다</td><td><strong>Body</strong></td><td><code>dto: UpdateTodoDto</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 택배기사는 생김새로 안다.</strong> 앞서 본 택배 비유를 이어가면: 택배기사(FastAPI)는 상자 겉면만 보고도 <strong>주소(Path)</strong>·<strong>포스트잇 메모(Query)</strong>·<strong>상자 속 내용물(Body)</strong>은 생김새가 서로 달라서 척 보면 구분합니다. 반면 <strong>운송장 메타정보(Header)</strong>나 <strong>회원카드(Cookie)</strong>는 겉모습만으로는 내용물과 구분이 안 되니, 따로 라벨(<code>Header()</code>/<code>Cookie()</code>/<code>Form()</code>)을 붙여줘야 알아볼 수 있는 겁니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>정리.</strong> NestJS는 <em>모든</em> 파라미터에 데코레이터가 필요하지만, FastAPI는 <strong>규칙(경로 매칭·타입)으로 설명 안 되는 애매한 것들만</strong> 명시하면 됩니다 — 그게 Header·Cookie·Form입니다. "키워드가 아예 없다"가 아니라 "구분 가능한 건 생략하고, 애매한 것만 표시한다"가 정확한 표현입니다.</div>
+    </div>
   </section>
 
   <section class="section" id="decision-table">

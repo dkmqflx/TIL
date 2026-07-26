@@ -4,202 +4,218 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>앱 개발자를 위한 실전 PostgreSQL — 6주 셀프 스터디</title>
-<link rel="stylesheet" href="assets/style.css">
-<style>
-  /* index 전용 보강 */
-  .hero {
-    position: relative; z-index: 1; max-width: var(--maxw); margin: 0 auto;
-    padding: 70px 24px 0; text-align: center;
-  }
-  .hero h1 { font-size: clamp(2.4rem, 7vw, 4.2rem); }
-  .hero .subtitle { margin: 18px auto 0; }
-  .stats { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin: 34px 0 0; }
-  .stat {
-    background: #fff; border: 1.5px solid var(--line); border-radius: var(--radius);
-    padding: 14px 22px; box-shadow: var(--shadow); min-width: 110px;
-  }
-  .stat b { display: block; font-family: var(--serif); font-size: 2rem; font-weight: 900; color: var(--teal-deep); line-height: 1; }
-  .stat span { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.08em; text-transform: uppercase; }
-
-  .week {
-    background: #fff; border: 1.5px solid var(--line); border-radius: var(--radius);
-    margin: 18px 0; box-shadow: var(--shadow); overflow: hidden;
-    transition: transform 0.15s, box-shadow 0.15s;
-  }
-  .week:hover { transform: translate(-2px,-2px); box-shadow: var(--shadow-lift); }
-  .week__head { display: flex; align-items: center; gap: 16px; padding: 18px 22px; }
-  .week__no {
-    font-family: var(--serif); font-weight: 900; font-size: 1.8rem; color: var(--paper);
-    background: var(--ink); width: 54px; height: 54px; border-radius: 12px;
-    display: grid; place-items: center; flex-shrink: 0;
-  }
-  .week.star .week__no { background: var(--coral); }
-  .week__title { font-weight: 700; font-size: 1.15rem; }
-  .week__title .tag {
-    font-family: var(--mono); font-size: 10px; background: var(--coral-tint);
-    color: var(--coral); padding: 2px 8px; border-radius: 5px; margin-left: 8px;
-    vertical-align: 2px; letter-spacing: 0.05em;
-  }
-  .week__sub { font-size: 0.9rem; color: var(--ink-faint); margin-top: 2px; }
-  .lessons { list-style: none; margin: 0; padding: 0 22px 16px 70px; }
-  .lessons li { padding: 7px 0; border-top: 1px dashed var(--line); }
-  .lessons a { color: var(--ink); text-decoration: none; display: flex; gap: 10px; align-items: baseline; }
-  .lessons a:hover { color: var(--teal-deep); }
-  .lessons a:hover .ln { text-decoration: underline; }
-  .lessons .row { display: flex; gap: 10px; align-items: baseline; }
-  .lessons .idx { font-family: var(--mono); font-size: 12px; color: var(--coral); flex-shrink: 0; }
-  .lessons .soon { color: var(--ink-faint); cursor: default; }
-  .lessons .stargem { color: var(--coral); flex-shrink: 0; }
-  .badge-ready { font-family: var(--mono); font-size: 10px; color: var(--teal); border: 1px solid var(--teal); border-radius: 5px; padding: 1px 6px; margin-left: auto; }
-  .badge-soon { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; margin-left: auto; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+<div class="layout">
 
-<nav class="topbar">
-  <span class="crumb"><b>PostgreSQL 셀프 스터디</b></span>
-  <span>6 WEEKS · Docker · psql · MySQL ↔ PG</span>
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="#top">
+      <span class="logo-badge">PostgreSQL</span>
+      <span class="logo-text">앱 개발자를 위한 실전 Postgres</span>
+    </a>
+    <div class="logo-sub">6주 셀프 스터디 · JSONB · 인덱스 · MVCC · RLS</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="week01-overview-env-types/01-why-postgres-architecture.html"><span class="wk-no">1</span> Week 1 · 큰 그림 &amp; 환경 &amp; 타입</a>
+    <a class="nav-week" href="week02-schema-write-power/01-ddl-constraints-keys.html"><span class="wk-no">2</span> Week 2 · 스키마 &amp; 쓰기 기능 <span class="star">★</span></a>
+    <a class="nav-week" href="week03-jsonb-search/01-jsonb.html"><span class="wk-no">3</span> Week 3 · JSONB &amp; 검색 <span class="star">★</span></a>
+    <a class="nav-week" href="week04-index-performance/01-index-types.html"><span class="wk-no">4</span> Week 4 · 인덱스 &amp; 쿼리 성능 <span class="star">★</span></a>
+    <a class="nav-week" href="week05-transaction-concurrency/01-transaction-isolation.html"><span class="wk-no">5</span> Week 5 · 트랜잭션 &amp; MVCC <span class="star">★</span></a>
+    <a class="nav-week" href="week06-rls-security-ops/01-rls.html"><span class="wk-no">6</span> Week 6 · RLS &amp; 권한 &amp; 운영 <span class="star">★</span></a>
+  </div>
 </nav>
 
-<header class="hero">
-  <span class="kicker">◆ MySQL은 알지만 Postgres는 처음인 개발자를 위한 로드맵</span>
-  <h1>앱 개발자를 위한<br>실전 PostgreSQL</h1>
-  <p class="subtitle">기본 SQL은 알지만 <strong>PostgreSQL 고유 기능</strong>(RLS · JSONB · MVCC · 인덱스 · 연결 풀링)은 처음인 백엔드/앱 개발자를 위한 <strong>갭 중심 6주 커리큘럼</strong>. PostgreSQL 18 기준입니다.</p>
-  <div class="stats">
-    <div class="stat"><b>6</b><span>Weeks</span></div>
-    <div class="stat"><b>18</b><span>Lessons</span></div>
-    <div class="stat"><b>18</b><span>PostgreSQL</span></div>
-    <div class="stat"><b>↔</b><span>MySQL 비교</span></div>
-  </div>
-</header>
+<!-- ── Main ── -->
+<main class="main" id="top">
 
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">“</span>
-    <p>기본 SQL 문법은 <b>압축</b>하고, Postgres 고유의 핵심(<b>JSONB · 인덱스 · MVCC · 트랜잭션 · RLS · 풀링</b>)에 집중한다. 모든 개념은 <b>비유 + 시각화</b>로, 모든 SQL은 <b>Docker + psql 순수 SQL</b>로 직접 실행하며 배운다.</p>
-  </div>
-</div>
-
-<main class="wrap">
-
-  <div class="box note" style="margin-top:8px">
-    <span class="ic">🧭</span>
-    <span class="label">학습 방식</span>
-    <p>① 아는 영역은 <strong>MySQL ↔ PostgreSQL 비교 패널</strong>로 빠르게 전이 학습합니다(좌=MySQL, 우=PostgreSQL). ② 실습은 <strong>Docker로 <code>postgres:18</code>을 띄우고 <code>psql</code>로 순수 SQL</strong>을 직접 실행합니다 — ORM 없이 SQL 그 자체에 집중합니다. <span class="chip">⭐</span> 표시는 Postgres 고유·실무 가치가 특히 높은 레슨입니다.</p>
+  <div class="hero">
+    <div class="hero-tag">◆ MySQL은 알지만 Postgres는 처음인 개발자를 위한 로드맵</div>
+    <h1>앱 개발자를 위한 실전 PostgreSQL</h1>
+    <p>기본 SQL은 알지만 <strong>PostgreSQL 고유 기능</strong>(JSONB · 인덱스 · MVCC · RLS · 연결 풀링)은 처음인 백엔드 개발자를 위한 <strong>갭 중심 6주 커리큘럼</strong>. 모든 개념을 비유와 예시로 풀어 쓰고, 모든 SQL은 PostgreSQL 18에서 직접 실행해 검증했습니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">PostgreSQL 18</span>
+      <span class="hero-chip">Docker</span>
+      <span class="hero-chip">psql</span>
+      <span class="hero-chip">JSONB</span>
+      <span class="hero-chip">B-tree / GIN / BRIN</span>
+      <span class="hero-chip">MVCC</span>
+      <span class="hero-chip">RLS</span>
+      <span class="hero-chip">PgBouncer</span>
+    </div>
   </div>
 
-  <div class="section-divider">커리큘럼</div>
+  <div class="stat-row">
+    <div class="stat-box"><b>6</b><span>Weeks</span></div>
+    <div class="stat-box"><b>18</b><span>Lessons</span></div>
+    <div class="stat-box"><b>18</b><span>PostgreSQL</span></div>
+    <div class="stat-box"><b>↔</b><span>MySQL 비교</span></div>
+  </div>
 
-  <!-- WEEK 1 -->
-  <section class="week">
-    <div class="week__head">
-      <div class="week__no">1</div>
-      <div>
-        <div class="week__title">큰 그림 · 환경 · 데이터 타입</div>
-        <div class="week__sub">Postgres의 지도를 그리고, Docker로 띄워 데이터 타입까지</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+  <div class="tip-box">
+    <strong>이 커리큘럼을 읽는 법.</strong> 기본 <code>SELECT</code>/<code>JOIN</code> 문법은 이미 안다고 가정하고 <b>압축</b>했습니다.
+    대신 "MySQL만 쓰던 사람이 Postgres에서 반드시 새로 배워야 하는 것"(JSONB · 다양한 인덱스 · MVCC · 트랜잭션 · RLS · 풀링)에 지면을 몰아줬습니다.
+    <b>Week 1~2</b>로 지도를 그리고 → <b>Week 3~4</b>(⭐ JSONB·인덱스)에서 실무 무기를 얻고 → <b>Week 5</b>(⭐ MVCC)에서 Postgres의 심장을 이해한 뒤 → <b>Week 6</b>(RLS·운영)으로 마무리하는 순서를 권합니다.
+  </div>
+
+  <div class="section" id="how-to-learn">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🧭</div>
+      <h2>학습 방식 — 세 가지 약속</h2>
     </div>
-    <ul class="lessons">
-      <li><a href="week01-overview-env-types/01-why-postgres-architecture.html"><span class="idx">01</span><span class="ln">왜 Postgres인가 · 멀티프로세스 아키텍처 → 연결 비용 · PG18 비동기 I/O</span></a></li>
-      <li><a href="week01-overview-env-types/02-docker-psql-basics.html"><span class="idx">02</span><span class="ln">Docker로 띄우기 · psql 핵심 명령 · 데이터베이스/스키마</span></a></li>
-      <li><a href="week01-overview-env-types/03-data-types.html"><span class="idx">03</span><span class="ln">데이터 타입 — IDENTITY · ⭐ <code>uuidv7()</code>(PG18) · <code>timestamptz</code> 함정</span></a></li>
-    </ul>
-  </section>
 
-  <!-- WEEK 2 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">2</div>
-      <div>
-        <div class="week__title">스키마 설계 · 쓰기 측 강력 기능 <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">DDL·제약부터 RETURNING·UPSERT·트리거까지</div>
+    <p>이 자료는 "레퍼런스 문서"가 아니라 <strong>강의</strong>입니다. 그래서 세 가지를 지킵니다.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">🧩</div>
+        <div class="card-title">① 모든 개념은 비유부터</div>
+        <div class="card-body">MVCC·인덱스·격리 수준처럼 추상적인 개념은 먼저 <b>일상의 비유</b>로 그림을 그린 다음, 그 그림에 SQL을 얹습니다. "용어를 외우는" 게 아니라 "장면이 떠오르는" 상태를 목표로 합니다.</div>
       </div>
-      <span class="badge-ready">● 작성 완료</span>
-    </div>
-    <ul class="lessons">
-      <li><a href="week02-schema-write-power/01-ddl-constraints-keys.html"><span class="idx">01</span><span class="ln">DDL · 제약(temporal 포함) · 기본키 전략 · 시퀀스</span></a></li>
-      <li><a href="week02-schema-write-power/02-returning-upsert-generated.html"><span class="stargem">⭐</span><span class="idx">02</span><span class="ln"><code>RETURNING</code>(OLD/NEW) · UPSERT(ON CONFLICT) · MERGE · 생성 컬럼(virtual 기본)</span></a></li>
-      <li><a href="week02-schema-write-power/03-functions-triggers.html"><span class="stargem">⭐</span><span class="idx">03</span><span class="ln">PL/pgSQL 함수 · 트리거(updated_at · 감사 로그)</span></a></li>
-    </ul>
-  </section>
-
-  <!-- WEEK 3 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">3</div>
-      <div>
-        <div class="week__title">JSONB &amp; 반정형 데이터 · 검색 <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">JSONB·배열·enum·range 그리고 전문검색</div>
+      <div class="card highlight">
+        <div class="card-icon">↔️</div>
+        <div class="card-title">② 아는 것에서 출발</div>
+        <div class="card-body">이미 MySQL을 안다면 그건 <b>절반은 아는 상태</b>입니다. 좌=MySQL, 우=PostgreSQL 비교 패널로 "익숙한 방식 → 무엇이 다른가"를 짚어 전이 학습을 돕습니다.</div>
       </div>
-      <span class="badge-ready">● 작성 완료</span>
-    </div>
-    <ul class="lessons">
-      <li><a href="week03-jsonb-search/01-jsonb.html"><span class="stargem">⭐</span><span class="idx">01</span><span class="ln">JSON vs JSONB · 연산자(<code>-&gt; -&gt;&gt; @&gt; #&gt;</code>) · GIN 인덱스</span></a></li>
-      <li><a href="week03-jsonb-search/02-array-enum-range.html"><span class="idx">02</span><span class="ln">배열(array) · enum · range 타입</span></a></li>
-      <li><a href="week03-jsonb-search/03-fulltext-search.html"><span class="idx">03</span><span class="ln">전문검색 <code>tsvector</code>/<code>tsquery</code> · <code>pg_trgm</code> 유사도</span></a></li>
-    </ul>
-  </section>
-
-  <!-- WEEK 4 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">4</div>
-      <div>
-        <div class="week__title">인덱스 · 쿼리 성능 · 분석 SQL <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">인덱스 종류부터 EXPLAIN·윈도우 함수까지</div>
+      <div class="card">
+        <div class="card-icon">🐳</div>
+        <div class="card-title">③ 실습은 순수 SQL로</div>
+        <div class="card-body">Docker로 <code>postgres:18</code>을 띄우고 <code>psql</code>에서 <b>ORM 없이 SQL 그 자체</b>를 실행합니다. 각 주차 폴더의 <code>code/*.sql</code>을 복사해 그대로 돌려볼 수 있습니다.</div>
       </div>
-      <span class="badge-ready">● 작성 완료</span>
-    </div>
-    <ul class="lessons">
-      <li><a href="week04-index-performance/01-index-types.html"><span class="idx">01</span><span class="ln">인덱스 종류 (B-tree / GIN / GiST / BRIN / partial / expression)</span></a></li>
-      <li><a href="week04-index-performance/02-explain-analyze.html"><span class="idx">02</span><span class="ln"><code>EXPLAIN ANALYZE</code> · 쿼리 플래너 · 통계 · 인덱스 함정</span></a></li>
-      <li><a href="week04-index-performance/03-cte-window-pagination.html"><span class="idx">03</span><span class="ln">CTE · 윈도우 함수 · keyset pagination · N+1</span></a></li>
-    </ul>
-  </section>
-
-  <!-- WEEK 5 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">5</div>
-      <div>
-        <div class="week__title">트랜잭션 · 동시성 · MVCC <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">격리 수준·MVCC·VACUUM·락을 원리로</div>
+      <div class="card">
+        <div class="card-icon">⭐</div>
+        <div class="card-title">별표의 의미</div>
+        <div class="card-body"><span class="star-mid">★</span> 표시는 <b>Postgres 고유이면서 실무 가치가 특히 높은</b> 레슨입니다. 시간이 없다면 이것부터 읽으세요.</div>
       </div>
-      <span class="badge-ready">● 작성 완료</span>
     </div>
-    <ul class="lessons">
-      <li><a href="week05-transaction-concurrency/01-transaction-isolation.html"><span class="idx">01</span><span class="ln">트랜잭션 · 격리 수준 (Postgres 기본 동작)</span></a></li>
-      <li><a href="week05-transaction-concurrency/02-mvcc-vacuum.html"><span class="stargem">⭐</span><span class="idx">02</span><span class="ln">MVCC 원리 · VACUUM · autovacuum · bloat</span></a></li>
-      <li><a href="week05-transaction-concurrency/03-locks.html"><span class="idx">03</span><span class="ln">락 · <code>SELECT FOR UPDATE</code> · 데드락 · advisory lock</span></a></li>
-    </ul>
-  </section>
+  </div>
 
-  <!-- WEEK 6 -->
-  <section class="week star">
-    <div class="week__head">
-      <div class="week__no">6</div>
-      <div>
-        <div class="week__title">RLS · 권한 · 운영 · 확장 <span class="tag">★ 핵심</span></div>
-        <div class="week__sub">RLS·권한·연결 풀링·확장·백업으로 마무리</div>
-      </div>
-      <span class="badge-ready">● 작성 완료</span>
+  <div class="section" id="toc">
+    <div class="section-header">
+      <div class="section-icon icon-pg">🗂️</div>
+      <h2>목차</h2>
     </div>
-    <ul class="lessons">
-      <li><a href="week06-rls-security-ops/01-rls.html"><span class="stargem">⭐</span><span class="idx">01</span><span class="ln">RLS — 정책 · <code>USING</code>/<code>WITH CHECK</code> · 멀티테넌시</span></a></li>
-      <li><a href="week06-rls-security-ops/02-roles-privileges.html"><span class="idx">02</span><span class="ln">ROLE · GRANT · 권한 · 앱 전용 유저 · PG18 OAuth 인증</span></a></li>
-      <li><a href="week06-rls-security-ops/03-pooling-extensions-backup.html"><span class="stargem">⭐</span><span class="idx">03</span><span class="ln">연결 풀링(PgBouncer · 서버리스) · 확장(pgcrypto · pgvector) · 백업(pg_dump · 증분) · 회고</span></a></li>
-    </ul>
-  </section>
 
-  <div class="box note" style="margin-top:40px">
-    <span class="ic">📂</span>
-    <span class="label">자료 구조 안내</span>
-    <p>각 주차 폴더 안에 토픽별 <code>.html</code> 강의와 psql로 바로 실행 가능한 <code>code/*.sql</code> 예제가 있습니다. 텍스트 버전 계획표와 진행 체크리스트는 <a href="README.md">README.md</a>에서 볼 수 있습니다. HTML 자료는 <strong>브라우저로 직접 열어</strong> 학습하세요. 6주 18편 모두 작성 완료 — 모든 SQL은 PostgreSQL 18에서 실제 실행해 검증했습니다.</p>
+    <div class="part-card">
+      <a class="part-card-head" href="week01-overview-env-types/01-why-postgres-architecture.html">
+        <div class="part-card-num">1</div>
+        <div>
+          <div class="part-card-title">Week 1 · 큰 그림 · 환경 · 데이터 타입</div>
+          <div class="part-card-sub">Postgres의 지도를 그리고, Docker로 띄워 데이터 타입까지</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week01-overview-env-types/01-why-postgres-architecture.html">01 · 왜 Postgres인가 — 멀티프로세스 아키텍처와 "연결은 왜 비싼가"</a></li>
+        <li><a href="week01-overview-env-types/02-docker-psql-basics.html">02 · Docker로 띄우기 · psql 핵심 명령 · 데이터베이스/스키마</a></li>
+        <li><a href="week01-overview-env-types/03-data-types.html">03 · 데이터 타입 — IDENTITY · <code>uuidv7()</code>(PG18) · <code>timestamptz</code> 함정</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card star">
+      <a class="part-card-head" href="week02-schema-write-power/01-ddl-constraints-keys.html">
+        <div class="part-card-num">2</div>
+        <div>
+          <div class="part-card-title">Week 2 · 스키마 설계 · 쓰기 측 강력 기능 <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">DDL·제약부터 RETURNING·UPSERT·트리거까지</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week02-schema-write-power/01-ddl-constraints-keys.html">01 · DDL · 제약 조건 · 기본키 전략 · 시퀀스</a></li>
+        <li><a href="week02-schema-write-power/02-returning-upsert-generated.html">02 · ⭐ <code>RETURNING</code> · UPSERT(<code>ON CONFLICT</code>) · <code>MERGE</code> · 생성 컬럼</a></li>
+        <li><a href="week02-schema-write-power/03-functions-triggers.html">03 · ⭐ PL/pgSQL 함수 · 트리거(updated_at · 감사 로그)</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card star">
+      <a class="part-card-head" href="week03-jsonb-search/01-jsonb.html">
+        <div class="part-card-num">3</div>
+        <div>
+          <div class="part-card-title">Week 3 · JSONB &amp; 반정형 데이터 · 검색 <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">JSONB·배열·enum·range 그리고 전문검색</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week03-jsonb-search/01-jsonb.html">01 · ⭐ JSON vs JSONB · 연산자(<code>-&gt; -&gt;&gt; @&gt; #&gt;</code>) · GIN 인덱스</a></li>
+        <li><a href="week03-jsonb-search/02-array-enum-range.html">02 · 배열(array) · enum · range 타입</a></li>
+        <li><a href="week03-jsonb-search/03-fulltext-search.html">03 · 전문검색 <code>tsvector</code>/<code>tsquery</code> · <code>pg_trgm</code> 유사도</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card star">
+      <a class="part-card-head" href="week04-index-performance/01-index-types.html">
+        <div class="part-card-num">4</div>
+        <div>
+          <div class="part-card-title">Week 4 · 인덱스 · 쿼리 성능 · 분석 SQL <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">인덱스 종류부터 EXPLAIN·윈도우 함수까지</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week04-index-performance/01-index-types.html">01 · 인덱스 종류 (B-tree / GIN / GiST / BRIN / partial / expression)</a></li>
+        <li><a href="week04-index-performance/02-explain-analyze.html">02 · <code>EXPLAIN ANALYZE</code> · 쿼리 플래너 · 통계 · 인덱스 함정</a></li>
+        <li><a href="week04-index-performance/03-cte-window-pagination.html">03 · CTE · 윈도우 함수 · keyset 페이지네이션 · N+1</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card star">
+      <a class="part-card-head" href="week05-transaction-concurrency/01-transaction-isolation.html">
+        <div class="part-card-num">5</div>
+        <div>
+          <div class="part-card-title">Week 5 · 트랜잭션 · 동시성 · MVCC <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">격리 수준·MVCC·VACUUM·락을 원리로</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week05-transaction-concurrency/01-transaction-isolation.html">01 · 트랜잭션 · 격리 수준 (Postgres의 실제 동작)</a></li>
+        <li><a href="week05-transaction-concurrency/02-mvcc-vacuum.html">02 · ⭐ MVCC 원리 · VACUUM · autovacuum · bloat</a></li>
+        <li><a href="week05-transaction-concurrency/03-locks.html">03 · 락 · <code>SELECT FOR UPDATE</code> · 데드락 · advisory lock</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card star">
+      <a class="part-card-head" href="week06-rls-security-ops/01-rls.html">
+        <div class="part-card-num">6</div>
+        <div>
+          <div class="part-card-title">Week 6 · RLS · 권한 · 운영 · 확장 <span class="tag">★ 핵심</span></div>
+          <div class="part-card-sub">RLS·권한·연결 풀링·확장·백업으로 마무리</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="week06-rls-security-ops/01-rls.html">01 · ⭐ RLS — 정책 · <code>USING</code>/<code>WITH CHECK</code> · 멀티테넌시</a></li>
+        <li><a href="week06-rls-security-ops/02-roles-privileges.html">02 · ROLE · GRANT · 앱 전용 유저 · PG18 OAuth 인증</a></li>
+        <li><a href="week06-rls-security-ops/03-pooling-extensions-backup.html">03 · ⭐ 연결 풀링 · 확장(pgcrypto·pgvector) · 백업 · 회고</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="section" id="files">
+    <div class="section-header">
+      <div class="section-icon icon-setup">📂</div>
+      <h2>자료 구조 안내</h2>
+    </div>
+    <p>각 주차 폴더 안에는 토픽별 <code>.html</code> 강의와, <code>psql</code>에 바로 붙여 넣어 실행할 수 있는 <code>code/*.sql</code> 예제가 함께 들어 있습니다. 텍스트 버전 계획표와 진행 체크리스트는 <a href="README.md">README.md</a>에 있습니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>가장 효과적인 사용법.</strong> 왼쪽 창엔 강의 HTML을, 오른쪽 창엔 <code>psql</code> 터미널을 띄워 두세요. 한 섹션을 읽고 → 그 섹션의 SQL을 바로 실행해 결과를 눈으로 확인하는 리듬이 가장 오래 남습니다. 특히 Week 5의 트랜잭션 실습은 <strong>터미널 두 개</strong>를 나란히 띄워야 제맛입니다.</div>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    PostgreSQL 셀프 스터디 · MySQL을 아는 앱 개발자를 위한 Postgres 고유 기능 로드맵 · made with 🐘
   </div>
 
 </main>
+</div>
 
-<footer class="foot">PostgreSQL 셀프 스터디 · MySQL을 아는 앱 개발자를 위한 Postgres 고유 기능 로드맵 · made with 🐘</footer>
+<script src="assets/script.js"></script>
 </body>
 </html>

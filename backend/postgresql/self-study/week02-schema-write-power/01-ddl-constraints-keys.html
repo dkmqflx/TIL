@@ -3,358 +3,492 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Week 2·01 — DDL · 제약 · 기본키 전략</title>
-<link rel="stylesheet" href="../assets/style.css">
+<title>Week 2·01 — DDL · 제약 · 기본키 전략 — 실전 PostgreSQL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css" />
 </head>
 <body>
+<div class="layout">
 
-<nav class="topbar">
-  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 2 · 스키마 설계 · 쓰기 측 강력 기능</b></span>
-  <span>01 / 03</span>
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">PostgreSQL</span>
+      <span class="logo-text">앱 개발자를 위한 실전 Postgres</span>
+    </a>
+    <div class="logo-sub">6주 셀프 스터디 · JSONB · 인덱스 · MVCC · RLS</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="../week01-overview-env-types/01-why-postgres-architecture.html"><span class="wk-no">1</span> Week 1 · 큰 그림 &amp; 환경 &amp; 타입</a>
+
+    <div class="nav-week active"><span class="wk-no">2</span> Week 2 · 스키마 &amp; 쓰기 기능 <span class="star">★</span></div>
+    <div class="nav-week-group">
+      <div class="nav-lesson-title">01 · DDL · 제약 · 기본키</div>
+      <a class="nav-item" href="#integrity">🛡️ 무결성이란 무엇인가</a>
+      <a class="nav-item" href="#constraints">🔒 컬럼 제약 5종</a>
+      <a class="nav-item" href="#foreign-key">🔗 외래키와 참조 무결성</a>
+      <a class="nav-item" href="#pk-strategy">🔑 기본키 전략</a>
+      <a class="nav-item" href="#sequence">🎰 시퀀스와 gap</a>
+      <a class="nav-item" href="#exclude">⛔ EXCLUDE · temporal (PG18)</a>
+      <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
+      <div class="nav-lesson-title">02 · RETURNING · UPSERT</div>
+      <a class="nav-item" href="02-returning-upsert-generated.html#returning">↩️ RETURNING</a>
+      <a class="nav-item" href="02-returning-upsert-generated.html#upsert">🔀 UPSERT (ON CONFLICT)</a>
+      <a class="nav-item" href="02-returning-upsert-generated.html#merge">🔃 MERGE</a>
+      <a class="nav-item" href="02-returning-upsert-generated.html#generated">🧮 생성 컬럼</a>
+      <div class="nav-lesson-title">03 · 함수 · 트리거</div>
+      <a class="nav-item" href="03-functions-triggers.html#plpgsql">🧰 PL/pgSQL 함수</a>
+      <a class="nav-item" href="03-functions-triggers.html#trigger-basics">🚨 트리거 기본</a>
+      <a class="nav-item" href="03-functions-triggers.html#updated-at">🕰️ updated_at 자동화</a>
+      <a class="nav-item" href="03-functions-triggers.html#audit-log">📷 감사 로그</a>
+    </div>
+
+    <a class="nav-week" href="../week03-jsonb-search/01-jsonb.html"><span class="wk-no">3</span> Week 3 · JSONB &amp; 검색 <span class="star">★</span></a>
+    <a class="nav-week" href="../week04-index-performance/01-index-types.html"><span class="wk-no">4</span> Week 4 · 인덱스 &amp; 쿼리 성능 <span class="star">★</span></a>
+    <a class="nav-week" href="../week05-transaction-concurrency/01-transaction-isolation.html"><span class="wk-no">5</span> Week 5 · 트랜잭션 &amp; MVCC <span class="star">★</span></a>
+    <a class="nav-week" href="../week06-rls-security-ops/01-rls.html"><span class="wk-no">6</span> Week 6 · RLS &amp; 권한 &amp; 운영 <span class="star">★</span></a>
+  </div>
 </nav>
 
-<header class="head">
-  <span class="kicker">◆ Week 2 — Lesson 01</span>
-  <h1>DDL · 제약 · 기본키 전략<br>무결성을 DB에게 맡기기</h1>
-  <p class="subtitle">테이블 만드는 <code>CREATE TABLE</code>은 누구나 압니다. 차이는 <strong>제약(constraint)</strong>으로 무결성을 DB가 지키게 하는 것 — 그리고 기본키를 <code>IDENTITY</code>/<code>uuidv7()</code>로 제대로 고르는 것입니다.</p>
-</header>
+<main class="main" id="top">
 
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">“</span>
-    <p>테이블을 만드는 건 누구나 안다. 차이는 <b>제약으로 데이터 무결성을 DB에 맡기는 것</b> — 그리고 기본키를 <b>IDENTITY/uuidv7</b>로 제대로 고르는 것.</p>
+  <div class="lesson-head">
+    <h1>DDL · 제약 · 기본키 전략 — 무결성을 DB에게 맡기기</h1>
+    <p class="lesson-subtitle"><code>CREATE TABLE</code>은 누구나 씁니다. 실력 차이는 <strong>제약(constraint)</strong>에서 갈립니다 — 데이터를 지키는 일을 앱이 아니라 <strong>DB에게 맡기는 것</strong>이죠.</p>
   </div>
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 앱 코드는 버그가 나고 동시 요청에 뚫립니다. 하지만 <b>DB에 걸어둔 제약은 어떤 경로로 들어와도 절대 뚫리지 않습니다</b>. 그래서 무결성 규칙은 <b>데이터 옆(DB)</b>에 두는 것이 원칙입니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li><code>NOT NULL</code>·<code>UNIQUE</code>·<code>CHECK</code>·<code>FK</code>·<code>DEFAULT</code>로 무결성을 DB에 맡긴다</li>
+    <li><code>IDENTITY</code>와 <code>uuidv7()</code> 중 어느 기본키를 고를지 판단 기준을 갖는다</li>
+    <li>시퀀스가 왜 번호를 건너뛰는지(gap) 이해하고 불안해하지 않는다</li>
+    <li>(PG18) <code>EXCLUDE</code>·<code>WITHOUT OVERLAPS</code>로 "기간 겹침"을 DB가 막게 한다</li>
+  </ul>
+
+  <section class="section" id="integrity">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🛡️</div>
+      <h2>무결성(Integrity)이란 무엇인가</h2>
+    </div>
+
+    <p>용어가 거창하지만 뜻은 단순합니다. <strong>무결성</strong>이란 "데이터가 정해진 규칙을 항상 지키고 있는 상태" — 쉽게 말해 <strong>데이터를 믿을 수 있는 상태</strong>를 말합니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 택배 주소록.</strong> 주소록에 전화번호 칸이 있다고 해봅시다. 누군가 전화번호 칸에 "안녕하세요"라고 적어놓거나, 같은 사람이 두 번 등록돼 있거나, 이미 탈퇴한 회원 앞으로 주문이 남아 있다면 — 이 주소록은 <strong>무결성이 깨진</strong> 상태입니다. 데이터가 있긴 한데 <strong>믿을 수가 없죠</strong>. 반대로 모든 칸이 규칙대로 채워져 있다면 무결성이 지켜진 상태입니다.</div>
+    </div>
+
+    <p>이 규칙들을 DB에 선언해 둔 것이 <strong>제약(constraint)</strong>입니다. 우리가 일상적으로 말하는 요구사항이 제약으로 그대로 번역됩니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>말로 하면</th><th>제약으로 쓰면</th></tr></thead>
+        <tbody>
+          <tr><td>이메일은 중복될 수 없다</td><td><code>UNIQUE</code></td></tr>
+          <tr><td>이메일은 반드시 입력해야 한다</td><td><code>NOT NULL</code></td></tr>
+          <tr><td>나이는 0 이상 150 미만이어야 한다</td><td><code>CHECK (age &gt;= 0 AND age &lt; 150)</code></td></tr>
+          <tr><td>주문의 고객 ID는 실제로 존재하는 고객이어야 한다</td><td><code>FOREIGN KEY … REFERENCES</code></td></tr>
+          <tr><td>안 적으면 'active'로 시작한다</td><td><code>DEFAULT 'active'</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>이런 제약을 걸어두면, 규칙을 어기는 데이터가 들어오려 할 때 <strong>DB가 자동으로 거부</strong>합니다. 애플리케이션이 무엇을 하든, 어떤 도구로 접속했든 상관없이요. 이제 하나씩 직접 만들어 봅시다.</p>
+  </section>
+
+  <section class="section" id="constraints">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔒</div>
+      <h2>CREATE TABLE과 컬럼 제약</h2>
+    </div>
+
+    <p>테이블을 만들 때 컬럼 이름과 타입만 적고 넘어가기 쉽지만, 진짜 중요한 건 그 뒤에 붙는 제약입니다. 아래 <code>users</code> 테이블에는 다섯 가지 제약이 모두 들어 있습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — 제약이 붙은 users 테이블</span></div>
+      <pre><code class="language-sql">CREATE TABLE users (
+  id          int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email       text NOT NULL UNIQUE,                 -- 비어 있을 수 없고 중복 불가
+  age         int CHECK (age >= 0 AND age < 150),   -- 값의 범위를 DB가 강제
+  status      text NOT NULL DEFAULT 'active',       -- 미지정 시 기본값
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO users (email, age) VALUES ('a@ex.com', 30), ('b@ex.com', 25);
+SELECT id, email, age, status FROM users ORDER BY id;
+--  id |  email   | age | status
+-- ----+----------+-----+--------
+--   1 | a@ex.com |  30 | active
+--   2 | b@ex.com |  25 | active</code></pre>
+    </div>
+
+    <p>우리는 <code>status</code>를 넣은 적이 없는데 <code>active</code>가 채워졌습니다. <code>DEFAULT</code>가 한 일이죠. 그럼 이번엔 <strong>일부러 규칙을 어겨</strong>보겠습니다. DB가 어떻게 막는지 보세요.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — 제약 위반은 DB가 막는다 (의도적 에러)</span></div>
+      <pre><code class="language-sql">INSERT INTO users (email, age) VALUES ('a@ex.com', 40);
+-- ERROR:  duplicate key value violates unique constraint "users_email_key"
+--         ↑ 이미 있는 이메일이라 거부
+
+INSERT INTO users (email, age) VALUES ('c@ex.com', -5);
+-- ERROR:  new row for relation "users" violates check constraint "users_age_check"
+--         ↑ 나이가 음수라 거부</code></pre>
+    </div>
+
+    <p>주목할 점은 에러 메시지가 <strong>어떤 제약을 위반했는지 이름까지 알려준다</strong>는 것입니다(<code>users_email_key</code>, <code>users_age_check</code>). 애플리케이션에서 이 이름을 잡아 "이미 사용 중인 이메일입니다" 같은 친절한 메시지로 바꿔줄 수 있습니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>"중복 체크는 앱에서 하면 되지 않나요?" — 안 됩니다.</strong> 앱에서 하는 검사에는 두 가지 구멍이 있습니다.</p>
+      <p><strong>① 버그.</strong> 검사 코드를 넣는 걸 깜빡한 경로가 하나만 있어도 뚫립니다. 관리자 페이지, 배치 스크립트, 급하게 짠 마이그레이션 코드…</p>
+      <p><strong>② 동시성.</strong> 이게 더 무섭습니다. 두 사람이 <strong>같은 순간</strong>에 같은 이메일로 가입한다고 해봅시다. 요청 A가 "중복 없음" 확인 → 요청 B도 "중복 없음" 확인 → A가 INSERT → B가 INSERT. 두 코드 모두 검사를 통과했는데 <strong>중복이 들어갔습니다</strong>. 이걸 <strong>경쟁 상태(race condition)</strong>라고 하고, 앱 코드만으로는 원천적으로 막을 수 없습니다.</p>
+      <p>DB에 <code>UNIQUE</code>를 걸어두면 이 두 경우 모두 <strong>DB가 마지막 방어선</strong>으로 막아줍니다. 앱 검사는 "사용자에게 친절한 메시지를 주기 위해" 하고, <strong>진짜 방어는 DB가</strong> — 이게 실무의 정석입니다.</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="foreign-key">
+    <div class="section-header">
+      <div class="section-icon icon-repo">🔗</div>
+      <h2>외래키(FK)와 참조 무결성</h2>
+    </div>
+
+    <p><code>orders</code> 테이블의 <code>user_id</code>가 실제로 존재하는 <code>users.id</code>만 가리키도록 강제하는 것이 <strong>외래키(FOREIGN KEY)</strong>입니다. 이걸 걸어두면 "없는 회원의 주문"이라는 유령 데이터가 애초에 만들어지지 않습니다.</p>
+
+    <p>여기서 한 가지 더 정해야 할 게 있습니다. <strong>부모(회원)가 삭제되면 자식(주문)은 어떻게 할까?</strong> 이걸 <code>ON DELETE</code>로 지정합니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th><code>ON DELETE</code> 옵션</th><th>부모가 삭제되면…</th><th>어울리는 상황</th></tr></thead>
+        <tbody>
+          <tr><td><code>CASCADE</code></td><td>자식 행도 함께 삭제</td><td>회원 탈퇴 시 그 회원의 장바구니·알림 등 <b>부모 없이 의미가 없는</b> 데이터</td></tr>
+          <tr><td><code>SET NULL</code></td><td>자식의 FK 컬럼을 <code>NULL</code>로</td><td>담당자가 퇴사해도 <b>업무는 남아야</b> 하는 경우</td></tr>
+          <tr><td><code>RESTRICT</code> (기본)</td><td>자식이 있으면 <b>삭제 자체를 거부</b></td><td>주문 이력이 있는 회원은 함부로 못 지우게 <b>막고 싶을 때</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><code>CASCADE</code>가 실제로 어떻게 작동하는지 눈으로 봅시다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — FK + ON DELETE CASCADE 시연</span></div>
+      <pre><code class="language-sql">CREATE TABLE orders (
+  id        int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id   int NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount    numeric(10,2) NOT NULL CHECK (amount > 0)
+);
+INSERT INTO orders (user_id, amount) VALUES (1, 9.99), (1, 5.00), (2, 12.50);
+
+-- user 1을 지우면 그 주문도 함께 사라진다
+DELETE FROM users WHERE id = 1;
+SELECT * FROM orders ORDER BY id;
+--  id | user_id | amount
+-- ----+---------+--------
+--   3 |       2 |  12.50
+-- (1 row)   ↑ user_id=1의 주문 두 건이 CASCADE로 함께 삭제됨</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>CASCADE</code>는 편하지만 위험하기도 합니다.</strong> 회원 한 명을 지웠는데 그 회원의 주문·결제·리뷰가 <strong>연쇄적으로 전부 사라질</strong> 수 있습니다. 게다가 자식의 자식까지 타고 내려가므로, 실제로 무엇이 지워질지 예측하기 어려워지죠. 그래서 <strong>회계·결제처럼 지워지면 안 되는 데이터</strong>가 걸려 있다면 <code>RESTRICT</code>(기본)로 막아두고, 삭제 대신 <code>deleted_at</code> 컬럼을 채우는 <strong>소프트 삭제</strong>를 쓰는 경우가 많습니다.</div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header mysql">MySQL — 익숙한 방식</div>
+        <p><strong>InnoDB 엔진</strong>에서 FK를 지원합니다(<code>REFERENCES … ON DELETE CASCADE</code>). 문법은 거의 같습니다. 다만 과거 MyISAM 엔진은 FK 문법을 <strong>받아들이기만 하고 실제로 강제하지 않는</strong> 함정이 있었습니다.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header pg">PostgreSQL — 이렇게 다르다</div>
+        <p>엔진 구분 자체가 없으므로 <strong>항상 FK를 강제</strong>합니다. "걸어뒀는데 안 지켜지는" 상황이 존재하지 않습니다. 문법은 표준 SQL을 따르므로 InnoDB와 거의 동일합니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="pk-strategy">
+    <div class="section-header">
+      <div class="section-icon icon-page">🔑</div>
+      <h2>기본키 전략 — IDENTITY vs uuidv7()</h2>
+    </div>
+
+    <p>기본키(Primary Key)는 각 행을 구별하는 <strong>고유한 번호표</strong>입니다. 선택지는 크게 두 가지고, 이건 취향 문제가 아니라 <strong>요구사항으로 결정되는</strong> 문제입니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>상황</th><th>권장 기본키</th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td>대부분의 경우 — 기본 선택</td><td><code>IDENTITY</code></td><td>4~8바이트로 작고 빠르며, 인덱스에도 순차적으로 쌓임</td></tr>
+          <tr><td>ID가 외부에 노출될 때<br><small>URL(<code>/posts/5</code>), API 응답 JSON</small></td><td><code>uuidv7()</code></td><td>숫자면 "다음은 6번이겠네" 추측이 가능 — 긴 UUID는 추측 불가</td></tr>
+          <tr><td>여러 서버·기기가 각자 ID를 만들 때</td><td><code>uuidv7()</code></td><td>DB에 물어보지 않고 만들어도 겹치지 않음</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>두 번째 이유가 왜 중요한지는 실제 사고 사례로 보면 바로 이해됩니다.</p>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>왜 외부에 노출되는 숫자 ID가 위험한가.</strong> URL이든 API 응답이든, <strong>클라이언트에 ID가 전달되는 순간</strong> 문제가 생깁니다.</p>
+      <p><code>/posts/5</code>를 본 사람은 "그럼 <code>/posts/6</code>도 있겠네"를 즉시 압니다. 권한 검사가 한 군데라도 허술하면, 1부터 하나씩 올려가며 <strong>남의 데이터를 전부 긁어갈</strong> 수 있습니다(이걸 IDOR 취약점이라고 부릅니다). 심지어 취약점이 없어도, 오늘 가입한 회원 ID가 <code>10230</code>이고 한 달 뒤 <code>10450</code>이라면 <strong>"이 서비스 한 달 신규 가입자는 220명"</strong>이라는 영업 정보가 그냥 새어나갑니다.</p>
+      <p><code>uuidv7()</code>로 바꾸면 <code>{ "id": "019eac43-d675-7f08-…" }</code>처럼 보여 다음 ID를 예측할 방법이 없습니다.</p></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID가 어디까지 나가나</th><th><code>uuidv7()</code>이 필요한가</th></tr></thead>
+        <tbody>
+          <tr><td>내부 조인·집계에만 사용, 밖으로 안 나감</td><td>❌ <code>IDENTITY</code>면 충분</td></tr>
+          <tr><td>URL 파라미터 (<code>/posts/5</code>)</td><td>✅ 필요</td></tr>
+          <tr><td>API 응답 JSON에 포함</td><td>✅ 필요</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 여러 지점이 각자 사번을 발급하면.</strong> 서울 지점과 부산 지점이 각자 직원 번호를 매기면 둘 다 "1번, 2번, 3번…"을 만들어 <strong>번호가 겹칩니다</strong>. 숫자 <code>IDENTITY</code>는 이걸 피하려고 반드시 DB 한 곳에 "지금 몇 번까지 나갔어?"를 물어봐야 합니다. 서버가 여러 대면 그 문의가 병목이 되죠. 반면 <code>uuidv7()</code>은 <strong>"현재 시각 + 무작위 값"</strong>으로 만들기 때문에, 각자 독립적으로 만들어도 현실적으로 겹칠 확률이 없습니다.</div>
+    </div>
+
+    <p>그리고 <code>uuidv7()</code>은 무작위처럼 보이지만 앞부분에 <strong>생성 시각</strong>이 박혀 있어 만들어진 순서대로 정렬됩니다. 아래 결과에서 두 행의 앞부분 <code>019eac43</code>이 같은 것이 그 증거입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — uuidv7() 기본키</span></div>
+      <pre><code class="language-sql">CREATE TABLE membership (
+  id      uuid PRIMARY KEY DEFAULT uuidv7(),
+  label   text NOT NULL
+);
+INSERT INTO membership (label) VALUES ('gold'), ('silver');
+SELECT id, label FROM membership ORDER BY id;
+--                   id                  | label
+-- --------------------------------------+--------
+--  019eac43-d675-7f08-b52c-2df0e1d35a48 | gold
+--  019eac43-d676-71fa-92bf-695880d95451 | silver
+--  ^^^^^^^^ 같은 시각 접두사 → 생성 순서대로 정렬됨</code></pre>
+    </div>
+  </section>
+
+  <section class="section" id="sequence">
+    <div class="section-header">
+      <div class="section-icon icon-update">🎰</div>
+      <h2>시퀀스 — 그리고 번호가 건너뛰는 이유</h2>
+    </div>
+
+    <p><code>IDENTITY</code> 컬럼 뒤에는 사실 <strong>시퀀스(SEQUENCE)</strong>라는 객체가 숨어서 "다음 번호"를 발급하고 있습니다. 시퀀스는 <strong>번호표 뽑는 기계</strong>라고 생각하면 정확합니다 — <code>nextval</code>을 호출할 때마다 100, 101, 102…를 순서대로 내어줍니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — IDENTITY 뒤의 시퀀스 확인 + 직접 만들기</span></div>
+      <pre><code class="language-sql">-- IDENTITY 컬럼이 소유한 시퀀스 이름 확인
+SELECT pg_get_serial_sequence('users', 'id');
+--     pg_get_serial_sequence
+-- ---------------------------
+--  public.users_id_seq
+
+-- 시퀀스를 직접 만들어 번호 뽑기
+CREATE SEQUENCE ticket_seq START 100 INCREMENT 1;
+SELECT nextval('ticket_seq');   -- 100 (다음 값 발급)
+SELECT nextval('ticket_seq');   -- 101
+SELECT currval('ticket_seq');   -- 101 (이 세션이 마지막으로 받은 값)</code></pre>
+    </div>
+
+    <p>여기서 초보자가 반드시 한 번은 놀라는 현상이 있습니다. <strong>id가 1, 2, 3이 아니라 1, 2, 5, 9처럼 뛰어 있는 것</strong>입니다. 버그가 아닙니다. 의도된 설계입니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>비유 — 은행 대기표는 회수하지 않는다.</strong> A·B·C가 창구 번호표를 뽑아 101·102·103번을 받았습니다. 그런데 A가 "아, 서류를 안 가져왔네" 하고 그냥 나가버렸습니다(= 트랜잭션 롤백). 기계가 101번을 회수해서 다음 사람에게 다시 줄까요? 아닙니다. 다음 사람은 104번을 받고 <strong>101번은 그냥 빈 자리로 남습니다</strong>.</p>
+      <p>왜 이렇게 만들었을까요? 만약 "롤백되면 번호를 회수한다"고 설계하면, 동시에 100명이 번호를 뽑을 때 기계가 <strong>매번 잠기며 순서를 맞춰야</strong> 합니다. 그러면 시퀀스가 전체 시스템의 병목이 되죠. 그래서 일부러 <strong>"뽑으면 그걸로 끝"</strong>으로 만들었습니다. 속도를 얻고 연속성을 포기한 트레이드오프입니다.</p></div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>gap이 생겨도 괜찮은 이유.</strong> 자동차 번호판이 <code>12가 1234</code>, <code>12가 1236</code>으로 1235가 빠져 있어도 차를 구별하는 데 아무 문제가 없습니다. ID의 역할은 <strong>"각 행을 유일하게 식별하는 것"</strong>이지 연속된 번호를 매기는 게 아닙니다. 만약 "1번부터 빠짐없이 연속된 번호"가 정말 필요하다면(예: 세금계산서 일련번호), 그건 <strong>기본키가 아니라 별도의 비즈니스 컬럼</strong>으로 따로 관리해야 합니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="exclude">
+    <div class="section-header">
+      <div class="section-icon icon-error">⛔</div>
+      <h2>제외 제약(EXCLUDE)과 temporal — "겹치면 안 돼"를 DB에게</h2>
+    </div>
+
+    <p>지금까지 배운 <code>UNIQUE</code>는 <strong>"값이 완전히 같으면 안 됨"</strong>을 막습니다. 그런데 현실에는 <code>UNIQUE</code>로는 표현할 수 없는 규칙이 있습니다. 대표적인 게 <strong>예약 시스템</strong>입니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>비유 — 회의실 예약 충돌.</strong> 팀장 A가 회의실 A를 <strong>10:00~11:00</strong>으로 예약했습니다. 이제 팀원 B가 회의실 A를 <strong>10:30~11:30</strong>으로 예약하려 합니다. 막아야겠죠.</p>
+      <p>그런데 이걸 <code>UNIQUE</code>로 어떻게 표현할까요? 방 이름에 <code>UNIQUE</code>를 걸면 <strong>그 방은 평생 한 번밖에 예약 못 합니다</strong>. 시간에 걸어도 소용없고요. 필요한 건 <strong>"방이 같고(<code>=</code>) <em>그리고</em> 시간대가 겹치면(<code>&amp;&amp;</code>)"</strong>이라는 <strong>두 조건의 조합</strong>입니다. 이걸 표현하는 게 <code>EXCLUDE</code>입니다.</p>
+      <p>참고로 B가 <strong>11:00~12:00</strong>으로 예약하면? 딱 붙어 있지만 겹치지는 않으므로 <strong>허용</strong>됩니다.</p></div>
+    </div>
+
+    <p>본격적인 코드로 들어가기 전에, 낯선 부품 세 개를 먼저 풀어두겠습니다.</p>
+
+    <h3>부품 ① <code>tsrange</code> — 시작과 끝을 하나로 묶은 타입</h3>
+
+    <p><code>tsrange</code>는 <strong>t</strong>ime<strong>s</strong>tamp <strong>range</strong>의 줄임말로, 시작 시각과 끝 시각을 컬럼 두 개로 나누는 대신 <strong>하나의 값으로 묶은 타입</strong>입니다.</p>
+
+    <p>왜 묶을까요? <code>started_at</code>과 <code>ended_at</code>으로 나눠 두면 "두 예약이 겹치는가?"를 검사하는 SQL이 <code>(a.start &lt; b.end AND b.start &lt; a.end)</code>처럼 지저분해집니다. <code>tsrange</code>로 묶으면 <strong><code>&amp;&amp;</code> 연산자 하나</strong>로 끝납니다.</p>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>괄호의 의미가 중요합니다.</strong> <code>[10:00, 11:00)</code>에서 <code>[</code>는 <strong>10시를 포함</strong>, <code>)</code>는 <strong>11시를 미포함</strong>한다는 뜻입니다(수학의 반열린 구간). 11시 정각에 다음 예약이 시작할 수 있는 이유가 바로 이것 — 앞 예약이 11시를 <strong>포함하지 않으니</strong> 겹치지 않습니다.</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>비교</th><th>결과</th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td><code>[10:00, 11:00) &amp;&amp; [10:30, 11:30)</code></td><td><span class="badge badge-bad">true</span> 겹침</td><td>10:30~11:00 구간이 공유됨</td></tr>
+          <tr><td><code>[10:00, 11:00) &amp;&amp; [11:00, 12:00)</code></td><td><span class="badge badge-ok">false</span> 안 겹침</td><td>딱 붙어 있지만 공유하는 시각이 없음</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>부품 ② <code>USING gist</code> — 왜 기본 인덱스로는 안 되나</h3>
+
+    <p>Postgres의 기본 인덱스인 <strong>B-tree</strong>는 <strong>전화번호부</strong>와 같습니다. 값을 한 줄로 정렬해 두니 <code>=</code>, <code>&lt;</code>, <code>&gt;</code> 같은 <strong>크기 비교</strong>에 강합니다. 그런데 "두 범위가 겹치는가?"는 시작값과 끝값을 <strong>동시에</strong> 봐야 판단할 수 있어서, 한 줄 정렬로는 답이 안 나옵니다.</p>
+
+    <p><strong>GiST</strong>는 <strong>지도</strong>에 가깝습니다. 데이터를 다차원 공간에 배치해 색인하므로 "겹치는 영역 찾기"를 빠르게 할 수 있습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>인덱스</th><th>비유</th><th>잘하는 연산</th></tr></thead>
+        <tbody>
+          <tr><td>B-tree (기본)</td><td>전화번호부 (가나다 정렬)</td><td><code>=</code> <code>&lt;</code> <code>&gt;</code> — 값 크기 비교</td></tr>
+          <tr><td>GiST</td><td>지도 (공간 색인)</td><td><code>&amp;&amp;</code> — 범위·도형 겹침 검사</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>부품 ③ <code>btree_gist</code> 확장 — GiST에게 <code>=</code>도 가르치기</h3>
+
+    <p><code>CREATE EXTENSION</code>은 PostgreSQL에 <strong>플러그인을 설치하는 명령</strong>입니다(Node의 <code>npm install</code>, Python의 <code>pip install</code>과 같은 개념). <code>IF NOT EXISTS</code>는 "이미 있으면 에러 내지 말고 넘어가"라는 뜻입니다.</p>
+
+    <p>왜 필요할까요? 우리 조건은 <strong>하나의 GiST 인덱스가 <code>=</code>와 <code>&amp;&amp;</code>를 동시에 처리</strong>해야 합니다. GiST는 범위 겹침(<code>&amp;&amp;</code>)은 원래 잘하지만 텍스트의 동등 비교(<code>=</code>)는 못 합니다. <code>btree_gist</code>가 그걸 <strong>가르쳐주는 플러그인</strong>입니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>연산</th><th>btree_gist 없을 때</th><th>btree_gist 있을 때</th></tr></thead>
+        <tbody>
+          <tr><td><code>&amp;&amp;</code> (범위 겹침)</td><td>GiST 가능 ✅</td><td>GiST 가능 ✅</td></tr>
+          <tr><td><code>=</code> (텍스트 같음)</td><td>GiST 불가 ❌</td><td>GiST 가능 ✅</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>이제 조립해 봅시다</h3>
+
+    <p>핵심 줄인 <code>EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)</code>는 이렇게 읽습니다. <strong>"GiST 인덱스를 써서, <code>room</code>이 같고(<code>=</code>) <em>그리고</em> <code>during</code>이 겹치는(<code>&amp;&amp;</code>) 행이 이미 있으면 거부하라."</strong> 두 조건이 <strong>동시에</strong> 참일 때만 막습니다 — 방만 같고 시간이 다르면 OK, 시간이 겹쳐도 다른 방이면 OK입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — EXCLUDE USING gist (시간대 겹침 방지)</span></div>
+      <pre><code class="language-sql">CREATE EXTENSION IF NOT EXISTS btree_gist;  -- 범위와 = 를 같이 쓰려면 필요
+
+CREATE TABLE room_booking (
+  id      int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  room    text NOT NULL,
+  during  tsrange NOT NULL,                         -- 시작~끝 범위
+  EXCLUDE USING gist (room WITH =, during WITH &&)  -- 방이 같고 시간이 겹치면 거부
+);
+
+INSERT INTO room_booking (room, during)
+  VALUES ('A', '[2026-06-09 10:00, 2026-06-09 11:00)');   -- OK
+
+INSERT INTO room_booking (room, during)
+  VALUES ('A', '[2026-06-09 11:00, 2026-06-09 12:00)');   -- 딱 붙음, 안 겹침 → OK
+
+-- 10:30~11:30은 기존 10:00~11:00과 겹침 → 거부
+INSERT INTO room_booking (room, during)
+  VALUES ('A', '[2026-06-09 10:30, 2026-06-09 11:30)');
+-- ERROR:  conflicting key value violates exclusion constraint</code></pre>
+    </div>
+
+    <p>이 제약의 가치는 <strong>어떤 경로로 들어와도 막힌다</strong>는 데 있습니다. 앱에서 "빈 시간인지" 확인하고 저장하는 방식은, 두 요청이 동시에 들어오면 둘 다 "빈 시간이네"라고 판단해 <strong>이중 예약</strong>이 만들어집니다. DB 제약은 그 틈을 원천 차단합니다.</p>
+
+    <h3>PG18의 <code>WITHOUT OVERLAPS</code> — 같은 개념을 기본키에</h3>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><span class="badge badge-pg18">PG18</span> <strong>비유 — 상품 가격 이력.</strong> 상품 1번의 가격이 1~6월엔 10,000원, 6~12월엔 12,000원이라고 합시다. 두 행 모두 <code>product_id = 1</code>이지만 기간이 다르니 정상입니다. 그런데 누군가 실수로 "3~9월에 11,000원"을 추가하면? <strong>기존 두 기간과 모두 겹쳐</strong> "6월의 가격은 얼마인가?"에 답이 두 개가 됩니다. <code>WITHOUT OVERLAPS</code>를 기본키에 붙이면 이런 겹침을 DB가 자동으로 막습니다.</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — (PG18) temporal PK · WITHOUT OVERLAPS</span></div>
+      <pre><code class="language-sql">CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+CREATE TABLE price_history (
+  product_id  int,
+  valid_at    daterange,                                 -- 유효 기간
+  price       numeric(10,2) NOT NULL,
+  PRIMARY KEY (product_id, valid_at WITHOUT OVERLAPS)    -- 같은 상품끼리 기간 겹침 금지
+);
+INSERT INTO price_history VALUES (1, '[2026-01-01, 2026-06-01)', 10.00);  -- 1~6월 OK
+INSERT INTO price_history VALUES (1, '[2026-06-01, 2026-12-01)', 12.00);  -- 6~12월 인접 OK
+
+SELECT * FROM price_history ORDER BY valid_at;
+--  product_id |        valid_at         | price
+-- ------------+-------------------------+-------
+--           1 | [2026-01-01,2026-06-01) | 10.00
+--           1 | [2026-06-01,2026-12-01) | 12.00
+
+-- 3~9월은 기존 두 기간과 모두 겹침 → 거부
+INSERT INTO price_history VALUES (1, '[2026-03-01, 2026-09-01)', 11.00);
+-- ERROR:  conflicting key value violates exclusion constraint "price_history_pkey"</code></pre>
+    </div>
+  </section>
+
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-pg">✅</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 무결성 제약을 앱이 아니라 DB에 두는 이유는?</summary>
+        <div class="qa-answer"><p>앱에는 <strong>버그</strong>와 <strong>경쟁 상태</strong>가 있기 때문입니다. 특히 두 요청이 동시에 "중복 없음"을 확인한 뒤 둘 다 INSERT하면, 앱 코드가 아무리 완벽해도 중복이 들어갑니다. <code>UNIQUE</code>·<code>CHECK</code>·<code>FK</code>를 DB에 두면 <strong>어떤 경로로 들어와도</strong> DB가 마지막 방어선으로 막아줍니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>IDENTITY</code>와 <code>uuidv7()</code> 중 무엇을 기본키로?</summary>
+        <div class="qa-answer"><p>기본은 작고 빠른 <code>GENERATED ALWAYS AS IDENTITY</code>입니다. ID가 <strong>URL이나 API 응답으로 외부에 노출</strong>되거나(순번 추측·정보 유출 방지), <strong>여러 서버·기기가 각자 ID를 생성</strong>해야 하면 <code>uuidv7()</code>를 씁니다. v7은 시간순 정렬이라 인덱스에도 친화적입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> id가 1, 2, 5, 9처럼 건너뛰는데 버그인가요?</summary>
+        <div class="qa-answer"><p>아니요, 정상입니다. 시퀀스는 <strong>트랜잭션을 따르지 않아서</strong> 롤백돼도 뽑은 번호를 회수하지 않습니다(은행 대기표와 같음). 회수하도록 만들면 동시 요청마다 잠금이 걸려 심각한 병목이 되기 때문에 <strong>의도적으로</strong> 이렇게 설계됐습니다. ID의 역할은 식별이지 연속 번호 매기기가 아닙니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>UNIQUE</code>로 예약 시간 겹침을 막을 수 있나요?</summary>
+        <div class="qa-answer"><p>없습니다. <code>UNIQUE</code>는 "값이 완전히 같으면 안 됨"만 표현할 수 있는데, 예약 충돌은 <strong>"방이 같고(<code>=</code>) 그리고 시간이 겹치면(<code>&amp;&amp;</code>)"</strong>이라는 두 조건의 조합이기 때문입니다. 이럴 때 <code>EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)</code>를 씁니다. PG18에서는 <code>WITHOUT OVERLAPS</code>로 기본키에 직접 붙일 수도 있습니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>참고 링크</h2>
+    </div>
+    <ul class="refs">
+      <li><a href="https://www.postgresql.org/docs/current/ddl-constraints.html">Constraints (NOT NULL · UNIQUE · CHECK · FK · EXCLUDE) — PostgreSQL 공식 문서</a></li>
+      <li><a href="https://www.postgresql.org/docs/current/ddl-identity-columns.html">Identity Columns — PostgreSQL 공식 문서</a></li>
+      <li><a href="https://www.postgresql.org/docs/current/sql-createtable.html">CREATE TABLE (WITHOUT OVERLAPS 포함) — PostgreSQL 공식 문서</a></li>
+    </ul>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../week01-overview-env-types/03-data-types.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">데이터 타입 (uuidv7 · timestamptz)</span></a>
+    <a class="part-pager-link next" href="02-returning-upsert-generated.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">RETURNING · UPSERT · 생성 컬럼</span></a>
+  </div>
+
+  <div class="doc-footer">
+    PostgreSQL 셀프 스터디 · Week 2 · 01 · DDL · 제약 · 기본키 전략 · <a href="../index.html">전체 커리큘럼으로</a>
+  </div>
+
+</main>
 </div>
 
-<main class="wrap">
-
-  <ul class="goals">
-    <li>제약(<code>NOT NULL</code>·<code>UNIQUE</code>·<code>CHECK</code>·<code>FK</code>·<code>DEFAULT</code>)으로 무결성을 DB에 맡긴다</li>
-    <li><code>IDENTITY</code> vs <code>uuidv7()</code> — 언제 어느 기본키를 고를지 안다</li>
-    <li>시퀀스를 이해하고, (PG18) 제외 제약·temporal 제약을 맛본다</li>
-  </ul>
-
-  <h2><span class="num">0</span>무결성(Integrity)이란?</h2>
-  <p><strong>무결성</strong>이란 "데이터가 정해진 규칙을 항상 지키고 있는 상태"를 말합니다. 쉽게 말하면 <strong>데이터가 올바르고 믿을 수 있는 상태</strong>입니다.</p>
-
-  <div class="box analogy">
-    <span class="ic">📦</span>
-    <span class="label">비유 — 택배 주소록</span>
-    <p>택배 주소록에 전화번호 칸이 있다고 해봅시다. 누군가 실수로 전화번호 칸에 "안녕하세요"라고 입력하거나, 같은 사람을 두 번 등록하거나, 이미 탈퇴한 회원의 주문이 남아 있다면 — 이 주소록은 <strong>무결성이 깨진</strong> 상태입니다. 반대로 모든 데이터가 규칙대로 정확히 들어가 있다면 <strong>무결성이 지켜진</strong> 상태입니다.</p>
-  </div>
-
-  <p>DB에서 무결성을 지키기 위한 구체적인 규칙들을 <strong>제약(constraint)</strong>이라고 합니다. 예를 들면:</p>
-  <ul>
-    <li><strong>이메일은 중복될 수 없다</strong> → <code>UNIQUE</code> 제약</li>
-    <li><strong>나이는 반드시 입력해야 하고 0 이상이어야 한다</strong> → <code>NOT NULL</code> + <code>CHECK</code> 제약</li>
-    <li><strong>주문의 고객 ID는 실제로 존재하는 고객이어야 한다</strong> → <code>FOREIGN KEY</code> 제약</li>
-  </ul>
-  <p>이런 제약들을 DB에 걸어두면, 잘못된 데이터가 들어오려 할 때 DB가 자동으로 거부합니다. 아래에서 각 제약을 하나씩 살펴봅니다.</p>
-
-  <h2><span class="num">1</span>CREATE TABLE &amp; 컬럼 제약</h2>
-  <p>테이블을 만들 때 컬럼 이름·타입만 적고 끝내기 쉽지만, 진짜 중요한 건 <strong>제약</strong>입니다. <code>NOT NULL</code>(비어 있을 수 없음), <code>DEFAULT</code>(기본값), <code>UNIQUE</code>(중복 금지), <code>CHECK</code>(값의 규칙)를 컬럼에 붙이면, "잘못된 데이터가 애초에 들어오지 못하게" DB가 직접 막아 줍니다.</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 제약이 붙은 users 테이블</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> users (
-  id          <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
-  email       <span class="t">text</span> <span class="k">NOT NULL</span> <span class="k">UNIQUE</span>,                 <span class="c">-- 비어 있을 수 없고 중복 불가</span>
-  age         <span class="t">int</span> <span class="k">CHECK</span> (age &gt;= <span class="n">0</span> <span class="k">AND</span> age &lt; <span class="n">150</span>),   <span class="c">-- 값의 범위를 DB가 강제</span>
-  status      <span class="t">text</span> <span class="k">NOT NULL</span> <span class="k">DEFAULT</span> <span class="s">'active'</span>,       <span class="c">-- 미지정 시 기본값</span>
-  created_at  <span class="t">timestamptz</span> <span class="k">NOT NULL</span> <span class="k">DEFAULT</span> <span class="f">now</span>()
-);
-<span class="k">INSERT</span> <span class="k">INTO</span> users (email, age) <span class="k">VALUES</span> (<span class="s">'a@ex.com'</span>, <span class="n">30</span>), (<span class="s">'b@ex.com'</span>, <span class="n">25</span>);
-<span class="k">SELECT</span> id, email, age, status <span class="k">FROM</span> users <span class="k">ORDER BY</span> id;
-<span class="c"> id |  email   | age | status</span>
-<span class="c">----+----------+-----+--------</span>
-<span class="c">  1 | a@ex.com |  30 | active</span>
-<span class="c">  2 | b@ex.com |  25 | active</span></pre></div>
-
-  <p><code>status</code>를 안 넣었는데도 <code>active</code>가 채워졌습니다 — <code>DEFAULT</code> 덕분입니다. 이제 규칙을 어기는 INSERT를 시도하면 DB가 어떻게 막는지 보세요(아래는 의도적으로 실패하는 예라 주석으로 남깁니다).</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 제약 위반은 DB가 막는다 (의도적 에러)</span></div><pre><span class="k">INSERT</span> <span class="k">INTO</span> users (email, age) <span class="k">VALUES</span> (<span class="s">'a@ex.com'</span>, <span class="n">40</span>);
-<span class="c">ERROR:  duplicate key value violates unique constraint "users_email_key"</span>
-
-<span class="k">INSERT</span> <span class="k">INTO</span> users (email, age) <span class="k">VALUES</span> (<span class="s">'c@ex.com'</span>, -<span class="n">5</span>);
-<span class="c">ERROR:  new row for relation "users" violates check constraint "users_age_check"</span></pre></div>
-
-  <div class="box warn">
-    <span class="ic">⚠️</span>
-    <span class="label">무결성은 앱이 아니라 DB가 지키게 하라</span>
-    <p>"이메일 중복 체크는 애플리케이션 코드에서 하면 되지" 같은 생각은 위험합니다. 앱에는 <strong>버그</strong>가 있고, 같은 순간 두 요청이 들어오는 <strong>동시성(race condition)</strong>도 있습니다. 두 요청이 동시에 "중복 없음"을 확인한 뒤 둘 다 INSERT하면 중복이 들어가 버립니다. 제약을 DB에 두면 이런 경우에도 <strong>DB가 마지막 방어선</strong>으로 막아 줍니다 — 무결성 규칙은 데이터 옆(DB)에 두는 게 안전합니다.</p>
-  </div>
-
-  <h2><span class="num">2</span>외래키(FK)와 참조 무결성</h2>
-  <p><code>orders.user_id</code>가 실제로 존재하는 <code>users.id</code>만 가리키도록 강제하는 것이 <strong>외래키(FOREIGN KEY)</strong>입니다. <code>REFERENCES</code>로 선언하면, 없는 부모를 가리키는 주문은 아예 들어가지 못합니다. 그리고 부모가 삭제될 때 자식을 어떻게 할지 <code>ON DELETE</code>로 정합니다.</p>
-
-  <table class="tbl">
-    <thead><tr><th><code>ON DELETE</code> 옵션</th><th>부모가 삭제되면…</th></tr></thead>
-    <tbody>
-      <tr><td><code>CASCADE</code></td><td>자식 행도 함께 삭제</td></tr>
-      <tr><td><code>SET NULL</code></td><td>자식의 FK 컬럼을 <code>NULL</code>로</td></tr>
-      <tr><td><code>RESTRICT</code> (기본)</td><td>자식이 있으면 삭제 자체를 거부</td></tr>
-    </tbody>
-  </table>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — FK + ON DELETE CASCADE 시연</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> orders (
-  id        <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
-  user_id   <span class="t">int</span> <span class="k">NOT NULL</span> <span class="k">REFERENCES</span> users(id) <span class="k">ON DELETE CASCADE</span>,
-  amount    <span class="t">numeric</span>(<span class="n">10</span>,<span class="n">2</span>) <span class="k">NOT NULL</span> <span class="k">CHECK</span> (amount &gt; <span class="n">0</span>)
-);
-<span class="k">INSERT</span> <span class="k">INTO</span> orders (user_id, amount) <span class="k">VALUES</span> (<span class="n">1</span>, <span class="n">9.99</span>), (<span class="n">1</span>, <span class="n">5.00</span>), (<span class="n">2</span>, <span class="n">12.50</span>);
-
-<span class="c">-- user 1을 지우면 그 주문도 함께 사라진다</span>
-<span class="k">DELETE</span> <span class="k">FROM</span> users <span class="k">WHERE</span> id = <span class="n">1</span>;
-<span class="k">SELECT</span> * <span class="k">FROM</span> orders <span class="k">ORDER BY</span> id;
-<span class="c"> id | user_id | amount</span>
-<span class="c">----+---------+--------</span>
-<span class="c">  3 |       2 |  12.50</span>
-<span class="c">(1 row)            ↑ user_id=1 주문(1,2)이 CASCADE로 모두 사라짐</span></pre></div>
-
-  <div class="compare">
-    <div class="compare__mysql">
-      <div class="compare__head">외래키 <span class="tag">MySQL</span></div>
-      <p>MySQL은 <strong>InnoDB 엔진</strong>에서 FK를 지원합니다(<code>REFERENCES … ON DELETE CASCADE</code>). 단, 과거 MyISAM 엔진은 FK 문법을 받아만 들이고 <strong>실제로 강제하지 않았던</strong> 함정이 있었습니다.</p>
-    </div>
-    <div class="compare__pg">
-      <div class="compare__head">외래키 <span class="tag">PostgreSQL</span></div>
-      <p>Postgres는 엔진 구분 없이 <strong>항상 FK를 강제</strong>합니다. 문법(<code>REFERENCES</code>·<code>ON DELETE CASCADE/SET NULL/RESTRICT</code>)도 InnoDB와 거의 동일해, 둘 다 표준 SQL을 따릅니다.</p>
-    </div>
-  </div>
-
-  <h2><span class="num">3</span>기본키 전략 — IDENTITY vs uuidv7()</h2>
-  <p>기본키(Primary Key)는 각 행을 구별하는 고유한 번호표입니다. 예를 들어 회원 테이블에서 "이 사람이 누구인지"를 식별하는 <code>id</code>가 기본키입니다. 선택지는 크게 두 가지입니다.</p>
-
-  <ul>
-    <li><strong>IDENTITY</strong>: 행이 추가될 때마다 DB가 자동으로 1, 2, 3… 숫자를 붙여 줍니다.</li>
-    <li><strong>uuidv7()</strong>: <code>019eac43-d675-7f08-…</code> 같은 긴 무작위 문자열을 ID로 씁니다.</li>
-  </ul>
-
-  <table class="tbl">
-    <thead><tr><th>상황</th><th>권장 기본키</th><th>이유 (쉽게)</th></tr></thead>
-    <tbody>
-      <tr><td>대부분의 경우 — 기본 선택</td><td><code>IDENTITY</code></td><td>1, 2, 3… 숫자라 단순하고 빠름</td></tr>
-      <tr><td>ID가 외부에 노출될 때<br><small>예: URL(<code>/posts/5</code>), API 응답 JSON</small></td><td><code>uuidv7()</code></td><td>숫자면 "다음 글은 /posts/6이겠네" 추측이 가능 — 긴 문자열은 추측 불가</td></tr>
-      <tr><td>여러 서버가 동시에 ID를 만들 때</td><td><code>uuidv7()</code></td><td>각 서버가 따로 만들어도 ID가 겹치지 않음</td></tr>
-    </tbody>
-  </table>
-
-  <div class="box analogy">
-    <span class="ic">🔗</span>
-    <span class="label">왜 외부에 노출되는 숫자 ID가 위험한가?</span>
-    <p>URL이든 API 응답이든 <strong>클라이언트에 ID가 전달되는 순간</strong> 동일한 문제가 생깁니다. <code>/posts/5</code>를 보면 "다음은 <code>/posts/6</code>이겠네"를 추측할 수 있고, API 응답 <code>{ "id": 5 }</code>를 받아도 마찬가지입니다. 악의적인 사용자가 1부터 하나씩 올려가며 데이터를 긁거나, <code>/orders/123</code>으로 "오늘 주문이 123건"이라는 <strong>비즈니스 정보가 유출</strong>될 수 있습니다. <code>uuidv7()</code>로 바꾸면 <code>{ "id": "019eac43-d675-…" }</code>처럼 보여 다음 ID를 예측할 방법이 없습니다.</p>
-    <table class="tbl" style="margin-top:0.8rem">
-      <thead><tr><th>노출 방식</th><th>uuidv7() 필요?</th></tr></thead>
-      <tbody>
-        <tr><td>내부 DB 조인·집계에만 사용</td><td>❌ IDENTITY면 충분</td></tr>
-        <tr><td>URL 파라미터 (<code>/posts/5</code>)</td><td>✅</td></tr>
-        <tr><td>API 응답 JSON에 포함</td><td>✅</td></tr>
-        <tr><td>클라이언트에 전달되는 모든 경우</td><td>✅</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="box analogy">
-    <span class="ic">🖥️</span>
-    <span class="label">왜 여러 서버가 동시에 숫자 ID를 만들면 충돌하는가?</span>
-    <p>서울 서버와 부산 서버가 직원 번호를 따로 발급하면 둘 다 "1번, 2번, 3번…"을 만들어 <strong>번호가 겹쳐버립니다</strong>. 숫자 <code>IDENTITY</code>는 반드시 DB 한 곳에 "지금 몇 번까지 발급했어?"를 물어봐야 하므로, 서버가 여러 대면 속도도 느려지고 복잡해집니다. 반면 <code>uuidv7()</code>은 <strong>"현재 시각 + 서버별 무작위 값"</strong>으로 ID를 만들기 때문에, 각 서버가 DB에 묻지 않고 독립적으로 생성해도 수십억 분의 1 확률로도 겹치지 않습니다.</p>
-  </div>
-
-  <p><code>uuidv7()</code>는 완전히 무작위처럼 보이지만, 앞부분에 <strong>생성 시각</strong>이 들어 있어 만들어진 순서대로 정렬됩니다. 아래 결과에서 두 행의 id 앞부분 <code>019eac43</code>이 같은 것이 그 증거입니다.</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — uuidv7() 기본키 (분산/외부노출용)</span></div><pre><span class="k">CREATE</span> <span class="k">TABLE</span> membership (
-  id      <span class="t">uuid</span> <span class="k">PRIMARY KEY</span> <span class="k">DEFAULT</span> <span class="f">uuidv7</span>(),
-  label   <span class="t">text</span> <span class="k">NOT NULL</span>
-);
-<span class="k">INSERT</span> <span class="k">INTO</span> membership (label) <span class="k">VALUES</span> (<span class="s">'gold'</span>), (<span class="s">'silver'</span>);
-<span class="k">SELECT</span> id, label <span class="k">FROM</span> membership <span class="k">ORDER BY</span> id;
-<span class="c">                  id                  | label</span>
-<span class="c">--------------------------------------+--------</span>
-<span class="c"> 019eac43-d675-7f08-b52c-2df0e1d35a48 | gold</span>
-<span class="c"> 019eac43-d676-71fa-92bf-695880d95451 | silver</span></pre></div>
-
-  <div class="compare">
-    <div class="compare__mysql">
-      <div class="compare__head">자동증가 키 <span class="tag">MySQL</span></div>
-      <p>MySQL은 컬럼에 <code>AUTO_INCREMENT</code>를 붙입니다. 테이블당 하나, 보통 PK에 답니다. 직접 값을 넣어 시퀀스를 어긋나게 할 여지가 있습니다.</p>
-    </div>
-    <div class="compare__pg">
-      <div class="compare__head">자동증가 키 <span class="tag">PostgreSQL</span></div>
-      <p>Postgres는 SQL 표준 <code>GENERATED ALWAYS AS IDENTITY</code>를 권장합니다. <code>ALWAYS</code> 덕에 직접 삽입을 막아(필요하면 <code>OVERRIDING SYSTEM VALUE</code> 명시) 값이 어긋나지 않습니다.</p>
-    </div>
-  </div>
-
-  <h2><span class="num">4</span>시퀀스(SEQUENCE)</h2>
-  <p><code>IDENTITY</code> 키 뒤에는 사실 <strong>시퀀스</strong>라는 객체가 숨어 "다음 번호"를 발급하고 있습니다. 시퀀스는 <strong>"다음 번호표를 뽑아주는 기계"</strong>라고 생각하면 됩니다 — <code>nextval</code>을 호출할 때마다 100, 101, 102… 를 순서대로 내어줍니다. <code>IDENTITY</code>로 테이블을 만들면 PostgreSQL이 이 기계를 자동으로 생성하고, INSERT할 때마다 번호를 하나씩 뽑아 <code>id</code>에 채워줍니다. <code>pg_get_serial_sequence()</code>로 어떤 시퀀스가 컬럼에 묶였는지 확인할 수 있고, 시퀀스를 <strong>직접 만들어</strong> <code>nextval</code>/<code>currval</code>로 번호를 뽑아 쓸 수도 있습니다.</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — IDENTITY 뒤의 시퀀스 + 직접 만들기</span></div><pre><span class="c">-- IDENTITY 컬럼이 소유한 시퀀스 이름 확인</span>
-<span class="k">SELECT</span> <span class="f">pg_get_serial_sequence</span>(<span class="s">'users'</span>, <span class="s">'id'</span>);
-<span class="c">    pg_get_serial_sequence</span>
-<span class="c">---------------------------</span>
-<span class="c"> public.users_id_seq</span>
-
-<span class="c">-- 시퀀스를 직접 만들어 번호 뽑기</span>
-<span class="k">CREATE</span> <span class="k">SEQUENCE</span> ticket_seq <span class="k">START</span> <span class="n">100</span> <span class="k">INCREMENT</span> <span class="n">1</span>;
-<span class="k">SELECT</span> <span class="f">nextval</span>(<span class="s">'ticket_seq'</span>);   <span class="c">-- 100 (다음 값 발급)</span>
-<span class="k">SELECT</span> <span class="f">nextval</span>(<span class="s">'ticket_seq'</span>);   <span class="c">-- 101</span>
-<span class="k">SELECT</span> <span class="f">currval</span>(<span class="s">'ticket_seq'</span>);   <span class="c">-- 101 (이 세션의 마지막 값)</span></pre></div>
-
-  <div class="box note">
-    <span class="ic">🧩</span>
-    <span class="label">시퀀스는 트랜잭션을 따르지 않는다 — gap이 생기는 이유</span>
-    <p><span class="chip">gap</span> <code>nextval</code>로 뽑은 번호는 트랜잭션이 <strong>롤백돼도 되돌아오지 않습니다</strong>.</p>
-    <p><strong>비유 — 은행 대기표:</strong> A·B·C가 동시에 번호표를 뽑아 101·102·103번을 받았습니다. A가 "잘못 왔네" 하고 그냥 나가버렸어도(= 롤백), 기계는 101번을 회수하지 않습니다. 다음 사람은 104번을 받고, 101번은 빈 자리로 남습니다. 만약 "롤백되면 번호를 회수한다"고 설계하면 동시에 100명이 번호표를 뽑을 때 기계가 매번 잠겨 <strong>엄청 느려지기 때문</strong>에, 일부러 "뽑으면 그냥 끝"으로 만든 겁니다.</p>
-    <p><strong>gap이 생겨도 괜찮은 이유:</strong> 도로 위 번호판이 <code>가 1234</code>, <code>가 1236</code>으로 1235가 빠져 있어도 각 차를 구별하는 데는 전혀 문제없습니다. ID의 역할은 <strong>"각 행을 유일하게 식별하는 것"</strong>이지 연속일 필요는 없습니다. <code>1, 2, 4, 5…</code>여도 충분합니다.</p>
-  </div>
-
-  <h2><span class="num">5</span>(PG18) 제외 제약 &amp; temporal 맛보기</h2>
-
-  <p>지금까지 배운 <code>UNIQUE</code>는 <strong>"값이 완전히 같으면 안 됨"</strong>을 막습니다. 그런데 현실에서는 "값이 같은 건 괜찮은데, <em>특정 조건이 둘 다 겹치면</em> 안 되는" 상황이 있습니다. 이걸 처리하는 게 <strong>제외 제약(<code>EXCLUDE</code>)</strong>입니다.</p>
-
-  <div class="box analogy">
-    <span class="ic">📅</span>
-    <span class="label">UNIQUE vs EXCLUDE — 한 줄 비교</span>
-    <p><strong>UNIQUE:</strong> "이메일은 딱 하나만" → 값 하나를 비교<br>
-    <strong>EXCLUDE:</strong> "같은 회의실에서 시간이 겹치면 안 됨" → 두 가지 조건을 동시에 비교</p>
-    <p>예약 시스템에서 UNIQUE로는 이걸 표현할 수 없어요. 같은 방을 다른 시간에 쓰는 건 괜찮으니까요. "방이 같고(<code>=</code>) <em>그리고</em> 시간대까지 겹치면(<code>&amp;&amp;</code>)" — 이 두 조건이 동시에 참일 때만 거부하는 게 EXCLUDE입니다.</p>
-  </div>
-
-  <div class="box analogy">
-    <span class="ic">🏢</span>
-    <span class="label">비유 — 회의실 예약 충돌</span>
-    <p>팀장 A가 회의실 A를 <strong>10시~11시</strong>로 예약했습니다. 팀원 B가 동시에 회의실 A를 <strong>10시 30분~11시 30분</strong>으로 예약 시도합니다. 앱에서만 체크하면 두 요청이 동시에 들어올 때 둘 다 "빈 방이네?"라고 판단하고 저장해버릴 수 있습니다. <code>EXCLUDE</code>를 DB에 걸면 <strong>어느 경로로 들어와도</strong> 시간대가 겹치는 예약을 DB가 직접 거부합니다.</p>
-    <p>반면 B가 <strong>11시~12시</strong>로 예약하면? 시간대가 딱 붙어있지만 겹치지는 않으므로(<code>&amp;&amp;</code>가 거짓) 허용됩니다.</p>
-  </div>
-
-  <div class="box note">
-    <span class="ic">🧩</span>
-    <span class="label">tsrange — 시작과 끝을 하나로 묶은 타입</span>
-    <p><code>tsrange</code>는 <strong>timestamp range</strong>의 줄임말로, 시작 시각과 끝 시각을 컬럼 두 개 대신 <strong>하나의 값으로 묶은 타입</strong>입니다.</p>
-    <p>컬럼 두 개(<code>started_at</code>, <code>ended_at</code>)로 나눠 저장하면 "두 예약이 겹치는지"를 SQL로 검사하기가 복잡합니다. <code>tsrange</code>로 묶으면 <code>&amp;&amp;</code> 연산자 하나로 바로 확인할 수 있고, <code>EXCLUDE</code>에서도 그대로 쓸 수 있습니다.</p>
-    <p><strong>괄호의 의미:</strong> <code>[10:00, 11:00)</code>에서 <code>[</code>는 10시를 포함, <code>)</code>는 11시를 미포함합니다(수학의 반열린 구간). 11시 정각에 다음 예약이 시작할 수 있는 이유가 이 때문입니다 — 앞 예약이 11시를 포함하지 않으니 겹치지 않습니다.</p>
-    <table class="tbl" style="margin-top:0.8rem">
-      <thead><tr><th>비교</th><th>결과</th><th>이유</th></tr></thead>
-      <tbody>
-        <tr><td><code>[10:00, 11:00) &amp;&amp; [10:30, 11:30)</code></td><td>true (겹침)</td><td>10:30~11:00 구간이 겹침</td></tr>
-        <tr><td><code>[10:00, 11:00) &amp;&amp; [11:00, 12:00)</code></td><td>false (안 겹침)</td><td>딱 붙어있지만 공유 시각 없음</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="box note">
-    <span class="ic">🧩</span>
-    <span class="label">EXCLUDE 문법 파헤치기 — USING gist 와 WITH</span>
-    <p>코드에서 가장 낯선 줄인 <code>EXCLUDE USING gist (room WITH =, during WITH &amp;&amp;)</code>를 단어별로 풀면 이렇습니다.</p>
-
-    <p><strong>USING gist — 어떤 인덱스로 검사할지</strong><br>
-    PostgreSQL 인덱스에는 종류가 있습니다. 기본인 <strong>B-tree</strong>는 전화번호부처럼 값을 한 줄로 정렬해 <code>=</code>, <code>&lt;</code>, <code>&gt;</code> 비교에 강합니다. 하지만 "두 범위가 겹치는지(<code>&amp;&amp;</code>)"는 시작값과 끝값을 동시에 봐야 판단할 수 있어서 한 줄 정렬로는 안 됩니다. <strong>GiST(Generalized Search Tree)</strong>는 지도처럼 공간·범위 데이터를 다차원으로 색인해, 겹침 여부를 빠르게 찾을 수 있습니다.</p>
-
-    <table class="tbl" style="margin-top:0.8rem">
-      <thead><tr><th>인덱스</th><th>비유</th><th>잘하는 연산</th></tr></thead>
-      <tbody>
-        <tr><td>B-tree (기본)</td><td>전화번호부 (가나다 정렬)</td><td><code>=</code> <code>&lt;</code> <code>&gt;</code> — 값 크기 비교</td></tr>
-        <tr><td>GiST</td><td>지도 (공간 색인)</td><td><code>&amp;&amp;</code> — 범위·도형 겹침 검사</td></tr>
-      </tbody>
-    </table>
-
-    <p style="margin-top:1rem"><strong>WITH — 컬럼마다 "무엇이 충돌인지" 지정</strong><br>
-    <code>room WITH =</code>은 "room이 <strong>같으면</strong> 충돌 후보", <code>during WITH &amp;&amp;</code>은 "during이 <strong>겹치면</strong> 충돌 후보"입니다. 두 조건이 <em>동시에</em> 참일 때만 거부합니다. 방만 같고 시간이 달라도 OK, 시간이 겹쳐도 다른 방이면 OK입니다.</p>
-
-    <table class="tbl" style="margin-top:0.8rem">
-      <thead><tr><th>컬럼</th><th>WITH 연산자</th><th>의미</th></tr></thead>
-      <tbody>
-        <tr><td><code>room WITH =</code></td><td><code>=</code></td><td>방 이름이 같으면 충돌 후보</td></tr>
-        <tr><td><code>during WITH &amp;&amp;</code></td><td><code>&amp;&amp;</code></td><td>시간대가 겹치면 충돌 후보</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="box note">
-    <span class="ic">🧩</span>
-    <span class="label">CREATE EXTENSION — PostgreSQL 플러그인 설치</span>
-    <p><code>CREATE EXTENSION</code>은 PostgreSQL에 <strong>플러그인을 설치하는 명령어</strong>입니다. Node.js의 <code>npm install</code>, Python의 <code>pip install</code>과 같은 개념입니다. <code>IF NOT EXISTS</code>는 "이미 설치돼 있으면 에러 내지 말고 넘어가"라는 의미입니다.</p>
-    <p><code>btree_gist</code>가 필요한 이유는 우리 EXCLUDE 조건이 <strong>하나의 GiST 인덱스에서 두 연산자를 동시에 처리</strong>해야 하기 때문입니다. GiST는 범위 겹침(<code>&amp;&amp;</code>)은 원래 잘 처리하지만, 일반 텍스트의 동등 비교(<code>=</code>)는 처리하지 못합니다. <code>btree_gist</code>는 GiST가 <code>=</code>도 처리할 수 있게 가르쳐주는 플러그인입니다.</p>
-    <table class="tbl" style="margin-top:0.8rem">
-      <thead><tr><th></th><th>btree_gist 없을 때</th><th>btree_gist 있을 때</th></tr></thead>
-      <tbody>
-        <tr><td><code>&amp;&amp;</code> (범위 겹침)</td><td>GiST 가능 ✅</td><td>GiST 가능 ✅</td></tr>
-        <tr><td><code>=</code> (텍스트 같음)</td><td>GiST 불가 ❌</td><td>GiST 가능 ✅</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — EXCLUDE USING gist (시간대 겹침 방지)</span></div><pre><span class="k">CREATE</span> <span class="k">EXTENSION</span> <span class="k">IF NOT EXISTS</span> btree_gist;  <span class="c">-- 범위 타입과 = 비교를 같이 쓰려면 필요</span>
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> room_booking (
-  id      <span class="t">int</span> <span class="k">GENERATED ALWAYS AS IDENTITY</span> <span class="k">PRIMARY KEY</span>,
-  room    <span class="t">text</span> <span class="k">NOT NULL</span>,
-  during  <span class="t">tsrange</span> <span class="k">NOT NULL</span>,                         <span class="c">-- 시작~끝 범위</span>
-  <span class="k">EXCLUDE</span> <span class="k">USING</span> gist (room <span class="k">WITH</span> =, during <span class="k">WITH</span> &amp;&amp;)  <span class="c">-- 방이 같고 시간이 겹치면 거부</span>
-);
-<span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during)
-  <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 10:00, 2026-06-09 11:00)'</span>);   <span class="c">-- OK</span>
-<span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during)
-  <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 11:00, 2026-06-09 12:00)'</span>);   <span class="c">-- 인접(딱 붙음), 겹치지 않음 → OK</span>
-
-<span class="c">-- 10:30~11:30은 기존 10:00~11:00과 겹침 → 거부</span>
-<span class="k">INSERT</span> <span class="k">INTO</span> room_booking (room, during)
-  <span class="k">VALUES</span> (<span class="s">'A'</span>, <span class="s">'[2026-06-09 10:30, 2026-06-09 11:30)'</span>);
-<span class="c">ERROR:  conflicting key value violates exclusion constraint</span></pre></div>
-
-  <div class="box note">
-    <span class="ic">🧩</span>
-    <span class="label">PG18: WITHOUT OVERLAPS — 가격 이력처럼 "기간이 겹치면 안 되는" 데이터</span>
-    <p><span class="chip">PG18</span> EXCLUDE가 "회의실 예약 충돌 방지"라면, <code>WITHOUT OVERLAPS</code>는 같은 개념을 <strong>기본키에 바로 붙이는</strong> 문법입니다(PG18부터 지원).</p>
-    <p><strong>비유 — 상품 가격 이력:</strong> 상품 1번의 가격이 1월~6월엔 10,000원, 6월~12월엔 12,000원이라면 두 행이 모두 <code>product_id = 1</code>이지만 기간이 다르므로 괜찮습니다. 그런데 실수로 "3월~9월에 11,000원"을 추가하면 기존 두 기간과 겹쳐버립니다. <code>WITHOUT OVERLAPS</code>를 PK에 붙이면 이런 겹침을 DB가 자동으로 막습니다.</p>
-  </div>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — (PG18) temporal PK · WITHOUT OVERLAPS</span></div><pre><span class="k">CREATE</span> <span class="k">EXTENSION</span> <span class="k">IF NOT EXISTS</span> btree_gist;
-
-<span class="k">CREATE</span> <span class="k">TABLE</span> price_history (
-  product_id  <span class="t">int</span>,
-  valid_at    <span class="t">daterange</span>,                                        <span class="c">-- 유효 기간</span>
-  price       <span class="t">numeric</span>(<span class="n">10</span>,<span class="n">2</span>) <span class="k">NOT NULL</span>,
-  <span class="k">PRIMARY KEY</span> (product_id, valid_at <span class="k">WITHOUT OVERLAPS</span>)           <span class="c">-- 같은 상품끼리 기간 겹침 금지</span>
-);
-<span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-01-01, 2026-06-01)'</span>, <span class="n">10.00</span>);  <span class="c">-- 1~6월 OK</span>
-<span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-06-01, 2026-12-01)'</span>, <span class="n">12.00</span>);  <span class="c">-- 6~12월 인접 OK</span>
-<span class="k">SELECT</span> * <span class="k">FROM</span> price_history <span class="k">ORDER BY</span> valid_at;
-<span class="c"> product_id |        valid_at         | price</span>
-<span class="c">------------+-------------------------+-------</span>
-<span class="c">          1 | [2026-01-01,2026-06-01) | 10.00</span>
-<span class="c">          1 | [2026-06-01,2026-12-01) | 12.00</span>
-
-<span class="c">-- 3~9월은 기존 두 기간과 모두 겹침 → 거부</span>
-<span class="k">INSERT</span> <span class="k">INTO</span> price_history <span class="k">VALUES</span> (<span class="n">1</span>, <span class="s">'[2026-03-01, 2026-09-01)'</span>, <span class="n">11.00</span>);
-<span class="c">ERROR:  conflicting key value violates exclusion constraint "price_history_pkey"</span></pre></div>
-
-  <div class="section-divider">복습</div>
-
-  <h2><span class="num">6</span>✅ 셀프 체크</h2>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> 무결성 제약을 앱이 아니라 DB에 두는 이유는?</summary>
-    <div class="answer"><p>앱에는 <strong>버그</strong>와 <strong>동시성(race condition)</strong>이 있기 때문입니다. 예를 들어 두 요청이 동시에 "중복 없음"을 확인하고 둘 다 INSERT하면 중복이 들어갑니다. <code>UNIQUE</code>·<code>CHECK</code>·<code>FK</code>를 DB에 두면 그런 경우에도 DB가 <strong>마지막 방어선</strong>으로 막아 주어, 데이터가 항상 규칙을 지킵니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>IDENTITY</code>와 <code>uuidv7()</code> 중 무엇을 기본키로?</summary>
-    <div class="answer"><p>일반적인 단일 DB 테이블이면 작고 빠른 <code>GENERATED ALWAYS AS IDENTITY</code>가 기본입니다. ID를 <strong>URL 등 외부에 노출</strong>하거나(순번 추측 방지) <strong>분산 환경·클라이언트 생성</strong>이 필요하면 <code>uuidv7()</code>를 씁니다. v7은 시간순 정렬이라 인덱스 친화적입니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>ON DELETE CASCADE</code>는 어떻게 동작하나?</summary>
-    <div class="answer"><p>부모 행이 삭제되면 그 부모를 참조하던 <strong>자식 행도 함께 자동 삭제</strong>됩니다. 예에서 <code>users</code>의 id=1을 지우자, 그를 참조하던 <code>orders</code> 행들이 모두 사라졌습니다. 대안으로 자식 FK를 <code>NULL</code>로 만드는 <code>SET NULL</code>, 자식이 있으면 삭제를 거부하는 <code>RESTRICT</code>(기본)가 있습니다.</p></div>
-  </details>
-
-  <h2><span class="num">7</span>🔗 참고 링크</h2>
-  <ul class="refs">
-    <li><a href="https://www.postgresql.org/docs/current/ddl-constraints.html">Constraints (NOT NULL · UNIQUE · CHECK · FK · EXCLUDE) — PostgreSQL 공식 문서</a></li>
-    <li><a href="https://www.postgresql.org/docs/current/ddl-identity-columns.html">Identity Columns — PostgreSQL 공식 문서</a></li>
-    <li><a href="https://www.postgresql.org/docs/current/sql-createtable.html">CREATE TABLE (WITHOUT OVERLAPS 포함) — PostgreSQL 공식 문서</a></li>
-  </ul>
-
-  <nav class="pager">
-    <a class="prev" href="../week01-overview-env-types/03-data-types.html"><span class="dir">← 이전</span><span class="ttl">데이터 타입 (uuidv7, timestamptz)</span></a>
-    <a class="next" href="02-returning-upsert-generated.html"><span class="dir">다음 →</span><span class="ttl">RETURNING · UPSERT · 생성 컬럼</span></a>
-  </nav>
-</main>
-
-<footer class="foot">PostgreSQL 셀프 스터디 · Week 2 · Lesson 01 · DDL · 제약 · 기본키 전략</footer>
+<script src="../assets/script.js"></script>
 </body>
 </html>

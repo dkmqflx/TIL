@@ -3,189 +3,331 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Week 5·02 — MVCC · VACUUM · autovacuum · bloat</title>
-<link rel="stylesheet" href="../assets/style.css">
+<title>Week 5·02 — MVCC · VACUUM · autovacuum · bloat — 실전 PostgreSQL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css" />
 </head>
 <body>
+<div class="layout">
 
-<nav class="topbar">
-  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 5 · 트랜잭션 · 동시성 · MVCC</b></span>
-  <span>02 / 03</span>
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">PostgreSQL</span>
+      <span class="logo-text">앱 개발자를 위한 실전 Postgres</span>
+    </a>
+    <div class="logo-sub">6주 셀프 스터디 · JSONB · 인덱스 · MVCC · RLS</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="../week01-overview-env-types/01-why-postgres-architecture.html"><span class="wk-no">1</span> Week 1 · 큰 그림 &amp; 환경 &amp; 타입</a>
+    <a class="nav-week" href="../week02-schema-write-power/01-ddl-constraints-keys.html"><span class="wk-no">2</span> Week 2 · 스키마 &amp; 쓰기 기능 <span class="star">★</span></a>
+    <a class="nav-week" href="../week03-jsonb-search/01-jsonb.html"><span class="wk-no">3</span> Week 3 · JSONB &amp; 검색 <span class="star">★</span></a>
+    <a class="nav-week" href="../week04-index-performance/01-index-types.html"><span class="wk-no">4</span> Week 4 · 인덱스 &amp; 쿼리 성능 <span class="star">★</span></a>
+
+    <div class="nav-week active"><span class="wk-no">5</span> Week 5 · 트랜잭션 &amp; MVCC <span class="star">★</span></div>
+    <div class="nav-week-group">
+      <div class="nav-lesson-title">01 · 트랜잭션 · 격리 수준</div>
+      <a class="nav-item" href="01-transaction-isolation.html#transaction-basics">🏦 트랜잭션 기본 · ACID</a>
+      <a class="nav-item" href="01-transaction-isolation.html#anomalies">👻 이상현상 4종</a>
+      <a class="nav-item" href="01-transaction-isolation.html#isolation-levels">🎚️ 격리 수준 4단계</a>
+      <a class="nav-item" href="01-transaction-isolation.html#timeline">⏱️ 두 세션 타임라인</a>
+      <div class="nav-lesson-title">02 · MVCC · VACUUM</div>
+      <a class="nav-item" href="#mvcc">🧬 MVCC 원리</a>
+      <a class="nav-item" href="#dead-tuples">🧹 죽은 튜플 · VACUUM</a>
+      <a class="nav-item" href="#autovacuum-bloat">🎈 autovacuum · bloat</a>
+      <a class="nav-item" href="#long-tx">⏳ 긴 트랜잭션의 위험</a>
+      <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
+      <div class="nav-lesson-title">03 · 락 · 데드락</div>
+      <a class="nav-item" href="03-locks.html#row-locks">🔒 행 잠금 FOR UPDATE</a>
+      <a class="nav-item" href="03-locks.html#deadlock">💀 데드락</a>
+      <a class="nav-item" href="03-locks.html#advisory">🗝️ advisory lock</a>
+      <a class="nav-item" href="03-locks.html#skip-locked">📬 SKIP LOCKED 큐</a>
+    </div>
+
+    <a class="nav-week" href="../week06-rls-security-ops/01-rls.html"><span class="wk-no">6</span> Week 6 · RLS &amp; 권한 &amp; 운영 <span class="star">★</span></a>
+  </div>
 </nav>
 
-<header class="head">
-  <span class="kicker">◆ Week 5 — Lesson 02</span>
-  <h1>MVCC · VACUUM<br>autovacuum · bloat</h1>
-  <p class="subtitle">Postgres는 행을 <strong>덮어쓰지 않습니다</strong> — 새 버전을 쓰고 옛 버전을 <strong>죽은 튜플</strong>로 남깁니다(MVCC). 그 시체를 치우는 청소부가 <code>VACUUM</code>입니다.</p>
-</header>
+<main class="main" id="top">
 
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">“</span>
-    <p>Postgres는 행을 덮어쓰지 않는다 — 새 버전을 쓰고 옛 버전을 <b>죽은 튜플</b>로 남긴다(MVCC). 그 시체를 치우는 청소부가 <b><code>VACUUM</code></b>이다.</p>
+  <div class="lesson-head">
+    <h1>MVCC · VACUUM — Postgres의 심장을 들여다보기</h1>
+    <p class="lesson-subtitle">Postgres는 행을 <strong>덮어쓰지 않습니다</strong>. 새 버전을 쓰고 옛 버전을 <strong>"죽은 튜플"</strong>로 남기죠(MVCC). 그리고 그 시체를 치우는 청소부가 <code>VACUUM</code>입니다.</p>
   </div>
+
+  <div class="tip-box"><strong>왜 이걸 알아야 하나.</strong> Postgres 운영에서 발생하는 성능 문제의 상당수가 <b>이 한 가지 메커니즘</b>에서 나옵니다. "왜 테이블이 계속 커지지?", "왜 쿼리가 점점 느려지지?"의 답이 대부분 여기 있습니다. MySQL에는 <b>대응되는 개념이 없기 때문에</b> 특히 낯설고, 그래서 특히 중요합니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>MVCC의 원리를 <code>xmin</code>·<code>xmax</code>·스냅샷으로 이해한다</li>
+    <li>죽은 튜플이 왜 생기는지, <code>VACUUM</code>이 무엇을 회수하는지 안다</li>
+    <li>autovacuum과 bloat(팽창)의 관계를 이해하고 모니터링 지표를 안다</li>
+    <li>긴 트랜잭션이 왜 위험한지 설명하고 예방한다</li>
+  </ul>
+
+  <section class="section" id="mvcc">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🧬</div>
+      <h2>MVCC 원리 — UPDATE는 덮어쓰기가 아니다</h2>
+    </div>
+
+    <p>MVCC는 <strong>M</strong>ulti-<strong>V</strong>ersion <strong>C</strong>oncurrency <strong>C</strong>ontrol, 즉 <strong>다중 버전 동시성 제어</strong>의 약자입니다. 이름 그대로 <strong>한 행의 여러 버전을 동시에 유지</strong>하는 방식이죠.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>비유 — 문서를 고칠 때 덮어쓰지 않고 새 버전으로 저장하기.</strong></p>
+      <p>공유 문서를 여러 명이 동시에 보고 있습니다. 누군가 내용을 고칠 때 <strong>원본을 지우고 덮어쓰면</strong>, 지금 읽고 있던 사람들의 화면이 갑자기 바뀌어 버립니다. 읽는 도중에 문장이 사라질 수도 있죠.</p>
+      <p>그래서 Postgres는 <strong>옛 버전을 그대로 두고 새 버전을 따로 저장</strong>합니다. 읽던 사람은 <strong>자기가 시작할 때의 버전</strong>을 끝까지 보고, 새로 들어온 사람은 최신 버전을 봅니다. <strong>읽는 사람과 쓰는 사람이 서로 기다리지 않는</strong> 비결이 바로 이것입니다.</p></div>
+    </div>
+
+    <p>이게 Week 1에서 "Postgres의 강점"으로 언급했던 <strong>"읽는 사람과 쓰는 사람이 서로 기다리지 않는다"</strong>의 실체입니다. 그럼 DB는 "어느 버전을 보여줄지"를 어떻게 판단할까요? 모든 행에 붙어 있는 <strong>숨은 시스템 컬럼</strong>을 씁니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>숨은 컬럼</th><th>담고 있는 것</th></tr></thead>
+        <tbody>
+          <tr><td><code>xmin</code></td><td>이 버전을 <b>만든</b> 트랜잭션 ID</td></tr>
+          <tr><td><code>xmax</code></td><td>이 버전을 <b>만료시킨</b> 트랜잭션 ID (아직 살아 있으면 0)</td></tr>
+          <tr><td><code>ctid</code></td><td>이 버전의 <b>물리적 위치</b> (블록 번호, 오프셋)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>"이 버전이 내 눈에 보이는가"는 <strong>내 스냅샷과 <code>xmin</code>/<code>xmax</code>를 비교</strong>해 결정됩니다. 대략 "내가 시작하기 전에 커밋된 트랜잭션이 만들었고, 아직 만료되지 않았다면 보인다"는 규칙이죠. 직접 확인해 봅시다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — UPDATE 3번 → ctid가 바뀐다 (새 물리 버전)</span></div>
+      <pre><code class="language-sql">-- 처음 상태: xmin은 만든 트랜잭션, xmax=0(살아 있음), ctid=(블록,오프셋)
+SELECT xmin, xmax, ctid, * FROM items;
+--  xmin | xmax | ctid  | id |  name  | price
+-- ------+------+-------+----+--------+-------
+--   804 |    0 | (0,1) |  1 | coffee |  4500
+
+-- 같은 논리적 행을 세 번 UPDATE → 매번 새 물리 버전 생성
+UPDATE items SET price = 4600 WHERE name = 'coffee';
+UPDATE items SET price = 4700 WHERE name = 'coffee';
+UPDATE items SET price = 4800 WHERE name = 'coffee';
+
+-- 살아 있는 버전은 하나지만 ctid가 (0,1) → (0,4)로 옮겨졌다
+SELECT xmin, xmax, ctid, * FROM items;
+--  xmin | xmax | ctid  | id |  name  | price
+-- ------+------+-------+----+--------+-------
+--   807 |    0 | (0,4) |  1 | coffee |  4800
+--                 ↑ 1번 자리가 아니라 4번 자리에 있다!</code></pre>
+    </div>
+
+    <p><code>ctid</code>가 <code>(0,1)</code>에서 <code>(0,4)</code>로 옮겨간 것이 결정적 증거입니다. <strong>같은 자리를 고친 게 아니라 매번 새 자리에 새 버전을 쓴 것</strong>이죠. 그리고 <code>(0,1)</code>, <code>(0,2)</code>, <code>(0,3)</code>에는 <strong>아무도 못 보는 옛 버전 3개</strong>가 그대로 남아 있습니다.</p>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>따라 할 때 참고.</strong> <code>xmin</code>/<code>xmax</code>는 트랜잭션 ID라서 <strong>실행할 때마다 값이 달라집니다</strong>(위의 <code>804</code>·<code>807</code>은 이 실행에서 나온 예시일 뿐입니다). 반면 <code>ctid</code>는 물리 위치라 같은 시나리오면 그대로 재현됩니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="dead-tuples">
+    <div class="section-header">
+      <div class="section-icon icon-delete">🧹</div>
+      <h2>죽은 튜플과 VACUUM — 시체 치우기</h2>
+    </div>
+
+    <p>방금 남겨진 옛 버전 3개를 <strong>죽은 튜플(dead tuple)</strong>이라고 부릅니다. 어떤 트랜잭션도 더는 볼 수 없는데 <strong>디스크 공간은 계속 차지하고</strong> 있죠. 이걸 회수하는 것이 <code>VACUUM</code>의 일입니다.</p>
+
+    <div class="db-demo">
+      <div class="db-demo-header">items 테이블의 물리적 상태 (UPDATE 3번 후)</div>
+      <table>
+        <thead><tr><th>ctid</th><th>price</th><th>상태</th></tr></thead>
+        <tbody>
+          <tr><td>(0,1)</td><td>4500</td><td class="dead">dead — 아무도 못 봄</td></tr>
+          <tr><td>(0,2)</td><td>4600</td><td class="dead">dead — 아무도 못 봄</td></tr>
+          <tr><td>(0,3)</td><td>4700</td><td class="dead">dead — 아무도 못 봄</td></tr>
+          <tr><td>(0,4)</td><td>4800</td><td class="live">live — 현재 버전</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — n_dead_tup: VACUUM 전 3, 후 0</span></div>
+      <pre><code class="language-sql">-- 통계는 비동기로 모이므로 잠깐 기다린 뒤 갱신
+SELECT pg_sleep(1);  ANALYZE items;
+SELECT relname, n_live_tup, n_dead_tup
+FROM pg_stat_user_tables WHERE relname = 'items';
+--  relname | n_live_tup | n_dead_tup
+-- ---------+------------+------------
+--  items   |          1 |          3     ← 살아있는 1개 + 죽은 3개
+
+-- VACUUM: 죽은 튜플을 회수해 그 공간을 "재사용 가능"하게 만든다
+VACUUM (VERBOSE) items;
+-- INFO:  finished vacuuming "study_db.public.items": index scans: 0
+--   tuples: 3 removed, 1 remain, 0 are dead but not yet removable ...
+
+SELECT pg_sleep(1);  ANALYZE items;
+SELECT relname, n_live_tup, n_dead_tup
+FROM pg_stat_user_tables WHERE relname = 'items';
+--  relname | n_live_tup | n_dead_tup
+-- ---------+------------+------------
+--  items   |          1 |          0     ← 죽은 튜플 회수됨</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>중요한 오해 — VACUUM은 디스크를 OS에 돌려주지 않습니다.</strong></p>
+      <p>일반 <code>VACUUM</code>은 죽은 튜플이 있던 공간을 <strong>"이 테이블이 다시 써도 좋다"고 표시만</strong> 합니다. 파일 크기는 거의 그대로예요. <strong>비유하자면 방을 비운 것이지 방을 없앤 게 아닙니다</strong> — 곧 새 데이터가 그 자리에 들어오니 오히려 효율적이죠.</p>
+      <p>디스크를 정말로 OS에 <strong>반환</strong>하려면 <code>VACUUM FULL</code>이 테이블을 통째로 재작성해야 합니다. 하지만 그동안 테이블에 <strong>ACCESS EXCLUSIVE 락</strong>이 걸려 <strong>읽기조차 막힙니다</strong>. 운영 중인 서비스에서는 절대 함부로 쓰지 마세요 — 필요하다면 <code>pg_repack</code> 같은 무중단 도구를 검토합니다.</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="autovacuum-bloat">
+    <div class="section-header">
+      <div class="section-icon icon-update">🎈</div>
+      <h2>autovacuum과 bloat — 청소를 못 따라가면 부푼다</h2>
+    </div>
+
+    <p>죽은 튜플을 매번 사람이 치울 수는 없습니다. 그래서 Postgres는 백그라운드에서 <strong>autovacuum</strong> 데몬을 돌립니다. 죽은 튜플이 일정 수준을 넘으면 자동으로 <code>VACUUM</code>과 <code>ANALYZE</code>를 실행하죠.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — autovacuum 임계치와 모니터링</span></div>
+      <pre><code class="language-sql">SHOW autovacuum_vacuum_threshold;       -- 50
+SHOW autovacuum_vacuum_scale_factor;    -- 0.2 (= 행의 20%)
+-- → 죽은 튜플이 (50 + 0.2 × 행수)를 넘으면 autovacuum 발동
+
+-- 마지막 (auto)vacuum 시각 모니터링
+SELECT relname, last_vacuum, last_autovacuum
+FROM pg_stat_user_tables WHERE relname = 'items';
+--  relname |         last_vacuum          | last_autovacuum
+-- ---------+------------------------------+-----------------
+--  items   | 2026-06-09 13:02:18.98198+00 |</code></pre>
+    </div>
+
+    <p>문제는 autovacuum이 <strong>변경 속도를 따라가지 못할 때</strong> 생깁니다. 죽은 튜플이 계속 쌓여 테이블과 인덱스가 <strong>bloat(팽창)</strong>됩니다. 살아 있는 행은 그대로인데 <strong>파일만 계속 커지고</strong>, 스캔할 페이지가 늘어 쿼리가 느려지죠.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 쓰레기를 안 치운 방.</strong> 물건(살아 있는 행)은 하나뿐인데 쓰레기(죽은 튜플)가 방을 가득 채우면, 물건 하나를 찾으려고 <strong>방 전체를 뒤져야</strong> 합니다. 방 크기가 곧 검색 비용이 되는 거죠. 그래서 bloat이 심해지면 <strong>데이터는 그대로인데 쿼리만 느려지는</strong> 이상한 현상이 나타납니다.</div>
+    </div>
+
+    <p>일부러 만들어 보겠습니다. 한 행을 999번 UPDATE합니다(autovacuum을 꺼둔 테이블입니다).</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — 1행을 999번 UPDATE → 죽은 튜플 폭증 = bloat</span></div>
+      <pre><code class="language-sql">DO $$ BEGIN FOR k IN 1..999 LOOP
+  UPDATE items SET price = price + 1 WHERE name = 'coffee';
+END LOOP; END $$;
+
+SELECT pg_sleep(1);  ANALYZE items;
+SELECT relname, n_live_tup, n_dead_tup,
+       pg_size_pretty(pg_table_size('items')) AS table_size
+FROM pg_stat_user_tables WHERE relname = 'items';
+--  relname | n_live_tup | n_dead_tup | table_size
+-- ---------+------------+------------+------------
+--  items   |          1 |        999 | 88 kB      ← 살아있는 행은 1개인데 88kB (처음엔 16kB)
+
+-- VACUUM으로 회수: 죽은 튜플은 0이 되지만 파일 크기는 줄지 않는다
+VACUUM items;
+SELECT pg_sleep(1);  ANALYZE items;
+SELECT relname, n_live_tup, n_dead_tup,
+       pg_size_pretty(pg_table_size('items')) AS table_size
+FROM pg_stat_user_tables WHERE relname = 'items';
+--  relname | n_live_tup | n_dead_tup | table_size
+-- ---------+------------+------------+------------
+--  items   |          1 |          0 | 88 kB      ← 죽은 튜플은 0, 크기는 그대로(재사용용 빈 공간)</code></pre>
+    </div>
+
+    <p>마지막 결과가 앞서 말한 <strong>"방을 비운 것이지 없앤 게 아니다"</strong>를 그대로 보여줍니다. 88 kB의 빈 공간은 <strong>다음 UPDATE들이 재사용</strong>하므로, 이 상태 자체는 정상입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무에서 볼 지표 두 개.</strong> 잦은 <code>UPDATE</code>/<code>DELETE</code>가 일어나는 테이블은 <code>pg_stat_user_tables</code>에서 <strong><code>n_dead_tup</code></strong>(죽은 튜플 수)과 <strong><code>last_autovacuum</code></strong>(마지막 자동 청소 시각)을 지켜보세요. 죽은 튜플이 계속 늘어나거나 autovacuum이 며칠째 안 돌았다면 팽창이 진행 중입니다. 그런 <strong>핫한 테이블은 <code>autovacuum_vacuum_scale_factor</code>를 테이블 단위로 낮춰</strong>(예: <code>0.02</code>) 더 자주 청소하게 만들 수 있습니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="long-tx">
+    <div class="section-header">
+      <div class="section-icon icon-error">⏳</div>
+      <h2>긴 트랜잭션이 VACUUM을 막는다</h2>
+    </div>
+
+    <p>이 섹션은 짧지만 <strong>실무에서 가장 자주 사고가 나는 지점</strong>입니다.</p>
+
+    <p><code>VACUUM</code>은 아무 죽은 튜플이나 치우지 않습니다. <strong>"살아 있는 어떤 트랜잭션도 더는 볼 수 없는"</strong> 것만 회수할 수 있죠. 그런데 <strong>오래 열려 있는 트랜잭션이 하나라도 있으면</strong>, 그 트랜잭션이 볼 수도 있는 옛 버전들을 <strong>전부 보존해야 합니다</strong>.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 한 명이 안 나가서 청소를 못 하는 회의실.</strong> 회의가 끝나 다들 나갔는데 <strong>한 사람이 노트북을 켜둔 채 자리를 지키고 있습니다</strong>. 청소부는 "저분이 아직 쓰고 계시니 이 자료들을 버릴 수 없다"며 <strong>회의실 전체를 그대로 둡니다</strong>. 그 사이 다른 팀들이 쓰고 간 자료가 계속 쌓이죠. Postgres에서 <strong>딱 하나의 방치된 트랜잭션이 DB 전체의 청소를 막는</strong> 상황이 정확히 이렇습니다.</div>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>트랜잭션은 짧게 — 화면을 보며 트랜잭션을 열어두지 마세요.</strong></p>
+      <p>사고의 전형은 이렇습니다. <strong>"<code>BEGIN</code> 후 사용자 입력을 기다린다"</strong>, <strong>"분석 쿼리를 한 시간째 돌린다"</strong>, <strong>"커넥션을 잡고 그대로 잊어버린 좀비 트랜잭션"</strong>. 이런 오래된 스냅샷이 VACUUM의 회수 지점을 과거에 묶어두고, 그동안 <strong>DB 전체에 bloat이 누적</strong>됩니다.</p>
+      <p><strong>진단:</strong> <code>SELECT * FROM pg_stat_activity WHERE state &lt;&gt; 'idle' ORDER BY xact_start;</code>로 가장 오래된 트랜잭션을 찾습니다.<br>
+      <strong>예방:</strong> <code>idle_in_transaction_session_timeout</code>을 설정해 방치된 트랜잭션을 <strong>자동 종료</strong>시키세요.</p></div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header mysql">MySQL — 익숙한 방식</div>
+        <p>InnoDB도 MVCC를 쓰지만 옛 버전을 <strong>테이블 밖의 undo log</strong>에 둡니다. 현재 행은 제자리에서 갱신되고, 옛 버전이 필요하면 undo를 따라 되돌려 재구성합니다. 정리는 <strong>purge 스레드</strong>가 하죠. 긴 트랜잭션이 있으면 undo가 쌓여 <strong>"history list length"</strong>가 길어지는데, <strong>증상은 PG의 bloat와 비슷합니다</strong>.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header pg">PostgreSQL — 이렇게 다르다</div>
+        <p>옛 버전을 <strong>테이블 안에 그대로</strong> 두고 <code>xmin</code>/<code>xmax</code>로 가시성을 판단합니다. 그래서 죽은 튜플이 <strong>테이블에 직접 쌓이고</strong>, 이를 <strong><code>VACUUM</code>/autovacuum</strong>이 회수합니다. 별도 undo 로그가 없는 대신 <strong>VACUUM 운영이 PG 성능 관리의 핵심</strong>이 됩니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-pg">✅</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 하나의 <code>UPDATE</code>는 무엇을 만드나요?</summary>
+        <div class="qa-answer"><p><strong>새 행 버전 하나</strong>와 <strong>죽은 튜플 하나</strong>(만료된 옛 버전)를 만듭니다. Postgres는 행을 제자리에서 덮어쓰지 않고, 새 버전을 쓴 뒤 옛 버전의 <code>xmax</code>를 채워 만료시킵니다. 그래서 같은 행을 N번 UPDATE하면 죽은 튜플이 약 N개 쌓이고, <code>ctid</code>(물리 위치)가 계속 옮겨집니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>VACUUM</code>과 <code>VACUUM FULL</code>의 차이는?</summary>
+        <div class="qa-answer"><p>일반 <code>VACUUM</code>은 죽은 튜플 공간을 <strong>같은 테이블이 재사용하도록 표시</strong>만 합니다 — 파일 크기는 거의 그대로이고 <strong>테이블을 잠그지 않아</strong> 운영 중에도 안전합니다. <code>VACUUM FULL</code>은 테이블을 <strong>통째로 재작성</strong>해 디스크를 OS에 반환하지만, <strong>ACCESS EXCLUSIVE 락</strong>으로 읽기까지 막으므로 운영 중에는 위험합니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 긴 트랜잭션이 bloat을 부르는 이유는?</summary>
+        <div class="qa-answer"><p>VACUUM은 <strong>"살아 있는 어떤 트랜잭션도 더는 볼 수 없는"</strong> 죽은 튜플만 회수할 수 있습니다. 오래 열린 트랜잭션이 하나라도 있으면 그 스냅샷이 볼 수도 있는 옛 버전들을 <strong>전부 보존해야</strong> 하므로, DB 전체에서 죽은 튜플이 회수되지 못하고 쌓입니다. <code>pg_stat_activity</code>로 오래된 트랜잭션을 찾고, <code>idle_in_transaction_session_timeout</code>으로 방치된 것을 자동 종료시키세요.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 테이블이 계속 커지는데 행 수는 그대로입니다. 무엇을 볼까요?</summary>
+        <div class="qa-answer"><p><code>pg_stat_user_tables</code>의 <strong><code>n_dead_tup</code></strong>과 <strong><code>last_autovacuum</code></strong>입니다. 죽은 튜플이 계속 쌓이는데 autovacuum이 안 돌고 있다면 bloat이 진행 중입니다. 원인은 보통 ① 변경이 너무 잦아 임계치를 따라가지 못하거나, ② <strong>긴 트랜잭션이 회수를 막고 있는</strong> 경우입니다. 핫한 테이블은 <code>autovacuum_vacuum_scale_factor</code>를 낮춰 더 자주 돌게 할 수 있습니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>참고 링크</h2>
+    </div>
+    <ul class="refs">
+      <li><a href="https://www.postgresql.org/docs/current/mvcc.html">Concurrency Control (MVCC) — PostgreSQL 공식 문서</a></li>
+      <li><a href="https://www.postgresql.org/docs/current/routine-vacuuming.html">Routine Vacuuming — PostgreSQL 공식 문서</a></li>
+      <li><a href="https://www.postgresql.org/docs/current/runtime-config-autovacuum.html">Automatic Vacuuming (설정) — PostgreSQL 공식 문서</a></li>
+    </ul>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-transaction-isolation.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">트랜잭션 · 격리 수준</span></a>
+    <a class="part-pager-link next" href="03-locks.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">락 · 데드락 · advisory lock</span></a>
+  </div>
+
+  <div class="doc-footer">
+    PostgreSQL 셀프 스터디 · Week 5 · 02 · MVCC · VACUUM · <a href="../index.html">전체 커리큘럼으로</a>
+  </div>
+
+</main>
 </div>
 
-<main class="wrap">
-
-  <ul class="goals">
-    <li>MVCC 원리를 <code>xmin</code>·<code>xmax</code>·<strong>스냅샷</strong>으로 이해한다</li>
-    <li><strong>죽은 튜플</strong>이 왜 생기는지, <code>VACUUM</code>이 무엇을 회수하는지 안다</li>
-    <li><strong>autovacuum</strong>과 <strong>bloat</strong>의 관계, 그리고 긴 트랜잭션의 위험을 안다</li>
-  </ul>
-
-  <h2><span class="num">1</span>MVCC 원리 — UPDATE는 덮어쓰기가 아니다</h2>
-  <p>🍔 레시피 문서를 고칠 때, 옛 버전을 지우지 않고 <strong>새 버전을 따로 저장</strong>하는 버전 관리를 떠올려 보세요. "현재 읽는 사람"은 자기가 시작할 때의 버전을 계속 보고, 동시에 누가 새 버전을 써도 충돌하지 않습니다. PostgreSQL의 <strong>MVCC(Multi-Version Concurrency Control)</strong>가 정확히 이렇게 동작합니다 — <code>UPDATE</code>는 기존 행을 <strong>제자리에서 고치지 않고</strong>, 새 행 버전을 쓰고 옛 버전을 <strong>만료</strong> 표시합니다.</p>
-  <p>각 행에는 숨은 <strong>시스템 컬럼</strong>이 붙어 있습니다. <code>xmin</code>은 <strong>이 버전을 만든 트랜잭션 ID</strong>, <code>xmax</code>는 <strong>이 버전을 만료시킨 트랜잭션 ID</strong>(살아 있으면 0), <code>ctid</code>는 <strong>물리 위치(블록,오프셋)</strong>입니다. "내 스냅샷에서 이 버전이 보이는가"는 xmin/xmax와 내 스냅샷을 비교해 결정됩니다.</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — UPDATE 3번 → ctid 가 바뀐다(새 물리 버전)</span></div><pre><span class="c">-- 처음 상태: xmin 은 만든 트랜잭션, xmax=0(살아 있음), ctid=(블록,오프셋)</span>
-<span class="k">SELECT</span> xmin, xmax, ctid, * <span class="k">FROM</span> items;
-<span class="c"> xmin | xmax | ctid  | id |  name  | price</span>
-<span class="c">------+------+-------+----+--------+-------</span>
-<span class="c">  804 |    0 | (0,1) |  1 | coffee |  4500</span>
-
-<span class="c">-- 같은 논리적 행을 세 번 UPDATE → 매번 새 물리 버전 생성</span>
-<span class="k">UPDATE</span> items <span class="k">SET</span> price = <span class="n">4600</span> <span class="k">WHERE</span> name = <span class="s">'coffee'</span>;
-<span class="k">UPDATE</span> items <span class="k">SET</span> price = <span class="n">4700</span> <span class="k">WHERE</span> name = <span class="s">'coffee'</span>;
-<span class="k">UPDATE</span> items <span class="k">SET</span> price = <span class="n">4800</span> <span class="k">WHERE</span> name = <span class="s">'coffee'</span>;
-
-<span class="c">-- 살아 있는 버전은 하나지만 ctid 가 (0,1) → (0,4) 로 옮겨졌다(=새 버전)</span>
-<span class="k">SELECT</span> xmin, xmax, ctid, * <span class="k">FROM</span> items;
-<span class="c"> xmin | xmax | ctid  | id |  name  | price</span>
-<span class="c">------+------+-------+----+--------+-------</span>
-<span class="c">  807 |    0 | (0,4) |  1 | coffee |  4800</span></pre></div>
-
-  <div class="box note">
-    <span class="ic">📝</span>
-    <span class="label"><code>xmin</code>/<code>xmax</code>는 매번 다른 값</span>
-    <p><code>xmin</code>/<code>xmax</code>는 트랜잭션 ID라 <strong>실행할 때마다 값이 달라집니다</strong>(위 <code>804</code>·<code>807</code>은 이 실행에서 나온 예시). 반면 <code>ctid</code>는 물리 위치라 같은 시나리오면 재현됩니다 — <code>(0,1)</code>에서 시작해 UPDATE 세 번 뒤 <code>(0,4)</code>로 옮겨진 것이, "옛 버전 3개를 남기고 새 위치에 현재 버전을 썼다"는 MVCC의 증거입니다.</p>
-  </div>
-
-  <h2><span class="num">2</span>죽은 튜플 &amp; VACUUM — 시체 치우기</h2>
-  <p><code>UPDATE</code>·<code>DELETE</code>가 남긴 만료된 옛 버전을 <strong>죽은 튜플(dead tuple)</strong>이라 부릅니다. 어떤 트랜잭션도 더는 볼 수 없게 된 이 시체들은 디스크 공간만 차지합니다. <code>VACUUM</code>은 이들을 회수해 <strong>그 공간을 같은 테이블이 재사용할 수 있게</strong> 만듭니다.</p>
-  <p>위에서 UPDATE를 3번 했으니 죽은 튜플이 3개 쌓였을 것입니다. <code>pg_stat_user_tables</code>의 <code>n_dead_tup</code>으로 확인하고, <code>VACUUM</code> 전후를 비교합니다.</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — n_dead_tup: VACUUM 전 3, 후 0</span></div><pre><span class="c">-- 통계는 비동기로 모이므로 잠깐 기다린 뒤 갱신</span>
-<span class="k">SELECT</span> <span class="f">pg_sleep</span>(<span class="n">1</span>);  ANALYZE items;
-<span class="k">SELECT</span> relname, n_live_tup, n_dead_tup
-<span class="k">FROM</span> pg_stat_user_tables <span class="k">WHERE</span> relname = <span class="s">'items'</span>;
-<span class="c"> relname | n_live_tup | n_dead_tup</span>
-<span class="c">---------+------------+------------</span>
-<span class="c"> items   |          1 |          3</span>     <span class="c">-- 살아있는 1개 + 죽은 3개</span>
-
-<span class="c">-- VACUUM: 죽은 튜플을 회수해 그 공간을 "재사용 가능"하게 만든다</span>
-<span class="k">VACUUM</span> (VERBOSE) items;
-<span class="c">INFO:  finished vacuuming "study_db.public.items": index scans: 0</span>
-<span class="c">  pages: 0 removed, 1 remain, 1 scanned (100.00% of total) ...</span>
-<span class="c">  tuples: 3 removed, 1 remain, 0 are dead but not yet removable ...</span>
-
-<span class="k">SELECT</span> <span class="f">pg_sleep</span>(<span class="n">1</span>);  ANALYZE items;
-<span class="k">SELECT</span> relname, n_live_tup, n_dead_tup
-<span class="k">FROM</span> pg_stat_user_tables <span class="k">WHERE</span> relname = <span class="s">'items'</span>;
-<span class="c"> relname | n_live_tup | n_dead_tup</span>
-<span class="c">---------+------------+------------</span>
-<span class="c"> items   |          1 |          0</span>     <span class="c">-- 죽은 튜플 회수됨</span></pre></div>
-
-  <div class="box note">
-    <span class="ic">📝</span>
-    <span class="label">VACUUM은 디스크를 OS에 돌려주지 않는다</span>
-    <p>일반 <code>VACUUM</code>은 죽은 튜플 공간을 <strong>같은 테이블이 다시 쓰도록 표시만</strong> 합니다 — 파일 크기는 거의 그대로입니다(곧 새 행이 그 자리를 채웁니다). 디스크를 정말로 OS에 <strong>반환</strong>하려면 <code>VACUUM FULL</code>이 테이블을 통째로 재작성하지만, 그동안 테이블에 <strong>ACCESS EXCLUSIVE 락</strong>이 걸려 읽기·쓰기가 모두 막힙니다. 운영 중에는 함부로 쓰지 마세요(필요하면 <code>pg_repack</code> 같은 무중단 도구를 검토).</p>
-  </div>
-
-  <h2><span class="num">3</span>autovacuum &amp; bloat — 청소를 못 따라가면 부푼다</h2>
-  <p>죽은 튜플을 매번 수동으로 치울 수는 없습니다. 그래서 백그라운드 데몬 <strong>autovacuum</strong>이 임계치를 넘으면 자동으로 <code>VACUUM</code>(과 <code>ANALYZE</code>)을 돌립니다. 임계치는 대략 <code>autovacuum_vacuum_threshold + autovacuum_vacuum_scale_factor × 행수</code>입니다.</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — autovacuum 임계치 기본값 & 모니터링</span></div><pre><span class="k">SHOW</span> autovacuum_vacuum_threshold;       <span class="c">-- 50</span>
-<span class="k">SHOW</span> autovacuum_vacuum_scale_factor;    <span class="c">-- 0.2 (= 행의 20%)</span>
-<span class="c">-- → 죽은 튜플이 (50 + 0.2 × 행수) 를 넘으면 autovacuum 발동</span>
-
-<span class="c">-- 마지막 (auto)vacuum 시각 모니터링</span>
-<span class="k">SELECT</span> relname, last_vacuum, last_autovacuum
-<span class="k">FROM</span> pg_stat_user_tables <span class="k">WHERE</span> relname = <span class="s">'items'</span>;
-<span class="c"> relname |         last_vacuum          | last_autovacuum</span>
-<span class="c">---------+------------------------------+-----------------</span>
-<span class="c"> items   | 2026-06-09 13:02:18.98198+00 |</span>   <span class="c">-- 수동 VACUUM 만 (autovacuum 은 이 데모에서 꺼 둠)</span></pre></div>
-
-  <p>autovacuum이 변경 속도를 <strong>못 따라가면</strong> 죽은 튜플이 쌓여 테이블·인덱스가 <strong>bloat(팽창)</strong>됩니다 — 살아 있는 행은 그대로인데 파일은 계속 커지고, 스캔할 페이지가 늘어 느려집니다. 한 행을 999번 UPDATE해 일부러 bloat을 만들어 봅시다(autovacuum을 꺼 둔 테이블).</p>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 1행을 999번 UPDATE → 죽은 튜플 폭증 = bloat</span></div><pre><span class="c">-- 한 행을 반복 UPDATE (autovacuum 꺼 둔 상태)</span>
-<span class="k">DO</span> $$ <span class="k">BEGIN</span> <span class="k">FOR</span> k <span class="k">IN</span> <span class="n">1</span>..<span class="n">999</span> <span class="k">LOOP</span>
-  <span class="k">UPDATE</span> items <span class="k">SET</span> price = price + <span class="n">1</span> <span class="k">WHERE</span> name = <span class="s">'coffee'</span>;
-<span class="k">END LOOP</span>; <span class="k">END</span> $$;
-
-<span class="k">SELECT</span> <span class="f">pg_sleep</span>(<span class="n">1</span>);  ANALYZE items;
-<span class="k">SELECT</span> relname, n_live_tup, n_dead_tup,
-       <span class="f">pg_size_pretty</span>(<span class="f">pg_table_size</span>(<span class="s">'items'</span>)) <span class="k">AS</span> table_size
-<span class="k">FROM</span> pg_stat_user_tables <span class="k">WHERE</span> relname = <span class="s">'items'</span>;
-<span class="c"> relname | n_live_tup | n_dead_tup | table_size</span>
-<span class="c">---------+------------+------------+------------</span>
-<span class="c"> items   |          1 |        999 | 88 kB</span>   <span class="c">-- 살아있는 행은 1개인데 88kB(처음엔 16kB)</span>
-
-<span class="c">-- VACUUM 으로 회수: 죽은 튜플은 0 이 되지만 파일 크기(88kB)는 줄지 않는다</span>
-<span class="k">VACUUM</span> items;
-<span class="k">SELECT</span> <span class="f">pg_sleep</span>(<span class="n">1</span>);  ANALYZE items;
-<span class="k">SELECT</span> relname, n_live_tup, n_dead_tup,
-       <span class="f">pg_size_pretty</span>(<span class="f">pg_table_size</span>(<span class="s">'items'</span>)) <span class="k">AS</span> table_size
-<span class="k">FROM</span> pg_stat_user_tables <span class="k">WHERE</span> relname = <span class="s">'items'</span>;
-<span class="c"> relname | n_live_tup | n_dead_tup | table_size</span>
-<span class="c">---------+------------+------------+------------</span>
-<span class="c"> items   |          1 |          0 | 88 kB</span>   <span class="c">-- 죽은 튜플은 0, 그러나 크기는 그대로(재사용용 빈 공간)</span></pre></div>
-
-  <div class="box warn">
-    <span class="ic">⚠️</span>
-    <span class="label">bloat은 모니터링하고, 긴 트랜잭션을 피하라</span>
-    <p>잦은 <code>UPDATE</code>/<code>DELETE</code> 테이블은 <code>n_dead_tup</code>과 <code>last_autovacuum</code>을 꾸준히 지켜보세요. 죽은 튜플이 계속 늘거나 autovacuum이 안 돌면 테이블·인덱스가 팽창합니다. 핫한 테이블은 <code>autovacuum_vacuum_scale_factor</code>를 <strong>테이블 단위로 낮춰</strong>(예: <code>0.02</code>) 더 자주 돌게 할 수 있습니다.</p>
-  </div>
-
-  <h2><span class="num">4</span>긴 트랜잭션이 VACUUM을 막는다</h2>
-  <p>VACUUM은 "<strong>어떤 살아 있는 트랜잭션도 더는 못 보는</strong>" 죽은 튜플만 회수할 수 있습니다. 그런데 <strong>오래 열려 있는 트랜잭션</strong>(또는 오래된 스냅샷)이 하나라도 있으면, 그 트랜잭션이 볼 수도 있는 옛 버전들을 VACUUM이 <strong>치우지 못하고 보존</strong>해야 합니다. 결과적으로 죽은 튜플이 회수되지 못해 <strong>전체 DB에 bloat이 누적</strong>됩니다.</p>
-
-  <div class="box warn">
-    <span class="ic">⚠️</span>
-    <span class="label">트랜잭션은 짧게 — 화면을 보며 트랜잭션을 열어 두지 마라</span>
-    <p>"<code>BEGIN</code> 후 사용자 입력을 기다린다", "분석 쿼리를 한 시간째 돌린다", "커넥션을 잡고 잊어버린 좀비 트랜잭션" — 이런 <strong>오래된 스냅샷</strong>이 VACUUM의 회수 지점을 과거에 묶어 둡니다. <code>SELECT * FROM pg_stat_activity WHERE state &lt;&gt; 'idle' ORDER BY xact_start;</code>로 오래된 트랜잭션을 찾고, <code>idle_in_transaction_session_timeout</code>으로 방치된 트랜잭션을 자동 종료시키세요. <strong>트랜잭션은 짧게 열고 빨리 닫는 것</strong>이 MVCC 시스템의 위생 수칙입니다.</p>
-  </div>
-
-  <div class="compare">
-    <div class="compare__mysql">
-      <div class="compare__head">옛 버전 관리 <span class="tag">MySQL</span></div>
-      <p>MySQL InnoDB도 MVCC를 쓰지만, 옛 버전을 <strong>테이블 밖의 undo log</strong>(롤백 세그먼트)에 둡니다. 현재 행은 제자리에서 갱신되고, 옛 버전이 필요한 읽기는 undo를 따라 되돌려 재구성합니다. 더는 필요 없어진 undo는 <strong>purge 스레드</strong>가 정리합니다. 긴 트랜잭션이 있으면 undo가 쌓여 <strong>"history list length"</strong>가 길어집니다(PG의 bloat와 비슷한 증상).</p>
-    </div>
-    <div class="compare__pg">
-      <div class="compare__head">옛 버전 관리 <span class="tag">PostgreSQL</span></div>
-      <p>PostgreSQL은 옛 버전을 <strong>테이블 안</strong>(같은 페이지/힙)에 그대로 두고, <code>xmin</code>/<code>xmax</code>로 가시성을 판단합니다. 그래서 죽은 튜플이 테이블에 직접 쌓이고, 이를 <strong><code>VACUUM</code>/autovacuum</strong>이 회수합니다. 별도 undo 로그가 없는 대신 <strong>VACUUM 운영</strong>이 PG 성능 관리의 핵심이 됩니다.</p>
-    </div>
-  </div>
-
-  <div class="section-divider">복습</div>
-
-  <h2><span class="num">5</span>✅ 셀프 체크</h2>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> 하나의 <code>UPDATE</code>는 무엇을 만드나?</summary>
-    <div class="answer"><p><strong>새 행 버전 하나</strong>와 <strong>죽은 튜플 하나</strong>(만료된 옛 버전)를 만듭니다. PG는 행을 제자리에서 덮어쓰지 않고, 새 버전을 쓴 뒤 옛 버전의 <code>xmax</code>를 채워 만료시킵니다. 그래서 같은 행을 N번 UPDATE하면 죽은 튜플이 약 N개 쌓이고, <code>ctid</code>(물리 위치)가 옮겨집니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>VACUUM</code>의 역할은? <code>VACUUM FULL</code>과 무엇이 다른가?</summary>
-    <div class="answer"><p>일반 <code>VACUUM</code>은 죽은 튜플을 회수해 그 공간을 <strong>같은 테이블이 재사용</strong>하도록 표시합니다 — 파일 크기는 거의 그대로이고, 테이블을 잠그지 않습니다. <code>VACUUM FULL</code>은 테이블을 <strong>통째로 재작성</strong>해 디스크를 OS에 반환하지만, <strong>ACCESS EXCLUSIVE 락</strong>으로 읽기·쓰기를 모두 막으므로 운영 중에는 위험합니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> 긴 트랜잭션이 bloat을 부르는 이유는?</summary>
-    <div class="answer"><p>VACUUM은 "어떤 살아 있는 트랜잭션도 더는 못 보는" 죽은 튜플만 회수할 수 있습니다. 오래 열린 트랜잭션(오래된 스냅샷)이 있으면, 그 스냅샷이 볼 수도 있는 옛 버전들을 VACUUM이 <strong>치우지 못하고 보존</strong>해야 해서 죽은 튜플이 회수되지 못합니다. 그래서 트랜잭션을 짧게 유지하고 방치된 트랜잭션을 자동 종료시키는 것이 중요합니다.</p></div>
-  </details>
-
-  <h2><span class="num">6</span>🔗 참고 링크</h2>
-  <ul class="refs">
-    <li><a href="https://www.postgresql.org/docs/current/mvcc.html">Concurrency Control (MVCC) — PostgreSQL 공식 문서</a></li>
-    <li><a href="https://www.postgresql.org/docs/current/routine-vacuuming.html">Routine Vacuuming — PostgreSQL 공식 문서</a></li>
-    <li><a href="https://www.postgresql.org/docs/current/runtime-config-autovacuum.html">Automatic Vacuuming (설정) — PostgreSQL 공식 문서</a></li>
-  </ul>
-
-  <nav class="pager">
-    <a class="prev" href="01-transaction-isolation.html"><span class="dir">← 이전</span><span class="ttl">트랜잭션 · 격리 수준</span></a>
-    <a class="next" href="03-locks.html"><span class="dir">다음 →</span><span class="ttl">락 · 데드락 · advisory</span></a>
-  </nav>
-</main>
-
-<footer class="foot">PostgreSQL 셀프 스터디 · Week 5 · Lesson 02 · MVCC · VACUUM</footer>
+<script src="../assets/script.js"></script>
 </body>
 </html>

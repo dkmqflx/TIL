@@ -3,213 +3,328 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Week 6·03 — 연결 풀링 · 확장 · 백업 · 회고</title>
-<link rel="stylesheet" href="../assets/style.css">
+<title>Week 6·03 — 연결 풀링 · 확장 · 백업 · 회고 — 실전 PostgreSQL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<link rel="stylesheet" href="../assets/style.css" />
 </head>
 <body>
+<div class="layout">
 
-<nav class="topbar">
-  <span class="crumb"><a href="../index.html">← 커리큘럼</a> &nbsp;/&nbsp; <b>Week 6 · RLS · 권한 · 운영 · 확장</b></span>
-  <span>03 / 03</span>
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../index.html">
+      <span class="logo-badge">PostgreSQL</span>
+      <span class="logo-text">앱 개발자를 위한 실전 Postgres</span>
+    </a>
+    <div class="logo-sub">6주 셀프 스터디 · JSONB · 인덱스 · MVCC · RLS</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="../week01-overview-env-types/01-why-postgres-architecture.html"><span class="wk-no">1</span> Week 1 · 큰 그림 &amp; 환경 &amp; 타입</a>
+    <a class="nav-week" href="../week02-schema-write-power/01-ddl-constraints-keys.html"><span class="wk-no">2</span> Week 2 · 스키마 &amp; 쓰기 기능 <span class="star">★</span></a>
+    <a class="nav-week" href="../week03-jsonb-search/01-jsonb.html"><span class="wk-no">3</span> Week 3 · JSONB &amp; 검색 <span class="star">★</span></a>
+    <a class="nav-week" href="../week04-index-performance/01-index-types.html"><span class="wk-no">4</span> Week 4 · 인덱스 &amp; 쿼리 성능 <span class="star">★</span></a>
+    <a class="nav-week" href="../week05-transaction-concurrency/01-transaction-isolation.html"><span class="wk-no">5</span> Week 5 · 트랜잭션 &amp; MVCC <span class="star">★</span></a>
+
+    <div class="nav-week active"><span class="wk-no">6</span> Week 6 · RLS &amp; 권한 &amp; 운영 <span class="star">★</span></div>
+    <div class="nav-week-group">
+      <div class="nav-lesson-title">01 · RLS · 멀티테넌시</div>
+      <a class="nav-item" href="01-rls.html#what-is-rls">🛡️ RLS란 &amp; 왜 필요한가</a>
+      <a class="nav-item" href="01-rls.html#policy">📜 USING vs WITH CHECK</a>
+      <a class="nav-item" href="01-rls.html#multitenancy">🏢 멀티테넌시 실전</a>
+      <a class="nav-item" href="01-rls.html#gotcha">⚠️ superuser 우회 함정</a>
+      <div class="nav-lesson-title">02 · ROLE · 권한</div>
+      <a class="nav-item" href="02-roles-privileges.html#role-model">👤 ROLE = 유저 + 그룹</a>
+      <a class="nav-item" href="02-roles-privileges.html#privileges">🔑 스키마 USAGE와 권한</a>
+      <a class="nav-item" href="02-roles-privileges.html#least-privilege">🔒 앱 전용 최소 권한</a>
+      <a class="nav-item" href="02-roles-privileges.html#auth">🪪 인증 (PG18 OAuth)</a>
+      <div class="nav-lesson-title">03 · 풀링 · 확장 · 백업</div>
+      <a class="nav-item" href="#pooling">🚕 연결 풀링</a>
+      <a class="nav-item" href="#extensions">🧩 확장 생태계</a>
+      <a class="nav-item" href="#backup">💾 백업과 복구</a>
+      <a class="nav-item" href="#retrospective">🎓 6주 회고</a>
+      <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
+    </div>
+  </div>
 </nav>
 
-<header class="head">
-  <span class="kicker">◆ Week 6 — Lesson 03</span>
-  <h1>연결 풀링 · 확장<br>백업 · 회고</h1>
-  <p class="subtitle">운영의 마지막 조각 — 연결을 풀로 아끼고(PgBouncer), 확장으로 기능을 더하고(pgcrypto·pg_trgm·pgvector), 정기적으로 백업합니다. 그리고 <strong>6주를 돌아봅니다</strong>.</p>
-</header>
+<main class="main" id="top">
 
-<div class="summary">
-  <div class="summary__inner">
-    <span class="big">“</span>
-    <p>운영의 마지막 조각: 연결을 풀로 아끼고(<b>PgBouncer</b>), 확장으로 기능을 더하고(<b>pgcrypto·pg_trgm·pgvector</b>), 정기적으로 백업한다. 그리고 6주를 돌아본다.</p>
+  <div class="lesson-head">
+    <h1>연결 풀링 · 확장 · 백업 — 그리고 6주 회고</h1>
+    <p class="lesson-subtitle">운영의 마지막 조각입니다. 연결을 풀로 아끼고(PgBouncer), 확장으로 기능을 더하고(pgcrypto·pgvector), 정기적으로 백업합니다. 그리고 <strong>6주를 돌아봅니다</strong>.</p>
   </div>
-</div>
 
-<main class="wrap">
+  <div class="tip-box"><strong>여기서 Week 1과 이어집니다.</strong> 첫 레슨에서 배운 <b>"Postgres는 연결 하나 = 프로세스 하나라서 연결이 비싸다"</b>가 기억나시나요? 그 문제의 <b>실제 해법</b>이 이 레슨의 첫 섹션입니다. 6주가 한 바퀴 돌아 제자리로 옵니다.</div>
 
-  <ul class="goals">
-    <li>연결 풀링(PgBouncer 풀 모드·풀 사이징·서버리스)을 이해한다</li>
-    <li>확장 생태계(pgcrypto·pg_trgm·<strong>pgvector</strong>)를 안다</li>
-    <li>백업(<code>pg_dump</code>·<code>pg_basebackup</code>·증분)을 알고 <strong>6주를 회고</strong>한다</li>
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>연결 풀링의 원리와 PgBouncer 풀 모드를 이해한다</li>
+    <li>서버리스 환경의 connection storm에 대응하는 법을 안다</li>
+    <li>확장 생태계(pgcrypto · pg_trgm · pgvector)를 활용한다</li>
+    <li>논리 백업과 물리 백업의 차이를 알고, "복구 테스트"의 중요성을 이해한다</li>
   </ul>
 
-  <h2><span class="num">1</span>연결 풀링 — '연결은 비싸다'의 해법</h2>
-  <p>🍔 택시 콜센터를 떠올려 보세요. 손님마다 차를 새로 사지 않고, <strong>대기 중인 택시 풀</strong>에서 한 대를 배차하고 끝나면 돌려받습니다. DB 연결도 마찬가지입니다. Week 1에서 본 것처럼 PostgreSQL은 <strong>연결마다 OS 프로세스를 하나 띄워</strong> 연결 생성·유지 비용이 큽니다. 매 요청마다 새로 연결하면 금방 한계(<code>max_connections</code>)에 부딪힙니다.</p>
-  <p><strong>PgBouncer</strong>는 앱과 DB 사이에 끼어 <strong>소수의 실제 연결을 재사용</strong>해 주는 경량 풀러입니다. 핵심은 <strong>풀 모드</strong> 선택입니다.</p>
+  <section class="section" id="pooling">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🚕</div>
+      <h2>연결 풀링 — "연결은 비싸다"의 해법</h2>
+    </div>
 
-  <table class="tbl">
-    <thead><tr><th>풀 모드</th><th>연결을 언제 반납</th><th>특징 · 주의</th></tr></thead>
-    <tbody>
-      <tr><td><strong>session</strong></td><td>클라이언트 연결이 끊길 때</td><td>가장 안전(세션 상태 보존). 재사용 효율은 낮음</td></tr>
-      <tr><td><strong>transaction</strong></td><td><strong>트랜잭션이 끝날 때마다</strong></td><td>가장 널리 쓰임. 재사용 효율 높음. 단 세션 상태(prepared statement·<code>SET</code> 등)에 주의</td></tr>
-      <tr><td><strong>statement</strong></td><td>문장 하나가 끝날 때마다</td><td>가장 공격적. 멀티문 트랜잭션 불가</td></tr>
-    </tbody>
-  </table>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 택시 콜센터.</strong> 손님이 올 때마다 <strong>차를 새로 사지</strong> 않습니다. 대기 중인 <strong>택시 풀</strong>에서 한 대를 배차하고, 운행이 끝나면 다시 풀로 돌려받죠. 손님이 1,000명이어도 택시 30대로 돌릴 수 있습니다. DB 연결도 똑같습니다.</div>
+    </div>
 
-  <p><strong>풀 사이징</strong>의 직관: 연결 수는 무작정 늘리는 게 아닙니다. 실제로 일하는 연결은 <strong>CPU 코어 수에 가깝게</strong> 두는 것이 좋고(보통 코어 수의 몇 배 이내), 그 위에서 PgBouncer가 수천 개의 클라이언트 연결을 소수의 서버 연결로 접어 줍니다. PgBouncer의 풀 크기 합은 DB의 <code>max_connections</code>보다 작아야 합니다.</p>
+    <p>Week 1에서 본 대로 PostgreSQL은 <strong>연결마다 OS 프로세스를 하나 띄웁니다</strong>. 그래서 연결을 만드는 것도 유지하는 것도 비싸고, 매 요청마다 새로 연결하면 금방 <code>max_connections</code> 한계에 부딪힙니다.</p>
 
-  <div class="box warn">
-    <span class="ic">⚠️</span>
-    <span class="label">서버리스의 connection storm</span>
-    <p>서버리스(Lambda·Edge 등)는 요청마다 인스턴스가 떴다 사라지며 <strong>저마다 새 DB 연결을 열어</strong>, 트래픽이 몰리면 순식간에 수천 연결이 폭증(connection storm)해 DB가 <code>too many connections</code>로 무너질 수 있습니다. 해법은 <strong>앞단에 외부 풀러(PgBouncer 등)를 두거나</strong>, 서버리스용 <strong>HTTP/풀링 드라이버</strong>(예: 매니지드 Postgres가 제공하는 연결 풀러)를 쓰는 것입니다. transaction 풀 모드가 이 시나리오의 단골 선택입니다.</p>
-  </div>
+    <p><strong>PgBouncer</strong>는 앱과 DB 사이에 끼어 <strong>소수의 실제 연결을 여러 클라이언트가 돌려 쓰게</strong> 해주는 경량 풀러입니다. 핵심은 <strong>"언제 연결을 반납할 것인가"</strong>, 즉 풀 모드 선택입니다.</p>
 
-  <h2><span class="num">2</span>확장(extension) — Postgres에 기능을 끼워 넣기</h2>
-  <p>PostgreSQL의 큰 강점은 <strong>확장 생태계</strong>입니다. <code>CREATE EXTENSION</code> 한 줄로 새 함수·타입·인덱스를 추가할 수 있습니다. 여기서는 공식 이미지의 <code>contrib</code>에 들어 있는 <strong>pgcrypto</strong>와 <strong>pg_trgm</strong>을 실제로 실행해 봅니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>풀 모드</th><th>연결을 언제 반납</th><th>특징과 주의점</th></tr></thead>
+        <tbody>
+          <tr><td><b>session</b></td><td>클라이언트 연결이 끊길 때</td><td>가장 안전(세션 상태 보존). 재사용 효율은 낮음</td></tr>
+          <tr><td><b>transaction</b><br>(가장 널리 쓰임)</td><td><b>트랜잭션이 끝날 때마다</b></td><td>재사용 효율이 높음. 단 <b>세션 상태</b>(prepared statement, <code>SET</code> 등)가 다음 사용자에게 안 넘어가니 주의</td></tr>
+          <tr><td><b>statement</b></td><td>문장 하나가 끝날 때마다</td><td>가장 공격적. <b>여러 문장으로 된 트랜잭션 불가</b></td></tr>
+        </tbody>
+      </table>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 확장 설치 &amp; pgcrypto 비밀번호 해싱</span></div><pre><span class="k">CREATE EXTENSION IF NOT EXISTS</span> pgcrypto;
-<span class="k">CREATE EXTENSION IF NOT EXISTS</span> pg_trgm;
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>transaction 모드를 쓸 때 주의 — RLS 세션 변수.</strong> 앞 레슨에서 RLS에 쓴 <code>SET app.current_tenant</code>를 기억하세요. transaction 모드에서는 트랜잭션이 끝나면 <strong>연결이 다른 요청에게 넘어갑니다</strong>. 세션 변수를 트랜잭션 밖에서 설정하면 <strong>다른 테넌트의 요청이 그 값을 물려받을 수</strong> 있습니다. 반드시 <strong>트랜잭션 안에서 <code>set_config(..., true)</code>(local=true)</strong>로 설정해 트랜잭션 종료 시 함께 사라지게 하세요.</div>
+    </div>
 
-<span class="c">-- 주의: gen_random_uuid() 는 PG13+ '코어' 함수다(pgcrypto 아님).</span>
-<span class="c">--       pgcrypto 고유의 가치는 crypt()/gen_salt()/digest()/hmac().</span>
+    <p><strong>풀 크기는 어떻게 정할까요?</strong> 직관과 반대입니다 — 무작정 늘리면 안 됩니다. <strong>실제로 동시에 일하는 연결은 CPU 코어 수에 가깝게</strong> 두는 것이 좋습니다(보통 코어 수의 몇 배 이내). 그 위에서 PgBouncer가 <strong>수천 개의 클라이언트 연결을 소수의 서버 연결로 접어줍니다</strong>. 당연히 PgBouncer의 풀 크기 합은 DB의 <code>max_connections</code>보다 작아야 합니다.</p>
 
-<span class="c">-- crypt + gen_salt(bcrypt): 같은 비밀번호도 salt 때문에 매번 다른 해시</span>
-<span class="k">SELECT</span> <span class="f">crypt</span>(<span class="s">'s3cret'</span>, <span class="f">gen_salt</span>(<span class="s">'bf'</span>)) &lt;&gt; <span class="f">crypt</span>(<span class="s">'s3cret'</span>, <span class="f">gen_salt</span>(<span class="s">'bf'</span>))
-       <span class="k">AS</span> two_hashes_differ;
-<span class="c"> two_hashes_differ</span>
-<span class="c">-------------------</span>
-<span class="c"> t</span>
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>서버리스의 connection storm.</strong> Lambda나 Edge Function 같은 서버리스 환경은 요청마다 인스턴스가 떴다 사라지며 <strong>저마다 새 DB 연결을 엽니다</strong>. 트래픽이 몰리면 순식간에 수천 개의 연결이 DB를 덮쳐 <code>too many connections</code>로 무너집니다.</p>
+      <p>해법은 <strong>앞단에 외부 풀러를 두거나</strong>(PgBouncer 등), 매니지드 Postgres가 제공하는 <strong>서버리스 전용 연결 풀러/HTTP 드라이버</strong>를 쓰는 것입니다. 이때 <strong>transaction 풀 모드</strong>가 단골 선택입니다 — 인스턴스가 짧게 살다 사라지므로 세션을 붙들고 있을 이유가 없으니까요.</p></div>
+    </div>
+  </section>
 
-<span class="c">-- 저장된 해시로 검증: 맞는 비번이면 같은 값으로 재계산된다</span>
-<span class="k">WITH</span> h <span class="k">AS</span> (<span class="k">SELECT</span> <span class="f">crypt</span>(<span class="s">'s3cret'</span>, <span class="f">gen_salt</span>(<span class="s">'bf'</span>)) <span class="k">AS</span> stored)
-<span class="k">SELECT</span> (stored = <span class="f">crypt</span>(<span class="s">'s3cret'</span>, stored)) <span class="k">AS</span> right_password_ok,
-       (stored = <span class="f">crypt</span>(<span class="s">'wrong'</span>,  stored)) <span class="k">AS</span> wrong_password_ok
-<span class="k">FROM</span> h;
-<span class="c"> right_password_ok | wrong_password_ok</span>
-<span class="c">-------------------+-------------------</span>
-<span class="c"> t                 | f</span>
+  <section class="section" id="extensions">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🧩</div>
+      <h2>확장(extension) — Postgres에 기능을 끼워 넣기</h2>
+    </div>
 
-<span class="c">-- digest: SHA-256 은 원문 길이와 무관하게 32바이트 고정</span>
-<span class="k">SELECT</span> <span class="f">length</span>(<span class="f">digest</span>(<span class="s">'hello'</span>, <span class="s">'sha256'</span>)) <span class="k">AS</span> sha256_bytes;
-<span class="c"> sha256_bytes</span>
-<span class="c">--------------</span>
-<span class="c">           32</span></pre></div>
+    <p>Week 1에서 "브라우저 확장 프로그램처럼 DB에 기능을 끼워 넣는다"고 했던 그 확장입니다. <code>CREATE EXTENSION</code> 한 줄로 새 함수·타입·인덱스 방식이 추가됩니다. 여기서는 공식 이미지에 이미 들어 있는(<code>contrib</code>) 두 가지를 직접 써봅니다.</p>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — pg_trgm 유사도(오타·유사 검색의 기반)</span></div><pre><span class="c">-- 트라이그램 유사도: 1 에 가까울수록 비슷(Week 3 검색에서 봤던 그 확장)</span>
-<span class="k">SELECT</span> word, <span class="f">similarity</span>(word, <span class="s">'postgre'</span>) <span class="k">AS</span> sim
-<span class="k">FROM</span> (<span class="k">VALUES</span> (<span class="s">'postgresql'</span>),(<span class="s">'postgrey'</span>),(<span class="s">'mysql'</span>)) <span class="k">AS</span> t(word)
-<span class="k">ORDER BY</span> sim <span class="k">DESC</span>;
-<span class="c">    word    |    sim</span>
-<span class="c">------------+-----------</span>
-<span class="c"> postgrey   |       0.7</span>
-<span class="c"> postgresql | 0.5833333</span>
-<span class="c"> mysql      |         0</span>
-<span class="c">(3 rows)</span></pre></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">study_db=# — pgcrypto로 비밀번호 해싱</span></div>
+      <pre><code class="language-sql">CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-  <p>2026년 실무에서 점점 중요해진 확장이 <strong>pgvector</strong>입니다 — AI 임베딩을 저장하고 <strong>의미 기반 유사도 검색(RAG)</strong>을 합니다. Postgres가 별도 벡터 DB 없이 <strong>그 자체로 벡터 검색 엔진</strong>이 되는 셈입니다. 다만 한 가지 중요한 주의가 있습니다.</p>
+-- crypt + gen_salt(bcrypt): 같은 비밀번호도 salt 때문에 매번 다른 해시가 나온다
+SELECT crypt('s3cret', gen_salt('bf')) <> crypt('s3cret', gen_salt('bf'))
+       AS two_hashes_differ;
+--  two_hashes_differ
+-- -------------------
+--  t
 
-  <div class="box warn">
-    <span class="ic">⚠️</span>
-    <span class="label">pgvector는 공식 postgres 이미지에 없다 — 그래서 아래는 '실행하지 않는' 예제</span>
-    <p><code>vector</code> 확장은 공식 <code>postgres:18</code> 이미지에 <strong>들어 있지 않습니다</strong>. 이 코드를 그대로 실행하면 <code>CREATE EXTENSION vector</code>에서 실패합니다. 쓰려면 <strong><code>pgvector/pgvector:pg18</code> 이미지</strong>를 쓰거나, 확장을 따로 설치해야 합니다. 아래는 "이렇게 쓴다"는 개념 예시로, 이번 주차 검증 스크립트에서는 실행하지 않았습니다.</p>
-  </div>
+-- 저장된 해시로 검증: 맞는 비번이면 같은 값으로 재계산된다
+WITH h AS (SELECT crypt('s3cret', gen_salt('bf')) AS stored)
+SELECT (stored = crypt('s3cret', stored)) AS right_password_ok,
+       (stored = crypt('wrong',  stored)) AS wrong_password_ok
+FROM h;
+--  right_password_ok | wrong_password_ok
+-- -------------------+-------------------
+--  t                 | f</code></pre>
+    </div>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">개념 예시 (pgvector 이미지 필요) — 실행 안 함</span></div><pre><span class="k">CREATE EXTENSION</span> vector;                  <span class="c">-- 공식 postgres:18 엔 없음!</span>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이 코드가 보여주는 것 — salt의 원리.</strong> 같은 비밀번호 <code>'s3cret'</code>를 두 번 해싱했는데 <strong>결과가 다릅니다</strong>. 매번 무작위 salt가 섞이기 때문이죠. 그래서 해시 값만 봐서는 <strong>두 사용자가 같은 비밀번호를 쓰는지조차 알 수 없습니다</strong>. 검증할 때는 <code>crypt('s3cret', stored)</code>처럼 <strong>저장된 해시를 salt로 재사용</strong>해 다시 계산하면 같은 값이 나옵니다. 이게 bcrypt 검증의 원리입니다.</div>
+    </div>
 
-<span class="k">CREATE TABLE</span> items (
-  id        <span class="t">bigserial</span> <span class="k">PRIMARY KEY</span>,
-  content   <span class="t">text</span>,
-  embedding <span class="t">vector</span>(<span class="n">1536</span>)                   <span class="c">-- 임베딩 차원(예: OpenAI)</span>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>헷갈리기 쉬운 점.</strong> <code>gen_random_uuid()</code>는 pgcrypto가 아니라 <strong>PG13+ 코어 함수</strong>입니다(확장 없이 바로 쓸 수 있습니다). pgcrypto의 고유한 가치는 <code>crypt()</code>·<code>gen_salt()</code>·<code>digest()</code>·<code>hmac()</code> 같은 <strong>암호화·해싱 함수</strong>들입니다.</div>
+    </div>
+
+    <p>그리고 2026년 현재 가장 주목받는 확장은 단연 <strong>pgvector</strong>입니다. AI 임베딩을 저장하고 <strong>의미 기반 유사도 검색(RAG)</strong>을 수행하죠. Postgres가 별도의 벡터 DB 없이 <strong>그 자체로 벡터 검색 엔진</strong>이 되는 셈입니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>단, pgvector는 공식 postgres 이미지에 없습니다.</strong> <code>vector</code> 확장은 <code>postgres:18</code> 이미지에 <strong>포함돼 있지 않아</strong>, 아래 코드를 그대로 실행하면 <code>CREATE EXTENSION vector</code>에서 실패합니다. 쓰려면 <strong><code>pgvector/pgvector:pg18</code> 이미지</strong>를 쓰거나 확장을 직접 설치해야 합니다. 아래는 "이렇게 쓴다"는 <strong>개념 예시</strong>입니다.</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><span class="code-filename">개념 예시 (pgvector 이미지 필요) — 실행 안 함</span></div>
+      <pre><code class="language-sql">CREATE EXTENSION vector;                  -- 공식 postgres:18엔 없음!
+
+CREATE TABLE docs (
+  id        bigserial PRIMARY KEY,
+  content   text,
+  embedding vector(1536)                  -- 임베딩 차원
 );
 
-<span class="c">-- 코사인 거리(&lt;=&gt;)로 질의 벡터와 가장 가까운 5개 (RAG 검색)</span>
-<span class="k">SELECT</span> id, content <span class="k">FROM</span> items
-<span class="k">ORDER BY</span> embedding &lt;=&gt; $1 <span class="k">LIMIT</span> <span class="n">5</span>;
+-- 코사인 거리(<=>)로 질의 벡터와 가장 가까운 5개 (RAG 검색)
+SELECT id, content FROM docs
+ORDER BY embedding <=> $1 LIMIT 5;
 
-<span class="c">-- 근사 최근접(ANN) 인덱스: HNSW 또는 IVFFlat</span>
-<span class="k">CREATE INDEX ON</span> items <span class="k">USING</span> hnsw (embedding vector_cosine_ops);</pre></div>
+-- 근사 최근접(ANN) 인덱스: HNSW 또는 IVFFlat
+CREATE INDEX ON docs USING hnsw (embedding vector_cosine_ops);</code></pre>
+    </div>
 
-  <h2><span class="num">3</span>백업 — 복구 테스트까지 해야 진짜 백업</h2>
-  <p>백업은 크게 둘입니다. <strong>논리 백업</strong>(<code>pg_dump</code>: SQL/데이터를 추출)과 <strong>물리 백업</strong>(<code>pg_basebackup</code>: 데이터 파일 자체를 복사). 이 도구들은 SQL이 아니라 <strong>셸 명령</strong>이므로, 검증 스크립트에서는 개념으로 정리합니다(클러스터 버전만 SQL로 확인).</p>
+    <p>마지막 줄을 눈여겨보세요. Week 4에서 배운 <code>USING</code> 문법 그대로입니다. <strong>확장이 새로운 인덱스 방식(<code>hnsw</code>)을 추가</strong>하고, 우리는 이미 아는 문법으로 그걸 씁니다. Postgres 확장 생태계의 우아함이 여기 있습니다.</p>
+  </section>
 
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">shell — 백업/복원 명령 정리</span></div><pre><span class="c"># 논리 백업: 커스텀 포맷(-Fc) → 압축 + pg_restore 로 선택 복원 가능</span>
-pg_dump -Fc study_db &gt; study.dump
+  <section class="section" id="backup">
+    <div class="section-header">
+      <div class="section-icon icon-delete">💾</div>
+      <h2>백업 — 복구 테스트까지 해야 진짜 백업</h2>
+    </div>
+
+    <p>백업 방식은 크게 둘로 나뉩니다. 차이를 비유로 잡아둡시다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 레시피 적어두기 vs 주방 통째로 사진 찍기.</strong> <strong>논리 백업(<code>pg_dump</code>)</strong>은 <strong>레시피를 글로 적어두는 것</strong>입니다. "이 테이블은 이런 구조고, 데이터는 이렇다"를 SQL로 기록하죠. 다른 버전·다른 서버에서도 재현할 수 있고, 필요한 테이블만 골라 복원할 수도 있습니다. <strong>물리 백업(<code>pg_basebackup</code>)</strong>은 <strong>주방을 통째로 촬영</strong>하는 것입니다. 파일을 그대로 복사하니 빠르고 완전하지만, <strong>같은 버전의 Postgres</strong>에만 되돌릴 수 있습니다.</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">shell — 백업/복원 명령 정리</span></div>
+      <pre><code class="language-bash"># 논리 백업: 커스텀 포맷(-Fc) → 압축 + pg_restore로 선택 복원 가능
+pg_dump -Fc study_db > study.dump
 pg_restore -d study_db study.dump
 
-<span class="c"># 롤(권한)·테이블스페이스 등 클러스터 전역 객체까지</span>
-pg_dumpall --roles-only &gt; roles.sql
+# 롤(권한)·테이블스페이스 등 클러스터 전역 객체까지 (DB 안에 없는 것들)
+pg_dumpall --roles-only > roles.sql
 
-<span class="c"># 물리 백업: 클러스터 파일 전체(복제 구성·PITR 의 토대)</span>
+# 물리 백업: 클러스터 파일 전체 (복제 구성·PITR의 토대)
 pg_basebackup -D /backup -Ft -z
 
-<span class="c"># (PG17+) 증분 백업: 직전 백업 이후 바뀐 블록만</span>
-pg_basebackup --incremental=backup_manifest -D /backup2</pre></div>
-
-  <div class="code"><div class="code__bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="name">study_db=# — 클러스터 버전 확인(증분 백업은 PG17+)</span></div><pre><span class="k">SHOW</span> server_version;
-<span class="c">        server_version</span>
-<span class="c">-------------------------------</span>
-<span class="c"> 18.4 (Debian 18.4-1.pgdg13+1)</span>
-<span class="c">(1 row)</span></pre></div>
-
-  <p><strong>PITR(Point-In-Time Recovery)</strong>는 베이스 백업 + WAL 아카이브를 합쳐 "장애 직전 특정 시각"으로 복원하는 기법입니다. PG17부터는 <code>pg_basebackup --incremental</code>로 <strong>직전 백업 이후 바뀐 블록만</strong> 떠서 백업 비용을 크게 줄일 수 있습니다.</p>
-
-  <div class="box warn">
-    <span class="ic">⚠️</span>
-    <span class="label">복구 테스트 없는 백업은 백업이 아니다</span>
-    <p>가장 흔한 운영 사고는 "백업은 돌고 있었는데 <strong>막상 복구해 보니 안 됐다</strong>"입니다. 백업 파일 존재 ≠ 복구 가능. 정기적으로 <strong>별도 환경에 실제로 복원해 보는 리허설</strong>까지 해야 진짜 백업입니다. 복구에 걸리는 시간(RTO)과 잃어도 되는 데이터량(RPO)을 미리 정하고, 그 목표를 만족하는지 검증하세요.</p>
-  </div>
-
-  <div class="compare">
-    <div class="compare__mysql">
-      <div class="compare__head">연결 · 기능 <span class="tag">MySQL</span></div>
-      <p>MySQL은 연결을 <strong>스레드</strong>로 다뤄(프로세스가 아니라) 연결 비용이 상대적으로 낮고, 풀링 없이도 비교적 많은 연결을 버팁니다. 기능은 상당수가 <strong>엔진에 내장</strong>되는 경향이고, 백업은 <code>mysqldump</code>·<code>xtrabackup</code> 등을 씁니다.</p>
+# (PG17+) 증분 백업: 직전 백업 이후 바뀐 블록만
+pg_basebackup --incremental=backup_manifest -D /backup2</code></pre>
     </div>
-    <div class="compare__pg">
-      <div class="compare__head">연결 · 기능 <span class="tag">PostgreSQL</span></div>
-      <p>PostgreSQL은 연결마다 <strong>프로세스</strong>를 쓰므로 다수 연결 환경에서 <strong>외부 풀러(PgBouncer 등)가 사실상 필수</strong>입니다. 대신 <strong>확장 생태계</strong>(pgcrypto·pg_trgm·pgvector·PostGIS …)로 기능을 자유롭게 더할 수 있고, 백업은 <code>pg_dump</code>(논리)와 <code>pg_basebackup</code>(물리·증분)으로 다룹니다.</p>
+
+    <p>두 번째 명령을 놓치기 쉽습니다. <strong>롤과 권한은 특정 DB가 아니라 클러스터 전역에 저장</strong>되므로, <code>pg_dump</code>만으로는 백업되지 않습니다. 복구했더니 <strong>테이블은 있는데 앱 유저가 없어</strong> 접속이 안 되는 사고가 여기서 나옵니다.</p>
+
+    <p><strong>PITR(Point-In-Time Recovery)</strong>는 베이스 백업 + WAL 아카이브를 합쳐 <strong>"장애 직전 특정 시각"</strong>으로 되돌리는 기법입니다. "실수로 <code>DELETE</code>를 날린 오후 3시 27분 직전으로" 같은 복구가 가능하죠. PG17부터는 <code>pg_basebackup --incremental</code>로 <strong>바뀐 블록만</strong> 떠서 백업 비용을 크게 줄일 수 있습니다.</p>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>복구 테스트 없는 백업은 백업이 아닙니다.</strong></p>
+      <p>가장 흔한 운영 사고는 <strong>"백업은 매일 잘 돌고 있었는데, 막상 복구해 보니 안 됐다"</strong>입니다. 권한이 빠졌거나, 파일이 손상됐거나, 스크립트가 조용히 실패하고 있었거나. <strong>백업 파일이 존재한다는 것과 복구가 가능하다는 것은 전혀 다른 이야기</strong>입니다.</p>
+      <p>정기적으로 <strong>별도 환경에 실제로 복원해 보는 리허설</strong>까지 해야 진짜 백업입니다. 그리고 두 숫자를 미리 정하세요 — <strong>RTO</strong>(복구에 걸려도 되는 시간)와 <strong>RPO</strong>(잃어도 되는 데이터의 양). 그 목표를 만족하는지가 백업 전략의 합격 기준입니다.</p></div>
     </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header mysql">MySQL — 익숙한 방식</div>
+        <p>연결을 <strong>스레드</strong>로 다뤄 연결 비용이 낮고, 풀링 없이도 비교적 많은 연결을 버팁니다. 기능은 상당수가 <strong>엔진에 내장</strong>되는 경향이고, 백업은 <code>mysqldump</code>(논리)·<code>xtrabackup</code>(물리)을 씁니다.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header pg">PostgreSQL — 이렇게 다르다</div>
+        <p>연결마다 <strong>프로세스</strong>를 쓰므로 다수 연결 환경에서 <strong>외부 풀러가 사실상 필수</strong>입니다. 대신 <strong>확장 생태계</strong>(pgcrypto·pg_trgm·pgvector·PostGIS…)로 기능을 자유롭게 더할 수 있고, 백업은 <code>pg_dump</code>(논리)와 <code>pg_basebackup</code>(물리·증분)으로 다룹니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="retrospective">
+    <div class="section-header">
+      <div class="section-icon icon-pg">🎓</div>
+      <h2>6주 회고 &amp; 다음 로드맵</h2>
+    </div>
+
+    <p>여기까지 오셨습니다 — <strong>축하합니다!</strong> "기본 SQL은 알지만 Postgres 고유 기능은 처음"이던 자리에서 시작해, 이제 <strong>실무에서 Postgres를 자신 있게 다룰 토대</strong>를 갖추셨습니다. 6주를 한 줄씩 돌아봅시다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>큰 그림 · 환경 · 타입</strong> — "연결 하나 = 프로세스 하나"라는 Postgres의 정체성, Docker + psql 환경, 그리고 <code>IDENTITY</code>·<code>uuidv7()</code>·<code>timestamptz</code>·<code>numeric</code>이라는 <b>타입 선택의 원칙</b>.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>스키마 · 쓰기의 힘</strong> — 무결성을 <b>앱이 아니라 DB에</b> 맡기는 제약, <code>RETURNING</code>·UPSERT로 왕복과 경쟁 상태를 없애기, 트리거로 <code>updated_at</code>·감사 로그 자동화.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>JSONB · 검색</strong> — 관계형을 포기하지 않고 유연함을 얻는 <code>jsonb</code>와 GIN 인덱스, 배열·enum·range, 그리고 <code>tsvector</code>·<code>pg_trgm</code>으로 하는 진짜 검색.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>인덱스 · 성능</strong> — 데이터 모양에 맞춰 색인을 고르기, <code>EXPLAIN ANALYZE</code>로 <b>추측 대신 측정</b>하기, 통계의 중요성, 그리고 CTE·윈도우 함수·keyset 페이지네이션.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">5</div>
+        <div class="timeline-content"><strong>트랜잭션 · MVCC</strong> — MySQL과 다른 기본 격리 수준, 행을 덮어쓰지 않는 MVCC와 <code>VACUUM</code>, 그리고 락·데드락·<code>SKIP LOCKED</code> 큐 패턴.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">6</div>
+        <div class="timeline-content"><strong>RLS · 권한 · 운영</strong> — DB가 강제하는 행 수준 보안, 최소 권한 롤 설계, 연결 풀링·확장·백업까지.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><p><strong>다음 단계 — 더 깊이 가고 싶다면.</strong></p>
+      <p><strong>① 파티셔닝</strong> — 대규모 시계열·로그 테이블을 범위/리스트로 쪼개 관리와 성능을 동시에 잡습니다(<code>PARTITION BY</code>). Week 4의 BRIN과 함께 쓰면 강력합니다.<br>
+      <strong>② 논리 복제 · CDC</strong> — 변경 데이터를 다른 시스템(분석 DB, 검색 엔진, 이벤트 스트림)으로 흘려보냅니다.<br>
+      <strong>③ 모니터링</strong> — <code>pg_stat_statements</code>로 느린 쿼리를 추적하고, <code>pg_stat_activity</code>로 현재 상태를 관찰합니다. Week 5의 "긴 트랜잭션 찾기"가 여기서 이어집니다.<br>
+      <strong>④ 고가용성 · 레플리케이션</strong> — 스트리밍 복제와 페일오버로 무중단 운영을 만듭니다.</p>
+      <p>이 6주가 그 모든 주제로 가는 <strong>탄탄한 출발점</strong>입니다. 수고하셨습니다! 🎉</p></div>
+    </div>
+  </section>
+
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-pg">✅</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> PgBouncer는 어떤 문제를 푸나요?</summary>
+        <div class="qa-answer"><p>PostgreSQL은 연결마다 <strong>프로세스</strong>를 띄워 연결 생성·유지 비용이 크고 <code>max_connections</code> 한계도 있습니다. PgBouncer는 앱과 DB 사이에서 <strong>소수의 실제 연결을 재사용</strong>(특히 transaction 풀 모드)해, 수천 개의 클라이언트 연결을 소수의 서버 연결로 접어줍니다. 서버리스의 connection storm처럼 연결이 폭증하는 환경에서 특히 중요합니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> transaction 풀 모드에서 RLS 세션 변수를 쓸 때 주의할 점은?</summary>
+        <div class="qa-answer"><p>트랜잭션이 끝나면 <strong>연결이 다른 요청에게 넘어가므로</strong>, 트랜잭션 밖에서 <code>SET app.current_tenant</code>를 하면 <strong>다음 요청이 그 값을 물려받아 다른 테넌트 데이터가 샐 수</strong> 있습니다. 반드시 <strong>트랜잭션 안에서 <code>set_config(..., true)</code>(local=true)</strong>로 설정해 트랜잭션 종료와 함께 사라지게 하세요.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>pg_dump</code>와 <code>pg_basebackup</code>의 차이는?</summary>
+        <div class="qa-answer"><p><code>pg_dump</code>는 <strong>논리 백업</strong>으로 특정 DB의 스키마·데이터를 SQL/아카이브로 추출합니다("레시피를 적어두기") — 선택적 복원과 버전 간 이식에 유리합니다. <code>pg_basebackup</code>은 <strong>물리 백업</strong>으로 클러스터의 데이터 파일 자체를 복사합니다("주방을 통째로 촬영") — 복제 구성·PITR의 토대이고 PG17+는 증분 백업도 됩니다. 그리고 <strong>롤·권한은 <code>pg_dumpall --roles-only</code>로 따로</strong> 떠야 한다는 점을 잊지 마세요.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> "백업은 잘 돌고 있다"만으로 충분한가요?</summary>
+        <div class="qa-answer"><p>충분하지 않습니다. <strong>백업 파일의 존재와 복구 가능성은 다른 이야기</strong>입니다. 가장 흔한 운영 사고가 "백업은 있었는데 막상 복구해 보니 안 됐다"입니다. 정기적으로 <strong>별도 환경에 실제로 복원해 보는 리허설</strong>을 하고, <strong>RTO</strong>(복구 소요 시간)와 <strong>RPO</strong>(허용 데이터 손실량) 목표를 정해 그 기준을 만족하는지 검증해야 합니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>참고 링크</h2>
+    </div>
+    <ul class="refs">
+      <li><a href="https://www.pgbouncer.org/">PgBouncer — 연결 풀러 공식 문서</a></li>
+      <li><a href="https://www.postgresql.org/docs/current/pgcrypto.html">pgcrypto — PostgreSQL 공식 문서</a></li>
+      <li><a href="https://www.postgresql.org/docs/current/app-pgbasebackup.html">pg_basebackup (증분 백업 포함) — PostgreSQL 공식 문서</a></li>
+      <li><a href="https://www.postgresql.org/docs/current/backup-dump.html">SQL Dump (pg_dump) — PostgreSQL 공식 문서</a></li>
+    </ul>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-roles-privileges.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">ROLE · GRANT · 권한</span></a>
+    <a class="part-pager-link next" href="../index.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">커리큘럼 홈 (과정 완료 🎉)</span></a>
   </div>
 
-  <div class="section-divider">🎓 회고</div>
-
-  <h2><span class="num">4</span>🎓 6주 회고 &amp; 다음 로드맵</h2>
-  <p>여기까지 왔습니다 — 축하합니다! 기본 SQL은 알지만 Postgres 고유 기능은 처음이던 자리에서, 이제 <strong>실무에서 Postgres를 자신 있게 다룰 토대</strong>를 갖췄습니다. 6주를 한 줄씩 돌아봅시다.</p>
-  <ul class="goals">
-    <li><strong>Week 1 — 개요·환경·타입</strong>: Docker+psql 환경, Postgres 특유의 타입(<code>text</code>·<code>numeric</code>·배열 등)과 연결 비용.</li>
-    <li><strong>Week 2 — 스키마·쓰기의 힘</strong>: 제약·<code>RETURNING</code>·<code>UPSERT</code>(<code>ON CONFLICT</code>)·<code>GENERATED</code> 등 쓰기 표현력.</li>
-    <li><strong>Week 3 — JSONB·검색</strong>: <code>jsonb</code> 연산자·GIN 인덱스, 전문 검색·<code>pg_trgm</code> 유사 검색.</li>
-    <li><strong>Week 4 — 인덱스·성능</strong>: B-tree/GIN/부분·표현식 인덱스, <code>EXPLAIN (ANALYZE)</code>, CTE·윈도우·keyset 페이지네이션.</li>
-    <li><strong>Week 5 — 트랜잭션·동시성·MVCC</strong>: 격리 수준, MVCC·VACUUM, 락·<code>FOR UPDATE</code>·<code>SKIP LOCKED</code>·advisory lock.</li>
-    <li><strong>Week 6 — RLS·권한·운영</strong>: RLS 멀티테넌시, ROLE·최소 권한 유저, 풀링·확장·백업.</li>
-  </ul>
-
-  <div class="box tip">
-    <span class="ic">🚀</span>
-    <span class="label">다음 단계 — 더 깊이 가고 싶다면</span>
-    <p><strong>① 파티셔닝</strong> — 대규모 시계열·로그를 범위/리스트로 쪼개 관리·성능을 잡는다(<code>PARTITION BY</code>). <strong>② 논리 복제 · CDC</strong> — 변경 데이터를 다른 시스템으로 흘려보내기(분석·이벤트). <strong>③ 모니터링</strong> — <code>pg_stat_statements</code>로 느린 쿼리 추적, <code>pg_stat_activity</code>로 현재 상태 관찰. <strong>④ 고가용성 · 레플리케이션</strong> — 스트리밍 복제·페일오버로 무중단 운영. 이 6주가 그 모든 주제로 가는 <strong>탄탄한 출발점</strong>입니다. 수고하셨습니다! 🎉</p>
+  <div class="doc-footer">
+    PostgreSQL 셀프 스터디 · Week 6 · 03 · 풀링 · 확장 · 백업 · 회고 · <a href="../index.html">전체 커리큘럼으로</a>
   </div>
 
-  <div class="section-divider">복습</div>
-
-  <h2><span class="num">5</span>✅ 셀프 체크</h2>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> PgBouncer는 어떤 문제를 푸나?</summary>
-    <div class="answer"><p>PostgreSQL은 연결마다 <strong>프로세스</strong>를 띄워 연결 생성·유지 비용이 크고, <code>max_connections</code> 한계도 있습니다. PgBouncer는 앱과 DB 사이에서 <strong>소수의 실제 연결을 재사용</strong>(특히 transaction 풀 모드)해, 수천 개의 클라이언트 연결을 소수의 서버 연결로 접어 줍니다. 서버리스의 connection storm처럼 연결이 폭증하는 환경에서 특히 중요합니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> pgvector를 공식 postgres 이미지에서 바로 못 쓰는 이유는?</summary>
-    <div class="answer"><p><code>vector</code> 확장이 공식 <code>postgres:18</code> 이미지에 <strong>포함돼 있지 않기</strong> 때문입니다(pgcrypto·pg_trgm은 <code>contrib</code>에 들어 있어 바로 됨). pgvector를 쓰려면 <strong><code>pgvector/pgvector:pg18</code> 이미지</strong>를 쓰거나 확장을 직접 설치해야 하며, 그래서 <code>CREATE EXTENSION vector</code>는 이번 검증 스크립트에서 실행하지 않고 개념 예시로만 다뤘습니다.</p></div>
-  </details>
-  <details class="qa">
-    <summary><span class="qmark">Q</span> <code>pg_dump</code>와 <code>pg_basebackup</code>의 차이는?</summary>
-    <div class="answer"><p><code>pg_dump</code>는 <strong>논리 백업</strong>으로, 특정 DB의 스키마·데이터를 SQL/아카이브로 추출합니다(선택적 복원·이식에 유리). <code>pg_basebackup</code>은 <strong>물리 백업</strong>으로, 클러스터의 데이터 파일 자체를 복사합니다(복제 구성·PITR의 토대, PG17+는 증분 백업 가능). 즉 "내용을 다시 만들어 내는" 쪽이 <code>pg_dump</code>, "파일을 통째로 뜨는" 쪽이 <code>pg_basebackup</code>입니다.</p></div>
-  </details>
-
-  <h2><span class="num">6</span>🔗 참고 링크</h2>
-  <ul class="refs">
-    <li><a href="https://www.pgbouncer.org/">PgBouncer — 연결 풀러 공식 문서</a></li>
-    <li><a href="https://www.postgresql.org/docs/current/pgcrypto.html">pgcrypto — PostgreSQL 공식 문서</a></li>
-    <li><a href="https://www.postgresql.org/docs/current/app-pgbasebackup.html">pg_basebackup (증분 백업 포함) — PostgreSQL 공식 문서</a></li>
-    <li><a href="https://www.postgresql.org/docs/current/backup-dump.html">SQL Dump (pg_dump) — PostgreSQL 공식 문서</a></li>
-  </ul>
-
-  <nav class="pager">
-    <a class="prev" href="02-roles-privileges.html"><span class="dir">← 이전</span><span class="ttl">ROLE · GRANT · 권한</span></a>
-    <a class="next" href="../index.html"><span class="dir">다음 →</span><span class="ttl">커리큘럼으로 (과정 완료 🎉)</span></a>
-  </nav>
 </main>
+</div>
 
-<footer class="foot">PostgreSQL 셀프 스터디 · Week 6 · Lesson 03 · 풀링 · 확장 · 백업 · 회고</footer>
+<script src="../assets/script.js"></script>
 </body>
 </html>

@@ -25,7 +25,7 @@
 | 클라이언트 | **psql** | `\d` 패밀리 메타 명령으로 DB 내부 탐색 |
 | 컨테이너 | **Docker / docker compose** | `docker compose up -d` 한 줄로 DB 기동 |
 | 비교 학습 | **MySQL ↔ PostgreSQL 비교 패널** | 아는 문법을 Postgres로 빠르게 전이 |
-| 디자인 | 공유 `assets/style.css` | 모든 `.html`이 공유하는 디자인 시스템 |
+| 디자인 | 사이드바 레이아웃 + 공유 `assets/style.css` | 좌측 고정 사이드바(주차·섹션 목차) + 우측 본문. Postgres 블루 팔레트 |
 
 > 실습 환경은 `week01-overview-env-types/code/docker-compose.yml`로 띄웁니다. **PostgreSQL 18은 데이터 디렉터리 규칙이 바뀌어** named volume을 `/var/lib/postgresql`(하위 디렉터리 자동 생성)에 마운트합니다 — 기존처럼 `/var/lib/postgresql/data`에 마운트하면 컨테이너가 기동을 거부합니다.
 
@@ -36,10 +36,12 @@
 ```
 backend/postgresql/self-study/
 ├── README.md                              # (이 파일) 계획표 + 인덱스 + 진행 체크리스트
-├── index.html                             # 풍부한 시각화 랜딩 페이지
+├── index.html                             # 사이드바 + hero + 목차 카드 랜딩 페이지
+├── _TEMPLATE.html                         # 새 레슨을 쓸 때 복사해 쓰는 뼈대
 ├── .gitignore
 ├── assets/
-│   └── style.css                          # 모든 .html이 공유하는 디자인 시스템
+│   ├── style.css                          # 모든 .html이 공유하는 디자인 시스템
+│   └── script.js                          # 코드 하이라이팅 + 스크롤 시 사이드바 활성화
 │
 └── week01-overview-env-types/
     ├── 01-why-postgres-architecture.html
@@ -61,19 +63,25 @@ backend/postgresql/self-study/
 
 ## 📄 강의 자료(HTML) 작성 원칙
 
-각 `.html` 페이지는 **비유 + 시각화로 직관적 이해**를 최우선으로 합니다.
+각 `.html` 페이지는 **왕초보도 읽히는 서술형 + 비유**를 최우선으로 합니다. 새 글은 `_TEMPLATE.html`을 복사해 시작하세요.
 
-1. **한 줄 요약** — 이 페이지에서 무엇을 얻는가
-2. **왜 필요한가 (실무 맥락)** — 현업에서 언제 쓰이나
-3. **🍔 비유 패널** — 어려운 개념을 일상 비유로
-4. **시각화** — 인라인 SVG 다이어그램 / CSS 흐름도
-5. **핵심 개념 + 실행 가능한 최소 SQL** (psql 기준)
-6. **🔁 MySQL ↔ PostgreSQL 비교 패널** — 좌(MySQL) / 우(PostgreSQL) 2단 (해당 시)
-7. **⚠️ 함정 & 실무 팁** — 경고 박스
-8. **✅ 셀프 체크** — 면접식 질문 2~3개 (아코디언)
-9. **🔗 참고 링크**
+**페이지 구성 순서**
 
-> 공통 `assets/style.css`로 색상·컴포넌트(비유 박스, 경고 박스, 비교 패널, 코드 블록)를 통일.
+1. **lesson-head** — 제목 + 이 레슨이 무엇을 해결하는지 한두 문장
+2. **tip-box** — 한 줄 요약 (비유 한 스푼)
+3. **checklist** — 학습 목표 3~4개
+4. **본문 섹션** (`<section class="section" id="...">`) — 섹션마다 ① 서술형 도입("왜 필요한가") → ② `callout-analogy` 비유 → ③ 표/코드 → ④ `callout-warn`/`callout-danger` 함정
+5. **🔁 MySQL ↔ PostgreSQL 비교** — `compare-grid` 2단 (해당 시)
+6. **✅ 셀프 체크** — 면접식 질문 3~4개 (`qa-item` 아코디언)
+7. **🔗 참고 링크** → **part-pager**(이전/다음) → **doc-footer**
+
+**레이아웃 규칙**
+
+- 좌측 **사이드바**에 Week 1~6을 두고, **현재 주차만 펼쳐** 그 주차 3편의 섹션 앵커를 전부 노출합니다.
+- 본문 섹션의 `id`가 곧 사이드바 앵커입니다. `assets/script.js`가 스크롤에 따라 활성 항목을 표시합니다.
+- 코드는 `.code-block` + `<code class="language-sql">`로 감싸면 highlight.js가 처리합니다.
+
+> 공통 `assets/style.css`로 색상·컴포넌트(callout, 비교 패널, 코드 블록, 표, 타임라인, Q&A)를 통일합니다.
 
 ---
 

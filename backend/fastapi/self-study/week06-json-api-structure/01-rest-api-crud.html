@@ -391,25 +391,53 @@ def get_todo(todo_id: int):
     </div>
 
     <div class="diagram-card">
-      <svg viewBox="0 0 640 150" role="img" aria-label="ORM 객체에서 응답 JSON으로의 직렬화">
-        <rect x="20" y="38" width="180" height="74" rx="10" fill="#0d1117" stroke="#30363d"/>
-        <text x="110" y="64" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#4dd0c4">Todo (ORM 객체)</text>
-        <text x="110" y="84" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#c9d1d9">todo.id · todo.title</text>
-        <text x="110" y="100" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#8b949e">속성 접근</text>
-        <line x1="205" y1="75" x2="305" y2="75" stroke="#009688" stroke-width="2.5" marker-end="url(#ar1)"/>
-        <text x="255" y="65" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#009688">from_attributes</text>
-        <rect x="310" y="34" width="150" height="44" rx="8" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
-        <text x="385" y="61" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#1a1d23">TodoPublic 모델</text>
-        <line x1="463" y1="56" x2="540" y2="56" stroke="#ef4444" stroke-width="2.5" marker-end="url(#ar2)"/>
-        <rect x="468" y="90" width="152" height="44" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>
-        <text x="544" y="117" text-anchor="middle" font-family="Pretendard" font-size="12" fill="#1a1d23">응답 JSON</text>
-        <line x1="385" y1="80" x2="510" y2="88" stroke="#ef4444" stroke-width="2.5" marker-end="url(#ar2)"/>
+      <svg viewBox="0 0 660 210" role="img" aria-label="NestJS와 FastAPI가 각각 DB 객체를 응답 JSON으로 바꾸는 두 흐름 비교">
         <defs>
-          <marker id="ar1" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
-          <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ef4444"/></marker>
+          <marker id="arN" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ef4444"/></marker>
+          <marker id="arF" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
         </defs>
+
+        <!-- ── NestJS 행 ── -->
+        <rect x="16" y="6" width="66" height="20" rx="6" fill="#fee2e2" stroke="#fecaca"/>
+        <text x="49" y="20" text-anchor="middle" font-family="Inter, Pretendard, sans-serif" font-size="11" font-weight="700" fill="#b91c1c">NestJS</text>
+
+        <rect x="16" y="32" width="176" height="56" rx="10" fill="#0d1117" stroke="#30363d"/>
+        <text x="104" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#ffa198">Todo 엔티티</text>
+        <text x="104" y="73" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#8b949e">todo.id · todo.title</text>
+
+        <line x1="196" y1="60" x2="234" y2="60" stroke="#ef4444" stroke-width="2.5" marker-end="url(#arN)"/>
+
+        <rect x="240" y="32" width="224" height="56" rx="10" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="352" y="55" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#b91c1c">ClassSerializerInterceptor</text>
+        <text x="352" y="73" text-anchor="middle" font-family="Inter, Pretendard, sans-serif" font-size="10.5" fill="#7f1d1d">@Expose / @Exclude 가 규칙</text>
+
+        <line x1="468" y1="60" x2="506" y2="60" stroke="#ef4444" stroke-width="2.5" marker-end="url(#arN)"/>
+
+        <rect x="512" y="32" width="132" height="56" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1.5"/>
+        <text x="578" y="65" text-anchor="middle" font-family="Inter, Pretendard, sans-serif" font-size="12.5" font-weight="600" fill="#1a1d23">응답 JSON</text>
+
+        <!-- ── FastAPI 행 ── -->
+        <rect x="16" y="98" width="70" height="20" rx="6" fill="#e0f2f1" stroke="#b2dfdb"/>
+        <text x="51" y="112" text-anchor="middle" font-family="Inter, Pretendard, sans-serif" font-size="11" font-weight="700" fill="#00695c">FastAPI</text>
+
+        <rect x="16" y="124" width="176" height="56" rx="10" fill="#0d1117" stroke="#30363d"/>
+        <text x="104" y="147" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="12" fill="#4dd0c4">Todo (ORM 객체)</text>
+        <text x="104" y="165" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#8b949e">todo.id · todo.title</text>
+
+        <line x1="196" y1="152" x2="234" y2="152" stroke="#009688" stroke-width="2.5" marker-end="url(#arF)"/>
+
+        <rect x="240" y="124" width="224" height="56" rx="10" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="352" y="147" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00695c">response_model=TodoPublic</text>
+        <text x="352" y="165" text-anchor="middle" font-family="Inter, Pretendard, sans-serif" font-size="10.5" fill="#00473e">from_attributes 로 속성을 읽음</text>
+
+        <line x1="468" y1="152" x2="506" y2="152" stroke="#009688" stroke-width="2.5" marker-end="url(#arF)"/>
+
+        <rect x="512" y="124" width="132" height="56" rx="10" fill="#f3f4f6" stroke="#d1d5db" stroke-width="1.5"/>
+        <text x="578" y="157" text-anchor="middle" font-family="Inter, Pretendard, sans-serif" font-size="12.5" font-weight="600" fill="#1a1d23">응답 JSON</text>
+
+        <text x="330" y="203" text-anchor="middle" font-family="Inter, Pretendard, sans-serif" font-size="10.5" fill="#6b7280">두 줄의 도착지는 같다 — 가운데 부품과 "객체를 읽는 법"만 다르다</text>
       </svg>
-      <div class="diagram-caption">NestJS의 엔티티 → ClassSerializerInterceptor → JSON 과 같은 흐름. 가운데 화살표에 붙은 from_attributes가 "속성으로 읽어도 된다"는 허가증이다.</div>
+      <div class="diagram-caption">NestJS는 인터셉터가, FastAPI는 response_model이 가운데를 맡는다. FastAPI 쪽에만 from_attributes가 붙는 이유는 파이썬에서 객체를 읽는 문법이 딕셔너리와 다르기 때문이다.</div>
     </div>
   </section>
 
@@ -685,8 +713,8 @@ def delete_todo(todo_id: int, db: Session = Depends(get_db)):
         <line x1="142" y1="115" x2="186" y2="115" stroke="#009688" stroke-width="2.5" marker-end="url(#fa)"/>
         <line x1="332" y1="115" x2="381" y2="115" stroke="#009688" stroke-width="2.5" marker-end="url(#fa)"/>
         <line x1="527" y1="115" x2="561" y2="115" stroke="#ef4444" stroke-width="2.5" marker-end="url(#fc)"/>
-        <text x="455" y="178" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">ORM 객체 → response_model(TodoPublic) → 직렬화</text>
-        <line x1="455" y1="152" x2="455" y2="166" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <text x="644" y="178" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">ORM 객체 → response_model(TodoPublic) → 직렬화</text>
+        <line x1="544" y1="124" x2="544" y2="166" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="3 3"/>
         <defs>
           <marker id="fa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
           <marker id="fc" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ef4444"/></marker>

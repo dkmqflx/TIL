@@ -100,8 +100,8 @@
     </div>
 
     <h3>② 매번 새로 연결하면 무슨 일이 생기나</h3>
-    <p>정확한 수치는 환경마다 다르지만 감을 잡아 보면, 연결을 새로 맺는 데는 보통 <strong>수 ms에서 수십 ms</strong>가 걸립니다. 반면 <code>SELECT * FROM todos</code> 같은 가벼운 쿼리는 <strong>1ms 안팎</strong>이면 끝납니다. 즉 <strong>준비에 30, 본론에 1</strong>을 쓰는 셈입니다. 전화를 걸고 인사만 나눈 뒤 바로 끊고, 다음 질문을 하려고 또 전화를 거는 것과 같습니다.</p>
-    <p>요청이 초당 수백 개씩 들어오는 서버라면 이 낭비가 그대로 누적됩니다. 게다가 PostgreSQL은 연결 하나마다 <strong>서버 쪽에서도 프로세스와 메모리를 하나씩 잡습니다.</strong> 연결을 마구 만들면 느려지는 정도가 아니라 <strong>DB 자체가 버티지 못합니다.</strong></p>
+    <p>정확히 몇 ms인지는 네트워크와 서버 사정에 따라 다르지만, 방향은 분명합니다. <strong>연결을 새로 맺는 일은 가벼운 조회 한 번보다 훨씬 비싼 작업</strong>입니다. 요청마다 연결을 새로 맺는 건 전화를 걸어 인사만 나누고 끊은 뒤, 다음 질문을 하려고 또 처음부터 전화를 거는 것과 같습니다.</p>
+    <p>비용은 내 쪽 시간만이 아닙니다. PostgreSQL 공식 문서는 서버가 <strong>"연결마다 새 프로세스를 fork한다"</strong>고 못 박아 설명합니다. 즉 <strong>연결 하나 = DB 서버의 프로세스 하나</strong>입니다. 그러니 요청이 몰릴 때 연결을 마구 만들면 느려지는 정도가 아니라 <strong>DB 자체가 버티지 못합니다.</strong> 실제로 SQLAlchemy 문서도 커넥션 풀을 <strong>"연결을 효율적으로 재사용하기 위한 표준 기법"</strong>이라고 소개합니다.</p>
 
     <h3>③ 해결책 — 미리 만들어 두고 돌려 쓴다</h3>
     <p>그래서 나온 방법이 단순합니다. <strong>연결을 몇 개 미리 만들어 두고, 요청이 오면 그중 하나를 빌려주고, 일이 끝나면 끊지 말고 돌려받는</strong> 것입니다. 이 "미리 만들어 둔 연결 보관함"이 <strong>Connection Pool</strong>입니다. 전화 비유로 하면, <strong>통화를 끊지 않고 수화기를 내려놓았다가 다음 사람이 그대로 이어 쓰는</strong> 셈이죠.</p>
@@ -163,7 +163,7 @@
       <div class="callout-body"><strong>15개도 다 차면 어떻게 되나요?</strong> 새 요청은 <strong>에러가 나는 게 아니라 줄을 서서 기다립니다.</strong> 그리고 기본값 <strong>30초</strong>(<code>pool_timeout</code>)를 넘겨도 자리가 안 나면 그때 <code>TimeoutError</code>가 납니다. 그래서 "API가 갑자기 30초씩 느려지다가 터진다"면 <strong>연결을 반납하지 않은 코드</strong>를 가장 먼저 의심해야 합니다.</div>
     </div>
 
-    <p><strong><code>pool_recycle</code>이 필요한 이유</strong>는 조금 뜻밖입니다. 내 쪽에서는 연결을 잘 들고 있어도, <strong>중간의 방화벽·로드밸런서나 DB 서버가 "오래 조용한 연결"을 몰래 끊어 버리는</strong> 일이 흔합니다. 그러면 풀에는 <em>겉보기엔 멀쩡하지만 실제로는 죽은 연결</em>이 남고, 하필 그걸 빌려 간 요청이 에러를 뱉습니다. 그래서 "일정 시간 지난 연결은 어차피 버리고 새로 만들자"고 정해 두는 겁니다. <strong><code>pool_pre_ping=True</code></strong>는 여기에 안전장치를 하나 더 겁니다. 빌려주기 직전에 아주 가벼운 확인 쿼리를 날려 보고, 응답이 없으면 그 연결을 조용히 버리고 새 연결을 대신 내줍니다. 비용이 거의 없으니 <strong>켜 두는 걸 권장</strong>합니다.</p>
+    <p><strong><code>pool_recycle</code>이 필요한 이유</strong>는 조금 뜻밖입니다. 내 쪽에서는 연결을 잘 들고 있어도, <strong>DB 서버가 재시작되거나, 오래 조용한 연결을 스스로 끊어 버리는</strong> 일이 있기 때문입니다. PostgreSQL에도 유휴 세션을 끊는 <code>idle_session_timeout</code> 설정이 있고, 공식 문서는 여기에 <strong>"커넥션 풀 같은 계층은 예기치 않은 연결 종료에 잘 대응하지 못할 수 있으니 주의하라"</strong>는 경고를 달아 두었습니다. 바로 이 상황입니다 — 풀에는 <em>겉보기엔 멀쩡하지만 실제로는 죽은 연결</em>이 남고, 하필 그걸 빌려 간 요청이 에러를 뱉습니다. 그래서 "일정 시간 지난 연결은 어차피 버리고 새로 만들자"고 정해 두는 겁니다. <strong><code>pool_pre_ping=True</code></strong>는 여기에 안전장치를 하나 더 겁니다. 빌려주기 직전에 아주 가벼운 확인 쿼리를 날려 보고, 응답이 없으면 그 연결을 조용히 버리고 새 연결을 대신 내줍니다. 비용이 거의 없으니 <strong>켜 두는 걸 권장</strong>합니다.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 660 250" role="img" aria-label="요청들이 커넥션 풀에서 연결을 빌리고 반납하는 흐름">
@@ -250,6 +250,11 @@
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>차이 하나.</strong> TypeORM은 드라이버(node-postgres) 풀을 그대로 쓰기 때문에 <code>poolSize</code>로 <strong>상한 하나만</strong> 정합니다. 반면 SQLAlchemy는 <strong>상시(<code>pool_size</code>) + 임시(<code>max_overflow</code>)</strong>로 나눠 두고, <code>pool_recycle</code>·<code>pool_pre_ping</code>처럼 <strong>죽은 연결을 걸러내는 옵션까지 이름을 붙여 노출</strong>합니다. 개념이 다른 게 아니라 <strong>손잡이가 더 잘게 나뉘어 있는 것</strong>뿐입니다.</div>
     </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>TypeORM 쪽 함정 하나.</strong> <code>poolSize</code>는 결국 드라이버(pg)의 <code>max</code>로 넘어가는데, TypeORM 소스를 보면 <strong><code>extra</code>를 나중에 병합</strong>합니다. 그래서 <code>extra: { max: 5 }</code>를 같이 적으면 <strong><code>poolSize</code>가 조용히 덮어써집니다.</strong> 참고로 pg의 기본값은 <code>max: 10</code>, <code>idleTimeoutMillis: 10000</code>입니다.</div>
+    </div>
   </section>
 
   <section class="section" id="session">
@@ -291,7 +296,7 @@ db = SessionLocal()                # ← 여기서 세션 하나가 만들어진
         <thead><tr><th>옵션</th><th>무슨 뜻인가</th><th>왜 이렇게 두나</th></tr></thead>
         <tbody>
           <tr><td><code>bind=engine</code></td><td>이 세션이 사용할 엔진(=연결 풀)을 지정</td><td>세션은 스스로 DB에 연결하지 않고, 엔진의 풀에서 빌려 쓴다</td></tr>
-          <tr><td><code>autoflush=False</code></td><td>쿼리 직전에 장바구니 내용을 DB로 <em>미리</em> 밀어 보내는 기능을 끔</td><td>내가 <code>commit()</code>을 부르지도 않았는데 INSERT가 나가면 흐름을 따라가기 어렵다. 초보일수록 꺼 두는 게 예측 가능하다</td></tr>
+          <tr><td><code>autoflush=False</code></td><td>쿼리 직전에 장바구니 내용을 DB로 <em>미리</em> 밀어 보내는 기능을 끔</td><td>내가 <code>commit()</code>을 부르지도 않았는데 INSERT가 나가면 흐름을 따라가기 어렵다. 다만 <strong>대가가 있다</strong> — 아직 flush 안 된 내 변경을 쿼리가 못 본다. (공식 권장이 아니라 <em>선택</em>입니다)</td></tr>
           <tr><td><code>expire_on_commit=False</code></td><td><code>commit()</code> 후에도 이미 읽어 둔 객체 값을 유효하게 유지</td><td>기본값(True)이면 commit 직후 <code>todo.title</code>만 읽어도 DB를 다시 조회한다. 세션이 이미 닫힌 뒤라면 에러까지 난다</td></tr>
         </tbody>
       </table>
@@ -339,6 +344,11 @@ db = SessionLocal()                # ← 여기서 세션 하나가 만들어진
           <tr><td><code>session.close()</code></td><td>세션 종료 + 연결을 <strong>풀로 반납</strong></td><td>매장에서 나가기</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>왜 <code>commit()</code>을 빠뜨리면 데이터가 사라질까.</strong> SQLAlchemy 문서에 답이 있습니다 — <strong>연결이 풀로 반납될 때 트랜잭션 상태도 함께 롤백</strong>됩니다. 즉 <code>add()</code>만 하고 <code>commit()</code> 없이 요청이 끝나면, <code>get_db</code>의 <code>close()</code>가 연결을 반납하면서 <strong>내 변경을 조용히 되돌립니다.</strong> 에러도 안 나고 로그도 안 남으니 <strong>"분명 저장했는데 DB에 없다"</strong>는 상황이 됩니다. 초보가 가장 자주 만나는 함정입니다.</div>
     </div>
 
     <div class="callout callout-note">
@@ -455,7 +465,7 @@ for todo_id, title in rows:             # Row는 튜플처럼 풀어 쓴다
         <thead><tr><th>메서드</th><th>결과</th><th>없거나 여러 개면</th></tr></thead>
         <tbody>
           <tr><td><code>.all()</code></td><td>전부 리스트로</td><td>없으면 빈 리스트 <code>[]</code></td></tr>
-          <tr><td><code>.first()</code></td><td>맨 앞 하나만</td><td>없으면 <code>None</code> (여러 개여도 조용히 첫 개)</td></tr>
+          <tr><td><code>.first()</code></td><td>맨 앞 하나만 (나머지 행은 버림)</td><td>없으면 <code>None</code> (여러 개여도 조용히 첫 개)</td></tr>
           <tr><td><code>.one()</code></td><td>정확히 하나</td><td>없거나 2개 이상이면 <strong>예외</strong></td></tr>
           <tr><td><code>.one_or_none()</code></td><td>하나 또는 <code>None</code></td><td>2개 이상이면 <strong>예외</strong></td></tr>
         </tbody>
@@ -656,7 +666,7 @@ def list_todos(db: Session = Depends(get_db)):
       </div>
       <div class="timeline-item">
         <div class="timeline-num">5</div>
-        <div class="timeline-content">반환된 객체를 FastAPI가 <strong>JSON으로 직렬화해 응답</strong>합니다. (<code>expire_on_commit=False</code> 덕분에 이 시점에도 값을 안전하게 읽을 수 있습니다.)</div>
+        <div class="timeline-content">반환된 객체를 FastAPI가 <strong>JSON으로 직렬화해 응답</strong>합니다. 이 예시는 <strong>조회 전용이라 <code>commit()</code>이 없고</strong>, 세션도 아직 열려 있어 값을 그대로 읽습니다. (<code>expire_on_commit=False</code>가 실제로 필요해지는 곳은 <strong>commit한 뒤 그 객체를 반환하는 생성·수정 엔드포인트</strong>입니다.)</div>
       </div>
       <div class="timeline-item">
         <div class="timeline-num">6</div>

@@ -146,6 +146,68 @@ router = APIRouter(prefix="/todos", tags=["todos"])
 def get_todo(todo_id: int, db: DbSession):   # ← 깔끔!
     return services.get_todo(db, todo_id)</code></pre>
     </div>
+
+    <h3>그래서 <code>db</code>는 대체 누가 넣어 주나?</h3>
+    <p>여기서 가장 많이 걸리는 지점입니다. <code>get_todo(todo_id, db)</code>를 호출하는 코드가 어디에도 안 보이는데, <code>db</code>에는 세션이 들어 있죠. 답은 <strong><code>DbSession</code>이라는 이름 안에 <code>Depends(get_db)</code>가 숨어 있기 때문</strong>입니다.</p>
+    <p><code>Annotated[A, B]</code>는 "이 값의 타입은 <b>A</b>인데, 옆에 <b>B</b>라는 메모를 붙여 둔다"는 뜻입니다. 그래서 <code>DbSession</code>은 겉으로는 그냥 <code>Session</code> 타입이지만, <code>Depends(get_db)</code>라는 쪽지가 붙어 있는 <code>Session</code>입니다. 즉 아래 두 코드는 <strong>완전히 같은 코드</strong>입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python"># ① 예전 스타일 — 기본값 자리에 Depends를 쓴다
+def get_todo(todo_id: int, db: Session = Depends(get_db)):
+    ...
+
+# ② Annotated 스타일 — 그 Depends를 '타입 이름' 안으로 접어 넣었을 뿐
+DbSession = Annotated[Session, Depends(get_db)]
+
+def get_todo(todo_id: int, db: DbSession):
+    ...</code></pre>
+    </div>
+
+    <p>요청이 들어오면 FastAPI는 경로 함수의 <strong>시그니처를 훑어보며 인자를 하나씩 채웁니다.</strong> 이때 판단 기준은 딱 하나 — <b>"이 인자에 <code>Depends</code> 쪽지가 붙어 있나?"</b>입니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>인자</th><th>붙은 쪽지</th><th>FastAPI가 값을 구하는 곳</th></tr></thead>
+        <tbody>
+          <tr><td><code>todo_id: int</code></td><td>없음 + 경로에 <code>{todo_id}</code> 있음</td><td>URL 경로에서 꺼내 <code>int</code>로 변환</td></tr>
+          <tr><td><code>db: DbSession</code></td><td><code>Depends(get_db)</code></td><td><strong><code>get_db()</code>를 직접 호출</strong>해서 그 결과를 넣음</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><code>GET /todos/1</code> 한 번에 실제로 벌어지는 일을 늘어놓으면 이렇습니다.</p>
+
+    <div class="flow-row">
+      <span class="flow-step green">GET /todos/1</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">시그니처 확인</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step blue">Depends(get_db) 발견</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">get_db() 호출 · yield까지 실행</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step highlight">db 인자에 주입 → 함수 실행</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">응답 후 finally: db.close()</span>
+    </div>
+
+    <p>그러니까 <code>services.get_todo(db, todo_id)</code>에 넘기는 <code>db</code>는 여러분이 만든 게 아니라, <strong>FastAPI가 방금 손에 쥐여 준 세션을 그대로 전달</strong>하는 것뿐입니다. 클라이언트가 보내는 값이 아니라서 요청 body나 쿼리스트링에도 나타나지 않고, 자동 생성되는 API 문서에도 <code>db</code> 파라미터는 보이지 않습니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 주방 보조가 도마를 건네준다.</strong> 요리사(라우트 함수)는 "도마 하나 주세요"라고 <strong>선언만</strong> 합니다(<code>db: DbSession</code>). 그러면 주방 보조(FastAPI)가 주문이 들어올 때마다 깨끗한 도마를 꺼내 손에 쥐여 주고(<code>SessionLocal()</code>), 요리가 끝나면 알아서 치웁니다(<code>db.close()</code>). 요리사는 도마를 어디서 가져오는지, 어떻게 씻는지 <strong>몰라도 됩니다</strong>. 그래서 테스트할 땐 보조에게 "이번엔 가짜 도마를 줘"라고 바꿔치기(<code>app.dependency_overrides</code>)하는 것만으로 검증이 끝납니다.</div>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>세션은 요청 하나당 하나.</strong> <code>get_db()</code>는 <b>요청마다</b> 새로 호출되어 새 세션을 만듭니다. 다만 <strong>같은 요청 안에서</strong> 여러 곳이 <code>DbSession</code>을 요구하면(라우트 + 다른 의존성 등) FastAPI가 결과를 캐시해 <strong>같은 세션을 재사용</strong>합니다. <code>DbSession</code>은 그냥 타입 별칭이라 라우트끼리 세션을 공유하는 일은 없습니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>별칭은 한 곳에 모아 두자.</strong> <code>DbSession = Annotated[...]</code>은 <b>쓰기 전에 반드시 정의(또는 import)돼 있어야</b> 하는 평범한 변수입니다. 라우터 파일마다 다시 적지 말고, <code>get_db</code>가 있는 <code>database.py</code>(또는 <code>dependencies.py</code>) 아래쪽에 한 번만 정의해 두고 각 라우터에서 <code>from database import DbSession</code>으로 가져다 쓰세요.</div>
+    </div>
   </section>
 
   <section class="section" id="nest-compare">
@@ -269,6 +331,7 @@ def update_todo(db: Session, todo_id: int, data: TodoUpdate) -> Todo:
       <pre><code class="language-python">import services
 from fastapi import APIRouter, status
 from schemas import TodoCreate, TodoUpdate, TodoPublic
+from database import DbSession   # ← Annotated[Session, Depends(get_db)] 별칭
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -302,6 +365,10 @@ def create_todo(payload: TodoCreate, db: DbSession):
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> FastAPI의 <code>Depends</code>는 NestJS의 무엇에 대응하나요?</summary>
         <div class="qa-answer"><p>NestJS의 DI(의존성 주입)에 대응합니다. NestJS가 <code>@Injectable</code> 프로바이더를 생성자로 주입한다면, FastAPI는 <code>Depends(...)</code>로 함수 인자에 주입합니다. 둘 다 "필요한 의존성을 직접 만들지 않고 컨테이너가 넣어 준다"는 원리는 같고, FastAPI는 클래스 없이 함수 단위로 더 가볍습니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>def get_todo(todo_id: int, db: DbSession)</code>에서 <code>db</code>는 누가 넣어 주나요?</summary>
+        <div class="qa-answer"><p><strong>FastAPI가 넣어 줍니다.</strong> <code>DbSession</code>은 <code>Annotated[Session, Depends(get_db)]</code> 별칭이라 타입 안에 <code>Depends(get_db)</code> 쪽지가 붙어 있습니다. 요청이 오면 FastAPI가 시그니처를 훑다가 그 쪽지를 발견하고 <code>get_db()</code>를 호출해, <code>yield</code>로 흘러나온 세션을 <code>db</code> 자리에 꽂아 넣습니다. <code>todo_id</code>는 URL에서 오지만 <code>db</code>는 클라이언트가 보내는 값이 아니라서 API 문서에도 나타나지 않습니다. 단, <code>DbSession</code> 별칭은 평범한 변수이므로 <strong>쓰기 전에 정의하거나 import</strong>해 둬야 합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>get_db</code>가 일반 <code>return</code>이 아니라 <code>yield</code>를 쓰는 이유는?</summary>

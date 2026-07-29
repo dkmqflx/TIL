@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Week 6·01 — REST API 명세 &amp; CRUD 구현 — FastAPI 백엔드 개발자 되기</title>
+<title>Week 6·01 — REST API 명세 &amp; CRUD 구현 (NestJS 비교) — FastAPI 백엔드 개발자 되기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
@@ -35,6 +35,7 @@
     <div class="nav-week active"><span class="wk-no">6</span> Week 6 · JSON API 구축 &amp; 구조화 <span class="star">★</span></div>
     <div class="nav-week-group">
       <div class="nav-lesson-title">01 · REST API 명세 · CRUD 구현</div>
+      <a class="nav-item" href="#nest-map">⚖️ NestJS ↔ FastAPI 대응표</a>
       <a class="nav-item" href="#rest-spec">📋 REST API 명세</a>
       <a class="nav-item" href="#schemas">🗂️ 스키마 3종 — 입력·출력 분리</a>
       <a class="nav-item" href="#from-attributes">🔄 from_attributes 직렬화</a>
@@ -68,27 +69,63 @@
 <main class="main" id="top">
 
   <div class="lesson-head">
-    <h1>REST API 명세 &amp; CRUD 스키마 · 모델 · 라우터를 묶다</h1>
-    <p class="lesson-subtitle">Week 3의 <strong>Pydantic</strong>, Week 5의 <strong>SQLAlchemy 모델</strong>, 그리고 라우터 — 흩어져 있던 부품을 하나로 합쳐 <strong>진짜로 DB에 저장되는 ToDo REST API</strong>를 완성합니다.</p>
+    <h1>REST API 명세 &amp; CRUD NestJS로 하던 일을 FastAPI로</h1>
+    <p class="lesson-subtitle">이번 레슨은 <strong>NestJS를 이미 아는 사람</strong>을 위한 번역기입니다. <code>@Controller</code>·DTO·<code>Repository</code>로 만들던 ToDo API를, FastAPI의 <code>APIRouter</code>·Pydantic·<code>Session</code>으로 <strong>한 줄씩 옮겨 가며</strong> 만듭니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> REST API는 <b>"자원(resource)을 URL로, 행동을 HTTP 메서드로"</b> 표현하는 약속이다. <code>GET /todos</code>(조회), <code>POST /todos</code>(생성), <code>PATCH /todos/{id}</code>(부분 수정), <code>DELETE /todos/{id}</code>(삭제). 여기에 Pydantic·SQLAlchemy를 끼우면 검증된 데이터가 DB까지 흐른다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> 두 프레임워크가 하는 일은 똑같다. 차이는 <b>"규칙을 어떻게 말하느냐"</b>다. NestJS는 클래스 위에 <b>데코레이터를 붙여서</b>(<code>@Get()</code>, <code>@IsString()</code>, <code>@Expose()</code>), FastAPI는 함수에 <b>타입힌트를 적어서</b>(<code>payload: TodoCreate</code>, <code>response_model=TodoPublic</code>) 말한다. 그리고 NestJS에서 따로 켜던 것(ValidationPipe, Swagger)은 FastAPI에서 기본 ON이고, 대신 FastAPI에서 딱 하나 직접 켜야 하는 스위치가 <code>from_attributes=True</code>다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
-    <li>ToDo 자원을 REST 규칙에 맞게 메서드·경로·상태코드로 설계한다</li>
-    <li>요청/응답용 Pydantic 스키마(Create/Update/Public)를 나눠 쓴다</li>
-    <li>DB 세션으로 조회·생성·수정·삭제(CRUD)를 구현한다</li>
-    <li>ORM 객체를 response_model로 자동 직렬화한다(from_attributes)</li>
-    <li>없는 자원에 404를 일관되게 응답한다</li>
+    <li>NestJS 컨트롤러 ↔ FastAPI 라우터의 대응 관계를 표로 외운다</li>
+    <li>Create/Update/Response DTO ↔ Pydantic 스키마 3종을 옮겨 쓴다</li>
+    <li><code>ClassSerializerInterceptor</code> ↔ <code>response_model</code> + <code>from_attributes</code>의 차이를 설명한다</li>
+    <li>TypeORM Entity/Repository ↔ SQLAlchemy 모델/Session으로 CRUD를 구현한다</li>
+    <li><code>NotFoundException</code> ↔ <code>HTTPException(404)</code>로 없는 자원을 일관되게 응답한다</li>
   </ul>
+
+  <section class="section" id="nest-map">
+    <div class="section-header">
+      <div class="section-icon icon-compare">⚖️</div>
+      <h2>NestJS ↔ FastAPI 한눈에 보는 대응표</h2>
+    </div>
+    <p>새 프레임워크를 배울 때 가장 빠른 길은 <strong>"내가 알던 그거, 여기선 뭐라고 부르지?"</strong>를 먼저 정리하는 것입니다. 아래 표만 손에 쥐고 있으면 이번 레슨의 코드는 거의 다 읽힙니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>하고 싶은 일</th><th>NestJS</th><th>FastAPI</th></tr></thead>
+        <tbody>
+          <tr><td>라우팅 선언</td><td><code>@Controller('todos')</code> + <code>@Get()</code></td><td><code>APIRouter(prefix="/todos")</code> + <code>@router.get("")</code></td></tr>
+          <tr><td>요청 본문 받기</td><td><code>@Body() dto: CreateTodoDto</code></td><td><code>payload: TodoCreate</code> (인자에 타입만 적음)</td></tr>
+          <tr><td>입력 검증</td><td>class-validator 데코레이터 + <code>ValidationPipe</code> 등록</td><td>Pydantic 모델 자체가 검증 규칙 (항상 켜짐)</td></tr>
+          <tr><td>검증 실패 응답</td><td><code>400 Bad Request</code></td><td><code>422 Unprocessable Entity</code></td></tr>
+          <tr><td>응답 모양 고정</td><td><code>ClassSerializerInterceptor</code> + <code>@Expose</code>/<code>@Exclude</code></td><td><code>response_model=TodoPublic</code></td></tr>
+          <tr><td>상태코드 지정</td><td><code>@HttpCode(201)</code></td><td><code>status_code=201</code></td></tr>
+          <tr><td>에러 던지기</td><td><code>throw new NotFoundException()</code></td><td><code>raise HTTPException(404, ...)</code></td></tr>
+          <tr><td>DB 접근</td><td>TypeORM <code>Repository&lt;Todo&gt;</code> 주입</td><td>SQLAlchemy <code>Session</code> 주입</td></tr>
+          <tr><td>의존성 주입</td><td>생성자 주입 <code>constructor(private x)</code></td><td>함수 인자 <code>db = Depends(get_db)</code></td></tr>
+          <tr><td>API 문서</td><td><code>@nestjs/swagger</code> 설치 + 데코레이터</td><td><code>/docs</code> 자동 생성 (별도 작업 없음)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 포스트잇을 붙이는 나라 vs 양식지를 채우는 나라.</strong> NestJS는 <strong>포스트잇의 나라</strong>입니다. 클래스와 메서드 위에 <code>@Get()</code>, <code>@IsString()</code>, <code>@Expose()</code> 같은 쪽지를 한 장씩 붙여서 "이건 이렇게 처리해 줘"라고 알려 줍니다. FastAPI는 <strong>양식지의 나라</strong>입니다. <code>payload: TodoCreate</code>라고 칸에 적어 넣으면, 그 <strong>타입 선언 자체가</strong> 검증 규칙이자 문서이자 편집기 자동완성이 됩니다. 결과물은 같은 API지만, 한쪽은 규칙을 <em>덧붙이고</em> 다른 쪽은 규칙을 <em>타입으로 말합니다</em>.</div>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>"켜야 하는 것"의 방향이 반대다.</strong> NestJS에서는 검증(<code>ValidationPipe</code>), 응답 변환(<code>ClassSerializerInterceptor</code>), 문서(<code>SwaggerModule</code>)를 <strong>직접 등록해야</strong> 동작합니다. FastAPI는 이 셋이 기본으로 돌아갑니다. 대신 FastAPI에서 <strong>딱 하나 직접 켜야</strong> 하는 스위치가 있는데, 그게 이번 레슨의 주인공 <code>from_attributes=True</code>입니다. 왜 이것만 수동인지는 <a href="#from-attributes">아래 섹션</a>에서 풀어 봅니다.</div>
+    </div>
+  </section>
 
   <section class="section" id="rest-spec">
     <div class="section-header">
       <div class="section-icon icon-concept">📋</div>
       <h2>REST API 명세 — 먼저 표로 그린다</h2>
     </div>
-    <p>코드를 짜기 전에 "어떤 요청에 어떻게 응답할지"를 표로 정리합니다. 이게 곧 API의 <strong>계약서</strong>입니다. NestJS에서 컨트롤러 메서드를 설계하던 것과 같은 단계죠.</p>
+    <p>코드를 짜기 전에 "어떤 요청에 어떻게 응답할지"를 표로 정리합니다. 이게 곧 API의 <strong>계약서</strong>입니다. NestJS에서 컨트롤러 메서드 목록을 먼저 설계하던 것과 정확히 같은 단계죠.</p>
 
     <div class="table-wrap">
       <table>
@@ -103,62 +140,254 @@
       </table>
     </div>
 
+    <p>같은 명세를 두 프레임워크의 <strong>뼈대 코드</strong>로 옮기면 이렇게 됩니다. NestJS는 클래스 하나에 메서드를 모으고, FastAPI는 <code>router</code> 객체에 함수를 붙입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — 클래스 + 데코레이터</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Controller('todos')
+export class TodosController {
+  @Get()      // GET /todos
+  findAll() {}
+
+  @Post()     // POST /todos
+  @HttpCode(201)
+  create() {}
+}</code></pre>
+        </div>
+        <p>클래스가 <code>prefix</code>를, 메서드 데코레이터가 <strong>HTTP 메서드</strong>를 담당.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — 라우터 + 함수</div>
+        <div class="code-block">
+          <pre><code class="language-python">router = APIRouter(
+    prefix="/todos",
+    tags=["todos"])
+
+@router.get("")  # GET /todos
+def list_todos(): ...
+
+@router.post("",
+    status_code=201)  # POST
+def create_todo(): ...</code></pre>
+        </div>
+        <p><code>APIRouter</code>가 <code>prefix</code>를, 데코레이터가 <strong>HTTP 메서드</strong>를 담당. 클래스가 없을 뿐.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>tags</code>는 NestJS의 <code>@ApiTags()</code>다.</strong> NestJS에서 Swagger 문서에 그룹을 만들려면 <code>@ApiTags('todos')</code>를 따로 붙여야 했죠. FastAPI에서는 <code>APIRouter(tags=["todos"])</code> 한 줄이면 <code>/docs</code>에 "todos" 섹션이 생깁니다. 문서 도구가 프레임워크에 <strong>내장</strong>되어 있어서 그렇습니다.</div>
+    </div>
+
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 식당의 주문 규칙.</strong> REST는 손님과 주방 사이의 <strong>주문 규칙</strong>입니다. "메뉴(자원)는 메뉴판 번호(URL)로 가리키고, 하고 싶은 행동(조회·추가·변경·취소)은 정해진 손짓(HTTP 메서드)으로 한다." 손님이 규칙대로만 주문하면, 어떤 주방이든 같은 방식으로 알아듣습니다. 상태코드는 주방이 돌려주는 <strong>"됐어요(201)/없어요(404)"</strong> 같은 표준 답변이고요.</div>
+      <div class="callout-body"><strong>비유 — 식당의 주문 규칙.</strong> REST는 손님과 주방 사이의 <strong>주문 규칙</strong>입니다. "메뉴(자원)는 메뉴판 번호(URL)로 가리키고, 하고 싶은 행동(조회·추가·변경·취소)은 정해진 손짓(HTTP 메서드)으로 한다." 손님이 규칙대로만 주문하면 어떤 주방이든 같은 방식으로 알아듣습니다 — 주방이 NestJS든 FastAPI든요. 상태코드는 주방이 돌려주는 <strong>"됐어요(201)/없어요(404)"</strong> 같은 표준 답변이고요.</div>
     </div>
   </section>
 
   <section class="section" id="schemas">
     <div class="section-header">
       <div class="section-icon icon-entity">🗂️</div>
-      <h2>스키마 3종 — 입력과 출력을 분리한다</h2>
+      <h2>스키마 3종 — NestJS의 DTO 3종과 같다</h2>
     </div>
-    <p>"받을 때 필요한 필드"와 "돌려줄 때 보여줄 필드"는 다릅니다. 그래서 Pydantic 모델을 용도별로 나눕니다. NestJS에서 <code>CreateDto</code>, <code>UpdateDto</code>, <code>ResponseDto</code>를 나누던 것과 똑같습니다.</p>
+    <p>"받을 때 필요한 필드"와 "돌려줄 때 보여줄 필드"는 다릅니다. 그래서 NestJS에서 <code>CreateTodoDto</code>·<code>UpdateTodoDto</code>·<code>TodoResponseDto</code>를 나눠 쓰셨죠. FastAPI에서도 <strong>똑같은 이유로 똑같이 셋</strong>을 만듭니다. 이름만 Pydantic 모델일 뿐입니다.</p>
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>스키마</th><th>용도</th><th>특징</th></tr></thead>
+        <thead><tr><th>Pydantic 스키마</th><th>용도</th><th>NestJS 대응</th></tr></thead>
         <tbody>
-          <tr><td><code>TodoCreate</code></td><td>POST 요청 본문</td><td>title 필수, id는 받지 않음</td></tr>
-          <tr><td><code>TodoUpdate</code></td><td>PATCH 요청 본문</td><td>모든 필드 <code>Optional</code> (보낸 것만 수정)</td></tr>
-          <tr><td><code>TodoPublic</code></td><td>응답(response_model)</td><td>id·created_at 포함, ORM에서 직렬화</td></tr>
+          <tr><td><code>TodoCreate</code></td><td>POST 요청 본문 (title 필수, id 안 받음)</td><td><code>CreateTodoDto</code></td></tr>
+          <tr><td><code>TodoUpdate</code></td><td>PATCH 요청 본문 (모든 필드 선택)</td><td><code>UpdateTodoDto extends PartialType(...)</code></td></tr>
+          <tr><td><code>TodoPublic</code></td><td>응답 (<code>response_model</code>)</td><td><code>TodoResponseDto</code> + <code>ClassSerializerInterceptor</code></td></tr>
         </tbody>
       </table>
     </div>
 
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — 데코레이터로 규칙 붙이기</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">export class CreateTodoDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  title: string;
+
+  @IsBoolean() @IsOptional()
+  done = false;
+}
+
+export class UpdateTodoDto
+  extends PartialType(
+    CreateTodoDto) {}</code></pre>
+        </div>
+        <p>타입(<code>string</code>)과 검증(<code>@IsString</code>)을 <strong>따로</strong> 적어야 함.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — 타입이 곧 규칙</div>
+        <div class="code-block">
+          <pre><code class="language-python">class TodoCreate(BaseModel):
+    title: str = Field(
+        min_length=1,
+        max_length=100)
+    done: bool = False
+
+# PartialType 대신 | None
+class TodoUpdate(BaseModel):
+    title: str | None = None
+    done: bool | None = None</code></pre>
+        </div>
+        <p><code>title: str</code> 한 번이면 타입 + 검증 + 문서까지 <strong>동시에</strong> 해결.</p>
+      </div>
+    </div>
+
+    <p>실제로 쓸 세 모델을 한 파일에 모으면 이렇습니다. <code>TodoPublic</code>의 <code>model_config</code> 한 줄이 다음 섹션의 주인공입니다.</p>
+
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">schemas.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
-class TodoCreate(BaseModel):
+class TodoCreate(BaseModel):                      # ← CreateTodoDto
     title: str = Field(min_length=1, max_length=100)
     done: bool = False
 
-class TodoUpdate(BaseModel):     # PATCH: 보낸 필드만 수정
+class TodoUpdate(BaseModel):                      # ← UpdateTodoDto (PartialType)
     title: str | None = Field(default=None, min_length=1, max_length=100)
     done: bool | None = None
 
-class TodoPublic(BaseModel):
-    model_config = ConfigDict(from_attributes=True)   # ← 핵심!
+class TodoPublic(BaseModel):                      # ← TodoResponseDto
+    model_config = ConfigDict(from_attributes=True)   # ← 핵심! (다음 섹션)
     id: int
     title: str
     done: bool
     created_at: datetime</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>NestJS에서 자주 겪던 함정 하나가 사라진다.</strong> Nest에서는 DTO에 <code>@IsString()</code>을 아무리 잘 붙여도, <code>main.ts</code>에 <code>app.useGlobalPipes(new ValidationPipe())</code>를 <strong>안 적으면 검증이 아예 안 돕니다</strong>. 데코레이터는 "메모"일 뿐이고 그 메모를 읽어 주는 파이프를 등록해야 하니까요. FastAPI에는 이 단계가 없습니다. <code>payload: TodoCreate</code>라고 적는 순간 검증이 돌아갑니다. 단, <strong>실패했을 때 상태코드가 다릅니다</strong> — Nest는 <code>400 Bad Request</code>, FastAPI는 <code>422 Unprocessable Entity</code>. 프런트엔드와 약속을 맞출 때 꼭 확인하세요.</div>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>whitelist: true</code>에 해당하는 건?</strong> Nest의 <code>new ValidationPipe({ whitelist: true })</code>는 DTO에 없는 필드를 <strong>버리고</strong>, <code>forbidNonWhitelisted: true</code>는 아예 <strong>에러를 냅니다</strong>. Pydantic에서는 <code>ConfigDict(extra=...)</code>가 같은 역할을 합니다. 기본값 <code>"ignore"</code>가 Nest의 <code>whitelist: true</code>에, <code>"forbid"</code>가 <code>forbidNonWhitelisted: true</code>에 해당합니다. 즉 <strong>FastAPI는 "모르는 필드는 버린다"가 기본</strong>입니다.</div>
     </div>
   </section>
 
   <section class="section" id="from-attributes">
     <div class="section-header">
       <div class="section-icon icon-teal">🔄</div>
-      <h2>from_attributes — ORM 객체를 그대로 직렬화</h2>
+      <h2>from_attributes — NestJS엔 왜 이런 게 없었을까</h2>
     </div>
-    <p>DB에서 꺼낸 건 dict가 아니라 <strong>SQLAlchemy 객체</strong>(<code>todo.id</code>, <code>todo.title</code>처럼 속성으로 접근)입니다. 기본 Pydantic은 dict만 읽으려 하기 때문에, "속성으로도 읽어라"고 켜 주는 스위치가 <code>ConfigDict(from_attributes=True)</code>입니다.</p>
+    <p>NestJS에서는 컨트롤러가 TypeORM 엔티티를 그냥 <code>return</code>해도 아무 문제가 없었습니다. 그런데 FastAPI에서는 <code>ConfigDict(from_attributes=True)</code>라는 스위치를 켜 줘야 한다고 합니다. <strong>왜 한쪽만 스위치가 필요할까요?</strong> 답은 프레임워크가 아니라 <strong>언어의 차이</strong>에 있습니다.</p>
 
-    <div class="callout callout-note">
+    <h3>자바스크립트에는 꺼내는 방법이 하나뿐이다</h3>
+    <p>TypeScript에서 <code>{ id: 1, title: "밥" }</code>이라는 평범한 객체든, <code>new Todo()</code>로 만든 엔티티 인스턴스든, 값을 꺼내는 방법은 <strong>오직 하나</strong>입니다 — <code>todo.id</code>. (<code>todo['id']</code>도 되지만 이건 같은 프로퍼티 접근의 다른 표기일 뿐, 완전히 동일한 동작입니다.) 그래서 class-transformer는 상대가 무엇이든 고민 없이 <code>todo.id</code>로 읽으면 됩니다. <strong>선택지가 없으니 스위치도 필요 없었던 것</strong>이죠.</p>
+
+    <h3>파이썬에는 꺼내는 방법이 두 가지다</h3>
+    <p>파이썬은 다릅니다. 데이터를 꺼내는 문법이 <strong>서로 통하지 않는 두 종류</strong>로 나뉩니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">data = {"id": 1, "title": "밥 먹기"}   # 딕셔너리
+data["id"]     # ✅ 1
+data.id        # ❌ AttributeError
+
+todo = db.get(Todo, 1)                # SQLAlchemy 객체
+todo.id        # ✅ 1
+todo["id"]     # ❌ TypeError: 'Todo' object is not subscriptable</code></pre>
+    </div>
+
+    <p>Pydantic이 평소에 상대하는 데이터는 <strong>JSON 요청 본문</strong>입니다. JSON을 파싱하면 딕셔너리가 나오죠. 그래서 Pydantic의 기본 동작은 <code>data["title"]</code> 방식 <strong>하나만</strong>입니다. 그런데 DB에서 꺼낸 <code>Todo</code>는 딕셔너리가 아니라 객체라서, 이 기본 동작으로는 아무것도 읽을 수가 없습니다. <code>ConfigDict(from_attributes=True)</code>는 딱 한 줄로 <strong>"딕셔너리가 아니면 <code>todo.title</code>처럼 속성으로도 읽어 봐"</strong>라고 허락해 주는 스위치입니다.</p>
+
+    <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>v1의 orm_mode가 이름만 바뀐 것.</strong> Pydantic v1에서 <code>class Config: orm_mode = True</code>로 쓰던 그 기능입니다. v2에서는 <code>model_config = ConfigDict(from_attributes=True)</code>로 이름이 바뀌었습니다. 이게 켜져 있으면 라우터에서 ORM 객체를 그대로 <code>return</code>해도 FastAPI가 <code>TodoPublic</code> 모양의 JSON으로 변환합니다.</div>
+      <div class="callout-body"><strong>비유 — 서랍장이냐, 사람이냐.</strong> Pydantic의 기본 상태는 <strong>서랍장에서 물건 꺼내기</strong>만 할 줄 압니다. <code>title</code>이라고 이름표가 붙은 서랍을 열면 값이 나오죠(딕셔너리). 그런데 DB에서 데려온 건 서랍장이 아니라 <strong>사람(객체)</strong>입니다. 사람 몸에는 서랍이 없으니, 값을 알고 싶으면 <strong>"이름이 뭐예요?"라고 물어봐야</strong> 합니다(<code>todo.title</code>). <code>from_attributes=True</code>는 <strong>"서랍이 없는 상대면 그냥 말로 물어봐도 된다"</strong>는 허가증이에요. 자바스크립트 세계에는 애초에 서랍장이라는 개념이 없고 전부 "물어보기" 하나라서, NestJS에서는 이 허가증을 발급받을 필요가 없었던 겁니다.</div>
+    </div>
+
+    <h3>그래서 두 프레임워크의 코드는 이렇게 대응한다</h3>
+    <p>NestJS에서 "엔티티를 응답 모양으로 다듬는" 일은 <code>ClassSerializerInterceptor</code>가 맡았습니다. FastAPI에서는 <code>response_model</code>이 그 자리를 대신하고, <code>from_attributes</code>는 그 인터셉터가 <strong>ORM 객체를 읽을 수 있게 해 주는 부품</strong>입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — 인터셉터를 등록</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 1) 엔티티/DTO에 표시
+export class Todo {
+  @Expose() id: number;
+  @Expose() title: string;
+  @Exclude() ownerToken: string;
+}
+
+// 2) 인터셉터를 켠다
+@UseInterceptors(
+  ClassSerializerInterceptor)
+@Get(':id')
+findOne() {
+  return this.repo.findOne(id);
+}</code></pre>
+        </div>
+        <p>숨길 필드에 <code>@Exclude()</code>를 <strong>일일이 붙여야</strong> 함.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — 모델을 응답에 건다</div>
+        <div class="code-block">
+          <pre><code class="language-python"># 1) 모델에 스위치를 켠다
+class TodoPublic(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True)
+    id: int
+    title: str
+    # owner_token 은 안 적음
+    #  → 응답에서 자동 제외
+
+# 2) 라우트에 모양을 건다
+@router.get("/{todo_id}",
+    response_model=TodoPublic)
+def get_todo(todo_id: int):
+    return todo  # ORM 그대로</code></pre>
+        </div>
+        <p>모델에 <strong>적은 것만</strong> 나감. 안 적으면 그게 곧 숨김.</p>
+      </div>
+    </div>
+
+    <h3>차이를 항목별로 뜯어보면</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>질문</th><th>NestJS</th><th>FastAPI</th></tr></thead>
+        <tbody>
+          <tr><td>응답 변환은 누가?</td><td><code>ClassSerializerInterceptor</code></td><td><code>response_model=</code></td></tr>
+          <tr><td>언제 동작하나?</td><td>인터셉터를 등록한 곳에서만</td><td><code>response_model</code>을 적은 라우트에서</td></tr>
+          <tr><td>무엇이 규칙인가?</td><td>DTO/엔티티의 <code>@Expose</code>·<code>@Exclude</code></td><td>Pydantic 모델의 <strong>필드 목록 그 자체</strong></td></tr>
+          <tr><td>객체를 읽는 법</td><td>프로퍼티 하나뿐 → 설정 불필요</td><td>dict/속성 두 가지 → <code>from_attributes=True</code> 필요</td></tr>
+          <tr><td>필드가 비어 있으면?</td><td>조용히 <code>undefined</code> → JSON에서 사라짐</td><td><code>ValidationError</code> → 서버 에러로 <strong>즉시 드러남</strong></td></tr>
+          <tr><td>모델에 없는 필드는?</td><td>기본은 <strong>그대로 새어 나감</strong> (<code>@Exclude</code> 필요)</td><td><strong>자동으로 잘려 나감</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>마지막 줄이 실무에서 제일 중요합니다.</strong> NestJS에서 <code>User</code> 엔티티에 <code>@Exclude()</code>를 빠뜨려 <code>password</code> 해시가 응답에 그대로 실려 나가는 사고, 한 번쯤 들어 보셨을 겁니다. FastAPI는 방향이 반대입니다 — <code>UserPublic</code> 모델에 <strong>적지 않은 필드는 절대 나가지 않습니다</strong>. "숨길 것을 표시"하는 게 아니라 "보여줄 것만 나열"하는 방식이라, 깜빡해서 새는 사고가 구조적으로 일어나지 않습니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>스위치를 안 켜면 이런 에러를 만납니다.</strong> <code>TodoPublic</code>에서 <code>model_config</code> 줄을 지우고 ORM 객체를 반환하면, FastAPI가 응답을 만들다가 이렇게 터집니다.
+      <div class="code-block" style="margin-top:10px">
+        <pre><code class="language-bash">pydantic_core._pydantic_core.ValidationError: 1 validation error for TodoPublic
+  Input should be a valid dictionary or instance of TodoPublic
+  [type=model_type, input_value=&lt;models.Todo object at 0x10a...&gt;, input_type=Todo]</code></pre>
+      </div>
+      "딕셔너리를 달라고 했는데 <code>Todo</code> 객체가 왔다"는 뜻입니다. 이 메시지를 보면 <strong>"아, <code>from_attributes</code>를 안 켰구나"</strong>라고 바로 알아채면 됩니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>수동 변환도 대응이 있습니다.</strong> Nest에서 인터셉터 없이 직접 변환할 땐 <code>plainToInstance(TodoDto, todo, { excludeExtraneousValues: true })</code>를 썼죠. Pydantic의 대응은 <code>TodoPublic.model_validate(todo)</code>입니다. 재미있는 건 <strong>둘 다 "옵션 하나를 빠뜨리면 조용히 이상하게 동작하는" 자리</strong>라는 점 — 다만 하는 일은 다릅니다. <code>excludeExtraneousValues</code>는 "표시 안 된 필드를 버려라"이고, <code>from_attributes</code>는 "속성으로 읽어라"입니다.</div>
     </div>
 
     <div class="diagram-card">
@@ -180,43 +409,97 @@ class TodoPublic(BaseModel):
           <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ef4444"/></marker>
         </defs>
       </svg>
-      <div class="diagram-caption">from_attributes 덕분에 DB 객체 → TodoPublic → JSON 변환이 자동으로 이뤄진다.</div>
+      <div class="diagram-caption">NestJS의 엔티티 → ClassSerializerInterceptor → JSON 과 같은 흐름. 가운데 화살표에 붙은 from_attributes가 "속성으로 읽어도 된다"는 허가증이다.</div>
     </div>
   </section>
 
   <section class="section" id="models-session">
     <div class="section-header">
       <div class="section-icon icon-repo">🗃️</div>
-      <h2>SQLAlchemy 모델과 DB 세션 (Week 5 복습)</h2>
+      <h2>TypeORM Entity ↔ SQLAlchemy 모델 (Week 5 복습)</h2>
     </div>
-    <p>Week 5에서 만든 <code>Todo</code> 테이블 모델과, 요청마다 세션을 열고 닫는 <code>get_db</code>입니다. 다음 레슨에서 이 <code>get_db</code>를 <strong>의존성으로 주입</strong>하게 됩니다.</p>
+    <p>Week 5에서 만든 <code>Todo</code> 테이블 모델입니다. TypeORM 엔티티와 거의 1:1로 옮겨 읽을 수 있습니다.</p>
 
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">models.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-class Base(DeclarativeBase): ...
+class Base(DeclarativeBase): ...          # ← TypeORM의 BaseEntity 자리
 
 class Todo(Base):
-    __tablename__ = "todos"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(index=True)
-    done: Mapped[bool] = mapped_column(default=False)
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())</code></pre>
+    __tablename__ = "todos"               # ← @Entity('todos')
+    id: Mapped[int] = mapped_column(primary_key=True)          # @PrimaryGeneratedColumn()
+    title: Mapped[str] = mapped_column(index=True)             # @Column() + @Index()
+    done: Mapped[bool] = mapped_column(default=False)          # @Column({ default: false })
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())  # @CreateDateColumn()</code></pre>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>TypeORM</th><th>SQLAlchemy 2.0</th></tr></thead>
+        <tbody>
+          <tr><td><code>@Entity('todos')</code></td><td><code>__tablename__ = "todos"</code></td></tr>
+          <tr><td><code>@PrimaryGeneratedColumn()</code></td><td><code>mapped_column(primary_key=True)</code></td></tr>
+          <tr><td><code>@Column()</code> + TS 타입</td><td><code>Mapped[str]</code> — <strong>타입힌트가 곧 컬럼 선언</strong></td></tr>
+          <tr><td><code>@Column({ nullable: true })</code></td><td><code>Mapped[str | None]</code></td></tr>
+          <tr><td><code>@Column({ default: false })</code></td><td><code>mapped_column(default=False)</code></td></tr>
+          <tr><td><code>@CreateDateColumn()</code></td><td><code>mapped_column(server_default=func.now())</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Repository 하나 vs Session 하나 — 여기서 감각이 갈린다</h3>
+    <p>구조가 눈에 띄게 다른 지점이 하나 있습니다. TypeORM은 <strong>엔티티마다 리포지토리</strong>를 주입받지만, SQLAlchemy는 <strong>세션 하나로 모든 엔티티</strong>를 다룹니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — 엔티티별 Repository</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 엔티티마다 하나씩 주입
+constructor(
+  @InjectRepository(Todo)
+  private repo: Repository&lt;Todo&gt;,
+) {}
+
+// 저장 = save() 한 방
+await this.repo.save(todo);</code></pre>
+        </div>
+        <p>User도 쓰려면 <code>@InjectRepository(User)</code>를 <strong>또</strong> 주입.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — 세션 하나로 전부</div>
+        <div class="code-block">
+          <pre><code class="language-python"># 세션 하나로 모든 엔티티
+db: Session = Depends(get_db)
+
+db.get(Todo, id)
+db.get(User, id)   # 같은 세션
+
+# 저장 = add → commit
+db.add(todo)
+db.commit()</code></pre>
+        </div>
+        <p>모델 클래스를 <strong>인자로</strong> 넘기므로 세션 하나면 충분.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 즉시 결제 vs 장바구니.</strong> TypeORM의 <code>save()</code>는 <strong>"이거 지금 계산해 주세요"</strong>입니다. 부를 때마다 SQL이 나가죠. SQLAlchemy의 <code>add()</code>는 <strong>"일단 장바구니에 담아 둬"</strong>에 가깝습니다. 실제 SQL은 <code>commit()</code>을 부르는 순간 <strong>한꺼번에</strong> 나갑니다. 그래서 객체 열 개를 고쳐도 커밋 한 번이면 되고, 중간에 문제가 생기면 장바구니를 통째로 비울 수 있습니다(롤백). 이 방식을 <strong>Unit of Work</strong>라고 부르고, SQLAlchemy를 배울 때 가장 먼저 익숙해져야 하는 감각입니다.</div>
     </div>
   </section>
 
   <section class="section" id="crud-router">
     <div class="section-header">
       <div class="section-icon icon-select">🔌</div>
-      <h2>CRUD 라우터 — 5개 엔드포인트</h2>
+      <h2>CRUD 라우터 — Controller + Service를 함수로</h2>
     </div>
-    <p>이제 명세표의 5줄을 실제 코드로 옮깁니다. (DB 접근은 다음 레슨에서 서비스 계층으로 빼지만, 여기서는 흐름을 한눈에 보기 위해 라우터에 직접 적습니다.)</p>
+    <p>이제 명세표의 5줄을 실제 코드로 옮깁니다. NestJS라면 <code>TodosController</code>와 <code>TodosService</code> 두 파일로 나눴을 텐데, 여기서는 흐름을 한눈에 보기 위해 라우터에 직접 적습니다. (다음 레슨에서 서비스 계층으로 분리합니다.)</p>
 
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">routers/todos.py — 조회</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -224,24 +507,64 @@ from database import get_db
 from models import Todo
 from schemas import TodoCreate, TodoUpdate, TodoPublic
 
-router = APIRouter(prefix="/todos", tags=["todos"])
+router = APIRouter(prefix="/todos", tags=["todos"])   # ← @Controller('todos')
 
-@router.get("", response_model=list[TodoPublic])
+@router.get("", response_model=list[TodoPublic])      # ← @Get()
 def list_todos(db: Session = Depends(get_db)):
     return db.scalars(select(Todo).order_by(Todo.id)).all()
 
-@router.get("/{todo_id}", response_model=TodoPublic)
+@router.get("/{todo_id}", response_model=TodoPublic)  # ← @Get(':id')
 def get_todo(todo_id: int, db: Session = Depends(get_db)):
     todo = db.get(Todo, todo_id)
     if todo is None:
+        # ← throw new NotFoundException('Todo not found')
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Todo not found")
-    return todo                       # ORM 객체를 그대로 반환 → 직렬화</code></pre>
+    return todo                       # ORM 객체 그대로 반환 → from_attributes가 처리</code></pre>
+    </div>
+
+    <p>생성(POST)을 두 프레임워크로 나란히 놓으면 이렇습니다. <strong>순서와 역할이 거의 똑같다</strong>는 게 보일 겁니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — @Post + save()</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Post()
+@HttpCode(201)
+async create(
+  @Body() dto: CreateTodoDto,
+) {
+  const todo =
+    this.repo.create(dto);
+  return this.repo.save(todo);
+}</code></pre>
+        </div>
+        <p><code>save()</code>가 <strong>반환값</strong>으로 id가 채워진 객체를 돌려줌.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — add · commit · refresh</div>
+        <div class="code-block">
+          <pre><code class="language-python">@router.post(
+    "", status_code=201,
+    response_model=TodoPublic)
+def create_todo(
+    payload: TodoCreate,
+    db: Session = Depends(get_db)
+):
+    todo = Todo(
+        **payload.model_dump())
+    db.add(todo)
+    db.commit()
+    db.refresh(todo)
+    return todo</code></pre>
+        </div>
+        <p>커밋 후 <code>refresh()</code>로 <strong>DB가 채운 값</strong>을 다시 읽어 옴.</p>
+      </div>
     </div>
 
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">routers/todos.py — 생성·수정·삭제</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">@router.post("", response_model=TodoPublic,
-             status_code=status.HTTP_201_CREATED)   # 생성 → 201
+             status_code=status.HTTP_201_CREATED)   # ← @HttpCode(201)
 def create_todo(payload: TodoCreate, db: Session = Depends(get_db)):
     todo = Todo(title=payload.title, done=payload.done)
     db.add(todo)
@@ -249,7 +572,7 @@ def create_todo(payload: TodoCreate, db: Session = Depends(get_db)):
     db.refresh(todo)              # DB가 채운 id·created_at 다시 읽기
     return todo
 
-@router.patch("/{todo_id}", response_model=TodoPublic)
+@router.patch("/{todo_id}", response_model=TodoPublic)   # ← @Patch(':id')
 def update_todo(todo_id: int, payload: TodoUpdate,
                 db: Session = Depends(get_db)):
     todo = db.get(Todo, todo_id)
@@ -262,25 +585,86 @@ def update_todo(todo_id: int, payload: TodoUpdate,
     return todo
 
 @router.delete("/{todo_id}",
-              status_code=status.HTTP_204_NO_CONTENT)   # 삭제 → 204
+              status_code=status.HTTP_204_NO_CONTENT)   # ← @HttpCode(204)
 def delete_todo(todo_id: int, db: Session = Depends(get_db)):
     todo = db.get(Todo, todo_id)
     if todo is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Todo not found")
-    db.delete(todo); db.commit()       # 본문 없이 204 응답</code></pre>
+    db.delete(todo); db.commit()       # 아무것도 return 안 함 → 본문 없이 204</code></pre>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>404 에러의 <em>모양</em>이 다릅니다.</strong> Nest의 <code>throw new NotFoundException('Todo not found')</code>는 <code>{"statusCode":404,"message":"Todo not found","error":"Not Found"}</code>를 돌려줍니다. FastAPI의 <code>raise HTTPException(404, "Todo not found")</code>는 <code>{"detail":"Todo not found"}</code>입니다. 던지는 방식(<code>throw</code> ↔ <code>raise</code>)과 프레임워크가 알아서 응답으로 바꿔 준다는 점은 같지만, <strong>본문 형식이 다르니 프런트엔드 에러 처리 코드를 그대로 옮기면 안 됩니다</strong>. 응답 모양을 통일하고 싶다면 다음다음 레슨의 <a href="03-exception-handler-pytest.html#exception-handler">전역 예외 핸들러</a>에서 다룹니다.</div>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>PATCH와 PUT은 다르다.</strong> <code>PUT</code>은 자원 <strong>전체를 통째로 교체</strong>(모든 필드 필수)하고, <code>PATCH</code>는 <strong>일부만 수정</strong>합니다. 그래서 <code>TodoUpdate</code>의 필드를 전부 <code>Optional</code>로 두고, <code>model_dump(exclude_unset=True)</code>로 "실제로 보낸 필드만" 골라 덮어씁니다. <code>done</code>만 보내면 <code>title</code>은 건드리지 않죠.</div>
+      <div class="callout-body"><strong>PATCH와 PUT은 다르고, <code>exclude_unset</code>이 그 핵심입니다.</strong> <code>PUT</code>은 자원 <strong>전체를 통째로 교체</strong>(모든 필드 필수), <code>PATCH</code>는 <strong>일부만 수정</strong>입니다. NestJS에서는 <code>PartialType</code>으로 만든 DTO의 안 보낸 필드가 <code>undefined</code>가 되고, TypeORM이 <code>undefined</code>를 알아서 건너뛰어 주는 데 기대곤 했죠. Pydantic은 더 명시적입니다 — 모델이 <strong>"어떤 필드가 실제로 요청에 들어왔는지"를 기억</strong>하고 있어서, <code>model_dump(exclude_unset=True)</code> 한 줄이면 보낸 것만 정확히 골라냅니다. 덕분에 <strong><code>null</code>을 명시적으로 보낸 경우</strong>와 <strong>아예 안 보낸 경우</strong>를 구분할 수 있습니다. JS의 <code>null</code> vs <code>undefined</code> 구분을 언어 차원에서 안전하게 해 주는 셈입니다.</div>
     </div>
   </section>
 
   <section class="section" id="full-flow">
     <div class="section-header">
       <div class="section-icon icon-page">🔀</div>
-      <h2>전체 흐름 — 요청부터 응답까지</h2>
+      <h2>전체 흐름 — Nest의 요청 라이프사이클과 비교</h2>
     </div>
+    <p>NestJS를 쓰면서 외웠던 그 순서 — Middleware → Guard → Interceptor → Pipe → Handler → Interceptor → ExceptionFilter — 를 FastAPI에 옮겨 놓으면 <strong>부품 수가 확 줄어듭니다</strong>.</p>
+
+    <div class="flow-row">
+      <span class="flow-step red">NestJS</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Middleware</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Guard</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Interceptor(전)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Pipe</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step highlight">Handler</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Interceptor(후)</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">ExceptionFilter</span>
+    </div>
+
+    <div class="flow-row">
+      <span class="flow-step green">FastAPI</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Middleware</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Depends</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Pydantic 검증</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step highlight">경로 함수</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">response_model</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">exception_handler</span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>단계</th><th>NestJS</th><th>FastAPI</th></tr></thead>
+        <tbody>
+          <tr><td>공통 전처리</td><td>Middleware</td><td>Middleware (거의 동일)</td></tr>
+          <tr><td>인증 · 인가</td><td>Guard (<code>@UseGuards</code>)</td><td><code>Depends(get_current_user)</code></td></tr>
+          <tr><td>입력 검증</td><td>ValidationPipe</td><td>경로 함수의 타입힌트 (자동)</td></tr>
+          <tr><td>본 처리</td><td>Controller → Service</td><td>경로 함수 → 서비스 함수</td></tr>
+          <tr><td>응답 변환</td><td>ClassSerializerInterceptor</td><td><code>response_model=</code></td></tr>
+          <tr><td>공통 후처리(로깅 등)</td><td>Interceptor</td><td>Middleware 또는 <code>Depends</code>의 <code>yield</code> 아래쪽</td></tr>
+          <tr><td>에러 처리</td><td>ExceptionFilter</td><td><code>@app.exception_handler(...)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Guard·Interceptor·Pipe가 전부 <code>Depends</code> 하나로 합쳐졌다고 보면 됩니다.</strong> 종류가 적어 배우기는 쉽지만, Nest처럼 <strong>"전역에 한 번 등록해서 모든 라우트에 적용"</strong>하고 싶을 땐 방법이 다릅니다. <code>APIRouter(dependencies=[Depends(auth)])</code>처럼 라우터나 앱 레벨에 달아 줘야 하죠. <code>app.useGlobalGuards()</code>가 <code>FastAPI(dependencies=[...])</code>에 해당한다고 기억하세요.</div>
+    </div>
+
     <p>하나의 요청이 라우터를 거쳐 DB를 만나고 다시 JSON으로 돌아오는 길입니다.</p>
 
     <div class="diagram-card">
@@ -313,7 +697,7 @@ def delete_todo(todo_id: int, db: Session = Depends(get_db)):
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>commit 뒤엔 refresh를 잊지 말 것.</strong> <code>id</code>와 <code>created_at</code>은 INSERT 시점에 <strong>DB가 채워 주는 값</strong>입니다. <code>db.commit()</code>만 하고 바로 객체를 반환하면 이 값들이 비어 있거나(만료 상태) 추가 쿼리가 필요할 수 있습니다. <code>db.refresh(todo)</code>로 DB가 채운 최신 값을 다시 읽어 와야 응답에 제대로 담깁니다.</div>
+      <div class="callout-body"><strong>commit 뒤엔 refresh를 잊지 말 것 — Nest에는 없던 습관입니다.</strong> TypeORM에서는 <code>const saved = await this.repo.save(todo)</code>처럼 <strong>반환값</strong>에 id가 채워져 왔습니다. SQLAlchemy는 다릅니다. <code>id</code>와 <code>created_at</code>은 INSERT 시점에 <strong>DB가 채워 주는 값</strong>이고, <code>db.commit()</code> 직후 객체는 "만료(expired)" 상태가 됩니다. <code>db.refresh(todo)</code>로 DB가 채운 최신 값을 다시 읽어 와야 응답에 제대로 담깁니다.</div>
     </div>
   </section>
 
@@ -324,16 +708,28 @@ def delete_todo(todo_id: int, db: Session = Depends(get_db)):
     </div>
     <div class="qa-list">
       <details class="qa-item">
-        <summary><span class="qa-mark">Q</span> 스키마를 Create/Update/Public 셋으로 나누는 이유는?</summary>
-        <div class="qa-answer"><p>입력과 출력의 필드가 다르기 때문입니다. 생성 때는 <code>id</code>를 받지 않고, 수정 때는 모든 필드가 선택적이며, 응답에는 <code>id</code>·<code>created_at</code>이 들어갑니다. 하나의 모델로 다 처리하려 하면 "선택적이어야 할 곳이 필수가 되는" 모순이 생깁니다. NestJS의 Create/Update/Response DTO 분리와 같은 발상입니다.</p></div>
+        <summary><span class="qa-mark">Q</span> NestJS에선 엔티티를 그냥 return해도 됐는데, FastAPI는 왜 <code>from_attributes</code>가 필요한가?</summary>
+        <div class="qa-answer"><p><strong>언어의 차이</strong>입니다. 자바스크립트에는 값을 꺼내는 방법이 <code>todo.id</code> 하나뿐이라, class-transformer는 상대가 평범한 객체든 엔티티든 고민 없이 읽습니다. 파이썬은 <code>data["id"]</code>(딕셔너리)와 <code>todo.id</code>(객체)가 <strong>서로 통하지 않는 두 문법</strong>입니다. Pydantic은 JSON 요청 본문(=딕셔너리)을 주로 다루므로 기본값이 딕셔너리 방식이고, <code>ConfigDict(from_attributes=True)</code>가 "객체면 속성으로도 읽어 봐"라고 켜 주는 스위치입니다.</p></div>
       </details>
       <details class="qa-item">
-        <summary><span class="qa-mark">Q</span> 라우터에서 SQLAlchemy 객체를 그냥 <code>return</code>해도 되는 까닭은?</summary>
-        <div class="qa-answer"><p><code>response_model=TodoPublic</code>을 지정했고, <code>TodoPublic</code>에 <code>ConfigDict(from_attributes=True)</code>를 켜 뒀기 때문입니다. FastAPI가 ORM 객체의 속성을 읽어 <code>TodoPublic</code> 모양의 JSON으로 변환합니다. 직접 dict로 변환할 필요가 없습니다.</p></div>
+        <summary><span class="qa-mark">Q</span> <code>response_model=TodoPublic</code>은 NestJS의 무엇에 해당하고, 보안상 어떤 이점이 있나?</summary>
+        <div class="qa-answer"><p><code>ClassSerializerInterceptor</code>에 해당합니다. 다만 방향이 반대예요. Nest는 엔티티에 <code>@Exclude()</code>를 붙여 <strong>"숨길 것을 표시"</strong>하는 방식이라, 깜빡하면 <code>password</code> 같은 필드가 그대로 새어 나갑니다. FastAPI는 응답 모델에 <strong>"보여줄 것만 나열"</strong>하는 방식이라, 적지 않은 필드는 아예 나가지 않습니다. 실수로 유출되는 사고가 구조적으로 막힙니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 스키마를 Create/Update/Public 셋으로 나누는 이유는?</summary>
+        <div class="qa-answer"><p>NestJS에서 DTO를 셋으로 나누던 이유와 똑같습니다. 생성 때는 <code>id</code>를 받지 않고, 수정 때는 모든 필드가 선택적이며, 응답에는 <code>id</code>·<code>created_at</code>이 들어갑니다. 하나로 다 처리하려 하면 "선택적이어야 할 곳이 필수가 되는" 모순이 생기죠. Nest의 <code>PartialType(CreateTodoDto)</code>에 해당하는 게 FastAPI에서는 모든 필드를 <code>| None = None</code>으로 두는 것입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 검증 실패 응답이 Nest는 400, FastAPI는 422다. 왜 신경 써야 하나?</summary>
+        <div class="qa-answer"><p>프런트엔드가 상태코드로 분기하기 때문입니다. Nest의 <code>ValidationPipe</code>는 <code>400 Bad Request</code>를, FastAPI는 <code>422 Unprocessable Entity</code>를 돌려줍니다. 에러 본문 형식도 달라서(<code>{"message":[...]}</code> vs <code>{"detail":[...]}</code>), Nest 프런트 코드를 그대로 옮기면 에러 메시지가 화면에 안 뜹니다. 팀 규약이 <code>400</code>이라면 전역 예외 핸들러로 바꿔 주면 됩니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> TypeORM <code>save()</code> 한 줄이 SQLAlchemy에서는 왜 세 줄(<code>add</code>·<code>commit</code>·<code>refresh</code>)인가?</summary>
+        <div class="qa-answer"><p>SQLAlchemy는 <strong>Unit of Work</strong> 방식이기 때문입니다. <code>add()</code>는 "장바구니에 담기"라 SQL이 나가지 않고, <code>commit()</code>에서 담아 둔 변경이 <strong>한꺼번에</strong> 나갑니다. 여러 객체를 고쳐도 커밋 한 번이면 되고 롤백도 통째로 되는 게 장점이죠. 다만 커밋 직후 객체가 "만료" 상태가 되므로, DB가 채운 <code>id</code>·<code>created_at</code>을 응답에 담으려면 <code>refresh()</code>로 다시 읽어 와야 합니다. TypeORM은 <code>save()</code>의 반환값이 이 역할을 대신했습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> PATCH에서 <code>model_dump(exclude_unset=True)</code>를 쓰는 이유는?</summary>
-        <div class="qa-answer"><p>요청 본문에 <strong>실제로 보낸 필드만</strong> 추려 수정하기 위해서입니다. <code>exclude_unset</code> 없이 dump하면 보내지 않은 필드도 기본값(예: <code>None</code>)으로 들어와 멀쩡한 값을 덮어써 버립니다. 부분 수정(PATCH)의 핵심 옵션입니다.</p></div>
+        <div class="qa-answer"><p>요청 본문에 <strong>실제로 보낸 필드만</strong> 추려 수정하기 위해서입니다. 이 옵션 없이 dump하면 보내지 않은 필드도 기본값(<code>None</code>)으로 들어와 멀쩡한 값을 덮어써 버립니다. Pydantic 모델은 "어떤 필드가 요청에 들어왔는지"를 기억하고 있어서, <strong><code>null</code>을 명시적으로 보낸 경우</strong>와 <strong>아예 안 보낸 경우</strong>까지 구분할 수 있습니다. JS의 <code>undefined</code> vs <code>null</code> 구분을 안전하게 처리해 주는 셈입니다.</p></div>
       </details>
     </div>
   </section>

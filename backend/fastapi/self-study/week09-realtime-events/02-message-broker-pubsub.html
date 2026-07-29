@@ -43,6 +43,7 @@
       <a class="nav-item" href="01-websocket.html#disconnect">🔌 WebSocketDisconnect — 끊김을 다루기</a>
       <a class="nav-item" href="01-websocket.html#connection-manager">👥 ConnectionManager — 다중 접속 관리</a>
       <a class="nav-item" href="01-websocket.html#chat-example">💬 간단 채팅 예제 — 다 합치기</a>
+      <a class="nav-item" href="01-websocket.html#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="01-websocket.html#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · 메시지 브로커 · Redis Pub/Sub</div>
       <a class="nav-item" href="#event-driven">🧩 이벤트 기반 아키텍처 — 결합도를 낮추기</a>
@@ -50,6 +51,7 @@
       <a class="nav-item" href="#redis-pubsub">📡 Redis Pub/Sub — 가장 쉬운 시작</a>
       <a class="nav-item" href="#scale-out">🌐 WebSocket × Redis — 여러 서버로 스케일아웃</a>
       <a class="nav-item" href="#pubsub-vs-queue">⚖️ Pub/Sub vs 큐 — 그리고 더 강력한 브로커</a>
+      <a class="nav-item" href="#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">03 · 동기/비동기 성능 테스트 &amp; 개선</div>
       <a class="nav-item" href="03-performance-test.html#why-measure">📏 왜 측정하는가 — 감이 아니라 숫자</a>
@@ -57,6 +59,7 @@
       <a class="nav-item" href="03-performance-test.html#sync-vs-async">🔀 sync def vs async def — 정확히 무슨 일이 일어나나</a>
       <a class="nav-item" href="03-performance-test.html#async-demo">🚀 데모 — I/O 바운드에서 async의 효과</a>
       <a class="nav-item" href="03-performance-test.html#bottlenecks">🐌 흔한 병목 &amp; 개선</a>
+      <a class="nav-item" href="03-performance-test.html#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="03-performance-test.html#self-check">✅ 셀프 체크</a>
     </div>
     <a class="nav-week" href="../week10-test-deploy/01-pytest-mocking-fixture.html"><span class="wk-no">10</span> Week 10 · 테스트 심화 &amp; 배포</a>
@@ -279,6 +282,75 @@ async def redis_to_clients():
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>유실되면 안 되는 메시지라면.</strong> "알림이 한 번쯤 빠져도 괜찮다"면 Pub/Sub으로 충분합니다. 하지만 "결제 처리 이벤트는 절대 잃으면 안 된다"면 <strong>보존·ACK·재시도</strong>를 제공하는 RabbitMQ나 Kafka, 혹은 Redis Streams를 고려하세요. 메시지의 <strong>유실 허용 여부</strong>가 도구 선택의 첫 갈림길입니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="nestjs-compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">📊</div>
+      <h2>NestJS와 비교 — Microservices 트랜스포트</h2>
+    </div>
+    <p>NestJS에도 이 이야기가 통째로 있습니다. 이름이 <strong><code>@nestjs/microservices</code></strong>였죠. <code>client.emit('order.created', order)</code>로 이벤트를 던지고, 받는 쪽은 <code>@EventPattern('order.created')</code> 데코레이터만 붙이면 끝이었습니다. 구독 루프를 돌거나 <code>message["type"]</code>을 검사하는 코드는 <strong>한 줄도 쓰지 않았습니다.</strong></p>
+    <p>Nest가 그 사이에 <strong>트랜스포트(transport)라는 얇은 껍데기</strong>를 한 겹 씌워줬기 때문입니다. 설정에서 <code>Transport.REDIS</code>를 <code>Transport.KAFKA</code>로 바꾸면, <strong>데코레이터는 그대로 둔 채 브로커만 갈아끼울 수</strong> 있었습니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — @EventPattern</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 발행
+this.client.emit(
+  'order.created', order,
+);
+
+// 구독 — 루프가 없다
+@EventPattern('order.created')
+handle(@Payload() order: any) {
+  this.stock.decrease(order);
+}</code></pre>
+        </div>
+        <p>직렬화·구독 루프를 <strong>프레임워크가</strong> 숨긴다.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — redis.asyncio</div>
+        <div class="code-block">
+          <pre><code class="language-python"># 발행
+await r.publish(
+    "order.created",
+    json.dumps(order))
+
+# 구독 — 루프를 직접 돈다
+async for m in ps.listen():
+    if m["type"] == "message":
+        o = json.loads(m["data"])
+        await decrease(o)</code></pre>
+        </div>
+        <p>브로커 API가 <strong>그대로 드러난다</strong>(그래서 다 보인다).</p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>NestJS</th><th>FastAPI (이번 강의)</th></tr></thead>
+        <tbody>
+          <tr><td><code>ClientProxy.emit()</code> — 이벤트 발행</td><td><code>await r.publish(channel, msg)</code></td></tr>
+          <tr><td><code>@EventPattern('x')</code> — 구독 핸들러</td><td><code>pubsub.listen()</code> 루프 + <code>type == "message"</code> 검사</td></tr>
+          <tr><td><code>ClientProxy.send()</code> — 요청/응답(RPC)</td><td>대응 기능 없음 — 필요하면 직접 설계</td></tr>
+          <tr><td>페이로드 JSON 직렬화 <strong>자동</strong></td><td><code>json.dumps</code> / <code>json.loads</code> <strong>직접</strong></td></tr>
+          <tr><td><code>Transport.REDIS</code> ↔ <code>RMQ</code> ↔ <code>KAFKA</code> 옵션 교체</td><td>라이브러리 교체 (<code>redis.asyncio</code> / <code>aio-pika</code> / <code>aiokafka</code>)</td></tr>
+          <tr><td><code>@nestjs/event-emitter</code> (프로세스 내부 이벤트)</td><td>그냥 함수 호출 또는 <code>BackgroundTasks</code></td></tr>
+          <tr><td>WebSocket 다중 서버 = <code>@socket.io/redis-adapter</code></td><td>이번 강의의 <code>redis_to_clients()</code> — <strong>같은 원리를 직접</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>"Nest를 썼으니 메시지가 안전했다"는 착각.</strong> <code>Transport.REDIS</code>도 <strong>내부적으로는 똑같은 Redis Pub/Sub</strong>입니다. 데코레이터가 예뻐 보였을 뿐, <strong>유실 특성은 이번 강의에서 배운 것과 완전히 동일</strong>했습니다 — 구독자가 꺼져 있던 동안의 메시지는 사라집니다. 내구성이 필요하면 Nest에서도 <code>Transport.RMQ</code>나 BullMQ로 갔어야 했죠. <strong>도구가 바뀌어도 "유실 허용 여부"라는 질문은 그대로</strong>입니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>파이썬에도 그 껍데기가 있다 — FastStream.</strong> 매번 <code>listen()</code> 루프를 쓰는 게 번거롭다면, <strong>FastStream</strong>(구 Propan)이 <code>@nestjs/microservices</code>와 거의 같은 자리를 채웁니다. <code>@broker.subscriber("order.created")</code> 데코레이터 하나로 Redis·RabbitMQ·Kafka·NATS를 같은 방식으로 다루고, Pydantic 검증까지 붙습니다. 다만 <strong>원리를 먼저 손으로 겪어보는 것</strong>이 순서입니다 — 그래야 추상화가 무엇을 숨기고 있는지 보이니까요.</div>
     </div>
   </section>
 

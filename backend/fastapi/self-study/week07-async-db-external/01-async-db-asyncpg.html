@@ -41,6 +41,7 @@
       <a class="nav-item" href="#engine-session">⚙️ 엔진 &amp; 세션 구성</a>
       <a class="nav-item" href="#endpoint-migration">🔄 동기 → 비동기 전환</a>
       <a class="nav-item" href="#lifespan">♻️ Lifespan 리소스 관리</a>
+      <a class="nav-item" href="#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · 외부 API 요청 (httpx)</div>
       <a class="nav-item" href="02-httpx-external-api.html#backend-as-client">🔁 백엔드가 클라이언트가 되는 순간</a>
@@ -48,6 +49,7 @@
       <a class="nav-item" href="02-httpx-external-api.html#requests-trap">⚠️ requests 함정</a>
       <a class="nav-item" href="02-httpx-external-api.html#timeout-reuse">⏱️ 타임아웃 &amp; 재사용</a>
       <a class="nav-item" href="02-httpx-external-api.html#error-handling">🚨 에러 처리</a>
+      <a class="nav-item" href="02-httpx-external-api.html#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="02-httpx-external-api.html#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">03 · CORS · 미들웨어</div>
       <a class="nav-item" href="03-cors-middleware.html#what-is-cors">🛂 CORS란</a>
@@ -293,6 +295,71 @@ app = FastAPI(lifespan=lifespan)</code></pre>
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>@app.on_event("startup") 은 구식 — Lifespan을 써라.</strong> 예전 튜토리얼에 나오는 <code>@app.on_event("startup")</code> / <code>@app.on_event("shutdown")</code>은 <strong>deprecated</strong>입니다. 지금은 위처럼 <code>@asynccontextmanager</code> + <code>lifespan</code> 하나로 시작·종료를 같은 함수에 묶는 방식이 권장됩니다. 시작에서 만든 변수를 종료에서 그대로 쓸 수 있어 더 안전하고요.</div>
+    </div>
+  </section>
+
+  <section class="section" id="nestjs-compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">📊</div>
+      <h2>NestJS와 비교 — 애초에 고민할 필요가 없었던 이유</h2>
+    </div>
+    <p>NestJS로 TypeORM이나 Prisma를 쓸 때 "이 드라이버가 동기인가 비동기인가"를 고민한 적 있으신가요? <strong>없을 겁니다.</strong> Node 생태계의 DB 드라이버는 <strong>전부 Promise 기반</strong>이라 <code>await</code> 말고는 쓸 방법이 아예 없거든요. 그래서 이번 강의의 함정이 NestJS 경험자에겐 오히려 낯섭니다.</p>
+    <p>파이썬은 다릅니다. 같은 PostgreSQL을 두고 <strong>동기 드라이버(<code>psycopg2</code>)와 비동기 드라이버(<code>asyncpg</code>)가 나란히 존재</strong>합니다. 둘 다 잘 돌아가고, 둘 다 에러도 안 납니다. 다만 <strong>동기를 고르면 처리량이 조용히 무너질 뿐</strong>이죠.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 자동 변속기 vs 수동 변속기.</strong> NestJS는 <strong>자동 변속기</strong>입니다. 기어를 잘못 넣을 방법이 없어요. FastAPI는 <strong>수동 변속기</strong>입니다. 1단으로 고속도로를 달려도 차는 굴러갑니다 — 시끄럽고 느릴 뿐이죠. <code>postgresql://</code>(동기)로 연결해도 앱은 뜨고 API도 응답합니다. 부하가 걸리기 전까지는 아무도 모릅니다. 그래서 <strong>연결 URL 접두사를 확인하는 습관</strong>이 파이썬 백엔드에선 실력입니다.</div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — 종료 훅</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">@Injectable()
+export class Db implements
+  OnModuleDestroy {
+  constructor(
+    private ds: DataSource,
+  ) {}
+  async onModuleDestroy() {
+    await this.ds.destroy();
+  }
+}</code></pre>
+        </div>
+        <p>클래스에 훅을 <strong>구현(implements)</strong>해 붙인다.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — Lifespan</div>
+        <div class="code-block">
+          <pre><code class="language-python">@asynccontextmanager
+async def lifespan(app):
+    # 시작 준비
+    yield          # 앱 실행 중
+    await engine.dispose()
+
+app = FastAPI(lifespan=lifespan)</code></pre>
+        </div>
+        <p>함수 하나의 <code>yield</code> <strong>앞·뒤</strong>로 시작·종료를 나눈다.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>NestJS</th><th>FastAPI (이번 강의)</th></tr></thead>
+        <tbody>
+          <tr><td>TypeORM · Prisma (<strong>항상 비동기</strong>)</td><td><code>SQLAlchemy async</code> + <code>asyncpg</code> (<strong>골라야 함</strong>)</td></tr>
+          <tr><td><code>DataSource</code> (커넥션 풀 보유)</td><td><code>create_async_engine</code> (커넥션 풀 보유)</td></tr>
+          <tr><td><code>Repository&lt;T&gt;</code> 를 생성자에 주입</td><td><code>AsyncSession</code> 을 <code>Depends</code> 로 주입</td></tr>
+          <tr><td><code>OnModuleInit</code> / <code>OnApplicationBootstrap</code></td><td><code>lifespan</code> 의 <code>yield</code> <strong>이전</strong></td></tr>
+          <tr><td><code>OnModuleDestroy</code> + <code>enableShutdownHooks()</code></td><td><code>lifespan</code> 의 <code>yield</code> <strong>이후</strong></td></tr>
+          <tr><td><code>await dataSource.destroy()</code></td><td><code>await engine.dispose()</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Nest의 DI 컨테이너 자리를 lifespan이 대신한다.</strong> NestJS에서는 <code>DataSource</code>가 <strong>싱글턴 프로바이더</strong>라, "앱당 하나"를 컨테이너가 알아서 보장해 줍니다. FastAPI에는 그런 컨테이너가 없으니, <strong>모듈 최상단에서 엔진을 한 번 만들고 lifespan에서 정리</strong>하는 것이 그 역할을 대신합니다. 요청마다 <code>create_async_engine</code>을 부르면 커넥션 풀이 요청 수만큼 생겨 DB가 먼저 쓰러집니다 — Nest에서라면 DI가 막아줬을 실수입니다.</div>
     </div>
   </section>
 

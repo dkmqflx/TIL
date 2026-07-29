@@ -43,6 +43,7 @@
       <a class="nav-item" href="01-pytest-mocking-fixture.html#testclient">🧪 TestClient — CRUD 두드리기</a>
       <a class="nav-item" href="01-pytest-mocking-fixture.html#dependency-overrides">🔄 dependency_overrides</a>
       <a class="nav-item" href="01-pytest-mocking-fixture.html#mocking">🎭 Mocking — 외부 의존성 격리</a>
+      <a class="nav-item" href="01-pytest-mocking-fixture.html#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="01-pytest-mocking-fixture.html#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · Alembic 마이그레이션</div>
       <a class="nav-item" href="02-alembic-migration.html#why-migration">🤔 왜 마이그레이션인가</a>
@@ -55,6 +56,7 @@
       <a class="nav-item" href="#dockerfile">🐳 Dockerfile — 멀티스테이지</a>
       <a class="nav-item" href="#docker-compose">🧩 docker-compose</a>
       <a class="nav-item" href="#github-actions">🤖 GitHub Actions CI</a>
+      <a class="nav-item" href="#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="#deploy">🚀 배포 — 어디에 올릴까</a>
       <a class="nav-item" href="#retrospective">🎉 우리가 쌓아온 여정</a>
       <a class="nav-item" href="#roadmap">🗺️ 다음 로드맵</a>
@@ -197,6 +199,62 @@ jobs:
         <defs><marker id="pa" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker></defs>
       </svg>
       <div class="diagram-caption">push → lint → test → build → deploy. 앞 단계가 깨지면 뒤로 넘어가지 않는다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="nestjs-compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">📊</div>
+      <h2>NestJS와 비교 — 컨테이너·CI는 거의 똑같다</h2>
+    </div>
+    <p>여기까지 오면 반가운 소식이 있습니다. <strong>Docker와 CI는 언어를 거의 타지 않습니다.</strong> NestJS 프로젝트에서 쓰던 멀티스테이지 Dockerfile, 레이어 캐시 요령, GitHub Actions 워크플로 구조가 <strong>이름만 바꿔서 그대로</strong> 옵니다. 두 언어의 대응만 외우면 됩니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>역할</th><th>NestJS</th><th>FastAPI</th></tr></thead>
+        <tbody>
+          <tr><td>의존성 선언 · 잠금</td><td><code>package.json</code> + <code>package-lock.json</code></td><td><code>pyproject.toml</code> + <code>uv.lock</code></td></tr>
+          <tr><td>락대로 재현 설치</td><td><code>npm ci</code></td><td><code>uv sync --frozen</code></td></tr>
+          <tr><td>운영 의존성만</td><td><code>npm ci --omit=dev</code></td><td><code>uv sync --no-dev</code></td></tr>
+          <tr><td>빌더가 만든 결과물</td><td><code>dist/</code> (트랜스파일된 JS)</td><td><code>.venv/</code> (설치된 패키지)</td></tr>
+          <tr><td>최종 스테이지로 복사</td><td><code>COPY --from=builder /app/dist</code></td><td><code>COPY --from=builder /app/.venv</code></td></tr>
+          <tr><td>실행 명령</td><td><code>CMD ["node", "dist/main.js"]</code></td><td><code>CMD ["uvicorn", "main:app", ...]</code></td></tr>
+          <tr><td>린트 · 포맷</td><td>ESLint + Prettier</td><td><strong>ruff</strong> (둘을 하나로)</td></tr>
+          <tr><td>테스트</td><td><code>npm test</code> (Jest)</td><td><code>uv run pytest -v</code></td></tr>
+          <tr><td>마이그레이션 배포 시 적용</td><td><code>typeorm migration:run</code></td><td><code>alembic upgrade head</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — 캐시가 먹는 순서</div>
+        <div class="code-block">
+          <pre><code class="language-bash">COPY package*.json ./
+RUN npm ci          # ← 캐시됨
+COPY . .
+RUN npm run build   # dist/ 생성</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — 완전히 같은 순서</div>
+        <div class="code-block">
+          <pre><code class="language-bash">COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen  # ← 캐시됨
+COPY . .
+RUN uv sync --frozen --no-dev</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이미 알고 있던 요령이 그대로 통한다.</strong> "락 파일을 먼저 복사하고 설치한 뒤, 소스는 나중에 복사한다" — <code>package*.json</code>을 먼저 <code>COPY</code>하던 그 습관 그대로입니다. 이유도 같습니다. <strong>소스만 바뀐 빌드에서 의존성 레이어를 캐시로 재사용</strong>하기 위해서죠. Docker 레이어 캐시는 언어를 모릅니다.</div>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>딱 하나 다른 감각 — "빌드 결과물"의 정체.</strong> NestJS의 빌더 스테이지는 TypeScript를 <strong>JavaScript로 변환</strong>해 <code>dist/</code>를 만들었습니다. 파이썬은 컴파일 단계가 없어서, 빌더가 만드는 건 <strong>설치된 패키지 폴더(<code>.venv/</code>)</strong>입니다. 그래서 "소스 + <code>.venv</code>"를 함께 복사하죠. <code>node_modules</code>를 복사하지 않고 <code>dist</code>만 옮기던 감각과는 조금 다르니, <strong><code>.venv</code>를 빠뜨리면 컨테이너가 <code>ModuleNotFoundError</code>로 죽습니다.</strong></div>
     </div>
   </section>
 

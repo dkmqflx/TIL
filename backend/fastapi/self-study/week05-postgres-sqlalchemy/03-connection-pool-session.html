@@ -70,17 +70,19 @@
 
   <div class="lesson-head">
     <h1>Connection Pool · Session 그리고 안전한 쿼리</h1>
-    <p class="lesson-subtitle">DB 연결은 <strong>비싼 자원</strong>입니다. 미리 만들어 돌려 쓰는 <strong>Connection Pool</strong>, 작업 단위인 <strong>Session</strong>, 그리고 SQL Injection을 막는 <strong>bind 변수</strong>까지 — DB를 실제로 다루는 마지막 조각들입니다.</p>
+    <p class="lesson-subtitle">DB에 말을 걸려면 먼저 <strong>연결</strong>이 필요하고, 그 연결은 <strong>비쌉니다</strong>. 그래서 미리 만들어 돌려 쓰는 <strong>Connection Pool</strong>, 작업을 묶는 <strong>Session</strong>, 그리고 값을 안전하게 넘기는 <strong>bind 변수</strong>까지 — DB를 실제로 다루는 마지막 조각들입니다. 각 절 끝에서 <strong>NestJS + TypeORM과 나란히</strong> 비교합니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> DB 연결은 매번 새로 맺기엔 비싸다. 그래서 <b>풀(pool)에 미리 만들어 두고 빌려 쓰고 반납</b>한다 — 콜택시 대기열처럼. 작업은 <b>Session(작업 단위)</b>으로 묶고, 값은 문자열로 잇지 말고 <b>bind 변수로 바인딩</b>해 인젝션을 막는다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> DB 연결은 <b>전화를 거는 것</b>과 같아서 매번 새로 걸기엔 비싸다. 그래서 <b>미리 몇 개 걸어 두고(pool) 빌려 쓰고 반납</b>한다. 그 연결 위에서 하는 작업 한 묶음이 <b>Session(장바구니)</b>이고, 결제 버튼이 <b>commit</b>이다. 값은 문자열로 잇지 말고 <b>bind 변수로 따로 전달</b>해 인젝션을 막는다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
-    <li>Connection Pool이 왜 필요한지와 주요 파라미터를 안다</li>
-    <li>Session(Unit of Work)으로 작업을 묶고 commit/close한다</li>
-    <li>2.0 스타일로 쿼리를 실행하고 결과를 fetch한다</li>
-    <li>bind 변수로 SQL Injection을 막는다</li>
+    <li>"DB 연결"이 정확히 무엇이고 왜 비싼지 설명할 수 있다</li>
+    <li>Connection Pool이 왜 필요한지와 파라미터 4개의 의미를 안다</li>
+    <li>Session(장바구니)으로 작업을 묶고 commit / close 한다</li>
+    <li>select → execute → fetch의 3단계를 구분해 결과를 꺼낸다</li>
+    <li>bind 변수가 <em>왜</em> SQL Injection을 막는지 원리로 설명한다</li>
+    <li>각 개념을 NestJS + TypeORM의 무엇과 대응시킬 수 있다</li>
   </ul>
 
   <section class="section" id="connection-pool">
@@ -88,35 +90,80 @@
       <div class="section-icon icon-concept">🔄</div>
       <h2>Connection Pool — 연결을 재사용하기</h2>
     </div>
-    <p>DB 연결은 TCP 핸드셰이크·인증을 거치는 <strong>무거운 작업</strong>입니다. 요청마다 새로 맺고 끊으면 그 비용이 누적됩니다. 그래서 연결을 미리 몇 개 만들어 두고 <strong>빌려 쓰고 반납</strong>합니다.</p>
+
+    <h3>① 그래서 "연결(connection)"이 뭔가요?</h3>
+    <p>가장 먼저 짚고 갈 것이 있습니다. <strong>PostgreSQL은 내 파이썬 코드 안에 들어 있는 게 아닙니다.</strong> 완전히 별개의 프로그램이고, 보통 다른 컨테이너나 아예 다른 서버에서 혼자 돌아가고 있습니다. 즉 내 코드와 DB는 <strong>서로 남남인 두 프로그램</strong>이에요. 남남끼리 대화하려면 먼저 <strong>말을 주고받을 통로</strong>를 하나 뚫어야 합니다. 그 통로 하나가 바로 <strong>연결(connection)</strong>입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 콜택시 대기열.</strong> 손님(요청)이 올 때마다 <strong>새 택시를 사는 것</strong>은 미친 짓입니다. 대신 회사는 택시 몇 대를 <strong>대기열(pool)</strong>에 세워 둡니다. 손님이 오면 대기 중인 택시를 <strong>배차(빌림)</strong>하고, 목적지에 도착하면 택시는 <strong>다시 대기열로 복귀(반납)</strong>합니다. 손님이 몰리면 임시 차량을 더 부르고(<code>max_overflow</code>), 한가하면 줄입니다.</div>
+      <div class="callout-body"><strong>비유 — 전화 걸기.</strong> 친구에게 용건을 말하려면 <em>먼저 전화를 걸어야</em> 합니다. 번호를 누르고(주소로 접속), 신호가 가고 상대가 받고(TCP 핸드셰이크), "저 도현인데요, 비밀번호는 ○○예요" 하고 신원을 확인받습니다(인증). 이 준비 과정이 다 끝나야 비로소 <strong>"어제 그 파일 좀"</strong> 이라는 본론(쿼리)을 말할 수 있죠. 문제는 <strong>준비가 본론보다 훨씬 오래 걸린다</strong>는 겁니다.</div>
     </div>
 
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>파라미터</th><th>의미</th><th>비유</th></tr></thead>
-        <tbody>
-          <tr><td><code>pool_size</code></td><td>평상시 유지하는 연결 수</td><td>상시 대기 택시 대수</td></tr>
-          <tr><td><code>max_overflow</code></td><td>몰릴 때 추가 허용 한도</td><td>피크 때 임시 콜 한도</td></tr>
-          <tr><td><code>pool_recycle</code></td><td>일정 초 지난 연결은 폐기·재생성</td><td>오래된 차 교체 주기</td></tr>
-          <tr><td><code>pool_pre_ping</code></td><td>빌려주기 전 "살아있니?" 점검</td><td>배차 전 시동 확인</td></tr>
-        </tbody>
-      </table>
+    <h3>② 매번 새로 연결하면 무슨 일이 생기나</h3>
+    <p>정확한 수치는 환경마다 다르지만 감을 잡아 보면, 연결을 새로 맺는 데는 보통 <strong>수 ms에서 수십 ms</strong>가 걸립니다. 반면 <code>SELECT * FROM todos</code> 같은 가벼운 쿼리는 <strong>1ms 안팎</strong>이면 끝납니다. 즉 <strong>준비에 30, 본론에 1</strong>을 쓰는 셈입니다. 전화를 걸고 인사만 나눈 뒤 바로 끊고, 다음 질문을 하려고 또 전화를 거는 것과 같습니다.</p>
+    <p>요청이 초당 수백 개씩 들어오는 서버라면 이 낭비가 그대로 누적됩니다. 게다가 PostgreSQL은 연결 하나마다 <strong>서버 쪽에서도 프로세스와 메모리를 하나씩 잡습니다.</strong> 연결을 마구 만들면 느려지는 정도가 아니라 <strong>DB 자체가 버티지 못합니다.</strong></p>
+
+    <h3>③ 해결책 — 미리 만들어 두고 돌려 쓴다</h3>
+    <p>그래서 나온 방법이 단순합니다. <strong>연결을 몇 개 미리 만들어 두고, 요청이 오면 그중 하나를 빌려주고, 일이 끝나면 끊지 말고 돌려받는</strong> 것입니다. 이 "미리 만들어 둔 연결 보관함"이 <strong>Connection Pool</strong>입니다. 전화 비유로 하면, <strong>통화를 끊지 않고 수화기를 내려놓았다가 다음 사람이 그대로 이어 쓰는</strong> 셈이죠.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 콜택시 대기열.</strong> 손님(요청)이 올 때마다 <strong>새 택시를 사는 것</strong>은 미친 짓입니다. 대신 회사는 택시 몇 대를 <strong>대기열(pool)</strong>에 세워 둡니다. 손님이 오면 대기 중인 택시를 <strong>배차(빌림)</strong>하고, 목적지에 도착하면 택시는 <strong>다시 대기열로 복귀(반납)</strong>합니다. 손님이 몰리면 임시 차량을 더 부르고(<code>max_overflow</code>), 그래도 모자라면 손님은 <strong>줄을 서서 기다립니다</strong>. 중요한 건 <strong>택시를 폐차하지 않는다</strong>는 점이에요.</div>
     </div>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>앱이 뜰 때</strong> 풀이 만들어집니다. (연결은 첫 요청 때부터 필요한 만큼 채워집니다.)</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>요청이 들어오면</strong> 풀에서 놀고 있는 연결 하나를 <strong>빌립니다(checkout)</strong>. 이미 연결·인증이 끝난 상태라 <strong>기다림이 거의 0</strong>입니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content">그 연결로 <strong>쿼리를 주고받습니다</strong>. 이 연결은 그동안 <strong>나만 씁니다</strong>(다른 요청과 공유되지 않음).</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content">작업이 끝나면 <code>close()</code>로 <strong>반납(checkin)</strong>합니다. 여기서 <code>close()</code>는 "연결을 끊는다"가 아니라 <strong>"다 썼으니 풀에 돌려놓는다"</strong>는 뜻입니다. ← 헷갈리기 쉬운 지점</div>
+      </div>
+    </div>
+
+    <h3>④ 파라미터 네 개 뜯어보기</h3>
+    <p>풀은 <code>create_engine</code>에 옵션으로 설정합니다. 이름만 보면 어렵지만, <strong>전부 택시 회사 운영 규칙</strong>이라고 생각하면 쉽습니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">engine = create_engine(
     DATABASE_URL,
-    pool_size=5,        # 상시 5개
-    max_overflow=10,    # 피크 때 +10까지
-    pool_recycle=1800,  # 30분 지난 연결 재생성
-    pool_pre_ping=True, # 끊긴 연결 자동 폐기
+    pool_size=5,        # 상시 대기 5대
+    max_overflow=10,    # 피크 때 임시로 +10대까지
+    pool_recycle=1800,  # 30분 넘게 산 연결은 폐차하고 새로
+    pool_pre_ping=True, # 배차 전 시동 걸어보기
 )</code></pre>
     </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>파라미터</th><th>의미</th><th>택시 회사로 치면</th></tr></thead>
+        <tbody>
+          <tr><td><code>pool_size</code></td><td>평상시 유지하는 연결 수 (기본 5)</td><td>상시 대기 택시 대수</td></tr>
+          <tr><td><code>max_overflow</code></td><td>몰릴 때 추가로 허용하는 한도 (기본 10)</td><td>피크 때만 부르는 임시 콜 한도</td></tr>
+          <tr><td><code>pool_recycle</code></td><td>지정한 초가 지난 연결은 버리고 새로 만듦</td><td>오래된 차 교체 주기</td></tr>
+          <tr><td><code>pool_pre_ping</code></td><td>빌려주기 직전에 "살아있니?" 한 번 확인</td><td>배차 전 시동 확인</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><strong><code>pool_size</code>와 <code>max_overflow</code>는 짝</strong>입니다. 위 설정이면 동시에 열릴 수 있는 연결은 최대 <strong>5 + 10 = 15개</strong>입니다. 상시 5대는 계속 대기열에 남아 있지만, 임시로 부른 10대는 <strong>일이 끝나면 대기열에 남지 않고 해산</strong>합니다(진짜로 연결이 닫힙니다). 그래서 "평소엔 5개만 유지, 몰릴 때만 잠깐 15개까지"라는 뜻이 됩니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>15개도 다 차면 어떻게 되나요?</strong> 새 요청은 <strong>에러가 나는 게 아니라 줄을 서서 기다립니다.</strong> 그리고 기본값 <strong>30초</strong>(<code>pool_timeout</code>)를 넘겨도 자리가 안 나면 그때 <code>TimeoutError</code>가 납니다. 그래서 "API가 갑자기 30초씩 느려지다가 터진다"면 <strong>연결을 반납하지 않은 코드</strong>를 가장 먼저 의심해야 합니다.</div>
+    </div>
+
+    <p><strong><code>pool_recycle</code>이 필요한 이유</strong>는 조금 뜻밖입니다. 내 쪽에서는 연결을 잘 들고 있어도, <strong>중간의 방화벽·로드밸런서나 DB 서버가 "오래 조용한 연결"을 몰래 끊어 버리는</strong> 일이 흔합니다. 그러면 풀에는 <em>겉보기엔 멀쩡하지만 실제로는 죽은 연결</em>이 남고, 하필 그걸 빌려 간 요청이 에러를 뱉습니다. 그래서 "일정 시간 지난 연결은 어차피 버리고 새로 만들자"고 정해 두는 겁니다. <strong><code>pool_pre_ping=True</code></strong>는 여기에 안전장치를 하나 더 겁니다. 빌려주기 직전에 아주 가벼운 확인 쿼리를 날려 보고, 응답이 없으면 그 연결을 조용히 버리고 새 연결을 대신 내줍니다. 비용이 거의 없으니 <strong>켜 두는 걸 권장</strong>합니다.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 660 250" role="img" aria-label="요청들이 커넥션 풀에서 연결을 빌리고 반납하는 흐름">
@@ -162,6 +209,47 @@
       </svg>
       <div class="diagram-caption">요청은 풀에서 연결을 빌려 쓰고, 끝나면 반납한다. 매번 새로 맺지 않아 빠르다.</div>
     </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>좋은 소식.</strong> 이 풀은 <code>create_engine()</code>만 호출하면 <strong>SQLAlchemy가 알아서 만들고 관리</strong>합니다. 우리가 할 일은 <strong>빌린 걸 반드시 반납하는 것</strong>뿐이고, 그 반납을 담당하는 게 바로 다음에 나오는 <code>Session</code>의 <code>close()</code>입니다.</div>
+    </div>
+
+    <h3>⑤ NestJS와 나란히 — 사실 이미 쓰고 있었다</h3>
+    <p>NestJS에서 <code>TypeOrmModule.forRoot({...})</code>를 적을 때도 <strong>똑같은 풀이 만들어지고 있었습니다.</strong> 다만 기본값에 가려져 신경 쓸 일이 없었을 뿐이에요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — TypeOrmModule</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">TypeOrmModule.forRoot({
+  type: 'postgres',
+  url: process.env.DATABASE_URL,
+  poolSize: 15,   // 최대 15개
+  extra: {
+    idleTimeoutMillis: 30000,
+  },
+})</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — create_engine</div>
+        <div class="code-block">
+          <pre><code class="language-python">engine = create_engine(
+    DATABASE_URL,
+    pool_size=5,        # 상시 5
+    max_overflow=10,    # +10까지
+    pool_recycle=1800,
+    pool_pre_ping=True,
+)</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>차이 하나.</strong> TypeORM은 드라이버(node-postgres) 풀을 그대로 쓰기 때문에 <code>poolSize</code>로 <strong>상한 하나만</strong> 정합니다. 반면 SQLAlchemy는 <strong>상시(<code>pool_size</code>) + 임시(<code>max_overflow</code>)</strong>로 나눠 두고, <code>pool_recycle</code>·<code>pool_pre_ping</code>처럼 <strong>죽은 연결을 걸러내는 옵션까지 이름을 붙여 노출</strong>합니다. 개념이 다른 게 아니라 <strong>손잡이가 더 잘게 나뉘어 있는 것</strong>뿐입니다.</div>
+    </div>
   </section>
 
   <section class="section" id="session">
@@ -169,39 +257,149 @@
       <div class="section-icon icon-entity">🗂️</div>
       <h2>Session — 작업 단위(Unit of Work)</h2>
     </div>
-    <p>풀에서 빌린 연결 위에서 실제 작업을 묶는 게 <strong>Session</strong>입니다. 한 Session 안의 변경들은 <code>commit</code> 전까지 한 묶음(트랜잭션)으로 모였다가 함께 반영됩니다.</p>
+
+    <h3>① Session은 "장바구니"다</h3>
+    <p>풀에서 연결을 빌렸다고 바로 SQL을 쓰지는 않습니다. 그 연결 위에서 <strong>한 덩어리의 작업을 담아 두는 그릇</strong>이 필요한데, 그게 <code>Session</code>입니다. 교과서에서는 <strong>Unit of Work(작업 단위)</strong>라는 어려운 이름으로 부르지만, <strong>온라인 쇼핑 장바구니</strong>라고 생각하면 한 번에 이해됩니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 쇼핑 장바구니.</strong> 상품을 장바구니에 담는다고 <strong>결제가 되지는 않습니다</strong>. 여러 개를 담고 빼고 하다가, <strong>결제 버튼</strong>을 눌러야 비로소 주문이 확정되죠. Session도 똑같습니다. <code>session.add(todo)</code>는 <strong>장바구니에 담기</strong>일 뿐 DB에는 아직 아무 일도 없고, <code>session.commit()</code>이 <strong>결제 버튼</strong>입니다. 마음이 바뀌면 <code>session.rollback()</code>으로 <strong>장바구니를 통째로 비울</strong> 수도 있습니다.</div>
+    </div>
+
+    <h3>② 왜 굳이 모았다가 한 번에 반영할까 — 트랜잭션</h3>
+    <p>"그냥 하나씩 바로 저장하면 안 되나?" 싶지만, 모아서 처리해야만 하는 상황이 있습니다. <strong>계좌 이체</strong>를 떠올려 보세요. "A에서 1만 원 빼기"와 "B에 1만 원 넣기"는 <strong>반드시 둘 다 되거나, 둘 다 안 되어야</strong> 합니다. 빼기만 성공하고 넣기가 실패하면 돈이 공중분해되니까요.</p>
+    <p>이렇게 <strong>여러 작업을 "전부 성공 아니면 전부 취소"로 묶는 단위</strong>를 <strong>트랜잭션</strong>이라고 합니다. Session은 한 번의 <code>commit()</code>까지 쌓인 변경들을 하나의 트랜잭션으로 처리합니다. 중간에 에러가 나면 <code>rollback()</code>으로 <strong>전부 없던 일</strong>이 되고요. 장바구니 비유로 하면 <strong>"결제는 전체 금액에 대해 한 번에 승인되거나 한 번에 거절된다"</strong>는 것과 같습니다.</p>
+
+    <h3>③ 코드 한 줄씩 — sessionmaker</h3>
+    <p>Session은 요청마다 새로 만들어야 하는데, 매번 옵션을 적기 번거롭습니다. 그래서 <strong>세션 찍어내는 틀(공장)</strong>을 하나 만들어 두고 씁니다. 그게 <code>sessionmaker</code>입니다. 붕어빵 틀을 한 번 만들어 두고 계속 찍어내는 것과 같아요.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from sqlalchemy.orm import Session, sessionmaker
 
-SessionLocal = sessionmaker(
-    bind=engine, autoflush=False, expire_on_commit=False,
+SessionLocal = sessionmaker(       # ← 세션을 찍어내는 "틀"
+    bind=engine,                   # 이 엔진의 풀에서 연결을 빌려라
+    autoflush=False,               # 몰래 미리 내보내지 마라
+    expire_on_commit=False,        # commit 후에도 객체 값을 그대로 두라
 )
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()      # 끝나면 연결을 풀로 반납</code></pre>
+db = SessionLocal()                # ← 여기서 세션 하나가 만들어진다</code></pre>
     </div>
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>메서드</th><th>역할</th></tr></thead>
+        <thead><tr><th>옵션</th><th>무슨 뜻인가</th><th>왜 이렇게 두나</th></tr></thead>
         <tbody>
-          <tr><td><code>session.add(obj)</code></td><td>새 객체를 세션에 등록(아직 DB 반영 X)</td></tr>
-          <tr><td><code>session.commit()</code></td><td>모은 변경을 트랜잭션으로 확정</td></tr>
-          <tr><td><code>session.refresh(obj)</code></td><td>DB가 채운 값(id·created_at)을 다시 읽어옴</td></tr>
-          <tr><td><code>session.close()</code></td><td>세션 종료, 연결을 풀로 반납</td></tr>
+          <tr><td><code>bind=engine</code></td><td>이 세션이 사용할 엔진(=연결 풀)을 지정</td><td>세션은 스스로 DB에 연결하지 않고, 엔진의 풀에서 빌려 쓴다</td></tr>
+          <tr><td><code>autoflush=False</code></td><td>쿼리 직전에 장바구니 내용을 DB로 <em>미리</em> 밀어 보내는 기능을 끔</td><td>내가 <code>commit()</code>을 부르지도 않았는데 INSERT가 나가면 흐름을 따라가기 어렵다. 초보일수록 꺼 두는 게 예측 가능하다</td></tr>
+          <tr><td><code>expire_on_commit=False</code></td><td><code>commit()</code> 후에도 이미 읽어 둔 객체 값을 유효하게 유지</td><td>기본값(True)이면 commit 직후 <code>todo.title</code>만 읽어도 DB를 다시 조회한다. 세션이 이미 닫힌 뒤라면 에러까지 난다</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>flush와 commit은 다릅니다.</strong> <code>flush</code>는 <strong>"장바구니 목록을 계산대 직원에게 보여주는 것"</strong>입니다. INSERT/UPDATE 문이 DB로 나가서 <em>임시로</em> 반영되고 <code>id</code> 같은 값도 생기지만, <strong>아직 확정은 아니라 rollback하면 사라집니다.</strong> <code>commit</code>이 <strong>"결제 완료"</strong>고, 이때부터 다른 사람 눈에도 보입니다. (<code>commit()</code>은 내부적으로 flush를 먼저 하고 확정합니다.)</div>
+    </div>
+
+    <h3>④ get_db — 왜 <code>return</code>이 아니라 <code>yield</code>인가</h3>
+    <p>FastAPI에서는 라우트마다 세션을 만들고 닫는 코드를 반복하지 않고, <strong>의존성(Depends)</strong>으로 주입받습니다. 그 의존성 함수가 <code>get_db</code>입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">def get_db():
+    db = SessionLocal()   # ① 세션 생성 (곧 풀에서 연결을 빌린다)
+    try:
+        yield db          # ② 라우트 함수에 넘겨주고 "여기서 잠깐 멈춤"
+    finally:
+        db.close()        # ③ 응답이 나간 뒤 실행 → 연결을 풀로 반납</code></pre>
+    </div>
+
+    <p><code>return db</code>였다면 함수는 그 자리에서 <strong>완전히 끝나 버려서</strong>, 뒤에 <code>close()</code>를 붙일 자리가 없습니다. <code>yield</code>는 <strong>"값을 건네주고 일시정지"</strong>라는 뜻이라, FastAPI가 라우트 처리를 다 마치고 <strong>응답을 보낸 뒤에 멈춰 있던 지점으로 돌아와 나머지(<code>finally</code>)를 실행</strong>해 줍니다. 덕분에 라우트에서 에러가 터지든 정상 종료하든 <strong>세션은 반드시 닫힙니다.</strong></p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 도서관 대출 창구.</strong> <code>SessionLocal()</code>은 책을 빌려주는 것, <code>yield db</code>는 <strong>"자, 읽으세요"</strong> 하고 기다리는 것, <code>finally: db.close()</code>는 <strong>반납 확인</strong>입니다. 창구 직원은 당신이 책을 다 읽을 때까지 자리를 뜨지 않고, 반납을 받아야 일과를 마칩니다. 반납이 없으면 서가(풀)의 책이 계속 줄어들죠.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>반납을 잊으면 — 연결 누수(leak).</strong> <code>close()</code>가 빠지면 그 연결은 <strong>영원히 "사용 중"</strong>으로 남습니다. 요청이 쌓일수록 대기열이 비고, 결국 모든 요청이 30초씩 기다리다 타임아웃 납니다. 그래서 세션은 <strong>항상</strong> <code>Depends(get_db)</code>나 <code>with Session(engine) as s:</code> 형태로 <strong>닫힘이 보장되는 방식</strong>으로 씁니다.</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>메서드</th><th>역할</th><th>장바구니로 치면</th></tr></thead>
+        <tbody>
+          <tr><td><code>session.add(obj)</code></td><td>새 객체를 세션에 등록 (아직 DB 반영 X)</td><td>장바구니에 담기</td></tr>
+          <tr><td><code>session.flush()</code></td><td>SQL은 내보내되 확정하지는 않음</td><td>계산대에 목록 보여주기</td></tr>
+          <tr><td><code>session.commit()</code></td><td>모은 변경을 트랜잭션으로 <strong>확정</strong></td><td>결제 버튼</td></tr>
+          <tr><td><code>session.rollback()</code></td><td>확정 전 변경을 <strong>전부 취소</strong></td><td>장바구니 비우기</td></tr>
+          <tr><td><code>session.refresh(obj)</code></td><td>DB가 채워 준 값(<code>id</code>·<code>created_at</code>)을 다시 읽어옴</td><td>영수증 받아 확인하기</td></tr>
+          <tr><td><code>session.close()</code></td><td>세션 종료 + 연결을 <strong>풀로 반납</strong></td><td>매장에서 나가기</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>refresh</code>가 필요한 순간.</strong> <code>id</code>나 <code>created_at</code>처럼 <strong>DB가 직접 만들어 주는 값</strong>은 파이썬 객체에는 없습니다. <code>commit()</code> 뒤 <code>session.refresh(todo)</code>를 부르면 그 값들을 DB에서 다시 읽어와 객체에 채워 줍니다. "생성 API가 <code>id: null</code>을 반환한다"면 대개 이걸 빠뜨린 경우입니다.</div>
+    </div>
+
+    <h3>⑤ NestJS와 나란히 — Repository와 Session</h3>
+    <p>NestJS를 하다 오면 여기서 가장 크게 당황합니다. <strong>NestJS에는 <code>commit()</code>도 <code>close()</code>도 안 보였기 때문</strong>입니다. 같은 "할 일 하나 만들기"를 양쪽으로 써 보면 차이가 분명해집니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — Repository 주입</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">constructor(
+  @InjectRepository(Todo)
+  private repo: Repository&lt;Todo&gt;,
+) {}
+
+async create(dto: CreateDto) {
+  const todo =
+    this.repo.create(dto);
+  return this.repo.save(todo);
+  // save가 곧 반영 + 반납
+}</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — Session 주입</div>
+        <div class="code-block">
+          <pre><code class="language-python">def create(
+    dto,
+    db: Session = Depends(get_db)
+):
+    data = dto.model_dump()
+    todo = Todo(**data)
+    db.add(todo)      # 장바구니
+    db.commit()       # 결제
+    db.refresh(todo)  # id 채우기
+    return todo
+    # close는 get_db가 책임</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>질문</th><th>NestJS + TypeORM</th><th>FastAPI + SQLAlchemy</th></tr></thead>
+        <tbody>
+          <tr><td>무엇을 주입받나</td><td><code>Repository&lt;Todo&gt;</code> — 엔티티별 창구</td><td><code>Session</code> — 요청 하나짜리 장바구니</td></tr>
+          <tr><td>저장은 언제 반영되나</td><td><code>repo.save()</code> 호출 즉시</td><td><code>db.commit()</code>을 불러야 확정</td></tr>
+          <tr><td>값을 바꾸면</td><td><code>todo.title = 'x'</code> 후 <strong><code>save()</code>를 또 불러야</strong> 반영</td><td>세션이 변경을 추적해 <strong><code>commit()</code>만 해도</strong> UPDATE</td></tr>
+          <tr><td>트랜잭션으로 묶으려면</td><td><code>dataSource.transaction(...)</code>을 따로 씀</td><td>세션이 이미 트랜잭션 — commit / rollback</td></tr>
+          <tr><td>연결 반납은 누가</td><td>쿼리마다 자동으로 빌리고 돌려줌</td><td><code>get_db</code>의 <code>finally: close()</code></td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>with 문 / get_db 의존성.</strong> 세션은 반드시 닫아야 연결이 풀로 돌아갑니다. <code>with Session(engine) as s:</code> 컨텍스트나, FastAPI에선 위처럼 <code>get_db</code> 제너레이터를 <code>Depends</code>로 주입해 <code>finally: close()</code>를 보장합니다. NestJS에서 요청 스코프로 Repository/EntityManager를 받는 것과 같은 역할입니다.</div>
+      <div class="callout-body"><strong>한 문장 정리.</strong> TypeORM은 <strong>"한 건씩 바로 처리"</strong>가 기본이라 편한 대신, 여러 작업을 묶으려면 트랜잭션을 <em>따로</em> 열어야 합니다. SQLAlchemy는 반대로 <strong>"일단 다 모았다가 결제"</strong>가 기본이라 트랜잭션이 공짜로 딸려오는 대신, <strong><code>commit()</code>과 <code>close()</code>를 내가 챙겨야</strong> 합니다. NestJS에서 <code>save()</code>를 빠뜨린 경험이 있다면, 여기서는 그게 <code>commit()</code>이라고 생각하면 됩니다.</div>
     </div>
   </section>
 
@@ -210,24 +408,85 @@ def get_db():
       <div class="section-icon icon-select">🔍</div>
       <h2>쿼리 실행 &amp; fetch</h2>
     </div>
-    <p>2.0 스타일은 <code>select()</code>로 쿼리를 만들고, <code>scalars()</code>로 ORM 객체 리스트를 받습니다.</p>
+
+    <h3>① 세 단계로 나눠서 보기</h3>
+    <p>SQLAlchemy 2.0에서 조회는 항상 <strong>세 단계</strong>입니다. 이걸 한 줄에 몰아 쓰다 보니 어려워 보이는 것뿐이에요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step"><code>select()</code><br>주문서 작성</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><code>execute()</code><br>주문서 전달</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">fetch<br>결과 꺼내기</div>
+    </div>
+
+    <p><strong><code>select(Todo)</code>를 쓴 순간에는 DB에 아무 일도 일어나지 않습니다.</strong> 이건 그냥 <strong>"할 일 목록 전부 주세요"라고 적은 주문서 한 장</strong>일 뿐이에요. 그래서 변수에 담아 두고 <code>.where()</code>, <code>.order_by()</code>를 계속 덧붙일 수 있습니다. 주문서를 실제로 창구에 <strong>내미는 순간</strong>이 <code>execute()</code>이고, 그때 비로소 SQL이 DB로 날아갑니다. 그리고 돌아온 <strong>결과 꾸러미에서 원하는 모양으로 꺼내는 것</strong>이 <strong>fetch</strong>입니다.</p>
+
+    <h3>② Row vs 객체 — <code>scalars()</code>가 하는 일</h3>
+    <p><code>execute()</code>가 돌려주는 결과는 <strong>엑셀 표</strong>라고 생각하면 됩니다. 한 줄 한 줄이 <strong>Row</strong>이고, Row 안에는 <strong>칸(컬럼)이 여러 개</strong> 들어 있습니다. 그런데 <code>select(Todo)</code>처럼 <strong>엔티티 하나만</strong> 골랐다면, 각 Row에는 칸이 <strong>딱 하나</strong>뿐이고 그 안에 Todo 객체가 들어 있습니다.</p>
+    <p>이때 Row째로 받으면 <code>row[0].title</code>처럼 매번 첫 칸을 꺼내야 해서 번거롭습니다. <code>scalars()</code>는 <strong>"각 줄의 첫 칸만 꺼내 줘"</strong>라는 뜻이고, 그래서 곧바로 <code>todo.title</code>처럼 쓸 수 있게 됩니다. <strong>칸이 하나뿐인 표를 그냥 리스트로 펴 주는 것</strong>이라고 보면 됩니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from sqlalchemy import select
 from models import Todo
 
-# 전체 조회 — Todo 객체 리스트
-todos = db.scalars(select(Todo).order_by(Todo.id)).all()
+stmt = select(Todo).order_by(Todo.id)   # ① 주문서 (아직 DB에 안 감)
 
-# 동일하게 execute + scalars로도 가능
-result = db.execute(select(Todo))
-todos = result.scalars().all()</code></pre>
+todos = db.scalars(stmt).all()          # ② + ③ 한 번에 — Todo 객체 리스트
+for todo in todos:
+    print(todo.title)                   # 바로 객체로 다룬다
+
+# 같은 일을 풀어서 쓰면
+result = db.execute(stmt)               # ② 실행 → 결과 꾸러미(Result)
+todos = result.scalars().all()          # ③ 첫 칸만 꺼내 리스트로
+
+# 여러 컬럼을 고르면 scalars() 없이 Row로 받는다
+rows = db.execute(select(Todo.id, Todo.title)).all()
+for todo_id, title in rows:             # Row는 튜플처럼 풀어 쓴다
+    print(todo_id, title)</code></pre>
+    </div>
+
+    <h3>③ 몇 개를 꺼낼 것인가 — fetch 메서드</h3>
+    <p>마지막 단계에서 붙이는 <code>.all()</code>, <code>.first()</code> 같은 메서드가 <strong>"결과를 어떤 모양으로 받을지"</strong>를 정합니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>메서드</th><th>결과</th><th>없거나 여러 개면</th></tr></thead>
+        <tbody>
+          <tr><td><code>.all()</code></td><td>전부 리스트로</td><td>없으면 빈 리스트 <code>[]</code></td></tr>
+          <tr><td><code>.first()</code></td><td>맨 앞 하나만</td><td>없으면 <code>None</code> (여러 개여도 조용히 첫 개)</td></tr>
+          <tr><td><code>.one()</code></td><td>정확히 하나</td><td>없거나 2개 이상이면 <strong>예외</strong></td></tr>
+          <tr><td><code>.one_or_none()</code></td><td>하나 또는 <code>None</code></td><td>2개 이상이면 <strong>예외</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무 감각.</strong> "이메일로 사용자 한 명 찾기"처럼 <strong>유일해야 마땅한</strong> 조회에는 <code>.one_or_none()</code>이 좋습니다. 데이터가 두 개 나오면 <em>조용히 첫 개를 쓰는 대신</em> 예외로 알려 주니, 중복 데이터 버그를 초기에 잡을 수 있습니다. 참고로 <strong>단순히 PK로 하나 찾기</strong>는 <code>db.get(Todo, todo_id)</code>가 가장 간단합니다.</div>
+    </div>
+
+    <h3>④ NestJS와 나란히 — 이름만 바뀐 것들</h3>
+    <p>TypeORM의 <code>find</code> 계열 메서드를 그대로 옮겨 놓으면 이렇게 대응됩니다. <strong>하는 일은 거의 같고, 이름과 조립 방식만 다릅니다.</strong></p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>하고 싶은 일</th><th>NestJS + TypeORM</th><th>FastAPI + SQLAlchemy 2.0</th></tr></thead>
+        <tbody>
+          <tr><td>전체 조회</td><td><code>repo.find()</code></td><td><code>db.scalars(select(Todo)).all()</code></td></tr>
+          <tr><td>조건 조회</td><td><code>repo.find({ where: { done: true } })</code></td><td><code>select(Todo).where(Todo.done.is_(True))</code></td></tr>
+          <tr><td>PK로 하나</td><td><code>repo.findOneBy({ id })</code></td><td><code>db.get(Todo, id)</code></td></tr>
+          <tr><td>하나 — 없으면 <code>None</code></td><td><code>repo.findOne({ where })</code></td><td><code>.first()</code> / <code>.one_or_none()</code></td></tr>
+          <tr><td>하나 — 없으면 예외</td><td><code>repo.findOneOrFail({ where })</code></td><td><code>.one()</code></td></tr>
+          <tr><td>복잡한 쿼리</td><td><code>repo.createQueryBuilder('todo')</code></td><td><code>select(...)</code>에 <code>.join()</code>·<code>.where()</code> 체이닝</td></tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>scalars()를 쓰는 이유 — Row vs 객체.</strong> <code>execute()</code>의 결과는 <strong>Row 객체</strong>(컬럼 묶음)입니다. <code>select(Todo)</code>처럼 엔티티 하나만 고를 땐 Row의 첫 칸이 곧 Todo 객체죠. <code>scalars()</code>는 그 첫 칸을 꺼내 <strong>Todo 객체 자체</strong>를 돌려줍니다. 그래서 <code>todo.title</code>처럼 바로 다룰 수 있습니다. 여러 컬럼을 골랐다면 <code>scalars()</code> 없이 Row로 받아 풀어 씁니다.</div>
+      <div class="callout-body"><strong>왜 TypeORM엔 <code>scalars()</code> 같은 게 없을까?</strong> <code>repo.find()</code>는 <strong>애초에 Todo 엔티티만 돌려주기로 약속된 메서드</strong>라 꺼낼 게 없습니다. 반면 SQLAlchemy의 <code>execute()</code>는 <strong>SQL이라면 뭐든 실행하는 범용 창구</strong>여서 결과가 항상 표(Row) 모양입니다. 그래서 "엔티티 하나만 골랐으니 첫 칸을 펴 줘"라고 <strong>한 번 더 말해 주는 단계</strong>가 필요한 것이고, 그게 <code>scalars()</code>입니다. NestJS의 <code>repo.query()</code>가 엔티티가 아닌 raw 결과를 주는 것과 같은 결의 이야기입니다.</div>
     </div>
   </section>
 
@@ -236,11 +495,36 @@ todos = result.scalars().all()</code></pre>
       <div class="section-icon icon-error">🛡️</div>
       <h2>bind 변수 — 값을 "끼워 넣지" 말고 "바인딩"하라</h2>
     </div>
-    <p>가장 중요한 안전 규칙입니다. 사용자 입력을 <strong>문자열로 직접 이어 붙여</strong> SQL을 만들면 <strong>SQL Injection</strong>에 뚫립니다. 대신 값을 <strong>파라미터(bind 변수)</strong>로 따로 전달하면, DB가 그것을 "코드가 아닌 데이터"로 취급해 안전합니다.</p>
+
+    <h3>① 사고가 나는 장면을 천천히 보기</h3>
+    <p>검색 API를 만든다고 해 봅시다. 사용자가 입력한 검색어 <code>q</code>를 넣어 SQL을 만들어야 하니, 파이썬에서 가장 익숙한 f-string으로 문자열을 이어 붙였습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">q = "우유"
+sql = f"SELECT * FROM todos WHERE title = '{q}'"
+# → SELECT * FROM todos WHERE title = '우유'      ✅ 의도대로 동작
+
+q = "' OR '1'='1"                    # 😈 공격자가 이렇게 입력하면
+sql = f"SELECT * FROM todos WHERE title = '{q}'"
+# → SELECT * FROM todos WHERE title = '' OR '1'='1'
+#                                        ↑ 여기서 문자열이 끝나 버리고
+#                                          뒤가 "조건문"으로 승격된다</code></pre>
+    </div>
+
+    <p>공격자가 넣은 <strong>작은따옴표 하나</strong>가 문자열을 조기에 끝내 버렸고, 그 뒤의 <code>OR '1'='1</code>이 <strong>데이터가 아니라 SQL 문법</strong>으로 읽혔습니다. <code>'1'='1'</code>은 항상 참이니 <strong>모든 행이 조회</strong>됩니다. 같은 수법으로 로그인 조건을 우회하거나, 더 심하면 다른 테이블 내용까지 꺼낼 수 있습니다. 이것이 <strong>SQL Injection</strong>입니다.</p>
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>f-string으로 SQL을 만들지 마라.</strong> 아래 왼쪽처럼 <code>f"... WHERE title = '{q}'"</code>로 SQL을 조립하면, <code>q</code>에 <code>' OR '1'='1</code> 같은 값이 들어왔을 때 쿼리 의미가 통째로 바뀝니다. 비밀번호를 우회하거나 테이블을 통째로 노출시킬 수 있죠. <strong>값은 절대 문자열로 잇지 말고 바인딩</strong>하세요.</div>
+      <div class="callout-body"><strong>핵심은 "값이 문법으로 승격됐다"는 것.</strong> 문자열을 이어 붙이는 순간, 사용자 입력과 SQL 문법이 <strong>구분 없이 한 덩어리 문장</strong>이 됩니다. DB는 그 문장을 통째로 받아 해석하므로, 어디까지가 내가 쓴 코드고 어디부터가 남이 넣은 값인지 <strong>구분할 방법이 없습니다.</strong></div>
+    </div>
+
+    <h3>② 그래서 바인딩이 왜 안전한가</h3>
+    <p>해결책은 <strong>문장과 값을 아예 따로 보내는 것</strong>입니다. SQL에는 값을 넣을 자리에 <code>:q</code> 같은 <strong>빈칸 표시</strong>만 남기고, 실제 값은 <strong>별도의 소포</strong>로 함께 보냅니다. 그러면 DB는 <strong>문장 구조를 먼저 확정한 다음</strong> 빈칸에 값을 <strong>순수한 데이터로</strong> 끼워 넣습니다. 구조가 이미 정해진 뒤에 값이 들어오므로, 값 안에 따옴표가 있든 <code>OR 1=1</code>이 있든 <strong>문법으로 승격될 기회 자체가 없습니다.</strong></p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 빈칸 채우기 시험지.</strong> "제목이 <u>&nbsp;&nbsp;____&nbsp;&nbsp;</u> 인 할 일을 찾아라"라는 <strong>문제 문장은 이미 인쇄되어 있습니다.</strong> 학생이 빈칸에 무엇을 적든 — 심지어 "그리고 전부 다 보여줘"라고 적더라도 — 그건 <strong>빈칸에 적힌 답</strong>일 뿐 <strong>문제 자체를 바꾸지는 못합니다.</strong> 반대로 f-string은 학생이 <strong>문제 문장까지 직접 쓰게 두는</strong> 것과 같습니다.</div>
     </div>
 
     <div class="compare-grid">
@@ -280,6 +564,55 @@ db.execute(
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>ORM을 쓰면 기본이 안전.</strong> <code>select(Todo).where(Todo.title == q)</code>처럼 ORM 표현식을 쓰면 SQLAlchemy가 <strong>자동으로 값을 바인딩</strong>합니다. 즉, 평소처럼 ORM으로 짜기만 해도 인젝션이 막힙니다. 위험은 거의 항상 <strong>raw SQL을 f-string으로 직접 조립</strong>할 때 생깁니다.</div>
     </div>
+
+    <h3>③ NestJS와 나란히 — <code>:q</code> 문법이 똑같다</h3>
+    <p>반가운 소식이 있습니다. TypeORM의 QueryBuilder에서 쓰던 <code>:q</code> <strong>이름 붙은 파라미터 문법이 SQLAlchemy에서도 그대로</strong>입니다. 개념도 같고 표기도 같으니, 사실상 새로 배울 게 없습니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — TypeORM</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// ✅ QueryBuilder — :q 바인딩
+this.repo
+  .createQueryBuilder('t')
+  .where('t.title = :q', { q })
+  .getMany();
+
+// ✅ raw는 $1 자리표시자
+this.repo.query(
+  'SELECT * FROM todos ' +
+  'WHERE title = $1',
+  [q],
+);</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — SQLAlchemy</div>
+        <div class="code-block">
+          <pre><code class="language-python"># ✅ ORM 표현식 — 자동 바인딩
+select(Todo).where(
+    Todo.title == q
+)
+
+# ✅ raw는 :q + 파라미터 dict
+db.execute(
+    text("SELECT * FROM todos "
+         "WHERE title = :q"),
+    {"q": q},
+)</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>양쪽 다 똑같이 뚫립니다.</strong> QueryBuilder를 쓴다고 안전한 게 아닙니다. <code>.where(`t.title = '${q}'`)</code>처럼 <strong>템플릿 리터럴로 조건문을 조립하면</strong> TypeORM에서도 그대로 인젝션이 됩니다. 파이썬의 f-string과 자바스크립트의 백틱은 <strong>여기서 완전히 같은 함정</strong>입니다. 규칙은 언어와 무관합니다 — <strong>값은 문장에 붙이지 말고 따로 넘긴다.</strong></div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>바인딩할 수 있는 건 "값"뿐입니다.</strong> <code>:q</code> 자리에는 제목·숫자·날짜 같은 <strong>값</strong>만 들어갈 수 있고, <strong>테이블명이나 컬럼명은 바인딩되지 않습니다</strong>(문장 구조에 해당하니까요). 정렬 컬럼을 사용자가 고르게 하고 싶다면, 입력을 그대로 SQL에 넣지 말고 <strong>미리 정해 둔 허용 목록에서 골라 쓰세요.</strong> 예: <code>{"title": Todo.title, "id": Todo.id}[key]</code></div>
+    </div>
   </section>
 
   <section class="section" id="full-flow">
@@ -287,7 +620,7 @@ db.execute(
       <div class="section-icon icon-pattern">🧩</div>
       <h2>전체 흐름 한눈에</h2>
     </div>
-    <p>지금까지의 조각을 하나의 엔드포인트로 모으면 이렇습니다.</p>
+    <p>지금까지의 조각을 하나의 엔드포인트로 모으면 이렇습니다. 코드는 세 줄이지만, 그 뒤에서 벌어지는 일은 아래 여섯 단계입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -303,6 +636,55 @@ app = FastAPI()
 def list_todos(db: Session = Depends(get_db)):
     return db.scalars(select(Todo).order_by(Todo.id)).all()</code></pre>
     </div>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><code>GET /todos</code> 요청 도착. FastAPI가 <code>Depends(get_db)</code>를 보고 <strong><code>get_db</code>를 먼저 실행</strong>합니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><code>SessionLocal()</code>로 <strong>세션(장바구니)이 생성</strong>되고, <code>yield db</code>로 라우트 함수에 전달됩니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content">첫 쿼리가 실행되는 순간 세션이 <strong>풀에서 연결 하나를 빌립니다</strong>. (이미 연결·인증이 끝난 상태라 즉시)</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><code>select(Todo)</code>가 SQL로 번역되어 실행되고, <code>scalars().all()</code>로 <strong>Todo 객체 리스트</strong>를 받습니다. 값은 모두 <strong>bind 변수로 안전하게</strong> 전달됩니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">5</div>
+        <div class="timeline-content">반환된 객체를 FastAPI가 <strong>JSON으로 직렬화해 응답</strong>합니다. (<code>expire_on_commit=False</code> 덕분에 이 시점에도 값을 안전하게 읽을 수 있습니다.)</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">6</div>
+        <div class="timeline-content">응답이 나간 뒤 <code>get_db</code>의 <code>finally</code>가 실행되어 <code>db.close()</code> → <strong>연결이 풀로 반납</strong>되고 다음 요청이 재사용합니다.</div>
+      </div>
+    </div>
+
+    <h3>NestJS로 치면 — 한눈에 대응표</h3>
+    <p>같은 여섯 단계를 NestJS에서는 <strong>프레임워크가 대부분 대신 해 주고 있었습니다.</strong> 그래서 안 보였던 것뿐이지, 일어나는 일은 같습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>단계</th><th>NestJS + TypeORM</th><th>FastAPI + SQLAlchemy</th></tr></thead>
+        <tbody>
+          <tr><td>풀 설정</td><td><code>TypeOrmModule.forRoot({ poolSize })</code></td><td><code>create_engine(URL, pool_size=…)</code></td></tr>
+          <tr><td>주입받는 것</td><td><code>@InjectRepository(Todo)</code></td><td><code>Depends(get_db)</code> → <code>Session</code></td></tr>
+          <tr><td>조회</td><td><code>repo.find()</code></td><td><code>db.scalars(select(Todo)).all()</code></td></tr>
+          <tr><td>저장 확정</td><td><code>repo.save()</code> (즉시)</td><td><code>db.commit()</code> (명시적)</td></tr>
+          <tr><td>트랜잭션</td><td><code>dataSource.transaction(...)</code></td><td>세션 자체가 트랜잭션</td></tr>
+          <tr><td>연결 반납</td><td>쿼리마다 자동</td><td><code>finally: db.close()</code> — <strong>내 책임</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>결국 차이는 한 가지.</strong> NestJS는 <strong>"알아서 해 주는 대신 손댈 곳이 적고"</strong>, FastAPI + SQLAlchemy는 <strong>"내가 챙기는 대신 흐름이 다 보입니다."</strong> 그래서 이 문서가 길었던 겁니다 — NestJS에서 프레임워크가 숨겨 주던 <strong>연결·트랜잭션·반납</strong>이 여기서는 전부 <strong>내 코드에 드러나</strong> 있으니까요.</div>
+    </div>
   </section>
 
   <section class="section" id="self-check">
@@ -313,15 +695,35 @@ def list_todos(db: Session = Depends(get_db)):
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> Connection Pool은 왜 필요한가요?</summary>
-        <div class="qa-answer"><p>DB 연결은 핸드셰이크·인증을 거치는 비싼 작업이라, 요청마다 새로 맺으면 비용이 큽니다. 풀에 연결을 미리 만들어 두고 빌려 쓰고 반납하면, 콜택시 대기열처럼 재사용으로 빠르게 처리할 수 있습니다.</p></div>
+        <div class="qa-answer"><p>DB는 내 코드와 별개인 프로그램이라, 말을 걸려면 먼저 연결(전화 걸기)을 맺어야 합니다. 그런데 이 준비 과정(접속 + 인증)이 정작 쿼리보다 훨씬 오래 걸리고, PostgreSQL은 연결 하나마다 서버 자원도 잡습니다. 그래서 연결을 미리 몇 개 만들어 두고 <strong>빌려 쓰고 반납</strong>합니다 — 택시를 매번 사지 않고 대기열에서 배차하는 것과 같습니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>pool_size=5, max_overflow=10</code>인데 동시 요청이 20개면?</summary>
+        <div class="qa-answer"><p>동시에 열리는 연결은 최대 15개(5+10)이므로, 나머지 5개는 <strong>에러가 아니라 대기열에서 기다립니다</strong>. 기본 30초(<code>pool_timeout</code>) 안에 자리가 나면 정상 처리되고, 넘기면 <code>TimeoutError</code>가 납니다. 참고로 임시로 늘어난 10개는 일이 끝나면 대기열에 남지 않고 실제로 닫힙니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>session.close()</code>를 빠뜨리면 어떻게 되나요?</summary>
+        <div class="qa-answer"><p>빌린 연결이 반납되지 않아 <strong>계속 "사용 중"</strong>으로 남습니다(연결 누수). 요청이 쌓일수록 풀이 비고, 결국 모든 요청이 30초씩 기다리다 타임아웃 납니다. 그래서 <code>Depends(get_db)</code>의 <code>finally: db.close()</code>나 <code>with</code> 문처럼 <strong>닫힘이 보장되는 방식</strong>으로만 세션을 씁니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>flush</code>와 <code>commit</code>은 뭐가 다른가요?</summary>
+        <div class="qa-answer"><p><code>flush</code>는 INSERT/UPDATE 문을 DB로 <strong>내보내기만</strong> 한 상태입니다. <code>id</code> 같은 값은 생기지만 아직 확정이 아니라 <code>rollback</code>하면 사라지고, 다른 트랜잭션에는 보이지 않습니다. <code>commit</code>이 <strong>결제 완료</strong>에 해당하는 확정이며, 이때부터 모두에게 보입니다. <code>commit()</code>은 내부적으로 flush를 먼저 수행합니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>get_db</code>는 왜 <code>return</code>이 아니라 <code>yield</code>를 쓰나요?</summary>
+        <div class="qa-answer"><p><code>return</code>이면 함수가 그 자리에서 끝나 <strong>뒷정리 코드를 넣을 자리가 없습니다</strong>. <code>yield</code>는 "값을 주고 일시정지"이므로, FastAPI가 응답을 보낸 뒤 멈춰 있던 지점으로 돌아와 <code>finally: db.close()</code>를 실행해 줍니다. 덕분에 라우트에서 예외가 나도 연결은 반드시 반납됩니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> NestJS에서는 <code>commit()</code>을 안 썼는데 왜 여기선 필요한가요?</summary>
+        <div class="qa-answer"><p>TypeORM의 <code>repo.save()</code>는 <strong>한 건을 그 자리에서 확정</strong>하는 방식이라 커밋이 안에 숨어 있습니다. 반면 SQLAlchemy의 Session은 <strong>변경을 모았다가 한 번에 확정</strong>하는 방식(장바구니)이라 <code>commit()</code>이 곧 결제 버튼입니다. 대신 SQLAlchemy는 트랜잭션이 공짜로 딸려오고(여러 작업을 묶으려고 <code>dataSource.transaction()</code>을 따로 열 필요가 없음), 객체 값만 바꿔도 commit 시 UPDATE가 나갑니다. TypeORM에서는 바꾼 뒤 <code>save()</code>를 또 불러야 하죠.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>scalars()</code>는 왜 쓰나요?</summary>
-        <div class="qa-answer"><p><code>execute()</code>는 컬럼 묶음인 Row를 돌려줍니다. <code>select(Todo)</code>처럼 엔티티 하나만 골랐다면 <code>scalars()</code>로 Row의 첫 칸(=Todo 객체)을 꺼내, 곧바로 <code>todo.title</code>처럼 객체로 다룰 수 있게 합니다.</p></div>
+        <div class="qa-answer"><p><code>execute()</code>의 결과는 칸이 여러 개인 <strong>Row(표의 한 줄)</strong>입니다. <code>select(Todo)</code>처럼 엔티티 하나만 골랐다면 각 Row의 칸은 하나뿐이니, <code>scalars()</code>로 그 첫 칸만 꺼내 <strong>Todo 객체 리스트</strong>로 폅니다. 그래야 <code>row[0].title</code> 대신 <code>todo.title</code>로 쓸 수 있습니다. 여러 컬럼을 골랐다면 <code>scalars()</code> 없이 Row로 받아 튜플처럼 풀어 씁니다.</p></div>
       </details>
       <details class="qa-item">
-        <summary><span class="qa-mark">Q</span> SQL Injection을 막는 핵심 규칙은?</summary>
-        <div class="qa-answer"><p>값을 문자열로 이어 붙이지 말고 <strong>bind 변수(파라미터)</strong>로 따로 전달하는 것입니다. ORM 표현식(<code>where(Todo.title == q)</code>)은 자동으로 바인딩하므로 안전하고, raw SQL을 쓸 때도 <code>:q</code> 플레이스홀더 + 파라미터 dict를 씁니다. f-string으로 SQL을 조립하는 것이 가장 흔한 사고 원인입니다.</p></div>
+        <summary><span class="qa-mark">Q</span> bind 변수는 <em>왜</em> SQL Injection을 막나요?</summary>
+        <div class="qa-answer"><p>문장과 값을 <strong>따로 보내기</strong> 때문입니다. SQL에는 <code>:q</code>라는 빈칸만 두고 값은 별도로 전달하면, DB가 <strong>문장 구조를 먼저 확정한 뒤</strong> 빈칸에 값을 순수 데이터로 끼워 넣습니다. 값 안에 따옴표나 <code>OR 1=1</code>이 있어도 <strong>문법으로 승격될 기회가 없습니다</strong> — 빈칸 채우기 시험지에서 답을 뭐라 적든 문제 문장은 바뀌지 않는 것과 같습니다. 반대로 f-string은 값과 문법이 한 덩어리가 되어 구분이 사라집니다. ORM 표현식(<code>where(Todo.title == q)</code>)은 자동으로 바인딩하므로 기본이 안전합니다.</p></div>
       </details>
     </div>
 

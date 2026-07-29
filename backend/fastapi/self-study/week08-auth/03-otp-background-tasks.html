@@ -42,6 +42,7 @@
       <a class="nav-item" href="01-jwt-oauth2-hashing.html#jwt">🎫 JWT 구조</a>
       <a class="nav-item" href="01-jwt-oauth2-hashing.html#oauth2-token">🔐 OAuth2 · /token</a>
       <a class="nav-item" href="01-jwt-oauth2-hashing.html#auth-flow">🔄 전체 흐름</a>
+      <a class="nav-item" href="01-jwt-oauth2-hashing.html#nestjs-compare">🔐 NestJS 인증 비교</a>
       <a class="nav-item" href="01-jwt-oauth2-hashing.html#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · 의존성 권한 · Redis</div>
       <a class="nav-item" href="02-dependency-auth-redis.html#get-current-user">👤 get_current_user</a>
@@ -54,6 +55,7 @@
       <a class="nav-item" href="#otp">🔢 OTP</a>
       <a class="nav-item" href="#background-tasks">⚙️ BackgroundTasks</a>
       <a class="nav-item" href="#background-limits">⚠️ 한계와 워커</a>
+      <a class="nav-item" href="#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
     </div>
 
@@ -224,6 +226,72 @@ def signup(email: str, bg: BackgroundTasks):
           <tr><td>실패 시 재시도·결과 추적이 필요한 작업</td><td>Celery / ARQ 워커</td></tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <section class="section" id="nestjs-compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">📊</div>
+      <h2>NestJS와 비교 — BackgroundTasks의 자리는 어디였나</h2>
+    </div>
+    <p>재미있는 점 하나. NestJS에는 <code>BackgroundTasks</code>에 <strong>정확히 대응하는 기능이 없습니다.</strong> "응답을 먼저 보내고 그다음에 이 함수를 실행해줘"라는 요청을 프레임워크가 대신 관리해 주지 않거든요. Nest에서 같은 일을 하려면 보통 셋 중 하나를 골랐습니다.</p>
+    <ul class="checklist">
+      <li><code>await</code> 없이 그냥 호출(fire-and-forget) — <strong>가장 흔하지만 가장 위험</strong>. 예외가 나면 아무도 모르고, 앱이 죽을 수도 있습니다.</li>
+      <li><code>@nestjs/event-emitter</code> 로 이벤트를 쏘고 <code>@OnEvent</code> 리스너가 처리 — 프로세스 안에서 도는 건 같지만 "응답 이후"가 보장되지는 않습니다.</li>
+      <li><code>@nestjs/bullmq</code> 로 Redis 큐에 넣고 <strong>별도 워커 프로세스</strong>가 처리 — 제대로 된 방법이지만 인프라가 하나 늘어납니다.</li>
+    </ul>
+    <p>FastAPI의 <code>BackgroundTasks</code>는 그 중 <strong>첫 번째의 안전한 버전</strong>입니다. "응답을 다 보낸 뒤에 실행한다"를 프레임워크가 보장해 주면서도, 여전히 <strong>같은 프로세스</strong> 안에서 돕니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — BullMQ (큐 + 워커)</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// ① 큐에 넣고 즉시 응답
+await this.queue.add(
+  'otp', { phone },
+);
+
+// ② 워커 — 별도 프로세스
+@Processor('otp')
+class W extends WorkerHost {
+  async process(job: Job) {
+    await sendSms(job.data);
+  }
+}</code></pre>
+        </div>
+        <p>재시도·백오프·대시보드가 <strong>기본 제공</strong>.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — BackgroundTasks</div>
+        <div class="code-block">
+          <pre><code class="language-python">@app.post("/otp")
+async def send(
+    phone: str,
+    bg: BackgroundTasks,
+):
+    bg.add_task(send_sms, phone)
+    return {"ok": True}</code></pre>
+        </div>
+        <p>인프라 0개. 대신 <strong>재시도·내구성 없음</strong>.</p>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>하고 싶은 일</th><th>NestJS</th><th>FastAPI</th></tr></thead>
+        <tbody>
+          <tr><td>응답 후 짧은 후처리 (메일 1통)</td><td>내장 없음 → fire-and-forget</td><td><code>BackgroundTasks</code> ✅</td></tr>
+          <tr><td>프로세스 안 이벤트 전파</td><td><code>@nestjs/event-emitter</code> · <code>@OnEvent</code></td><td>직접 호출 또는 <code>BackgroundTasks</code></td></tr>
+          <tr><td>내구성 있는 작업 큐 (재시도·추적)</td><td><code>@nestjs/bullmq</code> + <code>@Processor</code></td><td><strong>Celery</strong> 또는 <strong>ARQ</strong></td></tr>
+          <tr><td>주기 실행 (매일 새벽 3시)</td><td><code>@nestjs/schedule</code> 의 <code>@Cron</code></td><td>APScheduler · Celery beat</td></tr>
+          <tr><td>TTL 있는 임시 저장 (OTP)</td><td><code>CacheModule</code> · ioredis <code>set(k,v,'EX',180)</code></td><td><code>redis.asyncio</code> 의 <code>setex(k, 180, v)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>BullMQ에 익숙하다면 특히 착각하기 쉽다.</strong> BullMQ는 <strong>실패하면 알아서 재시도</strong>하고, 서버가 재시작돼도 Redis에 남은 작업을 <strong>다시 집어 처리</strong>합니다. <code>BackgroundTasks</code>는 <strong>둘 다 안 합니다.</strong> 작업이 서버 프로세스 메모리에만 있어서, 배포·재시작·크래시가 나면 <strong>그 순간 처리 중이던 작업은 그냥 사라집니다.</strong> "메일 한 통 못 가도 괜찮다"면 충분하지만, "결제 확정 처리"라면 파이썬에서도 <strong>Celery/ARQ = BullMQ 자리</strong>로 옮겨야 합니다.</div>
     </div>
   </section>
 

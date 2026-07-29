@@ -42,6 +42,7 @@
       <a class="nav-item" href="#jwt">🎫 JWT 구조</a>
       <a class="nav-item" href="#oauth2-token">🔐 OAuth2 · /token</a>
       <a class="nav-item" href="#auth-flow">🔄 전체 흐름</a>
+      <a class="nav-item" href="#nestjs-compare">🔐 NestJS 인증 비교</a>
       <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · 의존성 권한 · Redis</div>
       <a class="nav-item" href="02-dependency-auth-redis.html#get-current-user">👤 get_current_user</a>
@@ -54,6 +55,7 @@
       <a class="nav-item" href="03-otp-background-tasks.html#otp">🔢 OTP</a>
       <a class="nav-item" href="03-otp-background-tasks.html#background-tasks">⚙️ BackgroundTasks</a>
       <a class="nav-item" href="03-otp-background-tasks.html#background-limits">⚠️ 한계와 워커</a>
+      <a class="nav-item" href="03-otp-background-tasks.html#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="03-otp-background-tasks.html#self-check">✅ 셀프 체크</a>
     </div>
 
@@ -286,6 +288,73 @@ def login(form: OAuth2PasswordRequestForm = Depends()):
         </defs>
       </svg>
       <div class="diagram-caption">한 번 로그인해 토큰을 받으면, 이후 요청은 토큰만 헤더에 실어 보낸다. 서버는 명단 대신 서명만 검증한다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="nestjs-compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">📊</div>
+      <h2>NestJS와 비교 — Passport가 없다는 것의 의미</h2>
+    </div>
+    <p>NestJS에서 JWT 인증을 붙이려면 부품이 꽤 많았습니다. <code>JwtModule.register()</code>로 모듈을 등록하고, <code>PassportStrategy</code>를 상속한 <code>JwtStrategy</code> 클래스를 만들고, <code>AuthGuard('jwt')</code>를 컨트롤러에 붙이고… 파일 서너 개를 오간 뒤에야 <code>@Req() req.user</code>가 채워졌죠.</p>
+    <p>FastAPI에는 <strong>Passport 같은 인증 프레임워크가 아예 없습니다.</strong> 대신 <code>OAuth2PasswordBearer</code>가 딱 한 가지 일만 합니다 — <strong>"<code>Authorization: Bearer ...</code> 헤더에서 토큰 문자열을 꺼내주기"</strong>. 그 뒤 "이 토큰이 진짜인가, 어떤 유저인가"는 <strong>여러분이 쓰는 열 줄짜리 함수</strong>가 담당합니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 완제품 가구 vs 부품 키트.</strong> Passport는 <strong>조립된 붙박이장</strong>입니다. 튼튼하고 검증됐지만, 서랍 하나를 다르게 만들고 싶으면 설계도를 뒤져야 하죠(전략 클래스, 가드, 커스텀 <code>validate()</code>…). FastAPI는 <strong>부품 키트</strong>입니다. 나사(<code>jwt.decode</code>)와 손잡이(<code>OAuth2PasswordBearer</code>)를 직접 조립합니다. 처음엔 손이 가지만, <strong>어디에 무엇이 들었는지 전부 보이므로</strong> 디버깅과 변형이 쉽습니다.</div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — @nestjs/jwt + bcrypt</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">// 발급
+const token = await this.jwt
+  .signAsync({ sub: user.id });
+// 만료는 모듈 설정에서
+// signOptions: { expiresIn: '30m' }
+
+// 해싱
+const hash =
+  await bcrypt.hash(pw, 12);
+const ok = await bcrypt
+  .compare(pw, hash);</code></pre>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — PyJWT + pwdlib</div>
+        <div class="code-block">
+          <pre><code class="language-python"># 발급 — 만료도 payload에 직접
+token = jwt.encode(
+    {"sub": uid, "exp": exp},
+    SECRET, algorithm="HS256")
+
+# 해싱
+hash = hasher.hash(pw)
+ok = hasher.verify(pw, hash)</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>NestJS</th><th>FastAPI (이번 강의)</th></tr></thead>
+        <tbody>
+          <tr><td><code>bcrypt.hash()</code> / <code>bcrypt.compare()</code></td><td><code>hasher.hash()</code> / <code>hasher.verify()</code></td></tr>
+          <tr><td><code>JwtModule.register({ secret })</code></td><td><code>SECRET_KEY</code> 상수(환경변수)</td></tr>
+          <tr><td><code>jwtService.signAsync(payload)</code></td><td><code>jwt.encode(payload, SECRET, algorithm=...)</code></td></tr>
+          <tr><td><code>signOptions: { expiresIn: '30m' }</code> (설정)</td><td>payload에 <code>exp</code> 를 <strong>직접</strong> 넣는다</td></tr>
+          <tr><td><code>JwtStrategy</code> + <code>ExtractJwt.fromAuthHeaderAsBearerToken()</code></td><td><code>OAuth2PasswordBearer(tokenUrl="token")</code></td></tr>
+          <tr><td><code>strategy.validate(payload)</code> → <code>req.user</code></td><td><code>get_current_user()</code> 의존성 (다음 강의)</td></tr>
+          <tr><td><code>@UseGuards(AuthGuard('jwt'))</code></td><td><code>Depends(get_current_user)</code> (다음 강의)</td></tr>
+          <tr><td>Swagger 자물쇠 = <code>@ApiBearerAuth()</code> 수동 추가</td><td><code>OAuth2PasswordBearer</code> 가 <strong>자동</strong>으로 추가</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>만료(exp)를 잊기 쉽다.</strong> NestJS에서는 <code>expiresIn: '30m'</code>을 <strong>모듈 설정에 한 번</strong> 써두면 이후 모든 토큰에 자동 적용됐습니다. FastAPI에서는 <code>exp</code>를 <strong>토큰을 만들 때마다 payload에 직접</strong> 넣어야 합니다. 빼먹으면 <strong>영원히 만료되지 않는 토큰</strong>이 발급되고, 유출 시 되돌릴 방법이 없습니다. 토큰 생성 함수를 하나로 모아두고 그 안에서 <code>exp</code>를 계산하는 습관을 들이세요. (검증할 때 <code>exp</code>를 확인하는 일은 <code>jwt.decode</code>가 자동으로 해줍니다.)</div>
     </div>
   </section>
 

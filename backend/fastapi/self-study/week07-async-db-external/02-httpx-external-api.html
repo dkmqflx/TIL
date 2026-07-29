@@ -41,6 +41,7 @@
       <a class="nav-item" href="01-async-db-asyncpg.html#engine-session">⚙️ 엔진 &amp; 세션 구성</a>
       <a class="nav-item" href="01-async-db-asyncpg.html#endpoint-migration">🔄 동기 → 비동기 전환</a>
       <a class="nav-item" href="01-async-db-asyncpg.html#lifespan">♻️ Lifespan 리소스 관리</a>
+      <a class="nav-item" href="01-async-db-asyncpg.html#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="01-async-db-asyncpg.html#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · 외부 API 요청 (httpx)</div>
       <a class="nav-item" href="#backend-as-client">🔁 백엔드가 클라이언트가 되는 순간</a>
@@ -48,6 +49,7 @@
       <a class="nav-item" href="#requests-trap">⚠️ requests 함정</a>
       <a class="nav-item" href="#timeout-reuse">⏱️ 타임아웃 &amp; 재사용</a>
       <a class="nav-item" href="#error-handling">🚨 에러 처리</a>
+      <a class="nav-item" href="#nestjs-compare">📊 NestJS 비교</a>
       <a class="nav-item" href="#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">03 · CORS · 미들웨어</div>
       <a class="nav-item" href="03-cors-middleware.html#what-is-cors">🛂 CORS란</a>
@@ -289,6 +291,67 @@ async def get_weather(city: str):
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>외부 실패를 500으로 흘려보내지 마라.</strong> 외부 API가 죽었는데 우리가 그냥 <code>500 Internal Server Error</code>를 내면, 프론트는 "우리 서버 버그"로 오해합니다. "외부 의존성 문제"라는 의미를 담은 <code>502</code>/<code>503</code>/<code>504</code>로 번역해 주는 게 디버깅과 모니터링에 훨씬 유리합니다.</div>
+    </div>
+  </section>
+
+  <section class="section" id="nestjs-compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">📊</div>
+      <h2>NestJS와 비교 — HttpService(axios) vs httpx</h2>
+    </div>
+    <p>NestJS에서 외부 API를 부를 땐 <code>HttpModule</code>을 import하고 <code>HttpService</code>를 주입받았죠. 그런데 <code>HttpService</code>는 axios를 감싸면서 결과를 <strong>Observable(RxJS 스트림)</strong>로 돌려줍니다. 그래서 <code>firstValueFrom()</code>으로 Promise로 바꾸는 한 단계가 꼭 끼었습니다. httpx는 그 단계가 없습니다 — <strong>그냥 <code>await</code></strong>.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header nest">NestJS — HttpService</div>
+        <div class="code-block">
+          <pre><code class="language-typescript">constructor(
+  private http: HttpService,
+) {}
+
+async getUser(url: string) {
+  const src = this.http.get(url);
+  const res = await
+    firstValueFrom(src);
+  return res.data; // 4xx→throw
+}</code></pre>
+        </div>
+        <p>Observable → Promise 변환이 한 겹 낀다.</p>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header fast">FastAPI — httpx</div>
+        <div class="code-block">
+          <pre><code class="language-python">async def get_user(url: str):
+    r = await client.get(url)
+    r.raise_for_status()  # 필수
+    return r.json()</code></pre>
+        </div>
+        <p>바로 <code>await</code>. 대신 에러 검사는 <strong>내 몫</strong>.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>axios 습관이 만드는 1번 버그 — "왜 예외가 안 나지?"</strong> axios는 응답이 4xx·5xx면 <strong>알아서 throw</strong>합니다. 그래서 NestJS에선 <code>try/catch</code>만 감싸면 끝이었죠. <strong>httpx는 throw하지 않습니다.</strong> 404를 받아도 조용히 <code>Response</code> 객체를 돌려주기 때문에, <code>r.raise_for_status()</code>를 빼먹으면 <strong>에러 페이지 HTML을 정상 데이터로 착각</strong>해 그대로 진행합니다. 위 코드에서 <code>raise_for_status()</code>가 "필수"인 이유입니다.</div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>NestJS (HttpModule)</th><th>FastAPI (httpx)</th></tr></thead>
+        <tbody>
+          <tr><td><code>HttpService</code> (axios 래퍼)</td><td><code>httpx.AsyncClient</code></td></tr>
+          <tr><td><code>Observable</code> → <code>firstValueFrom()</code></td><td>그냥 <code>await client.get(...)</code></td></tr>
+          <tr><td>4xx·5xx → <strong>자동으로 throw</strong></td><td><strong><code>raise_for_status()</code> 를 직접 호출</strong></td></tr>
+          <tr><td><code>HttpModule.register({ timeout: 5000 })</code></td><td><code>AsyncClient(timeout=5.0)</code> (초 단위!)</td></tr>
+          <tr><td>DI가 axios 인스턴스를 싱글턴 보관</td><td><code>lifespan</code> + <code>app.state.http</code> 로 직접 보관</td></tr>
+          <tr><td>블로킹 HTTP 클라이언트가 사실상 없음</td><td><code>requests</code> 를 쓰면 이벤트 루프 정지 ⚠️</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>타임아웃 단위를 헷갈리지 마세요.</strong> axios·NestJS는 <strong>밀리초</strong>(<code>timeout: 5000</code> = 5초), httpx는 <strong>초</strong>(<code>timeout=5.0</code> = 5초)입니다. 습관대로 <code>timeout=5000</code>이라고 쓰면 <strong>5000초(약 83분)</strong>가 되어 사실상 타임아웃이 없는 것과 같아집니다. 조용히 장애로 번지는 종류의 실수라 특히 조심하세요.</div>
     </div>
   </section>
 

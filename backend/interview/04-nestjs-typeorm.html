@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
@@ -73,10 +74,47 @@
         <p>IoC(Inversion of Control)는 객체의 생성과 생명주기 관리를 개발자가 아닌 프레임워크(NestJS의 DI 컨테이너)가 담당하는 것이고, DI(Dependency Injection)는 객체가 필요로 하는 의존성을 외부에서 주입하는 방식입니다. NestJS에서는 <code>@Injectable()</code>로 등록한 프로바이더를 컨테이너가 생성·관리하고, 생성자(constructor)를 통해 주입합니다. 이를 통해 결합도를 낮추고 테스트 용이성을 높일 수 있습니다(테스트 시 <code>Test.createTestingModule()</code>로 실제 구현 대신 Mock 프로바이더를 손쉽게 교체).</p>
       </div>
     </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>이 질문의 핵심은 <strong>"IoC와 DI를 헷갈리지 않고 구분해서, 왜 쓰는지까지 말할 수 있는가"</strong>입니다. 둘은 거의 세트로 다니지만 층위가 다릅니다. <strong>IoC는 큰 원칙</strong>("객체를 누가 만들고 관리할지"의 주도권을 프레임워크에 넘긴다)이고, <strong>DI는 그 원칙을 실현하는 구체적 방법</strong>(필요한 걸 생성자로 넣어준다)입니다.</p>
+
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 원두를 직접 사오던 바리스타.</strong> 예전 방식(IoC 없음)은 바리스타(객체)가 커피를 내리려고 <em>직접 원두를 사고 우유를 사러</em> 나갑니다(<code>this.repo = new UserRepository()</code>). 재료 공급처가 바뀌면 바리스타 코드까지 다 뜯어고쳐야 하죠. NestJS 방식은 <strong>매장(DI 컨테이너)이 원두·우유를 미리 준비해 카운터에 세팅</strong>해 둡니다. 바리스타는 "준비된 재료를 건네받아" 커피만 만들면 됩니다. <em>재료를 마련하는 통제권이 바리스타 → 매장으로 뒤집힌 것(제어의 역전, IoC)</em>이고, <em>그 재료를 손에 쥐여주는 행위</em>가 DI입니다.</div>
+      </div>
+
+      <p>코드로 보면, <code>new</code>가 사라지는 게 핵심입니다. 개발자는 그냥 생성자에 "이게 필요해요"라고 <em>선언만</em> 하고, 실제로 만들어 넣는 건 컨테이너가 합니다.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">typescript</span></div>
+        <pre><code class="language-typescript">@Injectable()
+export class UserService {
+  // new 를 안 한다 — 컨테이너가 UserRepository 인스턴스를 만들어 넣어줌
+  constructor(private readonly userRepo: UserRepository) {}
+}</code></pre>
+      </div>
+
+      <div class="callout callout-good">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>왜 좋은가 — 결합도↓, 테스트↑.</strong> <code>UserService</code>는 "어떤 <code>UserRepository</code>가 오는지"를 몰라도 됩니다. 그래서 테스트할 때 실제 DB를 붙이는 대신 <strong>가짜(Mock) 리포지토리를 대신 끼워</strong> 넣기가 쉽습니다. <code>Test.createTestingModule()</code>로 진짜 구현 자리에 Mock을 갈아끼우면, DB 없이도 서비스 로직만 빠르게 검증할 수 있죠. "레고 블록처럼 갈아끼운다"가 DI의 실전 이점입니다.</div>
+      </div>
+    </div>
     <div class="followup">
       <div class="followup-tag">🔁 꼬리 질문</div>
       <p class="followup-q"><span class="qa-mark">Q.</span> NestJS 프로바이더의 생명주기(생명주기 훅)에 대해 설명해주세요.</p>
       <p class="followup-a"><span class="qa-mark">A.</span> 프로바이더는 생성 → 의존성 주입 → 초기화 훅 → 사용 → 종료 훅 → 소멸 순으로 진행됩니다. NestJS는 인터페이스 형태의 생명주기 훅을 제공하는데, 초기화 시점에는 <code>OnModuleInit</code>(모듈 의존성 준비 완료) → <code>OnApplicationBootstrap</code>(모든 모듈 초기화 완료)이 호출되고, 종료 시점에는 <code>OnModuleDestroy</code> → <code>beforeApplicationShutdown</code> → <code>OnApplicationShutdown</code>이 호출됩니다. 종료 훅은 <code>app.enableShutdownHooks()</code>를 켜야 동작하며, DB 커넥션 정리나 진행 중인 작업 마무리(graceful shutdown)에 활용합니다.</p>
+      <div class="detail">
+        <div class="detail-tag">📖 상세 설명</div>
+        <p>"생명주기 훅"은 <strong>프로바이더가 태어나고 죽는 과정의 특정 순간마다, NestJS가 "지금 이 타이밍이야"라고 불러주는 콜백</strong>입니다. 우리는 그 순간에 하고 싶은 일(초기화·정리)을 끼워 넣을 수 있습니다.</p>
+        <div class="callout callout-analogy">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>비유 — 식당의 하루.</strong> 훅들을 식당 운영 루틴에 대응시키면 순서가 외워집니다. 문 열기 전 <em>재료 손질·불 켜기</em>(<code>OnModuleInit</code>) → 전 지점 오픈 점검까지 끝(<code>OnApplicationBootstrap</code>) → 영업(요청 처리) → 마감하며 <em>재료 정리</em>(<code>OnModuleDestroy</code>) → 셔터 내리기 직전 <em>마지막 손님 배웅</em>(<code>beforeApplicationShutdown</code>) → 완전히 <em>불 끄고 퇴근</em>(<code>OnApplicationShutdown</code>). 초기화는 "준비 → 전체 점검" 순, 종료는 "내 정리 → 전체 마무리 → 완전 종료" 순으로 흐릅니다.</div>
+        </div>
+        <p>특히 종료 훅이 중요한 이유는 <strong>Graceful Shutdown(우아한 종료)</strong> 때문입니다. 서버를 내릴 때 <em>처리 중인 요청을 뚝 끊어버리면</em> 데이터가 반쯤 저장되거나 커넥션이 새어 나갈 수 있습니다. 종료 훅에서 진행 중인 작업을 마무리하고 DB·Redis 커넥션을 얌전히 닫아주면 이런 사고를 막습니다.</p>
+        <div class="callout callout-warn">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>흔한 함정 — 종료 훅이 안 불린다?</strong> <code>OnModuleDestroy</code> 같은 종료 훅은 기본적으로 <strong>꺼져 있습니다.</strong> <code>app.enableShutdownHooks()</code>를 호출해야 <code>SIGTERM</code> 같은 종료 신호에 반응해 훅이 실행됩니다. 이걸 안 켜두고 "왜 정리 코드가 안 도냐"고 헤매는 경우가 많습니다.</div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -88,10 +126,54 @@
         <p>TypeORM에서는 주로 세 가지 방식을 씁니다. ① <code>dataSource.transaction(async (manager) =&gt; { ... })</code> 콜백 방식 — 콜백이 정상 종료되면 커밋, 예외가 던져지면 자동 롤백. ② <code>QueryRunner</code>를 직접 생성해 <code>startTransaction / commitTransaction / rollbackTransaction</code>을 명시적으로 제어하는 방식(세밀한 제어가 필요할 때, <code>finally</code>에서 <code>release()</code> 필수). ③ 선언적(<code>@Transactional</code> 데코레이터) 방식이 필요하면 <code>typeorm-transactional</code> 라이브러리를 도입합니다. 격리 수준은 <code>transaction(isolationLevel, cb)</code>이나 QueryRunner의 <code>startTransaction('SERIALIZABLE')</code>로 지정할 수 있습니다.</p>
       </div>
     </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>먼저 <strong>트랜잭션</strong> 자체가 무엇인지부터. 트랜잭션은 <em>"여러 개의 DB 작업을 하나의 덩어리로 묶어, 전부 성공하거나 전부 취소되게 하는 것"</em>입니다(전부 아니면 전무, All-or-Nothing).</p>
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 계좌 이체.</strong> A 통장에서 1만 원을 빼고(작업 ①) B 통장에 1만 원을 넣는(작업 ②) 이체를 생각해 봅시다. ①만 되고 ②가 실패하면 돈이 <strong>공중분해</strong>됩니다. 그래서 둘을 하나의 트랜잭션으로 묶어 "①·② 둘 다 성공해야 확정(<strong>커밋</strong>), 하나라도 실패하면 전부 없던 일로(<strong>롤백</strong>)" 처리합니다. TypeORM의 세 방식은 이 커밋/롤백을 <em>누가·얼마나 자동으로</em> 처리하느냐의 차이일 뿐입니다.</div>
+      </div>
+      <p><strong>① 콜백 방식(권장)</strong>은 안전벨트가 자동으로 매지는 방식입니다. 콜백 안에서 예외만 던지면 TypeORM이 알아서 롤백하고, 무사히 끝나면 커밋합니다. 대부분의 경우 이걸 씁니다.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">typescript</span></div>
+        <pre><code class="language-typescript">await this.dataSource.transaction(async (manager) =&gt; {
+  await manager.decrement(Account, { id: from }, 'balance', 10000);
+  await manager.increment(Account, { id: to }, 'balance', 10000);
+  // 여기서 예외가 나면 → 위 두 작업 모두 자동 롤백
+}); // 정상 종료 → 자동 커밋</code></pre>
+      </div>
+      <p><strong>② QueryRunner 방식</strong>은 커밋·롤백 시점을 손으로 직접 제어합니다. 세밀한 제어가 필요할 때 쓰지만, 그만큼 뒤처리 책임도 내게 있습니다.</p>
+      <div class="callout callout-warn">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>QueryRunner의 함정 — <code>release()</code>를 잊지 말 것.</strong> QueryRunner는 커넥션 풀에서 커넥션을 <em>하나 빌려오는</em> 것과 같습니다. 다 쓰고 <code>finally</code>에서 <code>release()</code>로 <strong>반납</strong>하지 않으면, 빌린 커넥션이 계속 쌓여 결국 <strong>커넥션 풀이 고갈</strong>됩니다(장애로 직결). "도구를 빌렸으면 반드시 반납"이 철칙입니다. 이 뒤처리를 신경 쓰기 싫으면 ①번 콜백 방식이 안전합니다.</div>
+      </div>
+      <p><strong>③ 선언적 방식</strong>(<code>typeorm-transactional</code>의 <code>@Transactional()</code>)은 메서드 위에 데코레이터만 붙이면 트랜잭션이 걸려, 반복되는 보일러플레이트를 줄여줍니다. 격리 수준(<code>SERIALIZABLE</code> 등)은 어느 방식에서든 지정할 수 있습니다.</p>
+    </div>
     <div class="followup">
       <div class="followup-tag">🔁 꼬리 질문</div>
       <p class="followup-q"><span class="qa-mark">Q.</span> 여러 리포지토리에 걸친 작업을 하나의 트랜잭션으로 묶으려면 어떻게 해야 하나요?</p>
       <p class="followup-a"><span class="qa-mark">A.</span> 각 <code>Repository</code>를 그냥 주입해서 쓰면 서로 다른 커넥션을 사용해 하나의 트랜잭션으로 묶이지 않는 것이 흔한 함정입니다. 트랜잭션 콜백(또는 QueryRunner)이 제공하는 <strong>동일한 <code>EntityManager</code></strong>로 <code>manager.getRepository(Entity)</code>를 얻어 모든 쓰기 작업을 수행해야 같은 트랜잭션에 묶입니다. 선언적으로 처리하고 싶다면 <code>typeorm-transactional</code>이 AsyncLocalStorage로 컨텍스트를 전파해 주며, 이때 <code>Propagation.REQUIRED</code>(기존 트랜잭션에 참여, 없으면 생성)·<code>REQUIRES_NEW</code>(항상 새 트랜잭션 생성) 같은 전파 옵션도 지원합니다.</p>
+      <div class="detail">
+        <div class="detail-tag">📖 상세 설명</div>
+        <p>이 꼬리 질문은 <strong>신입이 자주 밟는 지뢰</strong>를 아는지 봅니다. "트랜잭션 걸었는데 왜 롤백이 안 되지?"의 90%가 이 원인입니다. 핵심은 <strong>"트랜잭션은 커넥션 단위"</strong>라는 사실입니다.</p>
+        <div class="callout callout-analogy">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>비유 — 서로 다른 창구에서 처리한 두 서류.</strong> 은행에서 두 가지 일을 처리하는데, 하나는 1번 창구, 하나는 2번 창구에서 따로 접수했다고 합시다. 1번 창구 일을 취소해도 2번 창구 일은 이미 별개로 처리돼 있어 <strong>함께 되돌릴 수 없습니다.</strong> 그냥 주입한 <code>UserRepository</code>와 <code>OrderRepository</code>가 딱 이렇게 <em>각자 다른 커넥션(창구)</em>을 씁니다. 하나로 묶으려면 <strong>같은 창구(같은 <code>EntityManager</code>)에서 두 일을 모두 처리</strong>해야 합니다.</div>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-lang">typescript</span></div>
+          <pre><code class="language-typescript">await this.dataSource.transaction(async (manager) =&gt; {
+  // ✅ 같은 manager 에서 repository 를 얻어야 하나의 트랜잭션
+  await manager.getRepository(User).save(user);
+  await manager.getRepository(Order).save(order);
+  // ❌ this.userRepo.save(...) 처럼 주입된 repo 를 쓰면 다른 커넥션 → 안 묶임
+});</code></pre>
+        </div>
+        <div class="callout callout-good">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>매번 manager 를 넘기기 번거롭다면.</strong> <code>typeorm-transactional</code> 라이브러리는 <strong>AsyncLocalStorage</strong>(요청마다 따라다니는 보이지 않는 가방)에 현재 트랜잭션을 담아 전파합니다. 그래서 하위 서비스들이 <em>manager를 인자로 주고받지 않아도</em> 자동으로 같은 트랜잭션에 참여합니다. <code>REQUIRED</code>(있으면 참여, 없으면 새로 생성)·<code>REQUIRES_NEW</code>(무조건 새 트랜잭션) 같은 전파 옵션으로 "중첩 호출 시 어떻게 묶을지"까지 제어할 수 있습니다.</div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -103,10 +185,49 @@
         <p>N+1 문제는 연관된 엔티티를 조회할 때 최초 쿼리 1번과 연관 엔티티 조회를 위한 N번의 추가 쿼리가 발생하는 문제입니다. TypeORM에서는 <code>find({ relations })</code> 옵션이나 QueryBuilder의 <code>leftJoinAndSelect</code>로 한 번의 JOIN 쿼리로 연관 엔티티까지 함께 조회해 해결합니다. 또한 <code>relationLoadStrategy: 'query'</code>로 연관 데이터를 IN 쿼리 한 번에 모아 조회하거나, 엔티티에 <code>eager: true</code>를 설정하는 방법도 있습니다.</p>
       </div>
     </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>이름을 풀어보면 바로 이해됩니다. <strong>"1번"</strong>은 목록을 가져오는 첫 쿼리, <strong>"N번"</strong>은 그 목록의 각 항목마다 연관 데이터를 <em>하나씩 따로</em> 가져오는 추가 쿼리입니다. 합쳐서 <strong>1 + N번</strong>의 쿼리가 나가죠. 목록이 100개면 101번, 1000개면 1001번 — 데이터가 많아질수록 DB가 비명을 지릅니다.</p>
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 장 보러 마트를 100번 왕복.</strong> 저녁 메뉴 목록을 받았습니다(<strong>쿼리 1번</strong>). 그런데 재료를 <em>하나 살 때마다 매번 마트에 다녀옵니다</em> — 양파 사러 한 번, 두부 사러 또 한 번… 100개 재료면 <strong>100번 왕복</strong>(N번). 현명한 사람은 <strong>장바구니에 다 적어 한 번에</strong> 사 오죠. 이 "한 번에 몰아오기"가 바로 <code>JOIN</code>입니다. 게시글 100개를 뽑고 각 글의 작성자를 100번 따로 조회하는 게 N+1이고, JOIN으로 글+작성자를 한 방에 가져오면 해결됩니다.</div>
+      </div>
+      <p>TypeORM에서의 해결책은 결국 <strong>"쪼개진 N번을 한 번으로 합치는"</strong> 방향입니다.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">typescript</span></div>
+        <pre><code class="language-typescript">// ❌ N+1: 게시글마다 author 를 따로 조회 (반복문에서 특히 위험)
+const posts = await this.postRepo.find();
+
+// ✅ ① relations 옵션 — JOIN 한 번으로 author 까지 함께 로딩
+const posts = await this.postRepo.find({ relations: { author: true } });
+
+// ✅ ② QueryBuilder leftJoinAndSelect — 같은 원리, 조건/정렬 붙이기 좋음
+const posts = await this.postRepo
+  .createQueryBuilder('post')
+  .leftJoinAndSelect('post.author', 'author')
+  .getMany();</code></pre>
+      </div>
+      <div class="callout callout-note">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>JOIN 말고 다른 카드도.</strong> 관계가 <em>1:N</em>이라 JOIN하면 행이 뻥튀기되는 경우엔, <code>relationLoadStrategy: 'query'</code>로 <strong>연관 데이터를 <code>IN (...)</code> 쿼리 한 번</strong>에 모아 오는 전략이 더 나을 수 있습니다(쿼리는 2번이지만 N번은 아님). 엔티티에 <code>eager: true</code>를 주면 항상 자동 로딩되지만, 필요 없을 때도 늘 딸려와 과잉 조회가 될 수 있어 신중히 씁니다.</div>
+      </div>
+    </div>
     <div class="followup">
       <div class="followup-tag">🔁 꼬리 질문</div>
       <p class="followup-q"><span class="qa-mark">Q.</span> <code>leftJoinAndSelect</code>(조인 조회)와 지연 로딩(lazy relations)의 차이점은 무엇인가요?</p>
       <p class="followup-a"><span class="qa-mark">A.</span> lazy relations(<code>Promise</code> 타입 관계)는 연관 엔티티를 실제 접근하는 시점에 별도 쿼리로 로딩하는 방식이라 반복문 안에서 접근하면 N+1 문제가 발생할 수 있습니다. 반면 <code>leftJoinAndSelect</code>는 QueryBuilder에서 한 번의 JOIN 쿼리로 연관 엔티티까지 함께 조회하므로 N+1을 방지합니다. TypeORM은 기본적으로 관계를 lazy로 두지 않기 때문에, <code>relations</code> 옵션이나 <code>eager: true</code>를 지정하지 않으면 관계가 아예 로딩되지 않는다는 점도 함께 짚으면 좋습니다.</p>
+      <div class="detail">
+        <div class="detail-tag">📖 상세 설명</div>
+        <p>둘의 차이는 <strong>"언제 연관 데이터를 가져오느냐"</strong>의 타이밍 차이입니다. <strong>지연 로딩(lazy)</strong>은 "필요해질 때 그때 가지러 감", <strong>조인 조회</strong>는 "처음부터 다 챙겨옴"입니다.</p>
+        <div class="callout callout-analogy">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>비유 — 요리하다 재료 가지러 가기 vs 미리 다 꺼내두기.</strong> lazy는 <em>레시피를 진행하다 재료가 필요할 때마다 냉장고로 달려가는</em> 방식입니다. 재료가 하나면 괜찮지만, <strong>100번 반복(반복문)</strong>이면 냉장고를 100번 여닫아 N+1이 터집니다. <code>leftJoinAndSelect</code>는 <em>요리 시작 전에 필요한 재료를 조리대에 다 꺼내두는</em> 방식이라, 진행 중엔 냉장고에 갈 일이 없습니다(쿼리 1번).</div>
+        </div>
+        <div class="callout callout-warn">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>TypeORM만의 함정 — 안 부르면 아예 안 온다.</strong> 어떤 ORM은 관계가 기본 lazy라 "접근하면 늦게라도 로딩"되지만, TypeORM은 <strong>기본적으로 관계를 로딩하지 않습니다.</strong> 그래서 <code>relations</code> 옵션이나 <code>eager: true</code>, JOIN을 <em>명시하지 않으면</em> <code>post.author</code>가 <code>undefined</code>로 비어 있습니다. "왜 연관 데이터가 <code>undefined</code>냐"는 신입 단골 질문의 답이 바로 이것입니다 — N+1 이전에, <em>로딩 자체를 지정했는지</em>부터 확인해야 합니다.</div>
+        </div>
+      </div>
     </div>
   </section>
 

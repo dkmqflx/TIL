@@ -73,6 +73,17 @@
         <p>CPU, Memory, Disk, Network 사용률 확인 → 이벤트 루프 지연(event loop lag), 힙 사용량, DB 커넥션 풀 확인. Prometheus + Grafana, 또는 자체 로깅 사용. Node.js는 싱글 스레드 이벤트 루프 기반이라 CPU 바운드 작업이 루프를 막으면 전체 지연으로 이어지므로, 이벤트 루프 지연 모니터링이 특히 중요합니다. APM 도구(예: Datadog, Sentry, clinic.js)를 활용하면 트랜잭션 레벨의 병목 지점도 식별할 수 있습니다.</p>
       </div>
     </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>이 질문은 사실 <strong>"장애가 났을 때 무작정 서버부터 늘리는 사람인가, 아니면 어디가 막혔는지 <em>측정해서</em> 찾는 사람인가"</strong>를 봅니다. 병목은 대체로 <strong>CPU · 메모리 · 디스크 · 네트워크 · 이벤트 루프 · DB 커넥션 풀</strong> 중 하나에서 생기는데, 범인을 특정하지 않고 스케일 아웃부터 하면 돈만 쓰고 문제는 그대로일 수 있습니다.</p>
+
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 고속도로 정체의 원인 찾기.</strong> 차가 막힌다고 무조건 차선을 늘린다고 뚫리는 게 아닙니다. 원인이 <em>톨게이트가 느린 것</em>(DB 응답 지연)일 수도, <em>사고 차량 한 대</em>(무거운 코드 한 줄)가 전 차선을 막은 것일 수도 있죠. 병목 진단은 "어느 구간에서 차가 멈춰 서는지" CCTV(모니터링 지표)로 확인하는 일입니다.</div>
+      </div>
+
+      <p>특히 Node.js는 <strong>웨이터가 딱 한 명</strong>인 식당과 같습니다(싱글 스레드 이벤트 루프). 이 웨이터가 무거운 계산 한 건에 붙잡히면 나머지 모든 손님(요청)이 통째로 멈춥니다. 그래서 다른 언어에선 잘 안 보는 <strong>이벤트 루프 지연(event loop lag)</strong>이 Node 진단의 핵심 지표가 됩니다. 실무에선 Prometheus+Grafana로 지표를 그래프로 쌓아두고, Datadog·clinic.js 같은 APM으로 "어떤 API·어떤 쿼리가 느린지" 트랜잭션 단위까지 파고듭니다.</p>
+    </div>
     <div class="followup">
       <div class="followup-tag">🔁 꼬리 질문</div>
       <div class="followup-a">
@@ -86,6 +97,15 @@
           <li>힙 스냅샷(<code>--inspect</code>, clinic.js, heapdump) 분석으로 메모리 누수 추적</li>
           <li>필요 시 <code>--max-old-space-size</code>로 힙 상한을 조정하되, 근본 원인(누수) 해결이 우선</li>
         </ul>
+        <div class="detail">
+          <div class="detail-tag">📖 상세 설명</div>
+          <p>두 증상은 원인이 다릅니다. <strong>이벤트 루프 지연</strong>은 "웨이터가 한 곳에 붙잡힌" 문제(동기 블로킹·무거운 CPU 작업), <strong>메모리 증가</strong>는 "다 쓴 물건을 안 버리고 계속 쌓는" 문제(누수)입니다. 조치도 그래서 갈립니다.</p>
+          <div class="callout callout-analogy">
+            <div class="callout-icon"></div>
+            <div class="callout-body"><strong>비유 — 웨이터 한 명 vs 주방 보조.</strong> 이벤트 루프(웨이터)가 이미지 리사이징 같은 <em>무거운 요리</em>를 직접 하면, 그 몇 초 동안 다른 손님 주문을 아예 못 받습니다. 해법은 무거운 요리를 <strong>주방 보조(Worker Threads·BullMQ 큐)</strong>에게 넘겨 웨이터는 계속 홀을 돌게 하는 것입니다. <code>readFileSync</code> 같은 <em>동기 API</em>도 웨이터를 붙잡으니 비동기/스트림으로 바꿉니다.</div>
+          </div>
+          <p><strong>메모리 누수</strong>는 다 먹은 접시(더 이상 안 쓰는 객체)를 계속 치우지 않아 식탁이 접시로 가득 차는 상황입니다. 흔한 범인은 전역 배열·맵에 계속 쌓기, 해제 안 한 이벤트 리스너/타이머, 클로저가 붙잡은 큰 객체입니다. <strong>힙 스냅샷을 두 번 찍어 비교</strong>하면(시간이 지나도 안 사라지고 계속 늘어나는 객체) 범인을 추적할 수 있습니다. <code>--max-old-space-size</code>로 상한을 늘리는 건 임시방편일 뿐, <em>새는 구멍을 막는 것</em>이 우선입니다.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -96,6 +116,20 @@
       <div class="callout-icon"></div>
       <div class="callout-body">
         <p>캐시 일관성 문제(Cache-Aside 패턴), TTL 관리, 캐시 무효화 전략이 필요합니다. 또한 Redis는 인메모리 데이터 저장소이므로 메모리 사용량 모니터링이 중요합니다. 메모리가 부족해지면 <code>maxmemory-policy</code> 설정에 따라 데이터 제거가 일어날 수 있습니다. 또한 Redis는 기본적으로 싱글 스레드로 동작하므로, 시간 복잡도가 O(N) 이상인 명령어 사용 시 전체 성능에 영향을 줄 수 있어 주의해야 합니다. 분산 환경에서는 Sentinel이나 Cluster 구성도 고려해야 합니다.</p>
+      </div>
+    </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>이 질문의 의도는 <strong>"Redis를 '빠르니까 그냥 쓴다'가 아니라, 그 대가와 함정을 아는가"</strong>입니다. 캐시는 공짜 속도가 아니라 <em>세 가지 숙제</em>를 함께 떠안습니다 — ① 원본과의 <strong>일관성</strong>, ② <strong>TTL·무효화</strong> 관리, ③ <strong>메모리 한계</strong>.</p>
+
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 책상 위 포스트잇 메모.</strong> 매번 서류함(DB)까지 가지 않으려고 자주 쓰는 정보를 포스트잇(캐시)에 적어 책상에 붙여둡니다. 빠르지만 문제는 <strong>서류함 원본이 바뀌었을 때</strong>죠. 포스트잇을 안 고치면 <em>옛날 정보</em>를 보게 됩니다(일관성 문제). 게다가 책상 공간(메모리)은 유한해서, 꽉 차면 오래된 메모부터 떼어냅니다(<code>maxmemory-policy</code>에 따른 eviction).</div>
+      </div>
+
+      <div class="callout callout-warn">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>싱글 스레드 + O(N) 명령의 함정.</strong> Redis도 일꾼이 <strong>한 명</strong>입니다. <code>KEYS *</code>처럼 전체 키를 훑는 O(N) 명령을 큰 데이터에 실행하면, 그동안 <em>다른 모든 요청이 줄 서서 대기</em>합니다. 화장실이 한 칸인데 한 사람이 오래 점유하는 것과 같죠. 그래서 운영 중엔 <code>KEYS</code> 대신 <code>SCAN</code>을 쓰고, 큰 컬렉션을 한 번에 순회하는 명령을 피합니다.</div>
       </div>
     </div>
     <div class="followup">
@@ -112,6 +146,23 @@
           <li>배치 작업으로 주기적 캐시-DB 동기화</li>
         </ul>
         <p>일관성이 깨진 것이 감지되면 해당 키만 선택적으로 무효화하고, 심각한 불일치 시 전체 캐시를 리프레시 할 수 있습니다.</p>
+        <div class="detail">
+          <div class="detail-tag">📖 상세 설명</div>
+          <p>핵심은 <strong>"원본(DB)과 사본(캐시)을 언제, 어떤 순서로 맞출 것인가"</strong>입니다. 세 패턴의 차이는 <em>갱신 타이밍</em>에 있습니다.</p>
+          <ul>
+            <li><strong>Cache-Aside</strong> — 가장 흔한 방식. 읽을 땐 캐시 먼저 보고 없으면 DB에서 가져와 캐시에 채움. 쓸 땐 <strong>DB를 고치고 캐시는 지워버림(무효화)</strong> → 다음 조회 때 새로 채워짐.</li>
+            <li><strong>Write-Through</strong> — DB와 캐시를 <em>동시에</em> 갱신. 항상 최신이지만 쓰기가 조금 느림.</li>
+            <li><strong>Write-Behind</strong> — 캐시 먼저 갱신하고 DB는 나중에 비동기로. 빠르지만 그 사이 장애 나면 유실 위험.</li>
+          </ul>
+          <div class="callout callout-analogy">
+            <div class="callout-icon"></div>
+            <div class="callout-body"><strong>비유 — 지하철 전광판과 실제 열차.</strong> 캐시(전광판)와 DB(실제 열차 위치)가 어긋나면 승객이 헷갈립니다. Cache-Aside는 "열차가 바뀌면 전광판을 <em>일단 끄고</em>, 다음에 누가 볼 때 실제 위치로 다시 켜는" 방식이죠.</div>
+          </div>
+          <div class="callout callout-note">
+            <div class="callout-icon"></div>
+            <div class="callout-body"><strong>왜 캐시를 '갱신'이 아니라 '삭제'할까?</strong> 두 요청이 거의 동시에 값을 바꾸면, 캐시에 <em>덮어쓰는</em> 순서가 꼬여 오래된 값이 최종적으로 남을 수 있습니다. 그래서 실무에선 "DB 갱신 후 캐시는 <strong>지우기만</strong> 하고, 다음 조회 때 최신값으로 다시 채우는" Cache-Aside가 안전하다고 봅니다.</div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -132,6 +183,17 @@
         </ul>
       </div>
     </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>이건 전형적인 <strong>선착순 한정 수량(티켓팅·수강신청·한정판)</strong> 문제입니다. 질문의 핵심은 <strong>"수십만 요청을 DB에 그대로 다 때리면 죽는다 — 그 앞에서 어떻게 완충하고, 재고를 어떻게 정확히 지킬 것인가"</strong>입니다. 두 가지를 동시에 풀어야 합니다: ① <em>몰려드는 양</em>을 줄이기, ② <em>1000개를 초과 판매하지 않기</em>.</p>
+
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 콘서트 티켓 창구.</strong> 창구(DB) 하나에 수만 명이 한꺼번에 달려들면 창구가 마비됩니다. 그래서 ① <strong>입구에서 인원 제한</strong>(Rate Limiting)으로 한꺼번에 못 들어오게 막고, ② 들어온 사람은 <strong>번호표를 뽑아 줄을 세우며</strong>(메시지 큐 · Redis Sorted Set), ③ <strong>창구를 여러 개</strong> 열어(Worker) 차례대로 처리합니다. 이때 두 직원이 같은 좌석을 <em>동시에 파는 것</em>만 막으면(락) 초과 판매가 없습니다.</div>
+      </div>
+
+      <p>여기서 <strong>메시지 큐</strong>가 "번호표 뽑고 줄 서기"의 역할을 합니다. 순간적으로 수십만 요청이 와도 큐가 <em>버퍼(완충 저수지)</em>가 되어 받아두고, 워커들은 뒤에서 <em>감당 가능한 속도로</em> 하나씩 꺼내 처리합니다. 폭발적인 유입과 실제 처리 속도를 분리(디커플링)하는 것이죠. 마지막 재고 차감만 <code>FOR UPDATE</code>(비관적 락)나 낙관적 락, 혹은 Redis 원자 연산으로 딱 잠그면, 1000개를 넘겨 파는 일이 생기지 않습니다.</p>
+    </div>
     <div class="followup">
       <div class="followup-tag">🔁 꼬리 질문</div>
       <div class="followup-a">
@@ -145,6 +207,15 @@
           <li>샤딩 기법으로 테이블을 분할하여 락 경합 감소</li>
           <li>배치 프로세싱으로 일정 간격마다 처리하여 부하 분산</li>
         </ul>
+        <div class="detail">
+          <div class="detail-tag">📖 상세 설명</div>
+          <p>먼저 <strong><code>SKIP LOCKED</code>가 왜 좋은지</strong>부터. 여러 워커가 같은 대기열 테이블에서 "다음 처리할 작업"을 집으려 할 때, 보통의 <code>FOR UPDATE</code>는 <em>이미 남이 잠근 행이 풀릴 때까지 기다립니다</em>. 반면 <code>SKIP LOCKED</code>는 <strong>잠긴 행은 건너뛰고 그 다음 자유로운 행</strong>을 집습니다. 그래서 워커들이 서로 부딪히지 않고 각자 다른 작업을 병렬로 가져갑니다.</p>
+          <div class="callout callout-analogy">
+            <div class="callout-icon"></div>
+            <div class="callout-body"><strong>비유 — 물류창고에서 상자 집는 알바들.</strong> 여러 알바가 컨베이어에서 상자를 집는데, 남이 이미 손댄 상자 앞에서 <em>멀뚱히 기다리면</em>(FOR UPDATE) 비효율입니다. <code>SKIP LOCKED</code>는 "집힌 상자는 건너뛰고 <strong>다음 빈 상자</strong>를 잡아라"라서 모두가 쉬지 않고 일합니다.</div>
+          </div>
+          <p>MySQL 8.0 미만이라 이 기능이 없다면, "같은 작업을 두 워커가 동시에 집지 못하게" 다른 방법으로 막아야 합니다. <strong>Redis 분산락</strong>(<code>SETNX</code>로 "이 작업은 내가 맡음" 표시 + TTL로 워커 죽어도 자동 해제)이 대표적이고, 애플리케이션에서 <code>p-limit</code>·BullMQ <code>concurrency</code>로 동시 처리 수를 제한하거나, <strong>상태 컬럼</strong>(대기→처리중→완료)을 두고 <code>UPDATE ... WHERE status='대기'</code>가 1건 성공하는 워커만 처리하게 하는 낙관적 방식도 흔합니다.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -163,10 +234,35 @@
         </ul>
       </div>
     </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>"Avalanche(눈사태)"라는 이름 그대로, <strong>수많은 캐시 키가 거의 같은 순간에 한꺼번에 만료</strong>되면서 그 요청이 전부 DB로 쏟아져 DB가 무너지는 현상입니다. 이 질문은 <strong>"캐시가 오히려 장애의 방아쇠가 될 수 있음을 아는가"</strong>를 봅니다. 캐시가 있을 땐 DB가 편했는데, 캐시가 <em>동시에</em> 비는 순간 DB가 평소의 수백 배 부하를 그대로 맞는 것이죠.</p>
+
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 모두가 정각 6시에 우산을 반납한다면.</strong> 공유 우산을 다들 "대여 후 정확히 6시간"으로 맞춰 빌렸다고 합시다. 그러면 오후 6시 정각에 <strong>모든 우산이 동시에 반납되고, 동시에 다시 대여 요청</strong>이 몰려 대여소가 마비됩니다. 만료 시각을 5시 55분~6시 5분처럼 <em>조금씩 흩뿌리면</em> 이 쏠림이 사라집니다. 이게 <strong>TTL 분산(지터)</strong>입니다.</div>
+      </div>
+
+      <p>그래서 방지책의 1순위는 <strong>TTL에 랜덤을 섞는 것</strong>(예: 기본 10분 ± 랜덤 1분)이라 만료가 시간축에 퍼집니다. 여기에 <strong>백그라운드 갱신</strong>(만료 직전 미리 새 값으로 교체), <strong>다층 캐시</strong>(로컬+Redis로 한쪽이 비어도 다른 쪽이 방어), <strong>웜업</strong>(배포·재시작 직후 주요 키를 미리 채워 첫 순간의 빈 캐시를 방지)을 더합니다.</p>
+
+      <div class="callout callout-note">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>사촌 개념 구분.</strong> <strong>Penetration(관통)</strong>은 <em>존재하지 않는 키</em>를 계속 조회해 매번 DB까지 뚫리는 것(→ 빈 값도 캐싱하거나 Bloom Filter), <strong>Breakdown/Hotkey(핫키)</strong>는 <em>인기 있는 단 하나의 키</em>가 만료되는 순간 그 키로만 요청이 폭주하는 것(→ 뮤텍스/단일 갱신 락)입니다. Avalanche는 "여러 키가 동시에"라는 점이 다릅니다.</div>
+      </div>
+    </div>
     <div class="followup">
       <div class="followup-tag">🔁 꼬리 질문</div>
       <p class="followup-q"><span class="qa-mark">Q.</span> TTL 분산 전략을 적용했던 경험이 있나요?</p>
       <p class="followup-a"><span class="qa-mark">A.</span> TTL을 고정값이 아니라 기본값에 ±10% 정도의 랜덤 지연을 추가하여 동시 만료를 방지하거나, 서비스 시작 시 미리 Warm-up 캐시를 준비하면 캐시 어밸런치(Avalanche)를 효과적으로 완화할 수 있습니다.</p>
+      <div class="detail">
+        <div class="detail-tag">📖 상세 설명</div>
+        <p>경험이 없더라도 <strong>"왜 ±10%가 효과가 있는지"</strong>를 설명할 수 있으면 충분히 좋은 답입니다. 원리는 단순합니다 — <em>같은 순간에 몰린 만료를 시간축으로 얇게 펴는 것</em>입니다.</p>
+        <div class="callout callout-analogy">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>비유 — 알람 시간 흩뿌리기.</strong> 기숙사생 100명이 알람을 <em>정확히 7시</em>로 맞추면 7시에 샤워실이 마비됩니다. 각자 6시 55분~7시 5분으로 <strong>살짝 다르게</strong> 맞추면 붐빔이 자연스럽게 분산되죠. TTL <code>600초 → 540~660초</code>처럼 랜덤을 주면 캐시 만료도 똑같이 퍼집니다.</div>
+        </div>
+        <p>구현은 <code>ttl = base + random(-base*0.1, +base*0.1)</code> 한 줄이면 됩니다. 여기에 배포 직후엔 캐시가 텅 비어 첫 요청들이 전부 DB로 가니, <strong>웜업</strong>으로 인기 데이터를 미리 채워두면 "배포 직후 순간 폭주"까지 함께 막을 수 있습니다. 두 기법을 같이 쓰는 게 정석입니다.</p>
+      </div>
     </div>
   </section>
 
@@ -178,10 +274,30 @@
         <p>서버 스케일 아웃, 로드 밸런서 도입, 캐싱 적용, DB 인덱싱 최적화, 비동기 처리 적용, CDN 활용 등 다양한 기법을 사용할 수 있습니다.</p>
       </div>
     </div>
+    <div class="detail">
+      <div class="detail-tag">📖 상세 설명</div>
+      <p>이 질문은 <strong>"트래픽 급증에 쓸 수 있는 도구상자를 계층별로 정리해 아는가"</strong>를 봅니다. 답변이 나열식이라 밋밋해 보이지만, 실제로는 <strong>요청이 지나가는 길목마다 방어선</strong>이 있다는 그림으로 묶으면 훨씬 좋은 답이 됩니다.</p>
+
+      <div class="callout callout-analogy">
+        <div class="callout-icon"></div>
+        <div class="callout-body"><strong>비유 — 갑자기 손님이 몰린 식당.</strong> ① <strong>직원을 더 투입</strong>(스케일 아웃)하고, ② 입구에 <strong>안내원</strong>을 둬 빈 자리로 손님을 고르게 배분(로드 밸런서)합니다. ③ 자주 나가는 <strong>반찬은 미리 만들어</strong>(캐시) 조리 시간을 줄이고, ④ <strong>배달은 가까운 지점</strong>에서 나가게(CDN) 합니다. ⑤ 주문은 일단 받아두고 <strong>조리는 순서대로</strong>(비동기 큐) 처리하죠.</div>
+      </div>
+
+      <p>정리하면 방어선은 세 층입니다. <strong>앞단</strong> — CDN·캐시로 아예 서버까지 안 오게 걸러내기. <strong>애플리케이션</strong> — 서버를 여러 대로 늘리고(스케일 아웃) 로드 밸런서로 고르게 분산. <strong>뒷단</strong> — 느린 쿼리는 인덱싱으로 잡고, 무거운 작업은 비동기 큐로 미뤄 응답을 먼저 돌려주기. 그리고 아무리 늘려도 한계가 있으니, 마지막엔 <strong>Rate Limiting</strong>으로 "받을 만큼만 받고 나머지는 정중히 거절"해 시스템 전체가 무너지는 것을 막습니다.</p>
+    </div>
     <div class="followup">
       <div class="followup-tag">🔁 꼬리 질문</div>
       <p class="followup-q"><span class="qa-mark">Q.</span> Rate Limiting을 구현하는 방법에는 어떤 것들이 있나요?</p>
       <p class="followup-a"><span class="qa-mark">A.</span> Redis를 활용한 counting, token bucket, leaky bucket 알고리즘을 구현하거나, API Gateway의 rate limiting 기능을 활용할 수 있습니다. 또한 NestJS의 경우 <code>@nestjs/throttler</code>나 <code>rate-limiter-flexible</code> 같은 라이브러리를 활용할 수 있습니다.</p>
+      <div class="detail">
+        <div class="detail-tag">📖 상세 설명</div>
+        <p>Rate Limiting은 <strong>"단위 시간당 허용 요청 수를 정해, 그걸 넘으면 막는"</strong> 기법입니다. 핵심은 <em>어떤 알고리즘으로 "얼마나 왔는지"를 셀 것인가</em>인데, 대표 두 가지를 비유로 기억하면 쉽습니다.</p>
+        <div class="callout callout-analogy">
+          <div class="callout-icon"></div>
+          <div class="callout-body"><strong>비유 — 토큰 버킷 vs 새는 양동이.</strong> <strong>Token Bucket</strong>은 <em>놀이공원 자유이용권 토큰통</em>입니다. 토큰이 일정 속도로 채워지고, 요청이 올 때마다 하나씩 꺼내 씁니다. 토큰이 남아 있으면 <strong>순간적으로 몰려도(버스트) 허용</strong>, 다 떨어지면 거절. <strong>Leaky Bucket</strong>은 <em>바닥에 구멍 뚫린 양동이</em>로, 물(요청)이 아무리 쏟아져도 <strong>구멍으로 일정 속도로만 빠져나가</strong> 처리 속도를 매끈하게 고릅니다.</div>
+        </div>
+        <p>가장 간단한 구현은 Redis에 <code>사용자ID:분</code> 키를 두고 요청마다 <code>INCR</code>로 세다가 임계치를 넘으면 거절하는 <strong>고정 윈도우 카운팅</strong>입니다(원자적이라 분산 서버에서도 안전). 직접 짜기보다 실무에선 <code>@nestjs/throttler</code>·<code>rate-limiter-flexible</code> 같은 검증된 라이브러리나 API Gateway·Nginx의 내장 기능을 쓰는 게 안전합니다.</p>
+      </div>
     </div>
   </section>
 

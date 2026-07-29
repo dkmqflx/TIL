@@ -241,6 +241,52 @@
     .followup-a span.qa-mark { color: var(--primary); font-weight: 700; }
     .followup-a p:last-child, .followup-a ul:last-child { margin-bottom: 0; }
 
+    /* ── 상세 설명 (서술형 narrative) ── */
+    .detail {
+      margin: 12px 0 0;
+      padding: 16px 18px 14px;
+      background: #fbfbfd;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--green);
+      border-radius: var(--radius);
+    }
+    .detail-tag {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--green);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .detail p { color: #374151; }
+    .detail h4 { margin-top: 14px; }
+    .detail > *:last-child { margin-bottom: 0; }
+    .detail .callout { margin: 12px 0; }
+    .followup .detail { border-left-color: var(--purple); }
+    .followup .detail .detail-tag { color: var(--purple); }
+
+    /* ── Callout 변형 (비유·주의·좋은예) ── */
+    .callout-analogy { background: var(--yellow-soft); border-left: 3px solid var(--yellow); }
+    .callout-analogy .callout-icon::before { content: '🎯'; }
+    .callout-analogy .callout-body strong:first-child { color: #b45309; }
+    .callout-warn { background: var(--red-soft); border-left: 3px solid var(--red); }
+    .callout-warn .callout-icon::before { content: '⚠️'; }
+    .callout-good { background: var(--green-soft); border-left: 3px solid var(--green); }
+    .callout-good .callout-icon::before { content: '✅'; }
+    .callout-note { background: #f9fafb; border-left: 3px solid var(--text-muted); }
+    .callout-note .callout-icon::before { content: '📝'; }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; margin: 12px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+    thead th { background: var(--bg); text-align: left; font-weight: 700; color: var(--text); padding: 9px 12px; border-bottom: 1px solid var(--border); }
+    tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: #374151; vertical-align: top; }
+    tbody tr:last-child td { border-bottom: none; }
+    .detail table code, .followup table code { font-size: 12px; }
+
     /* ── Code ── */
     .code-block {
       background: #0d1117;

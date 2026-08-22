@@ -70,7 +70,7 @@
     <p class="lesson-subtitle">NestJS의 <strong>DTO + class-validator</strong>가 하던 일을, FastAPI에서는 <strong>Pydantic 모델 하나</strong>가 통째로 합니다. 선언과 검증이 한 곳에서 일어나죠.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> Pydantic 모델은 요청 데이터의 <b>입국 심사대</b>다. 타입이 맞는지, 길이·범위 규칙을 지키는지 검사해서 통과시키거나(파싱) 돌려보낸다(422). 클래스에 타입만 적으면 검사기가 공짜로 생긴다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> Pydantic 모델은 요청 데이터의 <b>검사기</b>다. 타입이 맞는지, 길이·범위 규칙을 지키는지 검사해서 통과하면 파이썬 객체로 바꿔 주고(이걸 <b>파싱</b>이라 부른다), 틀리면 422로 돌려보낸다. 클래스에 타입만 적으면 이 검사기가 공짜로 생긴다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
@@ -85,11 +85,11 @@
       <div class="section-icon icon-concept">🔍</div>
       <h2>Pydantic이란 — 타입 힌트로 하는 검증</h2>
     </div>
-    <p>Pydantic은 "타입 힌트를 읽어 실제로 데이터를 검증·변환"해주는 라이브러리입니다. Week 1에서 "타입 힌트는 런타임에 살아남는다"고 했죠? Pydantic이 바로 그 힌트를 런타임에 읽어 일하는 주인공입니다.</p>
+    <p>Pydantic은 "타입 힌트를 읽어 실제로 데이터를 검증·변환"해주는 라이브러리입니다. <a href="../week01-overview-typehints/02-python-typehints.html#why-typehints">Week 1</a>에서 "타입 힌트는 런타임(프로그램이 실제로 실행되는 시점)에 살아남는다"고 했죠? Pydantic이 바로 그 힌트를 런타임에 읽어 일하는 주인공입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 공항 입국 심사대.</strong> 해외에서 들어온 승객(요청 JSON)은 <strong>입국 심사대(Pydantic 모델)</strong>를 통과해야 합니다. 여권 형식이 맞는지(타입), 비자 기간이 유효한지(제약)를 검사해서, 통과하면 입국 도장(파싱된 객체)을 찍고, 문제가 있으면 <strong>정중히 돌려보냅니다(422)</strong>. 심사대 덕분에 공항 안(=당신의 비즈니스 로직)은 늘 "검증된 데이터"만 돌아다닙니다.</div>
+      <div class="callout-body"><strong>비유 — 공항 입국 심사대.</strong> 해외에서 들어온 승객(요청 JSON)은 <strong>입국 심사대(Pydantic 모델)</strong>를 통과해야 합니다. 여권 형식이 맞는지(타입), 비자 기간이 유효한지(제약)를 검사해서, 통과하면 입국 도장(파싱된 파이썬 객체)을 찍고, 문제가 있으면 <strong>정중히 돌려보냅니다(422)</strong>. 심사대 덕분에 공항 안 — 즉 "할 일을 저장한다"처럼 <strong>실제 서비스 동작을 하는 코드(비즈니스 로직)</strong> — 에는 늘 "검증된 데이터"만 돌아다닙니다.</div>
     </div>
   </section>
 
@@ -155,14 +155,14 @@ class CreateTodo(BaseModel):
           <tr><td><code>gt</code> / <code>ge</code></td><td>초과 / 이상</td><td><code>@Min</code></td></tr>
           <tr><td><code>lt</code> / <code>le</code></td><td>미만 / 이하</td><td><code>@Max</code></td></tr>
           <tr><td><code>default</code></td><td>기본값</td><td>DTO 기본값</td></tr>
-          <tr><td><code>pattern</code></td><td>정규식</td><td><code>@Matches</code></td></tr>
+          <tr><td><code>pattern</code></td><td>정규식(문자열이 정해진 형식에 맞는지 검사하는 패턴, 예: 이메일 모양)</td><td><code>@Matches</code></td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>Field도 Annotated로 쓸 수 있다.</strong> Week 2에서 배운 <code>Annotated</code> 기억하시죠? Field도 <code>title: Annotated[str, Field(min_length=1)]</code>처럼 쓸 수 있고, 이게 모델 간 재사용에 유리한 최신 스타일입니다.</div>
+      <div class="callout-body"><strong>Field도 Annotated로 쓸 수 있다.</strong> <a href="../week02-request-http/01-path-query-body-header.html#header-cookie-form">Week 2</a>에서 배운 <code>Annotated</code> 기억하시죠? Field도 <code>title: Annotated[str, Field(min_length=1)]</code>처럼 쓸 수 있습니다. 이 스타일의 장점은 <strong>재사용</strong>입니다 — <code>Title = Annotated[str, Field(min_length=1, max_length=50)]</code>처럼 이름을 붙여 두면, <code>CreateTodo</code>·<code>UpdateTodo</code> 등 여러 모델에서 <code>title: Title</code> 한 줄로 같은 제약을 공유할 수 있습니다.</div>
     </div>
   </section>
 
@@ -204,6 +204,67 @@ class Todo(BaseModel):
       </svg>
       <div class="diagram-caption">중첩된 author도 자동으로 Author 모델 규칙에 따라 검증된다.</div>
     </div>
+
+    <h3><code>tags: list[str] = []</code> — 모델 안에서는 안전, 일반 함수에서는 함정</h3>
+    <p>핵심은 딱 하나입니다. 파이썬은 함수의 기본값을 <strong>"함수를 정의할 때 한 번만"</strong> 만들고, 호출할 때마다 새로 만들지 않습니다.</p>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유 — 카운터에 놓인 공용 메모장.</strong> 카페를 하나 연다고 생각해 보세요. 가게를 오픈하는 순간(= <code>def</code>가 실행되는 순간) 카운터에 빈 메모장을 <strong>한 권</strong> 올려두고 규칙을 정합니다. "손님이 자기 메모장을 안 가져오면 카운터 메모장에 적으세요." 첫 손님이 "사과"라고 적고 갑니다. 두 번째 손님이 와서 자기 메모장이 없으니 카운터 메모장을 펼치는데… 이미 "사과"가 적혀 있죠. 메모장은 새로 갈리지 않았으니까요. 거기에 "바나나"를 덧붙입니다. 이게 바로 그 유명한 버그입니다.</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">def add_tag(tag, tags=[]):   # 이 []는 def가 실행될 때 딱 한 권 만들어짐
+    tags.append(tag)
+    return tags
+
+print(add_tag("사과"))    # ['사과']
+print(add_tag("바나나"))  # ['사과', '바나나']  ← 바나나만 있어야 하는데?
+
+a = add_tag("사과")
+b = add_tag("바나나")
+print(a is b)             # True — 두 호출이 완전히 같은 리스트 하나를 돌려줌</code></pre>
+    </div>
+
+    <p>고치는 법은 <strong>"메모장 없으면 새로 한 권 드릴게요"</strong>입니다. <code>None</code>은 "아무것도 안 받았다"는 표시일 뿐 내용을 적을 수 없는 값이라 기본값으로 써도 안전하고, 함수 <em>안에서</em> 새 리스트를 만들면 호출마다 새 메모장이 생깁니다. (<code>list[str] | None</code>의 <code>|</code>는 "둘 중 하나"라는 뜻입니다.)</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">def add_tag(tag, tags: list[str] | None = None):
+    if tags is None:
+        tags = []          # 호출할 때마다 실행되므로 매번 새 리스트
+    tags.append(tag)
+    return tags
+
+print(add_tag("사과"))    # ['사과']
+print(add_tag("바나나"))  # ['바나나']  ← 이제 정상</code></pre>
+    </div>
+
+    <p>참고로 <code>count=0</code>이나 <code>name=""</code> 같은 숫자·문자열 기본값은 이 함정이 없습니다. 숫자나 문자열은 "내용을 고칠 수 없는" 값이라 여러 호출이 공유해도 서로 망가뜨릴 수가 없거든요. 문제는 <code>append</code>처럼 <strong>제자리에서 내용이 바뀌는</strong> 리스트·딕셔너리일 때만 생깁니다.</p>
+
+    <p>그런데 <strong>Pydantic 모델은 왜 괜찮을까요?</strong> 가게 운영 방식이 다릅니다. 카운터의 메모장은 <strong>견본</strong>일 뿐이고, 손님(인스턴스)이 올 때마다 견본을 <strong>복사해서 새 메모장을 건네줍니다.</strong> 그래서 <code>= []</code>라고 써도 인스턴스끼리 섞이지 않습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from pydantic import BaseModel
+
+class Post(BaseModel):
+    tags: list[str] = []      # 견본. 인스턴스마다 복사됨
+
+a = Post()
+b = Post()
+a.tags.append("사과")
+
+print(a.tags)             # ['사과']
+print(b.tags)             # []     ← b는 깨끗한 새 리스트
+print(a.tags is b.tags)   # False — 서로 다른 리스트</code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>한 줄 정리.</strong> 일반 함수의 <code>= []</code>는 <em>"한 권을 모두가 돌려 쓰는 것"</em>이고, Pydantic 필드의 <code>= []</code>는 <em>"견본을 복사해서 한 권씩 나눠주는 것"</em>입니다. 그래서 함수에서는 <code>None</code> + 안에서 새로 만들기가 정석이고, Pydantic 모델에서는 <code>= []</code>를 그대로 써도 됩니다.</div>
+    </div>
   </section>
 
   <section class="section" id="custom-validator">
@@ -211,7 +272,7 @@ class Todo(BaseModel):
       <div class="section-icon icon-pattern">🛠️</div>
       <h2>커스텀 validator — 규칙을 직접 쓰기</h2>
     </div>
-    <p>"비밀번호는 숫자를 포함해야 한다" 같은 <strong>비즈니스 규칙</strong>은 <code>@field_validator</code>로 직접 작성합니다.</p>
+    <p>"비밀번호는 숫자를 포함해야 한다"처럼 타입이나 길이만으로는 표현할 수 없는, <strong>우리 서비스만의 규칙(비즈니스 규칙)</strong>은 <code>@field_validator</code>로 직접 작성합니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -229,20 +290,20 @@ class SignUp(BaseModel):
         return v</code></pre>
     </div>
 
-    <p><code>@classmethod</code>는 뭘까요? 보통 클래스 안의 메서드는 첫 번째 인자로 <strong>만들어진 인스턴스 자신(<code>self</code>)</strong>을 받습니다. 그런데 <code>@classmethod</code>를 붙이면 인스턴스 대신 <strong>클래스 자체(<code>cls</code>)</strong>를 첫 번째 인자로 받게 됩니다. 위 코드에서 <code>check_password(cls, v)</code>의 <code>cls</code>가 바로 그겁니다 — <code>SignUp</code>이라는 "설계도" 자체를 가리키지, 아직 만들어진 회원 한 명(인스턴스)을 가리키는 게 아닙니다.</p>
+    <p>낯선 부분은 함수 위에 쌓인 데코레이터 두 개와 인자 <code>(cls, v)</code>일 겁니다. 하나씩 풀어 보죠. <code>@field_validator("password")</code>는 "<code>password</code> 필드를 검사할 땐 이 함수를 실행해줘"라고 Pydantic에 <strong>등록</strong>하는 역할입니다. 그러면 Pydantic은 <code>SignUp(username=..., password="abc123")</code>처럼 객체를 만들 때 사용자가 입력한 <strong>password 값 그 자체</strong>("abc123")를 두 번째 인자로 넘겨줍니다 — 그게 <code>v</code>입니다(<em>value</em>의 줄임말인 관례적 이름이라 다른 이름으로 바꿔도 됩니다).</p>
 
-    <p>그럼 두 번째 인자 <code>v</code>는 뭘까요? 바로 위에 붙은 <code>@field_validator("password")</code>가 "<code>password</code> 필드를 검사할 땐 이 함수를 실행해줘"라고 Pydantic에 등록해두는 역할을 합니다. 그러면 Pydantic은 <code>SignUp(username=..., password="abc123")</code>처럼 객체를 만들 때, 사용자가 입력한 <strong>password 값 그 자체</strong>("abc123")를 <code>cls</code> 다음 인자로 자동으로 넘겨줍니다 — 그게 <code>v</code>입니다. <code>v</code>는 <em>value</em>의 줄임말일 뿐인 관례적인 이름이라 <code>password</code>처럼 다른 이름으로 바꿔도 동일하게 동작합니다. 함수 안에서는 이 <code>v</code>를 검사하고, 문제가 없으면 <code>return v</code>로 <strong>그 값을 그대로(혹은 가공해서) 돌려줘야</strong> 최종적으로 <code>password</code> 필드에 저장됩니다.</p>
+    <p>그럼 첫 번째 인자가 왜 <code>self</code>가 아니라 <code>cls</code>일까요? 보통 클래스 안의 메서드는 <strong>이미 만들어진 인스턴스(<code>self</code>)</strong>를 받습니다. 그런데 검증이 실행되는 시점은 <strong>인스턴스가 완성되기 전</strong>입니다 — 입력값이 검사를 통과해야 비로소 회원 객체가 생기니까요. 아직 없는 것을 받을 수는 없으니, 대신 <strong>클래스 자체(<code>cls</code>, 즉 <code>SignUp</code>이라는 설계도)</strong>를 받는 메서드로 만들어야 하고, 그렇게 만들어 주는 게 <code>@classmethod</code>입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 개인 신상 확인 vs 규정집 확인.</strong> <code>self</code>를 쓰는 일반 메서드는 "이 사람(인스턴스)의 정보를 보고 판단"하는 것이고, <code>@classmethod</code>는 "회사 규정집(클래스)만 보고 판단"하는 것에 가깝습니다. 비밀번호 검증은 아직 완성된 회원 객체가 없어도 — 즉 <strong>제출된 서류 한 장(<code>v</code>, 입력된 비밀번호 문자열)</strong>이 규칙에 맞는지만 보면 되므로, 특정 인스턴스가 아니라 클래스 차원의 규칙 검사인 셈입니다.</div>
+      <div class="callout-body"><strong>비유 — 개인 신상 확인 vs 규정집 확인.</strong> <code>self</code>를 쓰는 일반 메서드는 "이 사람(인스턴스)의 정보를 보고 판단"하는 것이고, <code>@classmethod</code>는 "회사 규정집(클래스)만 보고 판단"하는 것입니다. 비밀번호 검증은 아직 회원이 만들어지기 전, <strong>제출된 서류 한 장(<code>v</code>)</strong>이 규정집에 맞는지만 보면 되니 후자입니다.</div>
     </div>
 
-    <p>Pydantic이 <code>@field_validator</code> 검증을 실행하는 시점은 <strong>아직 유효한 인스턴스가 만들어지기 전</strong>(입력값을 검사해서 통과해야 비로소 객체가 완성되는 단계)입니다. 그래서 <code>self</code>를 받을 수 없고, <code>@field_validator</code> 바로 아래에 <code>@classmethod</code>를 붙이는 게 정해진 관례입니다. <code>ValueError</code>를 던지면 FastAPI가 자동으로 422 검증 에러로 바꿔줍니다. NestJS의 커스텀 <code>@Validate</code> 데코레이터와 같은 역할입니다.</p>
+    <p><strong>데코레이터 순서</strong>도 정해져 있습니다 — <code>@field_validator</code>가 위, <code>@classmethod</code>가 아래. 데코레이터는 함수에 가까운 아래쪽부터 적용되므로, 먼저 <code>@classmethod</code>가 함수를 "클래스를 받는 메서드"로 바꾸고, 그 결과를 <code>@field_validator</code>가 검증기로 등록하는 순서입니다. 순서를 뒤집으면 Pydantic이 검증기를 알아보지 못해 <strong>에러 없이 조용히 무시</strong>되니(검증이 안 되는데 티가 안 납니다) 꼭 이 순서로 쓰세요. 검증에 실패하면 <code>ValueError</code>를 던지고, FastAPI가 이를 자동으로 422 응답으로 바꿔줍니다. NestJS의 커스텀 <code>@Validate</code> 데코레이터와 같은 역할입니다.</p>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong><code>return v</code>를 빠뜨리면?</strong> 함수 끝에 <code>return v</code>가 없으면 파이썬 함수는 기본적으로 <code>None</code>을 반환합니다. Pydantic은 이 반환값을 <strong>그대로 필드 값으로 채택</strong>하므로, <code>return v</code>를 깜빡하면 검증은 통과했는데 <code>password</code>가 <code>None</code>으로 저장되는 이상한 버그가 생깁니다. "검사만 하고 끝"이 아니라 "검사하고 값을 돌려준다"까지가 한 세트라는 걸 기억하세요.</div>
+      <div class="callout-body"><strong><code>return v</code>까지가 한 세트.</strong> 검사를 통과한 값은 <code>return v</code>로 돌려줘야(필요하면 가공해서) 그 값이 <code>password</code> 필드에 저장됩니다. <code>return</code>이 없으면 파이썬 함수는 <code>None</code>을 반환하고, Pydantic은 그 반환값을 그대로 필드 값으로 채택하므로 검증은 통과했는데 <code>password</code>가 <code>None</code>이 되는 이상한 버그가 생깁니다.</div>
     </div>
   </section>
 
@@ -252,7 +313,7 @@ class SignUp(BaseModel):
       <h2>직렬화 — 모델 ↔ dict/JSON</h2>
     </div>
 
-    <p>표를 보기 전에, 여기 나오는 세 단어부터 확실히 잡고 가죠. <strong>같은 데이터(회원 한 명의 정보)가 상황에 따라 세 가지 모습으로 존재</strong>합니다. 셋은 담긴 내용은 똑같고 <strong>겉모습(형식)만 다릅니다.</strong></p>
+    <p><strong>직렬화(serialization)</strong>는 파이썬 안의 모델 객체를 네트워크로 보내거나 저장할 수 있는 <strong>dict/JSON 형태로 바꾸는 것</strong>이고, <strong>역직렬화</strong>는 그 반대 — 밖에서 들어온 dict/JSON을 다시 모델로 되살리는 것입니다. 그러니까 먼저 "모델·dict·JSON"이 각각 뭔지부터 잡아야 합니다. <strong>같은 데이터(회원 한 명의 정보)가 상황에 따라 세 가지 모습으로 존재</strong>하는데, 담긴 내용은 똑같고 <strong>겉모습(형식)만 다릅니다.</strong></p>
 
     <div class="table-wrap">
       <table>
@@ -267,10 +328,10 @@ class SignUp(BaseModel):
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 같은 사람의 세 가지 모습.</strong> <strong>모델</strong>은 <em>내 앞에 서 있는 실제 사람</em>입니다 — 말을 걸고(메서드 호출) 팔을 잡을(<code>.필드</code>) 수 있죠. <strong>dict</strong>는 그 사람의 <em>신상 정보를 항목별로 적은 메모지</em>입니다 — 이름·나이 칸이 나뉘어 있어 바로 꺼내 쓰기 좋지만, 아직 내 책상 위(파이썬 메모리)에만 있습니다. <strong>JSON</strong>은 그 메모지를 <em>봉투에 넣어 부칠 수 있게 만든 편지</em>입니다 — 글자로만 이뤄져 있어 우편(네트워크)으로 멀리 보낼 수 있습니다. 받는 쪽은 편지(JSON)를 열어 다시 메모지(dict)로, 필요하면 사람(모델)으로 되살립니다.</div>
+      <div class="callout-body"><strong>비유 — 같은 사람의 세 가지 모습.</strong> <strong>모델</strong>은 <em>내 앞에 서 있는 실제 사람</em>입니다 — 말을 걸고(메서드 호출) 팔을 잡을(<code>.필드</code>) 수 있죠. <strong>dict</strong>는 그 사람의 <em>신상 정보를 항목별로 적은 메모지</em>입니다 — 칸이 나뉘어 있어 바로 꺼내 쓰기 좋지만, 아직 내 책상 위(파이썬 메모리)에만 있습니다. <strong>JSON</strong>은 그 메모지를 <em>봉투에 넣어 부칠 수 있게 만든 편지</em>입니다 — 글자로만 이뤄져 있어 우편(네트워크)으로 멀리 보낼 수 있습니다. 받는 쪽은 편지(JSON)를 열어 다시 메모지(dict)로, 필요하면 사람(모델)으로 되살립니다 — 이 "되살리기"가 역직렬화입니다.</div>
     </div>
 
-    <p>그래서 <strong>왜 서로 변환하냐면</strong> — 파이썬 코드 안에서 다룰 땐 편리한 <strong>모델/dict</strong>가 좋지만, 그 데이터를 브라우저나 다른 서버로 <strong>보내는 순간엔 글자 형태인 JSON</strong>이어야만 하기 때문입니다. 아래 메서드들이 이 세 모습 사이를 오가는 변환기입니다. (이름의 규칙: <code>validate</code> = 밖에서 들어온 데이터를 <strong>검증하며 모델로</strong>, <code>dump</code> = 모델을 <strong>밖으로 쏟아내기</strong>.)</p>
+    <p>아래 메서드들이 이 세 모습 사이를 오가는 변환기입니다. 이름의 규칙은 <code>validate</code> = 밖에서 들어온 데이터를 <strong>검증하며 모델로</strong>, <code>dump</code> = 모델을 <strong>밖으로 쏟아내기</strong>입니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -287,63 +348,20 @@ class SignUp(BaseModel):
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">raw = {"username": "민수", "password": "abc123"}   # ① 밖에서 들어온 dict
 
-user = SignUp.model_validate(raw)   # ② dict → 모델 (검증까지 통과)
-user.username                       #   → "민수"   (점으로 접근 = 모델이라 가능)
+user = SignUp.model_validate(raw)   # ② dict → 모델 (검증까지 통과) = 역직렬화
+user.username                       #   → "민수"
 
-user.model_dump()                   # ③ 모델 → dict  {'username': '민수', ...}
-user.model_dump_json()              # ④ 모델 → JSON  '{"username":"민수",...}'  (글자 한 덩어리)</code></pre>
+user.model_dump()                   # ③ 모델 → dict  {'username': '민수', ...}   = 직렬화
+user.model_dump_json()              # ④ 모델 → JSON  '{"username":"민수",...}'
+
+SignUp(**raw)                       # ②와 같은 일 — 생성자로 만들어도 똑같이 검증한다</code></pre>
     </div>
+
+    <p>마지막 줄처럼 <code>SignUp(**raw)</code>(dict를 풀어서 넘기기)나 <code>SignUp(username="민수", password="abc123")</code>처럼 <strong>생성자로 직접 만들어도 같은 검증</strong>을 거칩니다. 앞 섹션의 validator 예시에서 생성자 방식을 쓴 것도 그래서입니다. <code>model_validate</code>는 "dict를 통째로 넘기는 입구"가 하나 더 있는 것뿐이라, 둘 중 편한 쪽을 쓰면 됩니다.</p>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>Pydantic v1 → v2 메서드 이름.</strong> 예전 자료엔 <code>.dict()</code>, <code>.parse_obj()</code>가 나오는데, 이건 <strong>v1</strong> 표기입니다. <strong>v2</strong>에서는 <code>.model_dump()</code>, <code>.model_validate()</code>로 바뀌었습니다. FastAPI 최신 버전은 v2를 쓰니 새 이름을 익히세요.</div>
-    </div>
-
-    <div class="callout callout-warn">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>여기서 잠깐 — 가변 기본값(mutable default) 함정.</strong> 앞의 <a href="#nested-models">중첩 모델</a>에서 <code>tags: list[str] = []</code>처럼 리스트를 <strong>필드 기본값</strong>으로 아무렇지 않게 썼죠? 그런데 똑같은 <code>= []</code>를 <strong>보통 파이썬 함수</strong>에 쓰면 악명 높은 버그가 됩니다. "모델에선 잘 됐는데 왜 함수에선 위험하다는 거지?"를 이해하려면 이 함정부터 짚어야 해서, 잠깐 순수 파이썬으로 넘어가 봅니다.</div>
-    </div>
-
-    <p>먼저 아래 함수를 보고, "이 함수를 두 번 부르면 뭐가 나올까?"를 예상해 보세요. "태그를 하나 받아서, 빈 목록에 넣고, 그 목록을 돌려주는 함수"처럼 보이죠.</p>
-
-    <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python"># ❌ 이렇게 쓰면 안 됩니다
-def add_tag(tag: str, tags: list[str] = []):   # tags를 안 주면 빈 목록으로 시작(할 줄 알았지만…)
-    tags.append(tag)
-    return tags
-
-print(add_tag("사과"))   # 예상: ['사과']       / 실제: ['사과']        ✅
-print(add_tag("바나나")) # 예상: ['바나나']     / 실제: ['사과', '바나나']  ❌ 사과가 왜 남아있지?!</code></pre>
-    </div>
-
-    <p>두 번째 호출에서 <code>'바나나'</code>만 들어있어야 할 것 같은데, 지워진 줄 알았던 <code>'사과'</code>가 그대로 남아 있습니다. 왜 이럴까요?</p>
-
-    <p>핵심은 이겁니다 — <strong><code>tags=[]</code>의 그 빈 목록은 함수를 <u>부를 때마다</u> 새로 생기는 게 아니라, 함수를 <u>처음 정의할 때</u> 딱 하나만 만들어집니다.</strong> 그리고 <code>tags</code>를 생략한 모든 호출은 <strong>그 하나뿐인 목록을 계속 돌려 씁니다.</strong> 그래서 첫 호출이 담은 <code>'사과'</code>가 그 목록에 남아 있고, 두 번째 호출은 그 위에 <code>'바나나'</code>를 얹는 겁니다.</p>
-
-    <div class="callout callout-analogy">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 마트 입구의 공용 카트 하나.</strong> <code>tags=[]</code>는 마트가 문 열 때(=함수 정의될 때) 입구에 <strong>딱 하나 갖다 둔 카트</strong>예요. 손님이 자기 카트를 안 가져오면 다들 이 카트 하나를 씁니다. 첫 손님이 사과를 담고 <strong>비우지 않은 채</strong> 반납하면, 다음 손님은 텅 빈 카트가 아니라 <strong>사과가 든 카트</strong>를 그대로 받게 되죠. "매번 새 카트"라고 착각한 게 버그의 원인입니다.</div>
-    </div>
-
-    <p>고치는 방법은 간단합니다. 기본값을 <strong>빈 목록 대신 <code>None</code></strong>으로 두고, 함수 안에서 <strong>매번 새 목록을 만드는</strong> 겁니다. 이러면 호출마다 진짜로 새 카트를 꺼내 오는 셈이라 이전 흔적이 남지 않습니다.</p>
-
-    <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python"># ✅ 안전한 패턴
-def add_tag(tag: str, tags: list[str] | None = None):
-    if tags is None:
-        tags = []          # 호출될 때마다 여기서 새 목록을 만든다 → 공유 안 됨
-    tags.append(tag)
-    return tags
-
-print(add_tag("사과"))   # ['사과']
-print(add_tag("바나나")) # ['바나나']   ✅ 이제 매번 깨끗하게 시작</code></pre>
-    </div>
-
-    <div class="callout callout-warn">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>그런데 왜 Pydantic 모델에선 <code>tags: list[str] = []</code>를 써도 괜찮았을까?</strong> 위 함정은 <strong>순수 파이썬 함수</strong> 얘기입니다. Pydantic은 이 문제를 알고 있어서, 모델 인스턴스를 만들 때마다 <strong>기본값을 새로 복사</strong>해 넣어줍니다 — 즉 카트를 손님마다 새로 꺼내 주는 걸 Pydantic이 알아서 해주는 거죠. 그래서 <strong>모델 필드 안에서는 안전</strong>하지만, 그 밖의 <strong>일반 함수·클래스에서는 여전히 위험</strong>합니다. "모델 안이면 <code>[]</code> OK, 그냥 함수면 <code>None</code> 패턴" 이렇게 기억하면 됩니다.</div>
     </div>
   </section>
 
@@ -355,15 +373,19 @@ print(add_tag("바나나")) # ['바나나']   ✅ 이제 매번 깨끗하게 시
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> NestJS의 DTO+class-validator와 Pydantic의 차이를 한마디로?</summary>
-        <div class="qa-answer"><p>NestJS는 타입(DTO)과 검증 규칙(class-validator 데코레이터)을 따로 선언하지만, Pydantic은 타입 힌트 자체가 검증 규칙이 되어 한 클래스에서 선언·검증이 동시에 일어납니다. 세부 제약만 <code>Field</code>로 보탭니다.</p></div>
+        <div class="qa-answer"><p>NestJS는 타입(DTO)과 검증 데코레이터를 따로 붙이지만, Pydantic은 타입 힌트 자체가 검증 규칙이라 한 클래스로 끝납니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 커스텀 validator에서 검증 실패를 어떻게 알리나요?</summary>
-        <div class="qa-answer"><p><code>@field_validator</code> 함수 안에서 <code>ValueError</code>(또는 <code>AssertionError</code>)를 raise하면 됩니다. FastAPI가 이를 422 응답으로 자동 변환하고, 어떤 필드가 왜 실패했는지 detail에 담아줍니다.</p></div>
+        <div class="qa-answer"><p><code>@field_validator</code> 함수 안에서 <code>ValueError</code>를 raise하면 됩니다. FastAPI가 이를 422 응답으로 자동 변환하고, 어떤 필드가 왜 실패했는지 detail에 담아줍니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>@classmethod</code>를 <code>@field_validator</code> 위에 쓰면 어떻게 되나요?</summary>
+        <div class="qa-answer"><p>검증기로 등록되지 않아 에러 없이 조용히 무시됩니다. 아래쪽 데코레이터부터 적용되므로 <code>@field_validator</code>가 위, <code>@classmethod</code>가 아래여야 합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>.dict()</code>가 동작 안 한다고 나옵니다. 왜죠?</summary>
-        <div class="qa-answer"><p>Pydantic v2부터 <code>.dict()</code>는 deprecated이고 <code>.model_dump()</code>로 바뀌었습니다. 마찬가지로 <code>.parse_obj()</code> → <code>.model_validate()</code>입니다. 구버전 튜토리얼을 보고 있을 가능성이 큽니다.</p></div>
+        <div class="qa-answer"><p>v1 시절 이름이라서요. v2에서는 <code>.model_dump()</code>(그리고 <code>.parse_obj()</code> 대신 <code>.model_validate()</code>)를 씁니다.</p></div>
       </details>
     </div>
   </section>

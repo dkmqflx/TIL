@@ -69,10 +69,10 @@
 
   <div class="lesson-head">
     <h1>첫 FastAPI 앱 — 동작 흐름 · Swagger · cURL</h1>
-    <p class="lesson-subtitle">이론을 손으로 옮길 차례입니다. <strong>uv</strong>로 환경을 만들고, 첫 엔드포인트를 띄우고, 타입 힌트가 어떻게 <strong>자동 문서</strong>로 바뀌는지 직접 봅니다.</p>
+    <p class="lesson-subtitle">이론을 손으로 옮길 차례입니다. <strong>uv</strong>로 환경을 만들고, 첫 엔드포인트를 띄우고, 브라우저와 터미널에서 직접 두드려 봅니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> 요청은 <b>Uvicorn(서버)</b> → <b>FastAPI(앱)</b> → <b>경로 함수</b> 순서로 흐르고, 반환값은 자동으로 <b>JSON</b>이 되어 되돌아온다. 그리고 타입 힌트는 공짜로 <b>Swagger 문서</b>가 된다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> 요청은 <b>Uvicorn(서버)</b> → <b>FastAPI(앱)</b> → <b>경로 함수</b> 순서로 흐르고, 반환값은 자동으로 <b>JSON</b>이 되어 되돌아온다. <code>/docs</code>를 열면 문서가 이미 만들어져 있다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
@@ -87,17 +87,17 @@
       <div class="section-icon icon-setup">⚙️</div>
       <h2>uv로 30초 환경 세팅</h2>
     </div>
-    <p><span class="term-chip">uv</span>는 Rust로 만든 초고속 Python 패키지 매니저입니다. 프론트의 <code>npm</code>/<code>pnpm</code>과 거의 같은 멘탈 모델 — <code>pyproject.toml</code>(=package.json)과 락파일로 의존성을 관리합니다.</p>
+    <p><span class="term-chip">uv</span>는 Rust로 만든 초고속 Python 패키지 매니저입니다. 프로젝트 생성, 라이브러리 설치, 가상환경 관리를 명령 하나로 처리합니다. Node를 써봤다면 아래 표의 대응만 보면 됩니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-bash"># uv 설치 (macOS)
+      <pre><code class="language-bash"># uv 설치 (macOS. Windows/Linux는 docs.astral.sh/uv 의 설치 안내 참고)
 brew install uv
 
-# 프로젝트 생성 &amp; 진입
-uv init fastapi-hello && cd fastapi-hello
+# 프로젝트 생성 &amp; 진입 (02에서 쓴 str | None 문법은 Python 3.10+)
+uv init fastapi-hello --python 3.12 && cd fastapi-hello
 
-# 의존성 추가 (npm install 과 동일한 감각)
+# 의존성 추가
 uv add fastapi "uvicorn[standard]"</code></pre>
     </div>
 
@@ -133,8 +133,14 @@ def read_root():
 
 @app.get("/todos/{todo_id}")
 def read_todo(todo_id: int, q: str | None = None):
-    return {"todo_id": todo_id, "q": q}</code></pre>
+    return {"todo_id": todo_id, "q": q}
+
+@app.post("/todos", status_code=201)
+def create_todo(todo: dict):
+    return {"created": todo}</code></pre>
     </div>
+
+    <p>매개변수가 어디서 오는지는 이름과 타입으로 정해집니다. <code>todo_id</code>는 주소에 <code>{todo_id}</code>로 적혀 있으니 <strong>경로</strong>에서 받고(<code>/todos/42</code> → 42), 주소에 없는 <code>q</code>는 주소 뒤에 <code>?q=값</code>으로 붙이는 <strong>쿼리 파라미터</strong>에서 받습니다(기본값이 <code>None</code>이라 안 붙여도 됩니다). <code>dict</code> 타입인 <code>todo</code>는 요청 <strong>본문(body)</strong>에 실린 JSON을 받습니다. 이 세 입구는 Week 2에서 자세히 다룹니다.</p>
 
     <p>서버를 띄웁니다:</p>
     <div class="code-block">
@@ -148,7 +154,7 @@ def read_todo(todo_id: int, q: str | None = None):
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>반환값이 알아서 JSON이 된다.</strong> <code>return {"message": "..."}</code>처럼 dict를 반환하면 FastAPI가 자동으로 <code>Content-Type: application/json</code> 응답으로 직렬화합니다. Express에서 <code>res.json(...)</code>을 매번 호출하던 것과 달리, <strong>반환만 하면 끝</strong>입니다.</div>
+      <div class="callout-body"><strong>반환값이 알아서 JSON이 된다.</strong> <code>return {"message": "..."}</code>처럼 dict를 반환하면 FastAPI가 그것을 JSON 문자열로 바꾸고(이 변환을 <em>직렬화</em>라고 합니다), "이건 JSON입니다"라는 표시인 <code>Content-Type: application/json</code> 헤더까지 붙여 응답합니다. Express의 <code>res.json(...)</code>을 매번 부를 필요 없이 <strong>반환만 하면 끝</strong>입니다.</div>
     </div>
   </section>
 
@@ -189,12 +195,12 @@ def read_todo(todo_id: int, q: str | None = None):
           <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
         </defs>
       </svg>
-      <div class="diagram-caption">Uvicorn은 "전화 교환원", FastAPI는 "지배인", 경로 함수는 "실제 요리사".</div>
+      <div class="diagram-caption">요청은 왼쪽에서 오른쪽으로 세 단계를 지나고, 응답은 한 번에 되돌아온다.</div>
     </div>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 호텔 프런트.</strong> <strong>Uvicorn</strong>은 외부 전화를 받아 말을 알아듣는 <strong>교환원(ASGI 서버)</strong>입니다. <strong>FastAPI</strong>는 "42번 방 담당이 누구지?"를 찾아 연결하는 <strong>지배인(라우팅)</strong>이고, <code>read_todo()</code>가 실제 일을 하는 <strong>직원</strong>입니다. Uvicorn / Starlette / FastAPI가 정확히 어떻게 역할을 나누는지는 <strong>Week 4</strong>에서 해부합니다.</div>
+      <div class="callout-body"><strong>비유 — 호텔 프런트.</strong> <strong>Uvicorn</strong>은 외부 전화를 받아 말을 알아듣는 <strong>교환원</strong>입니다 — 네트워크로 들어온 HTTP 요청을 Python 앱이 다룰 수 있는 형태로 바꿔 주는 서버이고, 이때 서버와 앱이 대화하는 표준 규격을 <strong>ASGI</strong>라고 부릅니다. <strong>FastAPI</strong>는 "42번 방 담당이 누구지?"를 찾아 연결하는 <strong>지배인(라우팅)</strong>이고, <code>read_todo()</code>가 실제 일을 하는 <strong>직원</strong>입니다. FastAPI가 내부에서 쓰는 기반 라이브러리 <strong>Starlette</strong>까지 포함해 셋이 정확히 어떻게 역할을 나누는지는 <strong>Week 4</strong>에서 해부합니다.</div>
     </div>
   </section>
 
@@ -210,11 +216,11 @@ def read_todo(todo_id: int, q: str | None = None):
         <tbody>
           <tr><td><code>/docs</code></td><td><strong>Swagger UI</strong></td><td>브라우저에서 직접 요청을 쏴볼 수 있음 (Try it out)</td></tr>
           <tr><td><code>/redoc</code></td><td><strong>ReDoc</strong></td><td>읽기 좋은 문서형 레이아웃</td></tr>
-          <tr><td><code>/openapi.json</code></td><td>OpenAPI 명세</td><td>위 문서들의 원천 데이터(JSON)</td></tr>
+          <tr><td><code>/openapi.json</code></td><td>OpenAPI 명세</td><td>위 두 화면의 원천 데이터(JSON). 명세(spec) = "어떤 주소에 어떤 입력·출력이 있는지" 적은 설명서</td></tr>
         </tbody>
       </table>
     </div>
-    <p>앞에서 <code>todo_id: int</code>라고 적었기 때문에, 문서에는 "todo_id는 정수"라고 표시되고 <code>/todos/abc</code>처럼 잘못된 요청은 FastAPI가 자동으로 <strong>422 검증 에러</strong>로 막아줍니다. NestJS에서 Swagger 데코레이터(<code>@ApiProperty</code>)를 일일이 달던 수고가 <strong>타입 힌트만으로</strong> 사라집니다.</p>
+    <p>앞에서 <code>todo_id: int</code>라고 적었기 때문에 문서에는 "todo_id는 정수"라고 표시됩니다. 02에서 본 대로 FastAPI가 타입 힌트를 읽어 이 명세를 만든 것입니다(NestJS라면 <code>@ApiProperty</code>를 일일이 달아야 했던 일). 같은 힌트 덕분에 <code>/todos/abc</code>처럼 잘못된 요청은 함수가 실행되기도 전에 <strong>422 검증 에러</strong>로 막힙니다.</p>
   </section>
 
   <section class="section" id="curl">
@@ -254,7 +260,7 @@ curl -X POST http://127.0.0.1:8000/todos \
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>자주 하는 실수.</strong> <code>-d</code>로 JSON을 보낼 땐 <strong><code>-H "Content-Type: application/json"</code>을 반드시</strong> 붙이세요. 빠뜨리면 서버가 폼 데이터로 오해해 422가 납니다. 그리고 URL에 <code>?</code>·<code>&amp;</code>가 있으면 셸이 해석하지 않도록 <strong>전체를 따옴표로</strong> 감싸야 합니다.</div>
+      <div class="callout-body"><strong>자주 하는 실수.</strong> <code>-d</code>로 JSON을 보낼 땐 <strong><code>-H "Content-Type: application/json"</code>을 반드시</strong> 붙이세요. curl은 <code>-d</code>만 쓰면 본문을 <em>폼 데이터</em>(HTML <code>&lt;form&gt;</code>이 보내는 <code>key=value&amp;...</code> 형식)라고 표시해서 보내고, 서버는 그 표시를 믿고 JSON으로 읽지 않아 422가 납니다. 그리고 URL에 <code>?</code>·<code>&amp;</code>가 있으면 셸이 해석하지 않도록 <strong>전체를 따옴표로</strong> 감싸야 합니다.</div>
     </div>
   </section>
 
@@ -266,15 +272,15 @@ curl -X POST http://127.0.0.1:8000/todos \
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>uvicorn main:app</code>에서 <code>main</code>과 <code>app</code>은 각각 뭔가요?</summary>
-        <div class="qa-answer"><p><code>main</code>은 <code>main.py</code> 모듈, <code>app</code>은 그 안에서 <code>app = FastAPI()</code>로 만든 인스턴스 변수 이름입니다. 즉 "main 모듈의 app 객체를 ASGI 앱으로 띄워라"라는 뜻입니다.</p></div>
+        <div class="qa-answer"><p>"<code>main.py</code> 파일 안의 <code>app</code>이라는 객체를 띄워라"는 뜻입니다. 파일이 <code>server.py</code>이고 변수가 <code>api</code>라면 <code>uvicorn server:api</code>가 됩니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 설정 한 줄 없이 <code>/docs</code>가 뜨는 이유는?</summary>
-        <div class="qa-answer"><p>FastAPI가 경로 함수의 타입 힌트를 읽어 OpenAPI 명세(<code>/openapi.json</code>)를 자동 생성하고, Swagger UI/ReDoc가 그 명세를 렌더링하기 때문입니다. 타입 힌트가 곧 문서의 원천입니다.</p></div>
+        <div class="qa-answer"><p>FastAPI가 경로 함수의 타입 힌트로 <code>/openapi.json</code>을 만들어 두고, <code>/docs</code>는 그 JSON을 화면에 그려 주는 것뿐이기 때문입니다.</p></div>
       </details>
       <details class="qa-item">
-        <summary><span class="qa-mark">Q</span> <code>/todos/abc</code>로 요청하면 어떻게 되나요?</summary>
-        <div class="qa-answer"><p><code>todo_id: int</code> 힌트 때문에 FastAPI가 <code>"abc"</code>를 정수로 변환하지 못하고 <strong>422 Unprocessable Entity</strong> 응답을 자동으로 돌려줍니다. 함수 본문은 실행조차 되지 않습니다.</p></div>
+        <summary><span class="qa-mark">Q</span> <code>/todos/abc</code>는 422인데 <code>/todos/42?q=123</code>은 왜 멀쩡한가요?</summary>
+        <div class="qa-answer"><p><code>todo_id</code>는 <code>int</code>라 <code>"abc"</code>를 숫자로 바꿀 수 없어 422입니다. 반면 <code>q</code>는 <code>str | None</code>이고 쿼리 값은 원래 문자열로 들어오니 <code>"123"</code>이라는 문자열 그대로 통과합니다.</p></div>
       </details>
     </div>
 

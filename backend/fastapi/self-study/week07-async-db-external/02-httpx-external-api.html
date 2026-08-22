@@ -81,6 +81,7 @@
     <li>백엔드가 다른 서비스를 호출하는 상황(MSA·결제·알림)을 이해한다</li>
     <li>httpx.AsyncClient로 비동기 HTTP 요청을 보낸다</li>
     <li>requests를 async 엔드포인트에서 쓰면 안 되는 이유를 안다</li>
+    <li>Lifespan + app.state로 클라이언트 하나를 만들어 재사용한다</li>
     <li>타임아웃·상태코드 확인·예외 처리로 외부 호출을 안전하게 만든다</li>
   </ul>
 
@@ -89,17 +90,7 @@
       <div class="section-icon icon-concept">🔁</div>
       <h2>백엔드가 클라이언트가 되는 순간</h2>
     </div>
-    <p>지금까지 우리 서버는 프론트엔드의 요청을 <strong>받기만</strong> 했습니다. 하지만 실무에서는 우리가 직접 다른 서버에 요청을 <strong>보내야</strong> 할 일이 많습니다.</p>
-    <ul>
-      <li>결제: 우리 API → 결제 게이트웨이(토스·스트라이프) 호출</li>
-      <li>알림: 우리 API → 카카오·슬랙·SMS 발송 API 호출</li>
-      <li>MSA: 주문 서비스 → 재고 서비스 → 배송 서비스로 이어지는 호출</li>
-    </ul>
-
-    <div class="callout callout-analogy">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 식당의 식자재 주문.</strong> 당신의 백엔드는 손님(프론트)에게 음식을 내는 <strong>식당</strong>입니다. 그런데 그 식당도 고기를 직접 키우진 않죠. 정육점(결제 API)·채소가게(알림 API)에 <strong>전화로 주문</strong>합니다. 이때 식당은 손님을 받는 <em>가게</em>인 동시에, 정육점에게는 <strong>주문하는 손님(클라이언트)</strong>입니다. 프론트가 우리에게 했던 일을, 이번엔 우리가 외부 API에게 합니다.</div>
-    </div>
+    <p>지금까지 우리 서버는 프론트엔드의 요청을 <strong>받기만</strong> 했습니다. 하지만 결제 게이트웨이를 부르거나, 카카오·슬랙으로 알림을 보내거나, 주문 서비스가 재고 서비스를 호출할 때는 우리가 직접 다른 서버에 요청을 <strong>보내는</strong> 쪽이 됩니다. <a href="../week01-overview-typehints/01-msa-client-server-rest.html#client-server">Week 1</a>에서 본 대로 클라이언트와 서버는 고정된 역할이 아니라 "요청을 보내는 쪽 / 받는 쪽"일 뿐이라, 같은 서버가 상황에 따라 둘 다 될 수 있습니다.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 680 200" role="img" aria-label="외부 API 호출 흐름">
@@ -166,64 +157,27 @@ async def get_weather(city: str):
       <div class="section-icon icon-error">⚠️</div>
       <h2>함정 — requests는 async에서 금물</h2>
     </div>
-    <p>가장 흔한 실수입니다. 익숙하다고 <code>requests</code>를 <code>async def</code> 안에서 쓰면, Week 1의 그 함정이 그대로 재현됩니다.</p>
+    <p>가장 흔한 실수입니다. 익숙하다고 <code>requests</code>를 <code>async def</code> 안에서 쓰면 이렇게 됩니다.</p>
 
-    <div class="compare-grid">
-      <div class="compare-card">
-        <div class="compare-card-header bad">❌ requests — 동기 (루프 차단)</div>
-        <div class="code-block">
-          <pre><code class="language-python">import requests
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import requests
 
 @router.get("/bad")
 async def bad():
-    # 🔒 응답 올 때까지 루프 정지!
-    r = requests.get(url)
+    url = "https://api.example.com/ping"
+    r = requests.get(url)     # ❌ await를 걸 수 없는 동기 호출 — 응답 올 때까지 루프가 멈춘다
     return r.json()</code></pre>
-        </div>
-      </div>
-      <div class="compare-card">
-        <div class="compare-card-header good">✅ httpx — 비동기 (양보)</div>
-        <div class="code-block">
-          <pre><code class="language-python">import httpx
-
-@router.get("/good")
-async def good():
-    async with httpx.AsyncClient() as c:
-        r = await c.get(url)   # 대기 중 양보
-    return r.json()</code></pre>
-        </div>
-      </div>
     </div>
-    <p><code>requests.get()</code>은 <code>await</code>가 없는(걸 수도 없는) 동기 호출입니다. <code>async def</code> 안에 있어도 그 줄에서 <strong>이벤트 루프가 통째로 멈춰</strong> 외부 응답을 기다립니다. Lesson 01의 동기 DB와 똑같은 문제죠. 비동기 엔드포인트에서는 <strong>HTTP도 <code>httpx</code></strong>입니다.</p>
 
-    <div class="diagram-card">
-      <svg viewBox="0 0 660 200" role="img" aria-label="requests 차단 vs httpx 양보 타임라인">
-        <text x="20" y="26" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#b91c1c">requests — 외부 응답 동안 루프 정지</text>
-        <rect x="20" y="38" width="90" height="32" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
-        <text x="65" y="59" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">A 시작</text>
-        <rect x="112" y="38" width="280" height="32" rx="6" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>
-        <text x="252" y="59" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#b91c1c">외부 API 대기 (루프 🔒)</text>
-        <rect x="394" y="38" width="90" height="32" rx="6" fill="#fef2f2" stroke="#6b7280" stroke-width="1.5"/>
-        <text x="439" y="59" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">B 처리</text>
-
-        <line x1="20" y1="100" x2="640" y2="100" stroke="#e2e8e6" stroke-width="1.5" stroke-dasharray="4 4"/>
-
-        <text x="20" y="134" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#00695c">httpx — 외부 대기 중 다른 요청 처리</text>
-        <rect x="20" y="146" width="100" height="32" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
-        <text x="70" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">A: await get</text>
-        <rect x="124" y="146" width="130" height="32" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
-        <text x="189" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">B 처리 (양보)</text>
-        <rect x="258" y="146" width="130" height="32" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
-        <text x="323" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">C 처리 (양보)</text>
-        <rect x="392" y="146" width="110" height="32" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
-        <text x="447" y="167" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">A: 응답 도착</text>
-      </svg>
-      <div class="diagram-caption">requests는 외부 대기 동안 루프를 막지만, httpx는 그 시간에 다른 요청을 처리한다.</div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Lesson 01의 동기 DB와 같은 문제입니다 (Week 4 함정).</strong> <code>requests.get()</code>은 <code>await</code>가 없는 동기 호출이라, <code>async def</code> 안에 있어도 외부 응답을 기다리는 동안 <a href="../week04-async-internals/02-async-await-threadpool.html#blocking-trap">이벤트 루프가 통째로 막힙니다</a>. 고치는 법은 <a href="#httpx-basics">위 기본 사용법 코드</a> 그대로입니다 — 비동기 엔드포인트에서는 <strong>HTTP도 <code>httpx</code></strong>.</div>
     </div>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>정 requests를 써야 한다면.</strong> 레거시 코드 등 불가피하게 동기 라이브러리를 호출해야 하면, <code>await run_in_threadpool(requests.get, url)</code>(Starlette 제공)로 <strong>별도 스레드에 떠넘겨</strong> 루프를 막지 않게 할 수 있습니다. 하지만 새 코드라면 그냥 <code>httpx</code>를 쓰는 게 훨씬 깔끔합니다.</div>
+      <div class="callout-body"><strong>정 requests를 써야 한다면.</strong> 레거시 코드 등 불가피하게 동기 라이브러리를 호출해야 하면 <code>from fastapi.concurrency import run_in_threadpool</code> 뒤에 <code>r = await run_in_threadpool(requests.get, url)</code>로 <strong>별도 스레드에 떠넘깁니다</strong>. 기다리는 건 그 스레드이고 루프 스레드는 자유로워지므로 막히지 않습니다 — <a href="../week04-async-internals/02-async-await-threadpool.html#sync-lib-def">Week 4에서 <code>def</code> 엔드포인트가 스레드풀로 가던 것</a>과 같은 원리입니다. 새 코드라면 그냥 <code>httpx</code>를 쓰는 게 훨씬 깔끔합니다.</div>
     </div>
   </section>
 
@@ -232,23 +186,26 @@ async def good():
       <div class="section-icon icon-tx">⏱️</div>
       <h2>타임아웃 &amp; 클라이언트 재사용</h2>
     </div>
-    <p>외부 호출에서 가장 무서운 건 <strong>상대가 응답을 안 주는 경우</strong>입니다. 타임아웃을 안 걸면 우리 요청 처리도 무한정 매달립니다. 또한 클라이언트를 매 요청마다 새로 만들면 TCP/TLS 핸드셰이크 비용이 반복되죠.</p>
+    <p>외부 호출에서 가장 무서운 건 <strong>상대가 응답을 안 주는 경우</strong>입니다. 타임아웃을 안 걸면 우리 요청 처리도 무한정 매달리므로 <code>timeout=5.0</code>처럼 항상 상한을 둡니다. 두 번째 문제는 비용입니다. 서버와 연결을 새로 맺는 데는 시간이 듭니다 — TCP 연결을 열고, https라면 암호화 방식까지 협상해야 하죠(이 왕복을 <strong>핸드셰이크</strong>라고 부릅니다). 위 기본 코드처럼 매 요청 <code>async with httpx.AsyncClient()</code>로 새로 열면 이 비용을 요청마다 다시 냅니다. 클라이언트 하나를 만들어 두고 계속 쓰면 한 번 맺은 연결을 끊지 않고 다음 요청에 재사용(keep-alive)하므로 훨씬 빠릅니다.</p>
 
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>설정</th><th>왜 필요한가</th></tr></thead>
-        <tbody>
-          <tr><td><code>timeout=5.0</code></td><td>외부가 느릴 때 무한 대기 방지 (초 단위)</td></tr>
-          <tr><td>클라이언트 재사용</td><td>커넥션 풀·keep-alive로 핸드셰이크 비용 절약</td></tr>
-          <tr><td>Lifespan에 보관</td><td>앱 전체에서 클라이언트 하나를 공유</td></tr>
-        </tbody>
-      </table>
+    <p>그래서 Lesson 01의 DB 엔진과 똑같은 패턴을 씁니다 — <strong>lifespan 시작에서 하나 만들고, 종료에서 닫기</strong>. 만든 클라이언트는 <code>app.state</code>에 넣어 둡니다. <code>app.state</code>는 FastAPI 앱 객체에 달린 빈 주머니 같은 속성이라, 아무 값이나 붙여 두면 라우트에서 <code>request.app.state</code>로 꺼낼 수 있습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from contextlib import asynccontextmanager
+import httpx
+from fastapi import FastAPI
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.http = httpx.AsyncClient(timeout=5.0)   # 🟢 startup — 한 번만 만든다 (초 단위)
+    yield
+    await app.state.http.aclose()                     # 🔴 shutdown — 열린 연결 정리
+
+app = FastAPI(lifespan=lifespan)</code></pre>
     </div>
 
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>클라이언트는 Lifespan에 두고 재사용하라.</strong> Lesson 01의 DB 엔진과 똑같은 패턴입니다. <code>lifespan</code> 시작에서 <code>httpx.AsyncClient(timeout=5.0)</code>를 한 번 만들어 <code>app.state.http</code> 같은 곳에 보관하고, 종료에서 <code>await app.state.http.aclose()</code>로 닫습니다. 매 요청 <code>async with</code>로 새로 여는 것보다 커넥션을 재활용해 빠릅니다.</div>
-    </div>
+    <p>라우트에서는 <code>request: Request</code> 매개변수를 받아 <code>client = request.app.state.http</code>로 꺼내 쓰면 됩니다. 바로 아래 에러 처리 코드가 이 방식을 그대로 씁니다.</p>
   </section>
 
   <section class="section" id="error-handling">
@@ -261,29 +218,38 @@ async def good():
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 @router.get("/weather/{city}")
-async def get_weather(city: str):
+async def get_weather(city: str, request: Request):
+    client = request.app.state.http            # lifespan에서 만들어 둔 클라이언트
+    url = f"https://api.example.com/weather?q={city}"
     try:
-        async with httpx.AsyncClient(timeout=5.0) as c:
-            r = await c.get(url)
-        r.raise_for_status()        # 4xx·5xx 면 예외 발생
+        r = await client.get(url)
+        r.raise_for_status()                   # 4xx·5xx 면 여기서 예외 발생
     except httpx.TimeoutException:
         raise HTTPException(504, "외부 API 응답 시간 초과")
+    except httpx.ConnectError:
+        raise HTTPException(503, "외부 API에 연결할 수 없음")
     except httpx.HTTPStatusError as e:
         raise HTTPException(502, f"외부 API 오류: {e.response.status_code}")
     return r.json()</code></pre>
     </div>
 
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>httpx는 404를 받아도 예외를 던지지 않습니다.</strong> 외부가 에러 상태코드를 줘도 <code>await client.get()</code>은 조용히 <code>Response</code> 객체를 돌려줍니다. 그래서 <code>r.raise_for_status()</code>를 빼먹으면 <strong>에러 페이지 HTML을 정상 데이터로 착각</strong>해 그대로 진행합니다. 응답을 받은 직후 한 줄을 습관처럼 붙이세요.</div>
+    </div>
+
+    <p>번역할 때 쓰는 상태코드는 5xx 중에서도 "관문(gateway) 너머가 문제"라는 뜻을 가진 것들입니다. 프론트 입장에서 우리 서버는 외부 API로 가는 관문이니까요.</p>
+
     <div class="table-wrap">
       <table>
-        <thead><tr><th>httpx 예외 / 메서드</th><th>의미</th><th>권장 응답</th></tr></thead>
+        <thead><tr><th>httpx 예외</th><th>의미</th><th>권장 응답</th></tr></thead>
         <tbody>
-          <tr><td><code>raise_for_status()</code></td><td>4xx·5xx면 예외를 던짐</td><td>—</td></tr>
-          <tr><td><code>TimeoutException</code></td><td>타임아웃 초과</td><td><code>504 Gateway Timeout</code></td></tr>
-          <tr><td><code>HTTPStatusError</code></td><td>외부가 에러 상태코드 반환</td><td><code>502 Bad Gateway</code></td></tr>
-          <tr><td><code>ConnectError</code></td><td>연결 자체 실패</td><td><code>503 Service Unavailable</code></td></tr>
+          <tr><td><code>TimeoutException</code></td><td>타임아웃 초과</td><td><code>504 Gateway Timeout</code> — 관문 너머가 제때 응답하지 않음</td></tr>
+          <tr><td><code>ConnectError</code></td><td>연결 자체 실패</td><td><code>503 Service Unavailable</code> — 의존하는 서비스를 쓸 수 없음</td></tr>
+          <tr><td><code>HTTPStatusError</code></td><td>외부가 에러 상태코드 반환</td><td><code>502 Bad Gateway</code> — 관문 너머에서 잘못된 응답이 옴</td></tr>
         </tbody>
       </table>
     </div>
@@ -299,7 +265,7 @@ async def get_weather(city: str):
       <div class="section-icon icon-compare">📊</div>
       <h2>NestJS와 비교 — HttpService(axios) vs httpx</h2>
     </div>
-    <p>NestJS에서 외부 API를 부를 땐 <code>HttpModule</code>을 import하고 <code>HttpService</code>를 주입받았죠. 그런데 <code>HttpService</code>는 axios를 감싸면서 결과를 <strong>Observable(RxJS 스트림)</strong>로 돌려줍니다. 그래서 <code>firstValueFrom()</code>으로 Promise로 바꾸는 한 단계가 꼭 끼었습니다. httpx는 그 단계가 없습니다 — <strong>그냥 <code>await</code></strong>.</p>
+    <p>NestJS에서 외부 API를 부를 땐 <code>HttpModule</code>을 import하고 <code>HttpService</code>를 주입받았죠. <code>HttpService</code>는 axios를 감싸면서 결과를 <strong>Observable(RxJS 스트림)</strong>로 돌려주기 때문에 <code>firstValueFrom()</code>으로 Promise로 바꾸는 한 단계가 끼었습니다. httpx는 그 단계가 없습니다 — 그냥 <code>await</code>. 대신 axios가 알아서 해 주던 에러 throw는 우리 몫입니다(위 에러 처리 참고).</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -330,11 +296,6 @@ async getUser(url: string) {
       </div>
     </div>
 
-    <div class="callout callout-warn">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>axios 습관이 만드는 1번 버그 — "왜 예외가 안 나지?"</strong> axios는 응답이 4xx·5xx면 <strong>알아서 throw</strong>합니다. 그래서 NestJS에선 <code>try/catch</code>만 감싸면 끝이었죠. <strong>httpx는 throw하지 않습니다.</strong> 404를 받아도 조용히 <code>Response</code> 객체를 돌려주기 때문에, <code>r.raise_for_status()</code>를 빼먹으면 <strong>에러 페이지 HTML을 정상 데이터로 착각</strong>해 그대로 진행합니다. 위 코드에서 <code>raise_for_status()</code>가 "필수"인 이유입니다.</div>
-    </div>
-
     <div class="table-wrap">
       <table>
         <thead><tr><th>NestJS (HttpModule)</th><th>FastAPI (httpx)</th></tr></thead>
@@ -342,9 +303,8 @@ async getUser(url: string) {
           <tr><td><code>HttpService</code> (axios 래퍼)</td><td><code>httpx.AsyncClient</code></td></tr>
           <tr><td><code>Observable</code> → <code>firstValueFrom()</code></td><td>그냥 <code>await client.get(...)</code></td></tr>
           <tr><td>4xx·5xx → <strong>자동으로 throw</strong></td><td><strong><code>raise_for_status()</code> 를 직접 호출</strong></td></tr>
-          <tr><td><code>HttpModule.register({ timeout: 5000 })</code></td><td><code>AsyncClient(timeout=5.0)</code> (초 단위!)</td></tr>
+          <tr><td><code>HttpModule.register({ timeout: 5000 })</code></td><td><code>AsyncClient(timeout=5.0)</code></td></tr>
           <tr><td>DI가 axios 인스턴스를 싱글턴 보관</td><td><code>lifespan</code> + <code>app.state.http</code> 로 직접 보관</td></tr>
-          <tr><td>블로킹 HTTP 클라이언트가 사실상 없음</td><td><code>requests</code> 를 쓰면 이벤트 루프 정지 ⚠️</td></tr>
         </tbody>
       </table>
     </div>
@@ -363,15 +323,15 @@ async getUser(url: string) {
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> async 엔드포인트에서 requests를 쓰면 왜 안 되나요?</summary>
-        <div class="qa-answer"><p><code>requests</code>는 동기 라이브러리라 응답이 올 때까지 스레드를 블로킹합니다. 그 스레드가 이벤트 루프이므로, 외부 응답을 기다리는 동안 <strong>다른 모든 요청이 멈춥니다</strong>. 비동기 환경에서는 <code>await</code>를 걸 수 있는 <code>httpx.AsyncClient</code>를 써야 대기 중에 다른 요청을 처리할 수 있습니다.</p></div>
+        <div class="qa-answer"><p><code>requests.get()</code>에는 <code>await</code>를 붙일 수 없어서, 외부 응답을 기다리는 동안 루프가 양보를 못 하기 때문입니다. <code>await</code>가 되는 <code>httpx.AsyncClient</code>를 써야 그 시간에 다른 요청을 처리합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 클라이언트를 매 요청마다 새로 만들지 말라는 이유는?</summary>
-        <div class="qa-answer"><p>매번 새 <code>AsyncClient</code>를 만들면 요청마다 TCP 연결과 TLS 핸드셰이크를 새로 합니다. 클라이언트 하나를 Lifespan에 만들어 <code>app.state</code>에 보관하고 재사용하면, 커넥션 풀과 keep-alive로 같은 연결을 재활용해 지연과 비용이 줄어듭니다. DB 엔진을 하나만 두는 것과 같은 이유입니다.</p></div>
+        <div class="qa-answer"><p>만들 때마다 연결을 새로 맺는 비용(핸드셰이크)을 내기 때문입니다. lifespan에서 하나 만들어 <code>app.state.http</code>에 두면 맺어 둔 연결을 다음 요청에 재사용합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 외부 API가 타임아웃 나면 클라이언트엔 몇 번 코드를 줘야 하나요?</summary>
-        <div class="qa-answer"><p><code>504 Gateway Timeout</code>이 적절합니다. 외부가 에러 상태코드를 주면 <code>502 Bad Gateway</code>, 연결 자체가 안 되면 <code>503</code>을 쓰는 게 관례입니다. 핵심은 "외부 의존성 문제"를 <code>500</code>으로 뭉뚱그리지 말고 5xx 중 의미 있는 코드로 번역하는 것입니다.</p></div>
+        <div class="qa-answer"><p><code>504 Gateway Timeout</code>입니다. "우리 버그"가 아니라 "관문 너머(외부)가 문제"라는 뜻을 담아야 프론트와 모니터링이 오해하지 않습니다.</p></div>
       </details>
     </div>
   </section>

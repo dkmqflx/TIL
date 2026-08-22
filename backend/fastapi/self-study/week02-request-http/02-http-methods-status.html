@@ -36,6 +36,7 @@
       <a class="nav-item" href="01-path-query-body-header.html#query-params">🔍 Query 파라미터</a>
       <a class="nav-item" href="01-path-query-body-header.html#request-body">📦 Request Body</a>
       <a class="nav-item" href="01-path-query-body-header.html#header-cookie-form">🍪 Header · Cookie · Form</a>
+      <a class="nav-item" href="01-path-query-body-header.html#param-inference">🧩 뭘 보고 구분하지?</a>
       <a class="nav-item" href="01-path-query-body-header.html#decision-table">🧭 언제 무엇을 쓸까</a>
       <a class="nav-item" href="01-path-query-body-header.html#self-check">✅ 셀프 체크</a>
       <div class="nav-lesson-title">02 · 메서드 &amp; 상태 코드</div>
@@ -47,7 +48,6 @@
       <a class="nav-item" href="03-exception-basic.html#why-exceptions">🤔 왜 예외 처리가 중요한가</a>
       <a class="nav-item" href="03-exception-basic.html#httpexception">🛑 HTTPException</a>
       <a class="nav-item" href="03-exception-basic.html#nestjs-compare">🔄 NestJS와 비교</a>
-      <a class="nav-item" href="03-exception-basic.html#error-headers">🔑 헤더가 필요한 에러</a>
       <a class="nav-item" href="03-exception-basic.html#validation-error">🤖 검증 에러(422)는 자동</a>
       <a class="nav-item" href="03-exception-basic.html#self-check">✅ 셀프 체크</a>
     </div>
@@ -91,23 +91,32 @@
           <tr><td><code>GET</code></td><td>조회</td><td>✅ 안전</td><td>✅ 멱등</td><td>없음</td></tr>
           <tr><td><code>POST</code></td><td>생성</td><td>❌</td><td>❌ 비멱등</td><td>있음</td></tr>
           <tr><td><code>PUT</code></td><td>전체 교체</td><td>❌</td><td>✅ 멱등</td><td>있음</td></tr>
-          <tr><td><code>PATCH</code></td><td>부분 수정</td><td>❌</td><td>△ 보통 비멱등</td><td>있음</td></tr>
+          <tr><td><code>PATCH</code></td><td>부분 수정</td><td>❌</td><td>△ 보장 안 됨 (구현에 따라)</td><td>있음</td></tr>
           <tr><td><code>DELETE</code></td><td>삭제</td><td>❌</td><td>✅ 멱등</td><td>보통 없음</td></tr>
         </tbody>
       </table>
     </div>
 
+    <p>PUT과 PATCH의 차이는 "빠진 필드를 어떻게 보느냐"입니다. 같은 <code>{"title": "청소"}</code>를 보내도 결과가 다릅니다:</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash"># 현재 자원: {"title": "장보기", "done": false}
+
+PUT   /todos/1  {"title": "청소"}   # → {"title": "청소"}                 done이 사라짐(전체 교체)
+PATCH /todos/1  {"title": "청소"}   # → {"title": "청소", "done": false}  보낸 것만 바뀜(부분 수정)</code></pre>
+    </div>
+
     <h3>"안전(safe)"과 "멱등(idempotent)"이 뭔가요?</h3>
-    <p><strong>안전</strong> = 서버 상태를 바꾸지 않음(읽기 전용). <strong>멱등</strong> = <em>같은 요청을 여러 번 보내도 결과가 같음</em>.</p>
+    <p><strong>안전</strong> = 서버 상태를 바꾸지 않음(읽기 전용). <strong>멱등</strong> = <em>같은 요청을 한 번 보내든 열 번 보내든 서버의 최종 상태가 같음</em>. PATCH는 보통 멱등하게 설계하지만("title을 청소로"는 몇 번 해도 같음), "조회수 +1"처럼 상대적 변경을 담으면 비멱등이 됩니다. 그래서 HTTP 규격도 PATCH의 멱등성을 보장하지 않고, 구현에 달렸다고 봅니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 엘리베이터 vs 초인종.</strong> <strong>멱등한 요청(PUT·DELETE)</strong>은 <em>엘리베이터 호출 버튼</em>입니다. 열 번 눌러도 결과는 "엘리베이터가 온다" 하나뿐이죠. 반면 <strong>비멱등한 POST</strong>는 <em>"택배 주문하기" 버튼</em> — 열 번 누르면 택배가 열 개 옵니다! 그래서 결제·주문 같은 POST는 중복 요청 방지가 중요합니다.</div>
+      <div class="callout-body"><strong>비유 — 엘리베이터 버튼 vs 주문 버튼.</strong> <strong>멱등한 요청(PUT·DELETE)</strong>은 <em>엘리베이터 호출 버튼</em>입니다. 열 번 눌러도 결과는 "엘리베이터가 온다" 하나뿐이죠. 반면 <strong>비멱등한 POST</strong>는 <em>"택배 주문하기" 버튼</em> — 열 번 누르면 택배가 열 개 옵니다!</div>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>왜 면접에서 멱등성을 물을까.</strong> 네트워크가 끊겨 클라이언트가 <strong>요청을 재시도</strong>할 때, 멱등한 메서드는 안심하고 다시 보낼 수 있습니다. 비멱등한 POST는 중복 생성 위험이 있어 별도 장치(고유 키, 멱등성 키)가 필요하죠. 이 차이를 아는지가 곧 "HTTP를 제대로 이해했는가"의 척도입니다.</div>
+      <div class="callout-body"><strong>왜 면접에서 멱등성을 물을까.</strong> 네트워크가 끊겨 클라이언트가 <strong>요청을 재시도</strong>할 때, 멱등한 메서드는 안심하고 다시 보낼 수 있습니다. 비멱등한 POST는 주문이 두 번 생길 위험이 있어 별도 장치가 필요하죠 — 대표적인 게 <strong>멱등성 키</strong>(클라이언트가 요청마다 고유한 ID를 붙여 보내고, 서버는 같은 ID를 두 번 받으면 두 번째는 처리하지 않는 방식)입니다. 이 차이를 아는지가 곧 "HTTP를 제대로 이해했는가"의 척도입니다.</div>
     </div>
   </section>
 
@@ -150,6 +159,7 @@
       </svg>
       <div class="diagram-caption">4xx는 클라이언트가 고쳐야 하고, 5xx는 서버 개발자(=당신)가 고쳐야 한다.</div>
     </div>
+    <p>3xx는 "다른 주소로 가라"(301)나 "바뀐 게 없으니 저장해 둔 걸 써라"(304) 같은 안내로, 브라우저가 알아서 처리하기 때문에 API 서버에서 직접 돌려줄 일은 드뭅니다. 자주 쓰는 건 아래 아홉 개입니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -158,11 +168,11 @@
           <tr><td><code>200</code></td><td>OK</td><td>일반 성공 (조회·수정)</td></tr>
           <tr><td><code>201</code></td><td>Created</td><td>새 자원 생성 성공 (POST)</td></tr>
           <tr><td><code>204</code></td><td>No Content</td><td>성공했지만 돌려줄 본문 없음 (DELETE)</td></tr>
-          <tr><td><code>400</code></td><td>Bad Request</td><td>요청 형식 자체가 잘못</td></tr>
+          <tr><td><code>400</code></td><td>Bad Request</td><td>형식은 맞지만 규칙에 어긋난 요청 (개발자가 직접 던짐)</td></tr>
           <tr><td><code>401</code></td><td>Unauthorized</td><td>인증 안 됨 (로그인 필요)</td></tr>
           <tr><td><code>403</code></td><td>Forbidden</td><td>인증은 됐지만 권한 없음</td></tr>
           <tr><td><code>404</code></td><td>Not Found</td><td>자원이 없음</td></tr>
-          <tr><td><code>422</code></td><td>Unprocessable</td><td>FastAPI의 검증 실패 (타입·필수 등)</td></tr>
+          <tr><td><code>422</code></td><td>Unprocessable</td><td>요청 검증 실패 — FastAPI가 자동 응답 (03에서 자세히)</td></tr>
           <tr><td><code>500</code></td><td>Server Error</td><td>서버 코드에서 처리 못 한 예외</td></tr>
         </tbody>
       </table>
@@ -179,7 +189,7 @@
       <div class="section-icon icon-setup">⚙️</div>
       <h2>FastAPI에서 상태 코드 지정하기</h2>
     </div>
-    <p>FastAPI는 성공 시 기본 <code>200</code>을 돌려줍니다. 생성은 <code>201</code>, 삭제는 <code>204</code>로 바꾸려면 데코레이터에 <code>status_code</code>를 줍니다.</p>
+    <p>FastAPI는 성공 시 기본 <code>200</code>을 돌려줍니다. 다른 코드를 쓰고 싶으면 데코레이터에 <code>status_code</code>를 주면 됩니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -193,7 +203,7 @@ def create(todo: CreateTodo):
 
 @app.delete("/todos/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete(id: int):
-    return  # 204는 본문이 없어야 한다 → None 반환</code></pre>
+    return  # 204는 HTTP 규격상 본문을 보내면 안 된다 → 아무것도 반환하지 않음</code></pre>
     </div>
 
     <div class="callout callout-tip">
@@ -206,21 +216,14 @@ def delete(id: int):
         <div class="compare-card-header nest">NestJS</div>
         <div class="code-block">
           <pre><code class="language-typescript">@Post()
-@HttpCode(201)
+@HttpCode(201)  // 생략해도 201
 create(@Body() dto) {}</code></pre>
         </div>
-        <p>NestJS는 POST 기본이 이미 201.</p>
+        <p>NestJS는 POST의 기본 코드가 이미 201이라 <code>@HttpCode</code>는 다른 코드로 바꿀 때만 씁니다.</p>
       </div>
       <div class="compare-card">
         <div class="compare-card-header fast">FastAPI</div>
-        <div class="code-block">
-          <pre><code class="language-python">@app.post(
-  "/todos",
-  status_code=201,
-)
-def create(dto): ...</code></pre>
-        </div>
-        <p>FastAPI는 기본 200이라 명시 필요.</p>
+        <p>메서드와 상관없이 기본이 200이라, POST에서 201을 받으려면 위 코드처럼 <code>status_code=</code>를 꼭 적어야 합니다.</p>
       </div>
     </div>
   </section>
@@ -233,15 +236,11 @@ def create(dto): ...</code></pre>
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>PUT</code>과 <code>PATCH</code>는 멱등성이 어떻게 다른가요?</summary>
-        <div class="qa-answer"><p><code>PUT</code>은 자원 전체를 보낸 값으로 교체하므로 같은 요청을 반복해도 결과가 같아 멱등합니다. <code>PATCH</code>는 부분 수정이라 보통 멱등으로 보지만, "조회수 +1" 같은 상대적 변경을 담으면 비멱등이 됩니다 — 구현에 달렸습니다.</p></div>
+        <div class="qa-answer"><p><code>PUT</code>은 자원 전체를 보낸 값으로 덮어쓰므로 몇 번을 반복해도 결과가 같아 멱등합니다. <code>PATCH</code>는 보통 멱등하게 설계하지만 HTTP 규격이 멱등을 보장하지는 않습니다 — "조회수 +1" 같은 상대적 변경을 담으면 비멱등이 되므로, 구현에 따라 다릅니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 삭제 성공에 200이 아니라 204를 권하는 이유는?</summary>
         <div class="qa-answer"><p>삭제 후 돌려줄 데이터가 보통 없기 때문입니다. <code>204 No Content</code>는 "성공했고 본문은 비어 있다"를 정확히 표현합니다. 단, 삭제된 객체를 응답으로 돌려주고 싶다면 200 + 본문도 유효한 선택입니다.</p></div>
-      </details>
-      <details class="qa-item">
-        <summary><span class="qa-mark">Q</span> 요청 JSON에 필수 필드가 빠지면 몇 번이 응답되나요?</summary>
-        <div class="qa-answer"><p><code>422 Unprocessable Entity</code>입니다. FastAPI/Pydantic의 검증 실패는 400이 아니라 422를 씁니다. 어떤 필드가 왜 틀렸는지 상세 내역도 함께 돌려줍니다.</p></div>
       </details>
     </div>
   </section>

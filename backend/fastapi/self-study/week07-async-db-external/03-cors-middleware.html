@@ -80,6 +80,7 @@
   <ul class="checklist">
     <li>CORS가 왜·언제 발생하는지 동일 출처 정책으로 설명한다</li>
     <li>CORSMiddleware의 핵심 옵션(origins·credentials·methods·headers)을 설정한다</li>
+    <li>쿠키를 주고받으려면 프론트의 credentials 옵션과 서버의 allow_credentials가 모두 필요함을 안다</li>
     <li>프론트 CORS 에러 메시지를 읽고 디버깅한다</li>
     <li>커스텀 미들웨어로 모든 요청을 전·후 처리한다 (처리시간 헤더 예제)</li>
   </ul>
@@ -89,7 +90,7 @@
       <div class="section-icon icon-concept">🛂</div>
       <h2>CORS란 — 출처가 다르면 브라우저가 막는다</h2>
     </div>
-    <p><strong>출처(Origin)</strong>는 "스킴 + 호스트 + 포트"입니다. <code>http://localhost:5173</code>과 <code>http://localhost:8000</code>은 포트가 달라 <strong>다른 출처</strong>죠. 브라우저는 보안을 위해 "다른 출처로 보내는 JS 요청의 응답은, 서버가 명시적으로 허락하지 않으면 읽지 못하게" 막습니다. 이것이 <strong>동일 출처 정책(Same-Origin Policy)</strong>입니다.</p>
+    <p><strong>출처(Origin)</strong>는 "스킴 + 호스트 + 포트"입니다(스킴은 <code>http</code>/<code>https</code>처럼 주소 맨 앞의 프로토콜 부분). <code>http://localhost:5173</code>과 <code>http://localhost:8000</code>은 포트가 달라 <strong>다른 출처</strong>죠. 브라우저는 보안을 위해 "다른 출처로 보내는 JS 요청의 응답은, 서버가 명시적으로 허락하지 않으면 읽지 못하게" 막습니다. 이것이 <strong>동일 출처 정책(Same-Origin Policy)</strong>입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
@@ -155,16 +156,28 @@ app.add_middleware(
         <thead><tr><th>옵션</th><th>의미</th></tr></thead>
         <tbody>
           <tr><td><code>allow_origins</code></td><td>허용할 프론트 출처 목록 (정확히 일치해야 함)</td></tr>
-          <tr><td><code>allow_credentials</code></td><td>쿠키·Authorization 헤더 등 인증 정보 전송 허용</td></tr>
+          <tr><td><code>allow_credentials</code></td><td>쿠키·Authorization 헤더가 실린 요청을 받겠다고 응답 헤더(<code>Access-Control-Allow-Credentials: true</code>)로 알림</td></tr>
           <tr><td><code>allow_methods</code></td><td>허용 HTTP 메서드 (<code>["*"]</code>로 전체)</td></tr>
           <tr><td><code>allow_headers</code></td><td>허용 요청 헤더 (<code>["*"]</code>로 전체)</td></tr>
         </tbody>
       </table>
     </div>
 
+    <h3>쿠키를 주고받으려면 — credentials는 양쪽 설정</h3>
+    <p>Week 2에서 예고했던 쿠키 이야기가 여기 연결됩니다. 같은 출처로 보내는 요청에는 브라우저가 쿠키를 알아서 싣지만, <strong>다른 출처로 보내는 요청에는 기본적으로 쿠키를 싣지 않습니다</strong>. 그래서 로그인 쿠키를 <code>:5173</code> → <code>:8000</code>으로 보내려면 두 가지가 모두 필요합니다. 프론트는 "이 요청에 쿠키를 실어라"라고 옵션을 켜야 하고, 서버는 "쿠키 실린 요청을 받겠다"고 <code>allow_credentials=True</code>로 답해야 합니다. 한쪽만 있으면 쿠키가 안 실리거나, 실려도 브라우저가 응답을 버립니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">typescript</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-typescript">// fetch — credentials 옵션
+fetch("http://localhost:8000/me", { credentials: "include" });
+
+// axios — withCredentials 옵션
+axios.get("http://localhost:8000/me", { withCredentials: true });</code></pre>
+    </div>
+
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>credentials를 쓸 땐 allow_origins=["*"] 불가.</strong> Week 2에서 예고했던 쿠키/credentials 이야기가 여기 연결됩니다. <code>allow_credentials=True</code>(쿠키·인증 전송)와 <code>allow_origins=["*"]</code>(모든 출처)는 <strong>동시에 쓸 수 없습니다</strong>. 보안상 브라우저가 거부합니다. 인증을 쓴다면 반드시 <strong>정확한 출처</strong>를 하나하나 적어야 합니다. 흔히 빠지는 함정이니 꼭 기억하세요.</div>
+      <div class="callout-body"><strong>credentials를 쓸 땐 allow_origins=["*"] 불가.</strong> 브라우저는 응답에 <code>Access-Control-Allow-Credentials: true</code>가 있으면 <code>Access-Control-Allow-Origin</code>이 <code>*</code>가 아니라 <strong>구체적인 출처 하나</strong>여야만 응답을 넘겨줍니다. "아무 사이트에서나 사용자의 로그인 쿠키를 실어 우리 API를 호출하고 응답까지 읽어도 된다"는 뜻이 되어 버리기 때문이죠. 그래서 쿠키·인증을 쓴다면 <code>allow_origins</code>에 프론트 출처를 정확히 적어야 합니다. 쿠키에 세션 ID를 담는 인증 흐름 자체는 <a href="../week08-auth/02-dependency-auth-redis.html#jwt-vs-session">Week 8·02</a>에서 다룹니다.</div>
     </div>
   </section>
 
@@ -184,7 +197,12 @@ by CORS policy: No 'Access-Control-Allow-Origin'
 header is present on the requested resource.</code></pre>
     </div>
 
-    <p>해석: "<code>:5173</code>에서 <code>:8000</code>으로 보낸 요청의 응답에 <strong>허용 헤더가 없어서</strong> 막았다." 즉 <strong>서버가 그 출처를 허용 명단에 안 넣었다</strong>는 뜻입니다.</p>
+    <p>해석: "<code>:5173</code>에서 <code>:8000</code>으로 보낸 요청의 응답에 <strong>허용 헤더가 없어서</strong> 막았다." 즉 서버의 <code>allow_origins</code>에 그 출처가 없다는 뜻입니다. 표를 보기 전에 용어 하나만 더 알아 둡시다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Preflight(사전 요청)란.</strong> 단순한 GET이나 폼 전송 수준의 POST는 브라우저가 바로 보내지만, <code>Content-Type: application/json</code>인 POST, PUT/DELETE, <code>Authorization</code> 같은 커스텀 헤더가 붙은 요청은 본 요청 전에 <code>OPTIONS</code> 요청을 먼저 보내 "이런 메서드·헤더로 보내도 돼?"라고 묻습니다. 이게 <strong>Preflight</strong>이고, 서버가 <code>allow_methods</code>·<code>allow_headers</code>로 답하는 대상입니다. <code>CORSMiddleware</code>가 OPTIONS에 자동 응답하므로 직접 핸들러를 만들 필요는 없습니다.</div>
+    </div>
 
     <div class="table-wrap">
       <table>
@@ -196,11 +214,6 @@ header is present on the requested resource.</code></pre>
           <tr><td>curl은 되는데 브라우저만 안 됨</td><td>정상 — CORS는 브라우저 전용. 서버 헤더 설정 문제</td></tr>
         </tbody>
       </table>
-    </div>
-
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>Preflight(사전 요청)란.</strong> 인증 헤더나 PUT/DELETE 같은 요청은 브라우저가 본 요청 전에 <code>OPTIONS</code> 요청을 먼저 보내 "이런 요청 보내도 돼?"라고 묻습니다. 이게 <strong>Preflight</strong>입니다. <code>CORSMiddleware</code>가 이 OPTIONS에 자동 응답해 주므로, 직접 OPTIONS 핸들러를 만들 필요는 없습니다.</div>
     </div>
   </section>
 
@@ -247,6 +260,8 @@ header is present on the requested resource.</code></pre>
       </svg>
       <div class="diagram-caption">요청은 미들웨어를 차례로 통과해 라우트에 닿고, 응답은 역순으로 되돌아 나오며 후처리된다.</div>
     </div>
+
+    <p>순서는 양파 껍질처럼 정해집니다. <code>add_middleware</code>로 <strong>나중에 등록한 것이 더 바깥</strong>에 놓여 요청을 먼저 만나고 응답을 마지막에 손봅니다. 그래서 <code>CORSMiddleware</code>는 보통 맨 마지막에 등록해 가장 바깥에 두는데, 안쪽 미들웨어가 에러 응답을 만들어도 CORS 헤더가 빠짐없이 붙게 하기 위해서입니다.</p>
   </section>
 
   <section class="section" id="custom-middleware">
@@ -263,14 +278,14 @@ from fastapi import Request
 
 @app.middleware("http")
 async def add_process_time(request: Request, call_next):
-    start = time.perf_counter()      # 전처리
+    start = time.perf_counter()      # 전처리 (perf_counter: 짧은 구간을 재는 데 적합한 정밀 시계)
     response = await call_next(request)  # 라우트 실행
     elapsed = time.perf_counter() - start
     response.headers["X-Process-Time"] = f"{elapsed:.4f}"  # 후처리
     return response</code></pre>
     </div>
 
-    <p>이제 모든 응답에 <code>X-Process-Time</code> 헤더가 자동으로 붙습니다. 라우트를 한 줄도 안 건드리고요. 이게 미들웨어의 힘입니다 — <strong>공통 관심사를 한 곳에서</strong>.</p>
+    <p>이제 모든 응답에 <code>X-Process-Time</code> 헤더가 자동으로 붙습니다. 라우트는 한 줄도 건드리지 않았고요.</p>
   </section>
 
   <section class="section" id="nestjs-compare">
@@ -301,12 +316,12 @@ class TimingInterceptor {
         <div class="code-block">
           <pre><code class="language-python">@app.middleware("http")
 async def timing(req, call_next):
-    s = time.perf_counter()
+    # 전처리
     res = await call_next(req)
-    log(time.perf_counter() - s)
+    # 후처리
     return res</code></pre>
         </div>
-        <p><code>call_next</code> 전후로 감쌈.</p>
+        <p><code>call_next</code> 전후로 감쌈 (전체 코드는 위 섹션).</p>
       </div>
     </div>
 
@@ -323,7 +338,7 @@ async def timing(req, call_next):
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>미들웨어 vs 의존성(Depends).</strong> 모든 요청에 공통(로깅·CORS·처리시간)이면 <strong>미들웨어</strong>가 맞습니다. 하지만 "이 라우트들만 인증 필요" 같은 <strong>선택적·세밀한 제어</strong>는 Week 8에서 배울 <code>Depends</code>(의존성 주입)가 더 적합합니다. 둘은 경쟁이 아니라 역할 분담입니다.</div>
+      <div class="callout-body"><strong>미들웨어 vs 의존성(Depends).</strong> 모든 요청에 공통(로깅·CORS·처리시간)이면 <strong>미들웨어</strong>가 맞습니다. 하지만 "이 라우트들만 인증 필요" 같은 <strong>선택적·세밀한 제어</strong>는 Week 6에서 배운 <code>Depends</code>가 더 적합하고, Week 8에서 바로 그 용도(인증 의존성)로 다시 씁니다. 둘은 경쟁이 아니라 역할 분담입니다.</div>
     </div>
   </section>
 
@@ -335,15 +350,15 @@ async def timing(req, call_next):
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 프론트(:5173)에서 API(:8000) 호출이 CORS로 막혔습니다. 어디를 고치나요?</summary>
-        <div class="qa-answer"><p><strong>서버 쪽</strong>입니다. <code>CORSMiddleware</code>의 <code>allow_origins</code>에 <code>"http://localhost:5173"</code>을 정확히 추가합니다. CORS는 서버가 응답 헤더로 출처를 허용해야 풀리는 문제라, 프론트 코드로는 해결되지 않습니다. (curl로는 잘 되는데 브라우저만 막힌다면 거의 확실히 이 경우입니다.)</p></div>
+        <div class="qa-answer"><p>출처 차단 자체는 <strong>서버 쪽</strong> 문제라 <code>allow_origins</code>에 <code>"http://localhost:5173"</code>을 추가하면 풀립니다. 단, 쿠키까지 보내야 한다면 프론트의 <code>credentials: "include"</code>와 서버의 <code>allow_credentials=True</code>가 함께 필요합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> allow_credentials=True와 allow_origins=["*"]를 같이 쓰면?</summary>
-        <div class="qa-answer"><p>동작하지 않습니다. 보안상 브라우저는 "쿠키·인증을 모든 출처에 허용"을 금지합니다. 쿠키나 Authorization 헤더를 쓰는 인증 API라면 <code>allow_origins</code>에 <strong>정확한 출처를 하나하나</strong> 적어야 합니다.</p></div>
+        <div class="qa-answer"><p>브라우저가 응답을 버립니다. 쿠키가 실린 요청은 "어느 출처에서 온 것을 허용하는지"를 콕 집어 답해야만 넘겨주기 때문입니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 모든 응답에 처리시간 헤더를 넣으려면 어떻게 하나요?</summary>
-        <div class="qa-answer"><p><code>@app.middleware("http")</code>로 커스텀 미들웨어를 만들고, <code>call_next(request)</code> 호출 전후로 시간을 재서 <code>response.headers["X-Process-Time"]</code>에 넣은 뒤 그 response를 반환합니다. 라우트 함수는 전혀 수정할 필요가 없습니다 — 모든 요청에 공통 적용되니까요.</p></div>
+        <div class="qa-answer"><p><code>@app.middleware("http")</code> 함수 안에서 <code>await call_next(request)</code> 전후의 시각 차이를 재고, 돌아온 response의 헤더에 넣어 반환합니다.</p></div>
       </details>
     </div>
   </section>

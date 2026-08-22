@@ -68,7 +68,7 @@
 
   <div class="lesson-head">
     <h1>의존성으로 보호하기 — 그리고 Redis</h1>
-    <p class="lesson-subtitle">발급한 토큰을 <strong>매 요청마다 검증</strong>하는 일은 <code>Depends</code> 하나로 깔끔하게 처리됩니다. NestJS의 <strong>Guard</strong>에 정확히 대응하죠. 더해서 세션·캐시의 단골 도구 <strong>Redis</strong>를 익힙니다.</p>
+    <p class="lesson-subtitle">발급한 토큰을 <strong>매 요청마다 검증</strong>하는 일은 <code>Depends</code> 하나로 깔끔하게 처리됩니다. 더해서 세션·캐시의 단골 도구 <strong>Redis</strong>를 익힙니다.</p>
   </div>
 
   <div class="tip-box"><strong>한 줄 요약.</strong> <code>get_current_user</code>를 <b>의존성</b>으로 만들면, 보호하고 싶은 라우트에 <code>Depends(get_current_user)</code> 한 줄만 더하면 된다. 권한(역할) 체크도 의존성으로 쌓아 올린다. <b>Redis</b>는 디스크 대신 메모리에 두는 초고속 키-값 저장소 — 세션·캐시·TTL의 단골이다.</div>
@@ -77,8 +77,8 @@
   <ul class="checklist">
     <li><code>get_current_user</code> 의존성으로 토큰을 검증하고 유저를 주입한다</li>
     <li>역할 기반 권한 체크 의존성(<code>require_admin</code>)을 쌓는다</li>
-    <li>JWT(무상태) 방식과 세션(상태) 방식을 비교한다</li>
-    <li>Redis의 set/get/expire와 TTL을 이해한다</li>
+    <li>JWT(무상태) 방식과 세션(상태) 방식을 비교하고, 각각의 약점을 말한다</li>
+    <li>Redis의 set/get/expire/delete와 TTL을 이해한다</li>
   </ul>
 
   <section class="section" id="get-current-user">
@@ -86,18 +86,19 @@
       <div class="section-icon icon-concept">👤</div>
       <h2><code>get_current_user</code> — 토큰을 유저로</h2>
     </div>
-    <p>Lesson 1에서 만든 <code>oauth2_scheme</code>이 <code>Authorization: Bearer ...</code> 헤더에서 토큰 문자열을 꺼내옵니다. 그 토큰을 디코딩해 <strong>유저 객체로 바꾸는</strong> 의존성이 <code>get_current_user</code>입니다.</p>
+    <p>Lesson 1에서 만든 <code>oauth2_scheme</code>이 <code>Authorization: Bearer ...</code> 헤더에서 토큰 문자열을 꺼내옵니다. 그 토큰을 디코딩해 <strong>유저 객체로 바꾸는</strong> 의존성이 <code>get_current_user</code>입니다. <code>SECRET_KEY</code>·<code>ALGORITHM</code>·<code>get_user</code>는 Lesson 1에서 쓴 것과 같고, <code>User</code>는 DB의 유저 모델입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     cred_exc = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
+        status_code=401,
         detail="인증 정보를 확인할 수 없습니다",
-        headers={"WWW-Authenticate": "Bearer"},  # 표준 권장 헤더
+        # "Bearer 토큰으로 인증하라"고 클라이언트에 알려주는 표준 헤더
+        headers={"WWW-Authenticate": "Bearer"},
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -153,7 +154,7 @@ def delete_user(id: int, admin: User = Depends(require_admin)):
       <div class="section-icon icon-compare">🚦</div>
       <h2>NestJS Guard와 나란히</h2>
     </div>
-    <p>이 패턴은 NestJS의 <code>Guard</code>와 발상이 같습니다. “라우트 실행 전에 통과 여부를 판정하는 문지기”죠.</p>
+    <p>이 패턴은 NestJS의 <code>Guard</code>와 발상이 같습니다. “라우트 실행 전에 통과 여부를 판정하는 문지기”죠. 차이라면 FastAPI는 검증된 유저를 <strong>파라미터로 주입</strong>받는다는 점이 더 명시적이고, 라우터 전체에 한 번에 걸 수도 있습니다.</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -161,11 +162,12 @@ def delete_user(id: int, admin: User = Depends(require_admin)):
         <div class="code-block">
           <pre><code class="language-typescript">@Injectable()
 class AuthGuard {
-  canActivate(ctx) {
-    const req = ctx.switchToHttp()
-                   .getRequest();
-    req.user = verify(req.headers.auth);
-    return !!req.user;   // false → 401
+  canActivate(c) {
+    const req = c.switchToHttp()
+                 .getRequest();
+    // (의사코드) 헤더의 토큰 검증
+    req.user = verify(req);
+    return !!req.user; // 실패→401
   }
 }
 
@@ -177,14 +179,17 @@ me() { ... }</code></pre>
       <div class="compare-card">
         <div class="compare-card-header fast">FastAPI — Depends</div>
         <div class="code-block">
-          <pre><code class="language-python"># Guard = 의존성 함수
-@router.get("/me")
-def me(
-    user = Depends(get_current_user),
-):
-    return user</code></pre>
+          <pre><code class="language-python"># 라우트 하나 — 위 /me 처럼
+# user=Depends(get_current_user)
+
+# 라우터 전체를 한 번에
+router = APIRouter(
+    dependencies=[
+      Depends(get_current_user),
+    ],
+)</code></pre>
         </div>
-        <p><code>@UseGuards</code> ↔ <code>Depends(...)</code>. 검증된 유저를 <strong>파라미터로 주입</strong>받는 점이 더 명시적입니다. 라우터 전체에 걸려면 <code>APIRouter(dependencies=[Depends(...)])</code>를 씁니다.</p>
+        <p><code>@UseGuards</code> ↔ <code>Depends(...)</code>. 컨트롤러 단위 <code>@UseGuards</code>는 <code>APIRouter(dependencies=[...])</code>에 대응합니다.</p>
       </div>
     </div>
   </section>
@@ -194,7 +199,7 @@ def me(
       <div class="section-icon icon-compare">⚖️</div>
       <h2>JWT(무상태) vs 세션(상태)</h2>
     </div>
-    <p>“로그인 상태를 어디에 두느냐”에 두 갈래가 있습니다. JWT는 정보를 <strong>토큰 안</strong>에, 세션은 <strong>서버(보통 Redis)</strong>에 둡니다.</p>
+    <p>“로그인 상태를 어디에 두느냐”에 두 갈래가 있습니다. 지금까지 본 <strong>JWT</strong>는 “누구인지”를 <strong>토큰 안</strong>에 적어 클라이언트에게 맡기고, 서버는 아무것도 기억하지 않습니다 — 그래서 <strong>무상태(stateless)</strong>라고 부릅니다. 반대로 <strong>세션</strong> 방식은 로그인하면 서버가 “42번 = 민수” 같은 기록을 자기 저장소(보통 Redis)에 만들어 두고, 클라이언트에겐 그 번호(<strong>세션ID</strong>)만 쿠키로 줍니다. 이후 요청마다 서버가 그 번호로 기록을 찾아보니 <strong>상태(stateful)</strong> 방식입니다.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 680 220" role="img" aria-label="JWT 무상태 방식과 세션 상태 방식 비교">
@@ -225,24 +230,26 @@ def me(
           <marker id="b2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
         </defs>
       </svg>
-      <div class="diagram-caption">JWT는 서버가 상태를 안 들고 있어 확장이 쉽지만, 발급한 토큰을 만료 전에 강제로 끊기 어렵다.</div>
+      <div class="diagram-caption">왼쪽은 토큰이 곧 증거, 오른쪽은 서버의 기록이 증거.</div>
     </div>
+
+    <p>서버가 기억하느냐 마느냐가 장단점을 그대로 갈라놓습니다. JWT는 서버가 아무것도 저장하지 않으니 서버를 여러 대로 늘려도 공유할 게 없어 <strong>확장이 쉽지만</strong>, 일단 발급한 토큰은 만료 시각까지 어디서든 유효해서 <strong>“지금 당장 이 사람을 로그아웃시켜라”가 어렵습니다</strong>. 세션은 정반대입니다 — 서버가 기록을 지우면 그 자리에서 끝이라 강제 로그아웃이 쉽지만, 서버가 여러 대면 기록 저장소(Redis)를 함께 써야 하고 요청마다 저장소를 한 번씩 들여다봐야 합니다.</p>
 
     <div class="table-wrap">
       <table>
         <thead><tr><th>기준</th><th>JWT (무상태)</th><th>세션 (상태)</th></tr></thead>
         <tbody>
-          <tr><td>상태 저장</td><td>저장 안 함 — 토큰 안에 정보</td><td>서버(Redis 등)에 세션 저장</td></tr>
-          <tr><td>확장성</td><td>좋음 — 서버 간 공유 불필요</td><td>저장소 공유 필요(보통 Redis)</td></tr>
+          <tr><td>서버가 기억하나</td><td>아니오 — 토큰 안에 정보</td><td>예 — Redis 등에 세션 저장</td></tr>
+          <tr><td>서버 여러 대로 확장</td><td>쉬움 — 공유할 게 없음</td><td>저장소를 공유해야 함</td></tr>
           <tr><td>강제 로그아웃·무효화</td><td><b>어렵다</b> — 만료까지 유효</td><td><b>쉽다</b> — 세션 삭제하면 끝</td></tr>
-          <tr><td>요청당 비용</td><td>서명 검증(빠름, DB 조회 X)</td><td>세션 조회(저장소 접근)</td></tr>
+          <tr><td>요청당 비용</td><td>서명 검증(빠름, 저장소 조회 X)</td><td>세션 조회(저장소 접근 1회)</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>현실의 절충.</strong> 실무에선 둘을 섞기도 합니다. 짧은 수명의 <strong>JWT access 토큰</strong>으로 빠르게 검증하고, <strong>refresh 토큰이나 토큰 블랙리스트를 Redis에 두어</strong> 강제 무효화를 보완하는 식이죠. “무상태는 무효화가 약하다”는 약점을 Redis로 메우는 것입니다.</div>
+      <div class="callout-body"><strong>현실의 절충.</strong> 실무에선 둘을 섞습니다. 짧은 수명의 <strong>JWT access 토큰</strong>으로 빠르게 검증하되, Lesson 1에서 본 <strong>refresh 토큰</strong>이나 <strong>블랙리스트</strong>(로그아웃·강제 차단한 토큰의 목록)를 Redis에 두어 “무상태는 무효화가 약하다”는 약점만 메우는 식입니다.</div>
     </div>
   </section>
 
@@ -251,43 +258,32 @@ def me(
       <div class="section-icon icon-repo">🗄️</div>
       <h2>Redis — 메모리에 두는 초고속 저장소</h2>
     </div>
-    <p>Redis는 데이터를 디스크가 아니라 <strong>메모리(RAM)</strong>에 두는 키-값 저장소입니다. 그래서 매우 빠르고, 세션·캐시·OTP·레이트리밋 같은 “짧게 자주 쓰는” 데이터의 단골입니다.</p>
+    <p>Redis는 데이터를 디스크가 아니라 <strong>메모리(RAM)</strong>에 두는 키-값 저장소입니다. 그래서 매우 빠르고, 세션·캐시·OTP·레이트리밋(같은 사용자가 너무 자주 요청하지 못하게 횟수를 제한하는 것) 같은 “짧게 자주 쓰는” 데이터의 단골입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
       <div class="callout-body"><strong>비유 — 책상 위 vs 창고.</strong> 디스크(예: PostgreSQL)는 <strong>창고</strong>입니다. 모든 걸 영구 보관하지만 꺼내오는 데 시간이 걸리죠. Redis는 <strong>책상 위</strong>입니다 — 자주 쓰는 물건을 손 닿는 곳에 둬서 즉시 집어 쓸 수 있지만, 공간이 제한적이라 영구 보관용은 아닙니다. “자주 + 빠르게 + 잠깐”이면 책상 위(Redis)에 둡니다.</div>
     </div>
 
-    <p>핵심 명령은 <code>set</code>/<code>get</code>과 <strong>TTL(Time To Live, 만료 시간)</strong>입니다. TTL을 주면 그 시간이 지나 자동으로 사라집니다 — 세션·OTP에 딱 맞죠.</p>
+    <p>핵심 명령은 <code>set</code>/<code>get</code>과 <strong>TTL(Time To Live, 만료 시간)</strong>입니다. TTL을 주면 그 시간이 지나 자동으로 사라집니다 — 세션·OTP에 딱 맞죠. 명령은 네 개면 충분합니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">import redis.asyncio as redis
 
+# decode_responses=True: 결과를 bytes 가 아니라 str 로 받음
 r = redis.from_url("redis://localhost:6379", decode_responses=True)
 
 async def demo():
-    await r.set("session:42", "민수", ex=1800)  # 값 저장 + 30분 TTL
-    name = await r.get("session:42")            # "민수" (30분 안이면)
-    await r.expire("session:42", 600)         # TTL 을 10분으로 갱신
-    await r.delete("session:42")               # 즉시 무효화(=로그아웃)</code></pre>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>명령</th><th>의미</th><th>흔한 용도</th></tr></thead>
-        <tbody>
-          <tr><td><code>set(key, val, ex=초)</code></td><td>값 저장 + 만료시간</td><td>세션, 캐시, OTP</td></tr>
-          <tr><td><code>get(key)</code></td><td>값 조회(없으면 None)</td><td>세션/캐시 읽기</td></tr>
-          <tr><td><code>expire(key, 초)</code></td><td>TTL 갱신</td><td>활동 시 세션 연장</td></tr>
-          <tr><td><code>delete(key)</code></td><td>즉시 삭제</td><td>로그아웃, OTP 1회 소비</td></tr>
-        </tbody>
-      </table>
+    await r.set("session:42", "민수", ex=1800)  # 저장 + 만료 1800초 (ex = expire)
+    name = await r.get("session:42")            # "민수" — 만료됐거나 없으면 None
+    await r.expire("session:42", 600)         # TTL 을 10분으로 갱신 (활동 시 세션 연장)
+    await r.delete("session:42")               # 즉시 삭제 (로그아웃, OTP 1회 소비)</code></pre>
     </div>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>설치와 클라이언트.</strong> 파이썬 클라이언트는 <code>redis</code>(redis-py) 패키지입니다(<code>uv add redis</code>). 동기식은 <code>import redis</code>, FastAPI의 async 라우트에선 <code>import redis.asyncio as redis</code>를 써 이벤트 루프를 막지 않습니다(Week 4의 async 원리와 연결). 실행하려면 <strong>Redis 서버</strong>(예: <code>docker run -p 6379:6379 redis</code>)가 떠 있어야 합니다.</div>
+      <div class="callout-body"><strong>설치와 클라이언트.</strong> 파이썬 클라이언트는 <code>redis</code>(redis-py) 패키지입니다(<code>uv add redis</code>). FastAPI의 async 라우트에선 <code>import redis.asyncio as redis</code>를 써야 이벤트 루프를 막지 않습니다(<a href="../week04-async-internals/02-async-await-threadpool.html#blocking-trap">Week 4의 블로킹 함정</a>). 실행하려면 <strong>Redis 서버</strong>(예: <code>docker run -p 6379:6379 redis</code>)가 떠 있어야 합니다.</div>
     </div>
   </section>
 
@@ -299,15 +295,15 @@ async def demo():
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 보호된 라우트를 만드는 가장 간단한 방법은?</summary>
-        <div class="qa-answer"><p>토큰을 검증해 유저를 반환하는 <code>get_current_user</code> 의존성을 만들고, 라우트 함수에 <code>user = Depends(get_current_user)</code> 파라미터를 추가하면 됩니다. 검증이 실패하면 본문은 실행되지 않고 401이 반환됩니다.</p></div>
+        <div class="qa-answer"><p>라우트 함수 파라미터에 <code>user = Depends(get_current_user)</code>를 한 줄 추가합니다. 토큰이 틀리면 의존성 단계에서 401로 끝나고, 본문에 들어왔다면 <code>user</code>는 믿어도 됩니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> NestJS Guard는 FastAPI의 무엇에 대응하나요?</summary>
-        <div class="qa-answer"><p>의존성 함수(<code>Depends</code>)입니다. <code>@UseGuards(AuthGuard)</code>가 “라우트 전에 통과 판정”을 하듯, <code>Depends(get_current_user)</code>도 라우트 실행 전에 검증하고 유저를 주입합니다. 역할 체크는 <code>require_admin</code>처럼 의존성을 한 겹 더 쌓습니다.</p></div>
+        <div class="qa-answer"><p>의존성 함수(<code>Depends</code>)입니다. 둘 다 라우트 앞의 문지기이고, 역할 체크는 <code>require_admin</code>처럼 의존성을 한 겹 더 쌓습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> JWT 방식의 약점과, Redis로 어떻게 보완하나요?</summary>
-        <div class="qa-answer"><p>JWT는 무상태라 한 번 발급하면 만료 전 강제 무효화(즉시 로그아웃)가 어렵습니다. Redis에 토큰 블랙리스트나 refresh 토큰을 두고 TTL로 관리하면, 무효화가 필요한 토큰을 빠르게 걸러내 이 약점을 보완할 수 있습니다.</p></div>
+        <div class="qa-answer"><p>서버가 아무것도 기억하지 않으니 “이 토큰 지금 당장 무효” 선언이 안 됩니다. 차단할 토큰만 Redis에 TTL과 함께 적어 두고(블랙리스트) 검증 때 한 번 확인하면, 빠른 검증은 유지하면서 강제 로그아웃이 가능해집니다.</p></div>
       </details>
     </div>
   </section>

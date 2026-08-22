@@ -72,12 +72,12 @@
     <p class="lesson-subtitle">개발 초기엔 <code>create_all()</code>로 충분했지만, 운영 중 <strong>"컬럼 하나 추가"</strong>가 필요한 순간 그 한계가 드러납니다. 스키마 변경을 안전하게 이력으로 남기는 도구 — Alembic을 익힙니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> <code>create_all()</code>은 <strong>없는 테이블만 만들 뿐</strong>, 이미 있는 테이블의 컬럼을 바꾸지 못한다. Alembic은 스키마 변경을 <strong>버전 파일(rev)</strong>로 기록하고 <strong>upgrade/downgrade</strong>로 앞뒤로 옮긴다 — 한마디로 <strong>DB 스키마용 git</strong>이다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> Alembic은 DB 스키마의 변경을 <strong>버전 파일(rev)</strong>로 기록해 두고 <strong>upgrade/downgrade</strong>로 앞뒤로 옮기는 도구 — 한마디로 <strong>DB 스키마용 git</strong>이다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
     <li>create_all()의 한계와 마이그레이션이 필요한 이유를 안다</li>
-    <li>alembic init → env.py 연결 → revision → upgrade 흐름을 익힌다</li>
+    <li>alembic init → env.py에 target_metadata·DB 주소 연결 → revision → upgrade 흐름을 익힌다</li>
     <li>마이그레이션 파일의 upgrade/downgrade 구조를 읽는다</li>
     <li>autogenerate의 한계를 알고 생성 결과를 검토한다</li>
   </ul>
@@ -87,11 +87,11 @@
       <div class="section-icon icon-concept">🤔</div>
       <h2>왜 마이그레이션인가</h2>
     </div>
-    <p>Week 7에서 <code>Base.metadata.create_all(engine)</code>로 테이블을 만들었습니다. 그런데 이 함수는 <strong>"존재하지 않는 테이블만 새로 만들" 뿐</strong>, 이미 있는 테이블에 컬럼을 더하거나 타입을 바꾸지는 못합니다. 운영 DB에 데이터가 쌓인 상태에서 "할 일에 우선순위 컬럼 추가"가 필요해지면, <code>create_all()</code>은 아무 일도 하지 않습니다.</p>
+    <p><a href="../week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html#create-all">Week 5·02</a>에서 <code>Base.metadata.create_all(engine)</code>로 테이블을 만들었습니다. 그런데 이 함수는 <strong>"존재하지 않는 테이블만 새로 만들" 뿐</strong>, 이미 있는 테이블에 컬럼을 더하거나 타입을 바꾸지는 못합니다. 운영 DB에 데이터가 쌓인 상태에서 "할 일에 우선순위 컬럼 추가"가 필요해지면, <code>create_all()</code>은 아무 일도 하지 않습니다. 그렇다고 테이블을 지우고 다시 만들 수도 없죠 — 데이터가 날아가니까요. 필요한 건 "지금 있는 테이블을 <strong>이렇게 고쳐라</strong>"를 순서대로 적어 두고 실행하는 도구, 즉 <strong>마이그레이션</strong>입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — Alembic은 DB 스키마용 git.</strong> 코드는 git으로 커밋·이력 관리하고, 문제가 생기면 이전 커밋으로 되돌립니다. <strong>DB 스키마도 똑같이 다뤄야</strong> 합니다. Alembic의 각 마이그레이션 파일은 하나의 <strong>커밋</strong>이고, <code>upgrade</code>는 앞으로 가는 변경, <code>downgrade</code>는 되돌리는 변경입니다. <code>alembic upgrade head</code>는 "최신 커밋까지 따라잡기"인 셈이죠.</div>
+      <div class="callout-body"><strong>비유 — Alembic은 DB 스키마용 git.</strong> 코드는 git으로 커밋·이력 관리하고, 문제가 생기면 이전 커밋으로 되돌립니다. <strong>DB 스키마도 똑같이 다뤄야</strong> 합니다. Alembic의 각 마이그레이션 파일은 하나의 <strong>커밋</strong>이고, <code>upgrade</code>는 앞으로 가는 변경, <code>downgrade</code>는 되돌리는 변경입니다. git의 HEAD처럼 <strong><code>head</code>는 "가장 최신 버전"을 가리키는 이름</strong>이라, <code>alembic upgrade head</code>는 "최신 커밋까지 따라잡기"인 셈이죠.</div>
     </div>
   </section>
 
@@ -100,28 +100,39 @@
       <div class="section-icon icon-setup">⚙️</div>
       <h2>시작하기 — init과 env.py 연결</h2>
     </div>
-    <p><code>alembic init</code>으로 마이그레이션 작업 폴더를 만들고, <strong>env.py에 우리 모델의 metadata를 연결</strong>합니다. 이 연결이 있어야 autogenerate가 "모델 ↔ 실제 DB"의 차이를 감지합니다.</p>
+    <p><code>alembic init</code>으로 마이그레이션 작업 폴더를 만들면 그 안에 <code>env.py</code>가 생깁니다. 이 파일에 <strong>우리 모델의 metadata</strong>(Week 5에서 만든 <code>Base</code>가 들고 있는 "테이블 설계도 모음")를 연결해야, autogenerate가 "모델 ↔ 실제 DB"의 차이를 감지할 수 있습니다. 손댈 곳은 딱 두 군데 — <strong><code>target_metadata</code></strong>와 <strong>DB 주소(<code>sqlalchemy.url</code>)</strong>입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-bash"># 마이그레이션 폴더(alembic/) + alembic.ini 생성
-$ alembic init alembic</code></pre>
+      <pre><code class="language-bash"># 프로젝트 루트에서 실행 → alembic/ 폴더 + alembic.ini 생성
+$ alembic init alembic
+#   alembic.ini          ← 설정 파일 (DB 주소 등)
+#   alembic/env.py       ← 여기를 고친다
+#   alembic/versions/    ← 마이그레이션 파일이 쌓이는 곳</code></pre>
     </div>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python"># 우리 모델의 Base 를 가져와 metadata 를 연결한다
+      <pre><code class="language-python"># alembic/env.py — 자동 생성된 파일 윗부분에 이미 있는 줄들 사이를 고친다
+import os
+from alembic import context
+
+config = context.config          # (자동 생성) alembic.ini 를 읽은 설정 객체
+
+# ① DB 주소: alembic.ini 의 sqlalchemy.url 을 직접 써도 되지만,
+#    비밀번호를 파일에 남기지 않으려면 환경 변수로 덮어쓴다
+config.set_main_option("sqlalchemy.url", os.environ["DATABASE_URL"])
+
+# ② 우리 모델의 Base 를 가져와 metadata 를 연결한다
 from app.database import Base
-from app import models          # 모든 모델이 Base 에 등록되도록 import
+from app import models           # 모든 모델이 Base 에 등록되도록 import
 
-target_metadata = Base.metadata   # ← autogenerate 가 이걸 기준으로 비교
-
-# DB URL 은 alembic.ini 의 sqlalchemy.url 또는 env 변수로 주입</code></pre>
+target_metadata = Base.metadata  # (자동 생성) 원래 None 이던 줄을 이렇게 바꾼다</code></pre>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>모델 import를 빠뜨리지 말 것.</strong> autogenerate는 <code>target_metadata</code>에 <strong>등록된 모델</strong>만 봅니다. <code>models.py</code>를 어딘가에서 import하지 않으면 그 테이블이 metadata에 안 잡혀, Alembic이 "이 테이블 지워야겠네"라고 <strong>오판</strong>할 수 있습니다. env.py에서 모델 모듈을 확실히 import하세요.</div>
+      <div class="callout-body"><strong>모델 import를 빠뜨리지 말 것.</strong> autogenerate는 <code>target_metadata</code>에 <strong>등록된 모델</strong>만 봅니다. 모델은 <code>models.py</code>가 import될 때 비로소 <code>Base</code>에 등록되므로, env.py에서 이 import를 빼먹으면 그 테이블이 metadata에 없습니다. 그러면 Alembic은 "DB에는 있는데 모델에는 없네 → 모델에서 삭제된 테이블이구나"라고 <strong>오판</strong>해 <code>drop_table</code>을 만들어 버립니다.</div>
     </div>
   </section>
 
@@ -148,20 +159,26 @@ $ alembic current
 $ alembic history</code></pre>
     </div>
 
-    <p>생성된 마이그레이션 파일은 <strong><code>upgrade()</code>(앞으로)와 <code>downgrade()</code>(되돌리기)</strong> 두 함수로 이뤄집니다. <code>down_revision</code>이 부모(이전) 버전을 가리켜 사슬처럼 연결됩니다.</p>
+    <p>생성된 마이그레이션 파일(<code>alembic/versions/</code> 안)은 <strong><code>upgrade()</code>와 <code>downgrade()</code></strong> 두 함수로 이뤄집니다. <code>down_revision</code>이 부모(이전) 버전을 가리켜 사슬처럼 연결되고, 그 사슬의 맨 끝이 <code>head</code>입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python">revision = "3f9a1c"
+      <pre><code class="language-python">from alembic import op        # op: ALTER TABLE 같은 DDL 을 실행하는 도구
+import sqlalchemy as sa       # sa: 컬럼·타입 정의
+
+revision = "3f9a1c"
 down_revision = "a1b2c3"      # 이전 버전 = 부모 (사슬 연결)
 
 def upgrade():
     op.add_column("todos",
-        sa.Column("priority", sa.Integer(), server_default="1"))
+        sa.Column("priority", sa.Integer(),
+                  server_default="1"))   # 이미 있는 행들에 채워 줄 값
 
 def downgrade():
     op.drop_column("todos", "priority")   # upgrade 의 정확한 역연산</code></pre>
     </div>
+
+    <p><code>server_default="1"</code>이 붙은 이유는 테이블에 <strong>이미 데이터가 있기</strong> 때문입니다. 새 컬럼을 추가하면 기존 행에도 그 칸이 생기는데, 채울 값을 정해 주지 않으면 DB가 거부하거나 빈 값(NULL)으로 남습니다.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 660 200" role="img" aria-label="마이그레이션 버전 흐름">
@@ -194,7 +211,7 @@ def downgrade():
           <marker id="da" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#ef4444"/></marker>
         </defs>
       </svg>
-      <div class="diagram-caption">rev1 → rev2 → rev3(head). upgrade는 앞으로, downgrade는 정확히 그 역으로 되돌린다.</div>
+      <div class="diagram-caption">rev1 → rev2 → rev3. 사슬의 맨 끝(최신)이 head.</div>
     </div>
   </section>
 
@@ -203,6 +220,8 @@ def downgrade():
       <div class="section-icon icon-compare">📊</div>
       <h2>NestJS TypeORM 마이그레이션과 나란히</h2>
     </div>
+    <p>TypeORM 마이그레이션을 써 봤다면 새로 배울 개념은 없습니다. 명령 이름만 바뀝니다.</p>
+
     <div class="compare-grid">
       <div class="compare-card">
         <div class="compare-card-header nest">NestJS — TypeORM</div>
@@ -221,9 +240,7 @@ async down(q): { /* 되돌리기 */ }</code></pre>
       <div class="compare-card">
         <div class="compare-card-header fast">FastAPI — Alembic</div>
         <div class="code-block">
-          <pre><code class="language-bash"># 모델 변경 후 생성
-$ alembic revision --autogenerate \
-    -m "add priority"
+          <pre><code class="language-bash">$ alembic revision --autogenerate
 $ alembic upgrade head
 $ alembic downgrade -1
 
@@ -231,7 +248,7 @@ $ alembic downgrade -1
 def upgrade(): ...
 def downgrade(): ...</code></pre>
         </div>
-        <p><code>migration:generate</code> ↔ <code>revision --autogenerate</code>, <code>up/down</code> ↔ <code>upgrade/downgrade</code>. 개념이 1:1로 맞습니다.</p>
+        <p><code>migration:generate</code> ↔ <code>revision --autogenerate</code>, <code>run/revert</code> ↔ <code>upgrade/downgrade</code>, <code>up/down</code> ↔ <code>upgrade()/downgrade()</code>.</p>
       </div>
     </div>
   </section>
@@ -245,12 +262,12 @@ def downgrade(): ...</code></pre>
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>생성된 마이그레이션은 사람이 꼭 검토.</strong> autogenerate가 <strong>못 잡거나 부정확한</strong> 대표 사례: 컬럼 <strong>타입 변경</strong>(detect 옵션 없으면 무시), 컬럼/테이블 <strong>이름 변경</strong>(drop+add로 오인 → 데이터 유실!), 일부 제약·인덱스, 서버 기본값 등. 운영 데이터가 걸린 변경일수록 <strong>생성된 <code>upgrade()</code>/<code>downgrade()</code>를 눈으로 확인하고 수정</strong>한 뒤 적용하세요. "git diff 없이 머지"하지 않듯이요.</div>
+      <div class="callout-body"><strong>생성된 마이그레이션은 사람이 꼭 검토.</strong> autogenerate가 <strong>못 잡거나 부정확한</strong> 대표 사례: 컬럼 <strong>타입 변경</strong>(구버전 Alembic은 env.py에 <code>compare_type=True</code>를 켜야 감지), 컬럼/테이블 <strong>이름 변경</strong>(Alembic 눈에는 "옛 컬럼 삭제 + 새 컬럼 추가"로 보여 drop+add를 만듦 → 데이터 유실!), 일부 제약·인덱스, 위에서 본 <code>server_default</code> 같은 서버 기본값. 운영 데이터가 걸린 변경일수록 <strong>생성된 <code>upgrade()</code>/<code>downgrade()</code>를 눈으로 확인하고 수정</strong>한 뒤 적용하세요. "git diff 없이 머지"하지 않듯이요.</div>
     </div>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>create_all과 Alembic은 함께 쓰지 않는다.</strong> Alembic을 도입했다면 앱 시작 시의 <code>Base.metadata.create_all()</code>은 제거하세요. 둘이 동시에 스키마를 만들면 "이미 테이블이 있는데 Alembic은 처음부터 만들려 한다"는 충돌이 납니다. <strong>스키마의 단일 진실 공급원(SSOT)은 마이그레이션 이력</strong>이어야 합니다.</div>
+      <div class="callout-body"><strong>create_all과 Alembic은 함께 쓰지 않는다.</strong> Alembic을 도입했다면 앱 시작 시의 <code>Base.metadata.create_all()</code>은 제거하세요. 둘이 동시에 스키마를 만들면 "이미 테이블이 있는데 Alembic은 처음부터 만들려 한다"는 충돌이 납니다. 스키마의 <strong>단일 진실 공급원(SSOT, "진짜 기준은 여기 하나"라는 뜻)</strong>은 마이그레이션 이력이어야 합니다.</div>
     </div>
   </section>
 
@@ -262,15 +279,15 @@ def downgrade(): ...</code></pre>
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>create_all()</code>로는 왜 컬럼 추가가 안 되나요?</summary>
-        <div class="qa-answer"><p><code>create_all()</code>은 "존재하지 않는 테이블을 생성"하는 함수일 뿐, 이미 존재하는 테이블의 스키마(컬럼 추가·타입 변경 등)는 건드리지 않습니다. 변경 이력을 다루려면 Alembic 같은 마이그레이션 도구가 필요합니다.</p></div>
+        <div class="qa-answer"><p>테이블 단위로 "없으면 만든다"만 할 뿐, 이미 있는 테이블은 쳐다보지도 않기 때문입니다. 있는 테이블을 고치는 건 마이그레이션의 일입니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> autogenerate가 만든 마이그레이션을 그대로 믿어도 되나요?</summary>
-        <div class="qa-answer"><p>아니요. 타입 변경을 놓치거나, 컬럼 이름 변경을 drop+add(데이터 유실)로 오인할 수 있습니다. 생성된 <code>upgrade()</code>/<code>downgrade()</code>를 반드시 검토하고, 필요하면 직접 수정한 뒤 적용해야 합니다.</p></div>
+        <div class="qa-answer"><p>아니요. 초안일 뿐입니다. 특히 이름 변경이 drop+add로 나오면 데이터가 사라지니, 적용 전에 파일을 열어 읽고 고쳐야 합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 배포한 변경에 문제가 생겼습니다. 어떻게 되돌리나요?</summary>
-        <div class="qa-answer"><p><code>alembic downgrade -1</code>로 직전 버전으로, 또는 <code>alembic downgrade &lt;revision&gt;</code>로 특정 버전까지 되돌립니다. 각 마이그레이션의 <code>downgrade()</code>가 <code>upgrade()</code>의 역연산을 정확히 담고 있어야 안전하게 롤백됩니다.</p></div>
+        <div class="qa-answer"><p><code>alembic downgrade -1</code>(한 칸 뒤로) 또는 <code>alembic downgrade &lt;revision&gt;</code>(특정 버전까지). 이게 통하려면 각 파일의 <code>downgrade()</code>를 미리 제대로 써 두었어야 합니다.</p></div>
       </details>
     </div>
   </section>

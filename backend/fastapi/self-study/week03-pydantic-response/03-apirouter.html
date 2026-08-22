@@ -67,7 +67,7 @@
 
   <div class="lesson-head">
     <h1>APIRouter — 도메인별로 코드를 나누기</h1>
-    <p class="lesson-subtitle">모든 라우트를 <code>main.py</code> 하나에 욱여넣으면 금방 수백 줄이 됩니다. <code>APIRouter</code>로 업무 도메인별 파일을 나누는 법 — NestJS의 <strong>Module</strong> 구조에 정확히 대응합니다.</p>
+    <p class="lesson-subtitle">모든 라우트를 <code>main.py</code> 하나에 욱여넣으면 금방 수백 줄이 됩니다. <code>APIRouter</code>로 <strong>도메인</strong> — "할 일", "회원"처럼 <strong>업무 단위로 묶이는 기능 덩어리</strong> — 별로 파일을 나누는 법을 배웁니다.</p>
   </div>
 
   <div class="tip-box"><strong>한 줄 요약.</strong> <code>APIRouter</code>는 라우트들을 <b>도메인 단위로 묶는 미니 앱</b>이다. <code>todos</code> 라우터, <code>users</code> 라우터를 따로 만들고 메인 앱에 <b>include_router</b>로 꽂는다. NestJS의 Module/Controller 분리와 같은 발상.</div>
@@ -95,11 +95,24 @@
       <div class="section-icon icon-setup">🔌</div>
       <h2>라우터 만들고 꽂기</h2>
     </div>
+    <p>파일은 이렇게 둡니다. <code>routers/</code>는 도메인별 라우트 파일을 모아 두는 <strong>폴더</strong>이고, 안에 빈 <code>__init__.py</code>를 두면 파이썬이 이 폴더를 "import할 수 있는 패키지"로 인식합니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">app/
+├── main.py            # ② 라우터를 꽂는 곳
+└── routers/           # 폴더 = 패키지
+    ├── __init__.py    # 비어 있어도 됨
+    ├── todos.py       # ① router 변수를 만드는 곳
+    └── users.py</code></pre>
+    </div>
+
     <p>① 도메인별 파일에서 <code>APIRouter</code>를 만들고 라우트를 등록한 뒤, ② <code>main.py</code>에서 <code>include_router</code>로 합칩니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python">from fastapi import APIRouter
+      <pre><code class="language-python"># routers/todos.py
+from fastapi import APIRouter
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -114,18 +127,24 @@ def get_todo(id: int):
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python">from fastapi import FastAPI
-from routers import todos, users
+      <pre><code class="language-python"># main.py
+from fastapi import FastAPI
+from routers import todos, users      # routers 폴더의 todos.py, users.py를 가져온다
 
 app = FastAPI()
 
-app.include_router(todos.router)   # 할 일 부서 연결
+app.include_router(todos.router)   # todos.py 안의 router 변수 = 할 일 부서 연결
 app.include_router(users.router)   # 회원 부서 연결</code></pre>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>prefix와 tags의 역할.</strong> <code>prefix="/todos"</code>를 주면 그 라우터의 모든 경로 앞에 <code>/todos</code>가 자동으로 붙습니다 — 라우트마다 반복해서 적을 필요가 없죠. <code>tags=["todos"]</code>는 <strong>Swagger 문서에서 같은 그룹으로 묶어</strong> 보여줍니다.</div>
+      <div class="callout-body"><strong>prefix와 tags의 역할.</strong> <code>prefix="/todos"</code>를 주면 그 라우터의 모든 경로 앞에 <code>/todos</code>가 자동으로 붙습니다 — 라우트마다 반복해서 적을 필요가 없고, 도메인 경로를 한 곳에서 바꿀 수 있죠. <code>tags=["todos"]</code>는 <strong>Swagger 문서에서 같은 그룹으로 묶어</strong> 보여줍니다. 참고로 prefix는 꽂는 쪽에서 <code>app.include_router(todos.router, prefix="/todos")</code>처럼 줘도 됩니다 — 다른 코드에서 이 형태를 봐도 같은 뜻입니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>prefix가 있을 때 데코레이터에는 "나머지 경로"만 — 그리고 <code>""</code> vs <code>"/"</code>.</strong> prefix가 이미 <code>/todos</code>를 붙여 주므로, 여기에 또 <code>@router.get("/todos")</code>라고 쓰면 경로가 <code>/todos/todos</code>가 됩니다. 그럼 목록 경로는 <code>""</code>와 <code>"/"</code> 중 뭘 써야 할까요? <code>@router.get("")</code>은 <code>/todos</code>, <code>@router.get("/")</code>은 <code>/todos/</code>(끝 슬래시 포함)로 <strong>서로 다른 주소</strong>입니다. 한쪽만 등록된 상태에서 다른 쪽으로 요청하면 FastAPI가 기본적으로 <strong>307 리다이렉트</strong>("같은 메서드로 저 주소에 다시 요청하세요")를 보내 맞는 주소로 안내해 주긴 하지만, 리다이렉트를 따라가지 않는 클라이언트도 있으니 처음부터 하나로 통일하세요. 이 강의는 끝 슬래시 없는 <code>""</code>로 통일합니다.</div>
     </div>
   </section>
 
@@ -158,7 +177,7 @@ export class AppModule {}</code></pre>
 app.include_router(todos.router)
 app.include_router(users.router)</code></pre>
         </div>
-        <p><code>@Module imports</code> ↔ <code>include_router</code>. 더 가볍고 명시적입니다.</p>
+        <p><code>@Module imports</code> ↔ <code>include_router</code>. providers·DI 컨테이너 같은 개념 없이 라우트 함수를 모아 꽂기만 하면 되니 더 가볍고, 어떤 라우터가 붙는지 <code>main.py</code>에 다 보입니다.</p>
       </div>
     </div>
   </section>
@@ -168,27 +187,25 @@ app.include_router(users.router)</code></pre>
       <div class="section-icon icon-entity">🗂️</div>
       <h2>실무 폴더 구조</h2>
     </div>
-    <p>도메인이 늘어날 때를 대비한, 흔히 쓰는 구조입니다. (Week 6에서 이 구조 위에 서비스 계층을 얹습니다.)</p>
+    <p>위의 최소 구조에 Pydantic 모델 파일을 더한, 도메인이 늘어날 때 흔히 쓰는 구조입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-bash">app/
 ├── main.py            # FastAPI() 생성 + include_router
 ├── routers/
+│   ├── __init__.py
 │   ├── todos.py       # /todos 라우트
 │   └── users.py       # /users 라우트
 ├── schemas.py         # Pydantic 모델 (요청/응답)
 └── ...                # Week 5~ DB, 서비스 계층 추가</code></pre>
     </div>
 
+    <p>Pydantic 모델 파일을 <code>models.py</code>가 아니라 <code>schemas.py</code>라고 부르는 데는 이유가 있습니다. 스키마(schema)는 "데이터의 모양 정의"라는 뜻이라 요청/응답 모양을 적는 Pydantic 모델에 딱 맞고, <a href="../week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html#declarative-base">Week 5</a>에서 DB 테이블을 나타내는 SQLAlchemy 클래스가 <code>models.py</code>라는 이름으로 등장하기 때문에, 둘 다 "모델"이라 부르면 헷갈려서 이렇게 나누는 게 관례입니다. 마지막 줄의 <strong>서비스 계층</strong>은 "라우터는 요청을 받고 응답을 돌려주는 일만 하고, 실제 업무 처리(DB 저장 등)는 별도 파일로 빼는 것"인데, <a href="../week06-json-api-structure/02-dependency-injection-mvc.html#layers">Week 6</a>에서 이 구조 위에 얹습니다.</p>
+
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>라우터에도 공통 의존성을 걸 수 있다.</strong> <code>APIRouter(dependencies=[...])</code>로 그 라우터 전체에 공통 처리(예: 인증)를 걸 수 있습니다. NestJS에서 모듈/컨트롤러 단위로 Guard를 거는 것과 비슷한데, 이건 <strong>Week 6의 Depends</strong>와 <strong>Week 8의 인증</strong>에서 본격적으로 활용합니다.</div>
-    </div>
-
-    <div class="callout callout-warn">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>prefix 중복 주의.</strong> <code>APIRouter(prefix="/todos")</code>를 줬다면 라우트 데코레이터엔 <code>@router.get("")</code> 또는 <code>@router.get("/{id}")</code>처럼 쓰세요. 여기에 또 <code>@router.get("/todos")</code>라고 하면 경로가 <code>/todos/todos</code>가 되어버립니다.</div>
+      <div class="callout-body"><strong>예고.</strong> <code>APIRouter(dependencies=[...])</code>로 라우터 전체에 공통 처리(예: 로그인 확인)를 걸 수도 있습니다 — NestJS의 Guard와 비슷한데, Week 6(Depends)과 Week 8(인증)에서 씁니다.</div>
     </div>
   </section>
 
@@ -200,21 +217,21 @@ app.include_router(users.router)</code></pre>
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> APIRouter는 NestJS의 무엇에 대응하나요?</summary>
-        <div class="qa-answer"><p>도메인별로 라우트를 묶는다는 점에서 NestJS의 Module + Controller 묶음에 대응합니다. <code>include_router</code>가 <code>@Module</code>의 <code>imports</code>처럼 메인 앱에 라우터를 등록합니다.</p></div>
+        <div class="qa-answer"><p>도메인별로 라우트를 묶는 Module + Controller 묶음에 대응하고, <code>include_router</code>가 <code>@Module</code>의 <code>imports</code> 역할입니다.</p></div>
       </details>
       <details class="qa-item">
-        <summary><span class="qa-mark">Q</span> <code>prefix</code>를 쓰면 좋은 점은?</summary>
-        <div class="qa-answer"><p>그 라우터의 모든 경로 앞에 공통 경로가 자동으로 붙어, 라우트마다 <code>/todos</code>를 반복하지 않아도 됩니다. 도메인 경로를 한 곳에서 관리하니 변경도 쉽습니다.</p></div>
+        <summary><span class="qa-mark">Q</span> <code>@router.get("")</code>과 <code>@router.get("/")</code>는 뭐가 다른가요?</summary>
+        <div class="qa-answer"><p><code>/todos</code>와 <code>/todos/</code>라는 서로 다른 주소입니다. 한쪽만 있으면 307로 안내되긴 하지만, 처음부터 하나로 통일하는 게 안전합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 경로가 <code>/todos/todos</code>로 잘못 나옵니다. 원인은?</summary>
-        <div class="qa-answer"><p>라우터에 <code>prefix="/todos"</code>를 줬는데 라우트 데코레이터에도 <code>"/todos"</code>를 또 적었기 때문입니다. prefix가 있으면 데코레이터엔 나머지 경로(<code>""</code>, <code>"/{id}"</code>)만 적어야 합니다.</p></div>
+        <div class="qa-answer"><p>prefix로 이미 붙은 <code>/todos</code>를 데코레이터에 한 번 더 적었기 때문입니다.</p></div>
       </details>
+    </div>
 
-      <div class="callout callout-tip">
-        <div class="callout-icon"></div>
-        <div class="callout-body"><strong>Week 3 마무리.</strong> Pydantic 검증 → response_model 응답 설계 → APIRouter 구조화까지, 이제 <strong>잘 정돈된 API의 뼈대</strong>를 세울 수 있습니다. 다음 주는 가장 중요한 주제 중 하나 — <strong>비동기(async)의 원리와 내부 동작</strong>입니다. "왜 FastAPI가 빠른가"를 원리로 설명할 수 있게 됩니다.</div>
-      </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Week 3 마무리.</strong> Pydantic 검증 → response_model 응답 설계 → APIRouter 구조화까지, 이제 <strong>잘 정돈된 API의 뼈대</strong>를 세울 수 있습니다. 다음 주는 가장 중요한 주제 중 하나 — <strong>비동기(async)의 원리와 내부 동작</strong>입니다. "왜 FastAPI가 빠른가"를 원리로 설명할 수 있게 됩니다.</div>
     </div>
   </section>
 

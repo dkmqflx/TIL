@@ -71,16 +71,16 @@
 
   <div class="lesson-head">
     <h1>비동기 DB (asyncpg) — 이벤트 루프를 막지 마라</h1>
-    <p class="lesson-subtitle">Week 4에서 "<strong>async 함수 안에서 동기 I/O를 호출하면 이벤트 루프가 멈춘다</strong>"고 배웠죠. DB 호출도 똑같은 I/O입니다. 이번엔 SQLAlchemy 2.0 + asyncpg로 DB까지 <strong>완전 비동기</strong>로 만듭니다.</p>
+    <p class="lesson-subtitle">Week 4에서 배운 블로킹 함정은 DB 호출에도 그대로 적용됩니다. DB 쿼리도 결국 네트워크 I/O니까요. 이번엔 SQLAlchemy 2.0 + asyncpg로 DB까지 <strong>완전 비동기</strong>로 만듭니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> 비동기 서버에서 <b>동기 DB 드라이버</b>를 쓰면, DB가 응답을 주는 동안 이벤트 루프 전체가 멈춰 다른 요청을 못 받는다. <code>asyncpg</code> + <code>create_async_engine</code> + <code>AsyncSession</code>으로 갈아끼우고, <b>모든 쿼리 앞에 <code>await</code></b>를 붙이면 DB 대기 중에도 서버가 다른 일을 한다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> 비동기 서버에서 <b>동기 DB 드라이버</b>를 쓰면, DB가 응답을 주는 동안 이벤트 루프 전체가 멈춰 다른 요청을 못 받는다. <code>asyncpg</code> + <code>create_async_engine</code> + <code>AsyncSession</code>으로 갈아끼우고, <b>DB와 통신하는 호출 앞에 <code>await</code></b>를 붙이면 DB 대기 중에도 서버가 다른 일을 한다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
-    <li>왜 비동기 서버에서 동기 DB 호출이 위험한지 이벤트 루프 관점에서 이해한다</li>
+    <li>동기 DB 드라이버가 Week 4의 블로킹 함정에 그대로 해당됨을 안다</li>
     <li>asyncpg 드라이버 + create_async_engine + async_sessionmaker로 엔진/세션을 구성한다</li>
-    <li>async 엔드포인트에서 async with 세션 + await execute(select(...))로 쿼리한다</li>
+    <li>async 엔드포인트에서 await execute(select(...))로 쿼리하고, Week 6의 get_db 의존성을 비동기로 바꾼다</li>
     <li>Lifespan으로 startup/shutdown 리소스를 관리한다 (engine.dispose())</li>
   </ul>
 
@@ -89,13 +89,7 @@
       <div class="section-icon icon-concept">🤔</div>
       <h2>왜 비동기 DB인가 — Week 4 함정의 연장</h2>
     </div>
-    <p>Week 4에서 핵심 규칙 하나를 배웠습니다. <strong>"<code>async def</code> 엔드포인트 안에서 동기(blocking) I/O를 부르면 이벤트 루프가 통째로 멈춘다"</strong>. 그 함정의 가장 흔한 현장이 바로 <strong>데이터베이스</strong>입니다.</p>
-    <p>DB 쿼리는 본질적으로 네트워크 I/O입니다. 쿼리를 보내고 결과가 돌아올 때까지 수십 ms를 기다리죠. 이 "기다림"을 동기 드라이버(<code>psycopg2</code> 같은)로 하면, 그동안 <strong>이벤트 루프가 그 한 요청에 묶여</strong> 다른 요청을 하나도 처리하지 못합니다.</p>
-
-    <div class="callout callout-analogy">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 카페 바리스타 한 명.</strong> 이벤트 루프는 <strong>바리스타 한 명</strong>입니다. 동기 DB는 "에스프레소 머신이 추출하는 30초 동안 바리스타가 <strong>가만히 머신만 쳐다보는</strong>" 것과 같습니다. 그동안 줄 선 다른 손님(요청)은 아무도 주문을 못 합니다. 비동기 DB는 "추출 버튼만 누르고(<code>await</code>) <strong>다음 손님 주문을 받으러 가는</strong>" 똑똑한 바리스타입니다. 추출이 끝나면(결과 도착) 그 커피를 마저 내어줍니다. 같은 바리스타 한 명인데 처리량이 몇 배가 됩니다.</div>
-    </div>
+    <p>Week 4에서 배운 규칙 — <a href="../week04-async-internals/02-async-await-threadpool.html#blocking-trap"><code>async def</code> 안에서 동기 I/O를 부르면 이벤트 루프가 막힌다</a> — 의 가장 흔한 현장이 <strong>데이터베이스</strong>입니다. DB 쿼리는 결과가 돌아올 때까지 수십 ms를 기다리는 네트워크 I/O인데, 이 기다림을 <code>psycopg2</code> 같은 <strong>동기 드라이버</strong>로 하면 <code>await</code>로 양보할 방법이 없어 그 시간 동안 다른 요청이 하나도 처리되지 않습니다. 아래 그림의 두 줄을 비교해 보세요.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 660 280" role="img" aria-label="동기 DB vs 비동기 DB 이벤트 루프 비교">
@@ -157,7 +151,7 @@
       <div class="section-icon icon-entity">⚙️</div>
       <h2>엔진 &amp; 세션 구성 — async_sessionmaker</h2>
     </div>
-    <p>비동기 버전은 이름 앞에 대부분 <code>async</code>가 붙거나 <code>Async</code>로 바뀐다고 기억하면 쉽습니다. 동기와 1:1로 대응됩니다.</p>
+    <p>비동기 버전은 이름 앞에 대부분 <code>async</code>가 붙거나 <code>Async</code>로 바뀐다고 기억하면 쉽습니다. 동기와 1:1로 대응되고, 역할도 Week 5와 같습니다 — 엔진이 커넥션 풀(미리 맺어 둔 DB 연결 묶음)을 들고 있고, 세션 팩토리가 요청마다 세션을 찍어냅니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -181,13 +175,13 @@
 
 DATABASE_URL = "postgresql+asyncpg://user:pw@localhost:5432/app"
 
-# 1) 비동기 엔진 — 커넥션 풀을 관리한다
+# 1) 비동기 엔진 — 모듈 최상단에서 한 번만 만든다 (앱당 1개)
 engine = create_async_engine(DATABASE_URL, echo=True)
 
 # 2) 세션 팩토리 — 요청마다 세션을 찍어낸다
 AsyncSessionLocal = async_sessionmaker(
     engine,
-    class_=AsyncSession,
+    class_=AsyncSession,      # 기본값이라 생략해도 된다
     expire_on_commit=False,   # 커밋 후에도 객체 속성 접근 가능
 )</code></pre>
     </div>
@@ -221,7 +215,7 @@ AsyncSessionLocal = async_sessionmaker(
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>expire_on_commit=False 가 비동기에서 특히 중요.</strong> 기본값(<code>True</code>)이면 커밋 직후 객체 속성에 접근할 때 SQLAlchemy가 <strong>자동으로 DB를 다시 읽으려</strong> 합니다. 비동기에서는 이 "숨은 재조회"가 <code>await</code> 없이 일어나 <code>MissingGreenlet</code> 에러를 냅니다. <code>expire_on_commit=False</code>로 꺼두는 게 비동기의 정석입니다.</div>
+      <div class="callout-body"><strong>expire_on_commit=False 가 비동기에서 특히 중요.</strong> 기본값(<code>True</code>)이면 커밋 직후 <code>item.name</code>처럼 속성에 접근하는 순간 SQLAlchemy가 <strong>몰래 DB를 다시 읽으려</strong> 합니다. 그런데 <code>item.name</code>은 그냥 속성 접근이라 <code>await</code>를 붙일 자리가 없죠. 비동기에서는 "<code>await</code> 없이 DB를 건드리려 했다"는 뜻의 <code>MissingGreenlet</code> 에러가 납니다. <code>expire_on_commit=False</code>로 이 숨은 재조회를 꺼두는 게 비동기의 정석입니다.</div>
     </div>
   </section>
 
@@ -258,11 +252,29 @@ async def list_items():
         </div>
       </div>
     </div>
-    <p><code>result.scalars().all()</code>은 <strong>이미 메모리에 받은 결과</strong>를 가공하는 거라 <code>await</code>가 없습니다. <code>await</code>는 <strong>DB와 통신하는 순간</strong>(<code>execute</code>, <code>commit</code>, <code>flush</code>)에만 붙는다고 기억하세요.</p>
+    <p><code>result.scalars().all()</code>은 <strong>이미 메모리에 받은 결과</strong>를 가공하는 거라 <code>await</code>가 없습니다. <code>await</code>는 <strong>DB와 통신하는 순간</strong>에만 붙는다고 기억하세요 — <code>execute</code>, <code>commit</code>, <code>refresh</code>, 그리고 Week 5에서 본 <code>flush</code>(확정은 아니지만 SQL을 DB로 내보내는 것)가 여기 해당합니다.</p>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>쓰기는 await session.commit().</strong> 생성·수정·삭제는 <code>session.add(obj)</code> 뒤에 <code>await session.commit()</code>으로 마무리합니다. 새로 생성된 <code>id</code> 등을 바로 써야 하면 <code>await session.refresh(obj)</code>로 DB 값을 다시 채웁니다. 이 둘 모두 DB와 통신하므로 <code>await</code>가 필요합니다.</div>
+      <div class="callout-body"><strong>쓰기는 await session.commit().</strong> 생성·수정·삭제는 <code>session.add(obj)</code> 뒤에 <code>await session.commit()</code>으로 마무리합니다. 새로 생성된 <code>id</code> 등을 바로 써야 하면 <code>await session.refresh(obj)</code>로 DB 값을 다시 채웁니다.</div>
+    </div>
+
+    <h3>Week 6의 <code>get_db</code> 의존성도 비동기로</h3>
+    <p>위 After 코드는 라우트 안에서 세션을 직접 열었지만, 실제 프로젝트에서는 Week 6에서 배운 <a href="../week06-json-api-structure/02-dependency-injection-mvc.html#yield-dependency"><code>get_db</code> + <code>yield</code> 의존성</a>으로 세션을 주입받는 게 정석이죠. 바꾸는 방법은 라우트와 똑같습니다 — <code>def</code> → <code>async def</code>, <code>with</code> → <code>async with</code>. 열고-쓰고-닫는 원리는 그대로이고, <code>Depends</code>는 의존성 함수가 <code>async def</code>여도 알아서 <code>await</code>해 줍니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session                 # 요청 처리 동안 빌려주고, 끝나면 닫는다
+
+@router.get("/items")
+async def list_items(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Item))
+    return result.scalars().all()</code></pre>
     </div>
   </section>
 
@@ -271,12 +283,13 @@ async def list_items():
       <div class="section-icon icon-teal">♻️</div>
       <h2>Lifespan — startup/shutdown 리소스 관리</h2>
     </div>
-    <p>엔진은 <strong>앱 전체에서 단 하나</strong>여야 합니다(커넥션 풀을 공유해야 하니까). 그리고 서버가 꺼질 때는 풀을 <strong>깨끗이 정리</strong>해야 하죠. 이 "시작할 때 준비 / 끝날 때 정리"를 담는 곳이 <strong>Lifespan</strong>입니다.</p>
+    <p>엔진은 앱 전체에서 하나만 두고 공유하는데, 서버가 꺼질 때는 그 풀의 연결들을 <strong>깨끗이 정리</strong>해야 합니다. 이 "시작할 때 준비 / 끝날 때 정리"를 담는 곳이 <strong>Lifespan</strong>입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from database import engine   # 위 #engine-session 에서 만든 엔진 (import 시점에 이미 생성됨)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -290,11 +303,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)</code></pre>
     </div>
 
-    <p><code>yield</code>를 기준으로 <strong>위는 startup, 아래는 shutdown</strong>입니다. <code>async with</code> 컨텍스트 매니저와 똑같은 구조죠. 서버가 살아있는 동안은 <code>yield</code> 지점에 "멈춰" 있다가, 종료 신호가 오면 그 아래 정리 코드가 실행됩니다.</p>
+    <p><code>yield</code>를 기준으로 <strong>위는 startup, 아래는 shutdown</strong>입니다. <code>async with</code> 컨텍스트 매니저와 똑같은 구조죠. 서버가 살아있는 동안은 <code>yield</code> 지점에 "멈춰" 있다가, 종료 신호가 오면 그 아래 정리 코드가 실행됩니다. 엔진 자체는 모듈이 import될 때 이미 만들어져 있으니 startup 자리에서 다시 만들 필요는 없고, Lesson 02에서는 이 자리에서 직접 리소스를 만드는 경우도 봅니다.</p>
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>@app.on_event("startup") 은 구식 — Lifespan을 써라.</strong> 예전 튜토리얼에 나오는 <code>@app.on_event("startup")</code> / <code>@app.on_event("shutdown")</code>은 <strong>deprecated</strong>입니다. 지금은 위처럼 <code>@asynccontextmanager</code> + <code>lifespan</code> 하나로 시작·종료를 같은 함수에 묶는 방식이 권장됩니다. 시작에서 만든 변수를 종료에서 그대로 쓸 수 있어 더 안전하고요.</div>
+      <div class="callout-body"><strong>@app.on_event("startup") 은 구식 — Lifespan을 써라.</strong> 예전 튜토리얼에 나오는 <code>@app.on_event("startup")</code> / <code>@app.on_event("shutdown")</code>은 <strong>deprecated</strong>입니다. 지금은 위처럼 <code>@asynccontextmanager</code> + <code>lifespan</code> 하나로 시작·종료를 같은 함수에 묶는 방식이 권장됩니다.</div>
     </div>
   </section>
 
@@ -303,24 +316,14 @@ app = FastAPI(lifespan=lifespan)</code></pre>
       <div class="section-icon icon-compare">📊</div>
       <h2>NestJS와 비교 — 애초에 고민할 필요가 없었던 이유</h2>
     </div>
-    <p>NestJS로 TypeORM이나 Prisma를 쓸 때 "이 드라이버가 동기인가 비동기인가"를 고민한 적 있으신가요? <strong>없을 겁니다.</strong> Node 생태계의 DB 드라이버는 <strong>전부 Promise 기반</strong>이라 <code>await</code> 말고는 쓸 방법이 아예 없거든요. 그래서 이번 강의의 함정이 NestJS 경험자에겐 오히려 낯섭니다.</p>
-    <p>파이썬은 다릅니다. 같은 PostgreSQL을 두고 <strong>동기 드라이버(<code>psycopg2</code>)와 비동기 드라이버(<code>asyncpg</code>)가 나란히 존재</strong>합니다. 둘 다 잘 돌아가고, 둘 다 에러도 안 납니다. 다만 <strong>동기를 고르면 처리량이 조용히 무너질 뿐</strong>이죠.</p>
-
-    <div class="callout callout-analogy">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 자동 변속기 vs 수동 변속기.</strong> NestJS는 <strong>자동 변속기</strong>입니다. 기어를 잘못 넣을 방법이 없어요. FastAPI는 <strong>수동 변속기</strong>입니다. 1단으로 고속도로를 달려도 차는 굴러갑니다 — 시끄럽고 느릴 뿐이죠. <code>postgresql://</code>(동기)로 연결해도 앱은 뜨고 API도 응답합니다. 부하가 걸리기 전까지는 아무도 모릅니다. 그래서 <strong>연결 URL 접두사를 확인하는 습관</strong>이 파이썬 백엔드에선 실력입니다.</div>
-    </div>
+    <p>NestJS에서 TypeORM이나 Prisma를 쓸 때 "이 드라이버가 동기인가 비동기인가"를 고민한 적은 없을 겁니다. Node의 DB 드라이버는 전부 Promise 기반이라 <code>await</code> 말고는 쓸 방법이 없거든요. 파이썬은 같은 PostgreSQL을 두고 동기 드라이버(<code>psycopg2</code>)와 비동기 드라이버(<code>asyncpg</code>)가 나란히 있어서, <strong>어느 쪽을 쓸지 우리가 골라야</strong> 합니다. 엔진을 앱당 하나만 두는 원칙도 Nest에서는 DI 컨테이너(싱글턴 프로바이더)가 대신 지켜 주지만, FastAPI에서는 모듈 최상단에서 한 번 만드는 습관으로 지킵니다(<a href="../week05-postgres-sqlalchemy/03-connection-pool-session.html#connection-pool">Week 5·03 커넥션 풀</a>).</p>
 
     <div class="compare-grid">
       <div class="compare-card">
         <div class="compare-card-header nest">NestJS — 종료 훅</div>
         <div class="code-block">
-          <pre><code class="language-typescript">@Injectable()
-export class Db implements
+          <pre><code class="language-typescript">export class Db implements
   OnModuleDestroy {
-  constructor(
-    private ds: DataSource,
-  ) {}
   async onModuleDestroy() {
     await this.ds.destroy();
   }
@@ -331,13 +334,9 @@ export class Db implements
       <div class="compare-card">
         <div class="compare-card-header fast">FastAPI — Lifespan</div>
         <div class="code-block">
-          <pre><code class="language-python">@asynccontextmanager
-async def lifespan(app):
-    # 시작 준비
+          <pre><code class="language-python">async def lifespan(app):
     yield          # 앱 실행 중
-    await engine.dispose()
-
-app = FastAPI(lifespan=lifespan)</code></pre>
+    await engine.dispose()</code></pre>
         </div>
         <p>함수 하나의 <code>yield</code> <strong>앞·뒤</strong>로 시작·종료를 나눈다.</p>
       </div>
@@ -347,19 +346,13 @@ app = FastAPI(lifespan=lifespan)</code></pre>
       <table>
         <thead><tr><th>NestJS</th><th>FastAPI (이번 강의)</th></tr></thead>
         <tbody>
-          <tr><td>TypeORM · Prisma (<strong>항상 비동기</strong>)</td><td><code>SQLAlchemy async</code> + <code>asyncpg</code> (<strong>골라야 함</strong>)</td></tr>
           <tr><td><code>DataSource</code> (커넥션 풀 보유)</td><td><code>create_async_engine</code> (커넥션 풀 보유)</td></tr>
-          <tr><td><code>Repository&lt;T&gt;</code> 를 생성자에 주입</td><td><code>AsyncSession</code> 을 <code>Depends</code> 로 주입</td></tr>
+          <tr><td><code>Repository&lt;T&gt;</code> 를 생성자에 주입</td><td><code>AsyncSession</code> 을 <code>Depends(get_db)</code> 로 주입</td></tr>
           <tr><td><code>OnModuleInit</code> / <code>OnApplicationBootstrap</code></td><td><code>lifespan</code> 의 <code>yield</code> <strong>이전</strong></td></tr>
           <tr><td><code>OnModuleDestroy</code> + <code>enableShutdownHooks()</code></td><td><code>lifespan</code> 의 <code>yield</code> <strong>이후</strong></td></tr>
           <tr><td><code>await dataSource.destroy()</code></td><td><code>await engine.dispose()</code></td></tr>
         </tbody>
       </table>
-    </div>
-
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>Nest의 DI 컨테이너 자리를 lifespan이 대신한다.</strong> NestJS에서는 <code>DataSource</code>가 <strong>싱글턴 프로바이더</strong>라, "앱당 하나"를 컨테이너가 알아서 보장해 줍니다. FastAPI에는 그런 컨테이너가 없으니, <strong>모듈 최상단에서 엔진을 한 번 만들고 lifespan에서 정리</strong>하는 것이 그 역할을 대신합니다. 요청마다 <code>create_async_engine</code>을 부르면 커넥션 풀이 요청 수만큼 생겨 DB가 먼저 쓰러집니다 — Nest에서라면 DI가 막아줬을 실수입니다.</div>
     </div>
   </section>
 
@@ -371,15 +364,15 @@ app = FastAPI(lifespan=lifespan)</code></pre>
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> async 엔드포인트에서 동기 DB 드라이버를 쓰면 뭐가 문제인가요?</summary>
-        <div class="qa-answer"><p>동기 DB 호출은 결과가 올 때까지 스레드를 블로킹합니다. 그 스레드가 곧 이벤트 루프이므로, DB가 응답하는 수십 ms 동안 <strong>다른 모든 요청이 멈춥니다</strong>. 비동기의 장점(대기 중 다른 일 처리)이 통째로 사라지죠. 그래서 <code>asyncpg</code> 같은 비동기 드라이버 + <code>await</code>가 필요합니다.</p></div>
+        <div class="qa-answer"><p>동기 드라이버는 결과를 기다리는 동안 <code>await</code>로 양보할 수 없어, 이벤트 루프가 그 한 요청에 붙잡혀 있습니다. 비동기 서버의 장점(대기 중 다른 일 처리)이 사라지는 것이죠. 그래서 <code>asyncpg</code> 같은 비동기 드라이버 + <code>await</code>가 필요합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 동기 코드를 비동기로 바꿀 때 await는 어디에 붙이나요?</summary>
-        <div class="qa-answer"><p><strong>DB와 실제로 통신하는 호출</strong>에만 붙입니다: <code>await session.execute(...)</code>, <code>await session.commit()</code>, <code>await session.refresh(...)</code>. 반면 <code>result.scalars().all()</code>처럼 이미 받은 결과를 가공하는 코드에는 <code>await</code>가 없습니다. 함수는 <code>async def</code>, 세션은 <code>async with</code>로 엽니다.</p></div>
+        <div class="qa-answer"><p>"이 줄에서 DB와 실제로 통신하나?"가 기준입니다. <code>execute</code>·<code>commit</code>·<code>refresh</code>에는 붙이고, 받아 둔 결과를 가공하는 <code>scalars().all()</code>에는 붙이지 않습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> Lifespan은 왜 쓰고, 거기서 engine.dispose()는 왜 하나요?</summary>
-        <div class="qa-answer"><p>Lifespan은 앱의 시작·종료 시점에 한 번씩 실행되는 코드 자리입니다. 엔진(커넥션 풀)은 앱 전체에서 하나만 두고 공유하는데, 서버가 꺼질 때 <code>await engine.dispose()</code>로 풀에 열린 연결들을 깔끔히 닫지 않으면 연결 누수가 생깁니다. <code>@asynccontextmanager</code>의 <code>yield</code> 이후가 종료 정리 자리입니다.</p></div>
+        <div class="qa-answer"><p>서버 시작·종료 때 한 번씩 할 일을 두는 자리라서입니다. 종료 때 <code>dispose()</code>로 풀의 연결을 닫지 않으면 DB 쪽에 연결이 매달린 채 남습니다(연결 누수).</p></div>
       </details>
     </div>
   </section>

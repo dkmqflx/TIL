@@ -89,10 +89,10 @@
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 카페 점원 한 명.</strong> <strong>동기 점원</strong>은 첫 손님의 라떼가 <em>완성될 때까지</em> 카운터에 서서 기다립니다. 에스프레소가 추출되는 30초 동안 뒷줄은 그냥 멈춰 있죠. <strong>비동기 점원</strong>은 라떼 주문을 받아 머신에 걸어두고(=I/O 시작), 추출되는 동안 <em>다음 손님 주문을 받습니다</em>. 머신이 "삐—" 울리면(=I/O 완료) 그때 음료를 건네죠. 점원은 한 명(단일 스레드)인데도 줄이 훨씬 빨리 줄어듭니다. 비결은 "<strong>기다리는 시간에 다른 일을 하는 것</strong>"입니다.</div>
+      <div class="callout-body"><strong>비유 — 카페 점원 한 명.</strong> <strong>동기 점원</strong>은 첫 손님의 라떼가 <em>완성될 때까지</em> 카운터에 서서 기다립니다. 에스프레소가 추출되는 30초 동안 뒷줄은 그냥 멈춰 있죠. <strong>비동기 점원</strong>은 라떼 주문을 받아 머신에 걸어두고(=I/O 시작), 추출되는 동안 <em>다음 손님 주문을 받습니다</em>. 머신이 "삐—" 울리면(=I/O 완료) 그때 음료를 건네죠. 점원은 한 명인데도 줄이 훨씬 빨리 줄어듭니다.</div>
     </div>
 
-    <p>여기서 핵심은 <strong>점원이 더 빨라진 게 아니라는 점</strong>입니다. 에스프레소 추출 시간 자체는 그대로입니다. 다만 그 <strong>대기 시간(I/O)</strong>을 놀리지 않고 다른 주문을 받는 데 썼을 뿐이죠. 비동기가 "일을 빨리 하는 게 아니라 기다림을 활용하는 것"이라는 말이 이 뜻입니다.</p>
+    <p>여기서 핵심은 <strong>점원이 더 빨라진 게 아니라는 점</strong>입니다. 에스프레소 추출 시간 자체는 그대로예요. 다만 그 <strong>대기 시간(I/O)</strong>을 놀리지 않고 다른 주문을 받는 데 썼을 뿐이죠.</p>
   </section>
 
   <section class="section" id="concurrency-parallelism">
@@ -112,20 +112,7 @@
       </table>
     </div>
 
-    <p>비동기(asyncio)는 <strong>동시성</strong>을 단일 스레드로 구현하는 기법입니다. 한 명이 빠르게 번갈아 일할 뿐, 실제로 두 코드가 같은 순간에 도는 건 아닙니다. 반면 <strong>병렬성</strong>은 코어가 여러 개 필요하고, 파이썬에선 멀티프로세스로 얻습니다(Lesson 3).</p>
-
-    <div class="callout callout-note">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>파이썬의 GIL — 점원(스레드)을 여러 명 둬도 왜 CPU 계산은 빨라지지 않을까?</strong>
-        <p style="margin:.5em 0 .3em">CPython에는 <strong>GIL(Global Interpreter Lock)</strong>이라는 규칙이 있습니다. 어렵게 들리지만 핵심은 한 문장이에요 — <strong>"파이썬 코드는 반드시 '계산대'를 거쳐야 처리되는데, 그 계산대가 매장에 딱 하나뿐"</strong>이라는 뜻입니다.</p>
-        <p style="margin:.3em 0"><strong>비유.</strong> 점원(스레드)이 열 명 있어도 <strong>계산대가 하나</strong>면, 실제로 일을 '처리 완료'하는 건 <em>한 번에 한 명</em>뿐입니다. 나머지 점원은 계산대가 빌 때까지 기다려야 하죠.</p>
-        <ul style="margin:.3em 0">
-          <li><strong>CPU 작업</strong>(머릿속으로 긴 계산을 하는 일)은 계산대를 <em>계속 붙잡고</em> 있어야 합니다. 그래서 점원을 아무리 늘려도 결국 한 명씩 순서대로 → <strong>진짜 병렬이 안 됩니다.</strong></li>
-          <li><strong>I/O 작업</strong>(에스프레소 추출을 기다리는 일)은 기다리는 동안 계산대를 <em>잠깐 비워줍니다.</em> 그 틈에 다른 점원이 계산대를 쓸 수 있으니 → <strong>I/O는 여러 개를 겹쳐서 처리할 수 있어요.</strong></li>
-        </ul>
-        <p style="margin:.3em 0 0">그래서 <strong>진짜 CPU 병렬</strong>이 필요하면, 계산대를 아예 여러 개 두는 길 — 즉 스레드가 아니라 <strong>프로세스를 늘려야</strong> 합니다(프로세스마다 계산대가 따로 생기니까요).</p>
-      </div>
-    </div>
+    <p>비동기(asyncio)는 <strong>동시성</strong>을 점원 한 명으로 구현하는 기법입니다. 한 명이 빠르게 번갈아 일할 뿐, 실제로 두 코드가 같은 순간에 도는 건 아닙니다. 반면 <strong>병렬성</strong>은 일꾼(코어)이 여러 개 필요하고, 파이썬에선 멀티프로세스로 얻습니다. 파이썬은 점원(스레드)을 여러 명 둬도 CPU 계산이 빨라지지 않는데, 왜 그런지는 <a href="03-multiprocess-uvicorn-starlette.html#single-process">Lesson 03(GIL)</a>에서 설명합니다.</p>
   </section>
 
   <section class="section" id="multitasking-compare">
@@ -133,21 +120,12 @@
       <div class="section-icon icon-compare">📊</div>
       <h2>멀티태스킹 3방식 비교</h2>
     </div>
-    <p>"여러 일을 한꺼번에 처리"한다는 건 결국 <strong>일꾼을 어떻게 배치하느냐</strong>의 문제입니다. 앞에서 본 <strong>카페</strong>로 계속 비유해볼게요. 손님이 밀려들 때 카페가 택할 수 있는 길은 크게 <strong>세 가지</strong>입니다.</p>
+    <p>"여러 일을 한꺼번에 처리"한다는 건 결국 <strong>일꾼을 어떻게 배치하느냐</strong>의 문제입니다. 손님이 밀려들 때 카페가 택할 수 있는 길은 세 가지예요 — ① <strong>지점을 여러 개 낸다</strong>(멀티프로세스), ② <strong>한 지점에 점원을 여러 명 둔다</strong>(멀티스레드), ③ <strong>점원 한 명이 요령껏 번갈아 일한다</strong>(비동기, 앞 절의 점원 그대로). 셋 중 무엇을 고를지는 딱 한 가지 질문에 달려 있습니다 — <strong>"기다림이 많은 일(I/O 바운드)이냐, 머리 쓰는 일(CPU 바운드)이냐?"</strong> 기다림이 대부분이면 ②·③, 계산이 무거우면 ①이 정답입니다.</p>
 
-    <div class="callout callout-analogy">
+    <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body">
-        <strong>비유 — 밀려드는 손님, 카페의 세 가지 선택.</strong>
-        <p style="margin:.6em 0 .3em"><strong>① 지점을 여러 개 낸다 = 멀티프로세스.</strong> 옆 건물에 똑같은 카페를 몇 곳 더 엽니다. 각 지점은 <em>주방·창고·점원이 완전히 따로</em>라 여러 곳이 <strong>정말 같은 순간에</strong> 음료를 만듭니다(= 진짜 병렬, 여러 코어 활용). 대신 지점을 하나 낼 때마다 임대료·집기가 통째로 드니(= 메모리 많이 씀) 비싸고, 지점끼리 재료를 나눠 쓰려면 택배로 주고받아야 합니다(= 프로세스 간 통신 비쌈).</p>
-        <p style="margin:.3em 0"><strong>② 한 지점에 점원을 여러 명 둔다 = 멀티스레드.</strong> 주방·창고를 <em>다 같이 공유</em>하니 자리(메모리)는 아낍니다. 문제는 계산대(금전등록기)가 <strong>딱 하나뿐</strong>이라, '계산' 같은 순수 머리 쓰는 일은 <strong>한 번에 한 명만</strong> 할 수 있다는 것 — 이게 파이썬의 <strong>GIL</strong>입니다. 그래도 한 점원이 에스프레소 추출을 <em>기다리는 동안</em> 다른 점원이 계산대를 쓸 수 있어, 기다림(I/O)이 많은 일엔 도움이 됩니다. 단, 여러 명이 같은 재료통에 동시에 손대면 뒤섞여 사고가 날 수 있죠(= 경쟁 상태 race).</p>
-        <p style="margin:.3em 0 0"><strong>③ 점원 한 명이 요령껏 번갈아 = 비동기.</strong> 사람을 <em>안 늘리고</em>, 그 한 명이 "머신 걸어두고 → 다음 주문 받고 → 삐 울리면 건네고"를 재빠르게 반복합니다(앞 절의 비동기 점원 그대로). 사람을 안 늘리니 인건비·자리(오버헤드)가 거의 안 들고, 손님이 수천 명 줄 서도 잘 버팁니다. 단, 이 한 명이 '반죽을 10분간 치대는' 손 못 떼는 일(= CPU 작업)을 시작하면 그동안 <strong>줄 전체가 멈춥니다</strong>.</p>
-      </div>
+      <div class="callout-body"><strong>용어는 비유로만 잡고 넘어가세요.</strong> 아래 표에 <strong>프로세스·스레드·코어</strong>라는 단어가 나오는데, 지금은 <strong>지점 = 프로세스, 점원 = 스레드, 커피 머신 = 코어</strong> 정도로만 이해해도 충분합니다. 정확한 용어 정리는 <a href="03-multiprocess-uvicorn-starlette.html#process-thread">Lesson 03 첫 섹션</a>에서 합니다.</div>
     </div>
-
-    <p>정리하면 <strong>지점 = 프로세스</strong>, <strong>점원 = 스레드</strong>, <strong>한 점원의 요령 = 코루틴 + 이벤트 루프</strong>입니다. 그리고 셋 중 무엇을 고를지는 딱 한 가지 질문에 달려 있어요 — <strong>"기다림이 많은 일(I/O 바운드)이냐, 머리 쓰는 일(CPU 바운드)이냐?"</strong> 기다림이 대부분이면 ②·③, 계산이 무거우면 ①이 정답입니다.</p>
-
-    <p>같은 내용을 한눈에 정리하면 다음과 같습니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -155,30 +133,30 @@
         <tbody>
           <tr>
             <td><b>멀티프로세스</b><br><span style="color:var(--text-muted);font-weight:400">🏬 지점 여러 곳</span></td>
-            <td>독립된 프로세스 여러 개<br>(각자 메모리·인터프리터)</td>
+            <td>독립된 프로세스 여러 개<br>(주방·창고 = 메모리가 각자 따로)</td>
             <td>진짜 병렬(여러 코어 활용)<br>GIL 영향 없음</td>
-            <td>메모리 많이 씀<br>프로세스 간 통신 비쌈</td>
+            <td>지점마다 집기가 통째로 드니 메모리 많이 씀<br>지점끼리 재료 나누기 어려움(프로세스 간 통신 비쌈)</td>
             <td><b>CPU 바운드</b><br>(이미지 처리, 계산)</td>
           </tr>
           <tr>
             <td><b>멀티스레드</b><br><span style="color:var(--text-muted);font-weight:400">👥 점원 여러 명</span></td>
-            <td>한 프로세스 안 스레드 여러 개<br>(메모리 공유)</td>
-            <td>메모리 적게 씀<br>I/O 대기 시 다른 스레드 진행</td>
-            <td>GIL로 CPU 병렬 불가<br>경쟁 상태(race) 위험</td>
+            <td>한 프로세스 안 스레드 여러 개<br>(주방·창고 = 메모리를 같이 씀)</td>
+            <td>메모리 적게 씀<br>한 점원이 기다리는 동안 다른 점원이 진행</td>
+            <td>GIL로 CPU 병렬 불가<br>같은 재료통에 동시에 손대면 사고(경쟁 상태 race)</td>
             <td>I/O 바운드<br>(동기 라이브러리 사용 시)</td>
           </tr>
           <tr>
             <td><b>비동기</b><br><span style="color:var(--text-muted);font-weight:400">🙋 점원 한 명 요령껏</span></td>
             <td>스레드 1개<br>+ 코루틴 + 이벤트 루프</td>
-            <td>스레드/메모리 오버헤드 최소<br>수천 동시 연결에 강함</td>
-            <td>코드 전체가 async여야 효과<br>CPU 작업 한 개가 전체를 막음</td>
+            <td>사람을 안 늘리니 오버헤드 최소<br>수천 동시 연결에 강함</td>
+            <td>코드 전체가 async여야 효과<br>손 못 떼는 CPU 작업 하나가 줄 전체를 막음</td>
             <td><b>I/O 바운드</b><br>(DB·HTTP 대기)</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <p>세 방식은 <strong>배타적이지 않습니다</strong>. 실무 FastAPI 배포는 흔히 "<strong>비동기(I/O 동시성)</strong> + <strong>멀티프로세스 워커(CPU 활용)</strong>"를 함께 씁니다. 이 조합은 Lesson 3에서 자세히 다룹니다.</p>
+    <p>세 방식은 <strong>배타적이지 않습니다</strong>. 실무 FastAPI 배포는 흔히 "<strong>비동기</strong>(I/O 동시성) + <strong>워커 프로세스 여러 개</strong>(멀티프로세스, CPU 활용)"를 함께 씁니다. 이 조합은 <a href="03-multiprocess-uvicorn-starlette.html#multiprocess-workers">Lesson 03</a>에서 자세히 다룹니다.</p>
   </section>
 
   <section class="section" id="event-loop">
@@ -198,6 +176,8 @@
         </tbody>
       </table>
     </div>
+
+    <p>"호출해도 바로 실행되지 않는다"는 게 무슨 뜻일까요? 예를 들어 <code>get_user(1)</code>이라고만 쓰고 <code>await</code>를 붙이지 않으면, 함수 본문은 <strong>한 줄도 실행되지 않고</strong> "나중에 실행할 계획서"(코루틴 객체)만 손에 쥐게 됩니다. <code>await get_user(1)</code>이라고 써야 비로소 본문이 돌고 결과가 나옵니다. (이걸 빠뜨리면 결과 대신 <code>&lt;coroutine object ...&gt;</code>가 찍히는 게 초보자가 가장 자주 만나는 실수예요.)</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -274,7 +254,7 @@
       <div class="section-icon icon-update">💡</div>
       <h2>비동기는 I/O 바운드에서 빛난다</h2>
     </div>
-    <p>마지막으로 가장 중요한 한 줄입니다. 비동기의 이득은 <strong>"기다림(I/O)"을 다른 일로 메우는 것</strong>에서 나옵니다.</p>
+    <p>그래서 비동기의 효과는 <strong>그 작업에 기다림이 얼마나 있느냐</strong>에 따라 갈립니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -288,7 +268,7 @@
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>CPU 작업은 이벤트 루프를 통째로 멈춘다.</strong> 무거운 계산(예: 큰 행렬 곱)을 <code>async def</code> 안에서 그냥 돌리면, 그 코드는 <code>await</code> 양보 없이 CPU를 붙잡습니다. 그 사이 <strong>모든 다른 요청이 멈춥니다</strong>. CPU 바운드는 비동기가 아니라 <strong>멀티프로세스</strong>(또는 워커 스레드 오프로딩)로 풀어야 합니다. 다음 Lesson에서 이 "블로킹 함정"을 정면으로 다룹니다.</div>
+      <div class="callout-body"><strong>CPU 작업은 이벤트 루프를 통째로 멈춘다.</strong> 무거운 계산(예: 큰 행렬 곱)을 <code>async def</code> 안에서 그냥 돌리면, 그 코드는 <code>await</code> 양보 없이 CPU를 붙잡아 <strong>다른 모든 요청이 함께 멈춥니다</strong>. CPU 바운드는 <strong>멀티프로세스</strong>(Lesson 03)나 별도의 워커 스레드(Lesson 02의 threadpool)로 풀어야 합니다. 이 "블로킹 함정"은 <a href="02-async-await-threadpool.html#blocking-trap">다음 Lesson</a>에서 정면으로 다룹니다.</div>
     </div>
   </section>
 
@@ -300,7 +280,7 @@
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> "비동기가 더 빠르다"는 말은 왜 부정확한가요?</summary>
-        <div class="qa-answer"><p>개별 작업의 실행 시간 자체를 줄이는 게 아니기 때문입니다. 비동기는 I/O를 <strong>기다리는 동안</strong> 다른 작업을 처리해 전체 처리량(throughput)을 높입니다. 기다림이 없는 순수 CPU 작업은 비동기로도 빨라지지 않습니다.</p></div>
+        <div class="qa-answer"><p>개별 작업의 실행 시간 자체를 줄이는 게 아니기 때문입니다. 비동기는 I/O를 <strong>기다리는 동안</strong> 다른 작업을 처리해 전체 처리량(throughput — 같은 시간에 처리하는 요청 수)을 높입니다. 기다림이 없는 순수 CPU 작업은 비동기로도 빨라지지 않습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 동시성과 병렬성의 차이를 한마디로?</summary>
@@ -308,7 +288,7 @@
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 이벤트 루프는 코루틴을 언제 다른 것으로 갈아타나요?</summary>
-        <div class="qa-answer"><p>코루틴이 <code>await</code>를 만나 제어권을 양보하는 순간입니다. 그 틈에 루프는 준비 큐의 다른 코루틴을 실행하고, 원래 코루틴의 I/O가 끝나면 멈췄던 지점부터 재개합니다. <code>await</code>가 없으면 양보가 일어나지 않아 동시성이 생기지 않습니다.</p></div>
+        <div class="qa-answer"><p>코루틴이 <code>await</code>를 만나 제어권을 양보하는 순간뿐입니다. 그 틈에 루프는 준비 큐의 다른 코루틴을 실행하고, 원래 코루틴의 I/O가 끝나면 멈췄던 지점부터 재개합니다.</p></div>
       </details>
     </div>
   </section>

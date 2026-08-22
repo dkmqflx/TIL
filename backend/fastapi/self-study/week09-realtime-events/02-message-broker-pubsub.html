@@ -56,7 +56,7 @@
       <div class="nav-lesson-title">03 · 동기/비동기 성능 테스트 &amp; 개선</div>
       <a class="nav-item" href="03-performance-test.html#why-measure">📏 왜 측정하는가 — 감이 아니라 숫자</a>
       <a class="nav-item" href="03-performance-test.html#load-test-tools">🛠️ 부하 테스트 도구 — locust · wrk · ab</a>
-      <a class="nav-item" href="03-performance-test.html#sync-vs-async">🔀 sync def vs async def — 정확히 무슨 일이 일어나나</a>
+      <a class="nav-item" href="03-performance-test.html#sync-vs-async">🔀 sync def vs async def — 처리량에 어떻게 나타나나</a>
       <a class="nav-item" href="03-performance-test.html#async-demo">🚀 데모 — I/O 바운드에서 async의 효과</a>
       <a class="nav-item" href="03-performance-test.html#bottlenecks">🐌 흔한 병목 &amp; 개선</a>
       <a class="nav-item" href="03-performance-test.html#nestjs-compare">📊 NestJS 비교</a>
@@ -73,14 +73,14 @@
     <p class="lesson-subtitle">서비스끼리 직접 함수를 호출하면 단단히 묶입니다(결합). <strong>이벤트를 발행</strong>하고 관심 있는 쪽이 <strong>구독</strong>하게 만들면, 서로를 몰라도 협력할 수 있습니다. 그 중계소가 <strong>메시지 브로커</strong>입니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> 브로커는 <b>방송국</b>이다. 발행자(publisher)는 "누가 듣는지" 모른 채 채널에 방송하고, 구독자(subscriber)는 관심 채널만 골라 듣는다. 서로를 직접 호출하지 않으니 <b>결합이 풀리고(디커플링)</b>, 비동기로 흘러간다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> 브로커는 발행자(publisher)와 구독자(subscriber) 사이의 <b>중계소</b>다. 발행자는 채널에 메시지를 던지고, 구독자는 관심 채널만 골라 받는다. 둘이 서로를 직접 호출하지 않으니 <b>결합이 풀리고(디커플링)</b> 비동기로 흘러간다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
     <li>동기 직접 호출과 이벤트 발행의 차이, 그리고 디커플링의 의미를 안다</li>
     <li>메시지 브로커가 왜 비동기·버퍼링·결합도 측면에서 유리한지 설명한다</li>
-    <li>Redis Pub/Sub의 publish / subscribe 기본 흐름을 작성한다</li>
-    <li>WebSocket과 결합해 여러 서버 인스턴스 간 broadcast(스케일아웃)를 구현한다</li>
+    <li>Redis를 띄우고 Redis Pub/Sub의 publish / subscribe 기본 흐름을 작성한다</li>
+    <li>WebSocket과 결합해 여러 서버 인스턴스 간 broadcast(스케일아웃)를 구현하고, 구독 루프를 lifespan에서 띄운다</li>
   </ul>
 
   <section class="section" id="event-driven">
@@ -101,19 +101,19 @@
     </div>
 
     <p>문제는 두 가지입니다. 주문 서비스가 <strong>세 서비스를 전부 알아야</strong> 하고(강결합), 하나라도 느리거나 죽으면 <strong>주문 응답이 통째로 지연/실패</strong>합니다. 새 구독자(예: "배송 예측")를 추가하려면 주문 코드를 또 고쳐야 하죠.</p>
-    <p><strong>이벤트 발행</strong> 방식은 주문 서비스가 그냥 <code>"order.created"</code> 이벤트 하나만 브로커에 던집니다. 누가 듣는지는 모릅니다. 재고·알림·통계는 각자 그 이벤트를 <strong>구독</strong>해 알아서 처리합니다.</p>
+    <p><strong>이벤트 발행</strong> 방식은 주문 서비스가 그냥 <code>"order.created"</code> 이벤트 하나만 브로커에 던집니다. 누가 듣는지는 모르고, 알 필요도 없습니다. 재고·알림·통계는 각자 그 이벤트를 <strong>구독</strong>해 알아서 처리합니다. 아래 <code>broker</code>는 설명용 가상 객체이고, 실제 Redis에서는 3절의 <code>r.publish</code>가 그 자리에 들어갑니다.</p>
 
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">order_service.py — 이벤트 발행 (느슨한 결합)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">order_service.py — 이벤트 발행 (느슨한 결합, 개념 코드)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">def create_order(order):
     save(order)
-    broker.publish("order.created", order)  # 던지고 끝. 누가 듣든 모름
+    broker.publish("order.created", order)  # 던지고 끝
     # 구독자가 몇이든, 추가/제거돼도 이 코드는 안 바뀐다.</code></pre>
     </div>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 방송국 / 우체국.</strong> 브로커는 <strong>방송국</strong>입니다. DJ(발행자)는 "지금 몇 명이 듣고 있는지" 모르고 그냥 채널로 방송합니다. 청취자(구독자)는 자기가 관심 있는 주파수(채널)만 맞춰 듣습니다. DJ와 청취자는 서로를 직접 알 필요가 없죠. <strong>우체국</strong>으로 봐도 좋습니다. 편지를 우체통(채널)에 넣으면, 그 주소를 구독한 사람이 받습니다. 보내는 사람은 받는 사람의 사정을 신경 쓰지 않습니다.</div>
+      <div class="callout-body"><strong>비유 — 방송국.</strong> 브로커는 방송국입니다. DJ(발행자)는 청취자가 몇 명인지 모른 채 자기 채널로 방송하고, 청취자(구독자)는 관심 있는 주파수(채널)만 맞춰 듣습니다. DJ와 청취자는 서로를 직접 알 필요가 없고, 청취자가 한 명 늘거나 줄어도 방송은 그대로입니다.</div>
     </div>
   </section>
 
@@ -127,8 +127,8 @@
         <thead><tr><th>이득</th><th>의미</th></tr></thead>
         <tbody>
           <tr><td><strong>비동기</strong></td><td>발행자는 처리 완료를 기다리지 않는다. 주문 응답이 알림 발송 속도에 묶이지 않음</td></tr>
-          <tr><td><strong>버퍼링</strong></td><td>구독자가 잠깐 느리거나 트래픽이 몰려도, 브로커가 메시지를 받아 흘려보낸다(완충)</td></tr>
-          <tr><td><strong>디커플링</strong></td><td>발행자와 구독자가 서로를 몰라도 된다. 구독자를 자유롭게 추가/제거</td></tr>
+          <tr><td><strong>버퍼링</strong></td><td>트래픽이 몰려도 브로커가 메시지를 쌓아 두었다가 구독자 속도에 맞춰 흘려보낸다(완충). 단, 이건 <strong>큐 계열 브로커</strong>(RabbitMQ 등)의 이득이고, 이번에 쓸 Redis Pub/Sub은 쌓아 두지 않는다(5절)</td></tr>
+          <tr><td><strong>디커플링</strong></td><td>발행자 코드를 건드리지 않고 구독자를 자유롭게 추가/제거</td></tr>
         </tbody>
       </table>
     </div>
@@ -163,7 +163,7 @@
           <marker id="pb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
         </defs>
       </svg>
-      <div class="diagram-caption">하나의 발행이 채널을 거쳐 구독한 모든 서비스로 퍼진다. 발행자는 구독자를 알지 못한다.</div>
+      <div class="diagram-caption">하나의 발행이 채널을 거쳐 구독한 모든 서비스로 퍼진다.</div>
     </div>
   </section>
 
@@ -172,12 +172,18 @@
       <div class="section-icon icon-setup">📡</div>
       <h2>Redis Pub/Sub — 가장 쉬운 시작</h2>
     </div>
-    <p>Redis는 인메모리 데이터 저장소이자 가벼운 메시지 브로커입니다. <code>publish(channel, msg)</code>로 채널에 메시지를 던지고, <code>subscribe(channel)</code>로 채널을 구독합니다. FastAPI(비동기)에서는 <strong>비동기 클라이언트</strong>인 <code>redis.asyncio</code>를 씁니다.</p>
+    <p>Redis는 <a href="../week08-auth/02-dependency-auth-redis.html#redis">Week 8에서 토큰 저장에 썼던</a> 그 인메모리 저장소인데, 가벼운 메시지 브로커 기능도 함께 들어 있습니다. <code>publish(channel, msg)</code>로 채널에 메시지를 던지고, <code>subscribe(channel)</code>로 채널을 구독합니다. 아직 Redis가 안 떠 있다면 <a href="../week05-postgres-sqlalchemy/01-docker-postgres-connection.html#compose-file">Week 5·01의 compose</a>에 서비스 하나를 보태거나, 일회용으로 <code>docker run</code> 한 줄이면 됩니다.</p>
 
-    <div class="callout callout-note">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>redis.asyncio를 쓰세요 (옛 aioredis 아님).</strong> 예전엔 <code>aioredis</code>라는 별도 패키지를 썼지만, 지금은 <strong>redis-py에 흡수</strong>되어 <code>import redis.asyncio as redis</code>가 표준입니다. 옛 튜토리얼에서 <code>aioredis</code>를 보면 구버전입니다. 설치는 <code>uv add redis</code> 하나면 됩니다.</div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><span class="code-filename">docker-compose.yml — redis 서비스 추가 (또는 terminal 한 줄)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-yaml">services:
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+# compose 없이 바로: docker run -d -p 6379:6379 redis:7</code></pre>
     </div>
+
+    <p>FastAPI는 비동기이므로 <strong>비동기 클라이언트</strong>인 <code>redis.asyncio</code>를 씁니다(설치: <code>uv add redis</code>). 예전 튜토리얼에 보이는 <code>aioredis</code>는 지금은 redis-py 안으로 흡수된 구버전 이름입니다. <code>redis.from_url("redis://호스트:포트")</code>로 연결 객체를 만들고, 구독할 때는 <code>r.pubsub()</code>로 구독 전용 객체를 하나 꺼내 씁니다. 구독은 연결 하나를 계속 점유하는 동작이라 일반 명령과 분리해 두는 구조입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><span class="code-filename">publisher — 발행</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -195,7 +201,7 @@ async def publish_message(text: str):
     pubsub = r.pubsub()
     await pubsub.subscribe("chat")          # "chat" 채널 구독
     async for message in pubsub.listen():
-        if message["type"] == "message":    # 실제 메시지만 (구독 확인 신호 제외)
+        if message["type"] == "message":    # 실제 메시지만
             data = message["data"].decode()
             print("받음:", data)</code></pre>
     </div>
@@ -211,31 +217,44 @@ async def publish_message(text: str):
       <div class="section-icon icon-pattern">🌐</div>
       <h2>WebSocket × Redis — 여러 서버로 스케일아웃</h2>
     </div>
-    <p>지난 강의의 마지막 경고를 기억하시나요? <code>ConnectionManager.active</code>는 <strong>한 프로세스 메모리</strong>에만 있어서, 서버를 여러 대 띄우면 A 서버 사용자와 B 서버 사용자가 서로 못 봅니다. Redis Pub/Sub이 이 벽을 허뭅니다.</p>
-    <p>핵심 아이디어: <strong>채팅 메시지를 직접 broadcast하지 말고, Redis 채널에 publish한다.</strong> 모든 서버 인스턴스는 같은 Redis 채널을 구독하고 있다가, 메시지가 오면 <strong>자기에게 붙은 WebSocket들에게만</strong> 뿌린다. 그러면 어느 서버에 붙었든 모두가 같은 메시지를 받습니다.</p>
+    <p><a href="01-websocket.html#chat-example">지난 강의 끝</a>에서 본 문제, 즉 <code>manager.active</code>가 한 서버 프로세스의 메모리에만 있어 서버를 여러 대 띄우면 서로의 메시지를 못 받는 문제를 Redis Pub/Sub이 풉니다.</p>
+    <p>핵심 아이디어: <strong>채팅 메시지를 직접 broadcast하지 말고, Redis 채널에 publish한다.</strong> 모든 서버 인스턴스는 같은 Redis 채널을 구독하고 있다가, 메시지가 오면 <strong>자기에게 붙은 WebSocket들에게만</strong> 뿌린다. 그러면 어느 서버에 붙었든 모두가 같은 메시지를 받습니다. 코드는 세 토막입니다. 지난 강의의 <code>ConnectionManager</code>(<code>manager</code>)와 위에서 만든 <code>r</code>을 그대로 씁니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><span class="code-filename">main.py — 다중 서버 채팅</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python"># 1) 클라이언트 메시지 → Redis 채널로 발행 (직접 broadcast 안 함)
-@app.websocket("/ws/chat")
-async def chat(ws: WebSocket):
-    await ws.accept()
-    manager.active.append(ws)
-    try:
-        while True:
-            text = await ws.receive_text()
-            await r.publish("chat", text)   # Redis로!
-    except WebSocketDisconnect:
-        manager.active.remove(ws)
+      <pre><code class="language-python">import asyncio
+from contextlib import asynccontextmanager
 
-# 2) 서버 시작 시: Redis 구독 → 받은 메시지를 내 소켓들에 broadcast
+# 1) Redis 구독 → 받은 메시지를 "이 서버"에 붙은 소켓들에게 broadcast
 async def redis_to_clients():
     pubsub = r.pubsub()
     await pubsub.subscribe("chat")
     async for msg in pubsub.listen():
         if msg["type"] == "message":
-            await manager.broadcast(msg["data"].decode())</code></pre>
+            await manager.broadcast(msg["data"].decode())
+
+# 2) 서버가 뜰 때 구독 루프를 백그라운드 태스크로 띄운다
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(redis_to_clients())  # 옆에서 계속 돌게
+    yield                                           # ← 서버가 요청을 받는 구간
+    task.cancel()                                   # 종료 시 정리
+
+app = FastAPI(lifespan=lifespan)
+
+# 3) 클라이언트 메시지 → 직접 broadcast 대신 Redis 채널로 발행
+@app.websocket("/ws/chat")
+async def chat(ws: WebSocket):
+    await manager.connect(ws)
+    try:
+        while True:
+            text = await ws.receive_text()
+            await r.publish("chat", text)   # Redis로!
+    except WebSocketDisconnect:
+        manager.disconnect(ws)</code></pre>
     </div>
+
+    <p>②가 초보자에게 가장 낯선 부분입니다. <code>redis_to_clients()</code>는 <code>async for</code>로 영원히 끝나지 않는 루프라서, 그냥 <code>await</code>하면 서버 시작이 거기서 멈춰 버립니다. 그래서 <code>asyncio.create_task()</code>로 "이벤트 루프 옆에서 알아서 돌아라" 하고 띄워 두고 바로 다음 줄로 넘어갑니다. 이 일을 서버 시작 시 딱 한 번 하라고 <a href="../week07-async-db-external/01-async-db-asyncpg.html#lifespan">Week 7·01에서 본 lifespan</a> 안에 넣는 것입니다.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 660 220" role="img" aria-label="WebSocket과 Redis로 여러 서버 인스턴스 간 메시지 공유">
@@ -272,16 +291,16 @@ async def redis_to_clients():
       <table>
         <thead><tr><th>도구</th><th>특징</th><th>적합한 곳</th></tr></thead>
         <tbody>
-          <tr><td><strong>Redis Pub/Sub</strong></td><td>가볍고 빠름 · 보존 안 함</td><td>실시간 알림·채팅 fan-out</td></tr>
-          <tr><td><strong>RabbitMQ</strong></td><td>큐·ACK·재시도·라우팅 풍부</td><td>작업 처리 보장이 중요한 비동기 작업</td></tr>
-          <tr><td><strong>Kafka</strong></td><td>로그 보존·대용량 스트림·재처리</td><td>이벤트 스트리밍·데이터 파이프라인</td></tr>
+          <tr><td><strong>Redis Pub/Sub</strong></td><td>가볍고 빠름 · 보존 안 함</td><td>실시간 알림·채팅처럼 한 메시지를 여럿에게 퍼뜨리기(fan-out)</td></tr>
+          <tr><td><strong>RabbitMQ</strong></td><td>큐 · ACK(구독자가 "잘 받았다"고 답해야 큐에서 지움) · 재시도 · 라우팅(조건에 따라 다른 큐로 배달)</td><td>작업 처리 보장이 중요한 비동기 작업</td></tr>
+          <tr><td><strong>Kafka</strong></td><td>메시지를 로그처럼 오래 남겨 둠 · 대용량 · 옛 메시지부터 다시 읽기(재처리) 가능</td><td>이벤트 스트리밍·데이터 파이프라인</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>유실되면 안 되는 메시지라면.</strong> "알림이 한 번쯤 빠져도 괜찮다"면 Pub/Sub으로 충분합니다. 하지만 "결제 처리 이벤트는 절대 잃으면 안 된다"면 <strong>보존·ACK·재시도</strong>를 제공하는 RabbitMQ나 Kafka, 혹은 Redis Streams를 고려하세요. 메시지의 <strong>유실 허용 여부</strong>가 도구 선택의 첫 갈림길입니다.</div>
+      <div class="callout-body"><strong>도구 선택의 첫 질문은 "잃어도 되는가".</strong> 알림이 한 번쯤 빠져도 괜찮다면 Pub/Sub으로 충분하고, 결제 이벤트처럼 절대 잃으면 안 된다면 보존·ACK·재시도가 있는 RabbitMQ·Kafka, 또는 Redis Streams(메시지를 로그처럼 남겨 두는 Redis의 다른 기능)를 고릅니다.</div>
     </div>
   </section>
 
@@ -290,8 +309,7 @@ async def redis_to_clients():
       <div class="section-icon icon-compare">📊</div>
       <h2>NestJS와 비교 — Microservices 트랜스포트</h2>
     </div>
-    <p>NestJS에도 이 이야기가 통째로 있습니다. 이름이 <strong><code>@nestjs/microservices</code></strong>였죠. <code>client.emit('order.created', order)</code>로 이벤트를 던지고, 받는 쪽은 <code>@EventPattern('order.created')</code> 데코레이터만 붙이면 끝이었습니다. 구독 루프를 돌거나 <code>message["type"]</code>을 검사하는 코드는 <strong>한 줄도 쓰지 않았습니다.</strong></p>
-    <p>Nest가 그 사이에 <strong>트랜스포트(transport)라는 얇은 껍데기</strong>를 한 겹 씌워줬기 때문입니다. 설정에서 <code>Transport.REDIS</code>를 <code>Transport.KAFKA</code>로 바꾸면, <strong>데코레이터는 그대로 둔 채 브로커만 갈아끼울 수</strong> 있었습니다.</p>
+    <p>NestJS에서는 이 이야기가 <strong><code>@nestjs/microservices</code></strong>라는 이름으로 있었습니다. <code>client.emit('order.created', order)</code>로 던지고, 받는 쪽은 <code>@EventPattern('order.created')</code>만 붙이면 끝이라 구독 루프나 <code>message["type"]</code> 검사는 한 줄도 쓰지 않았죠. Nest가 <strong>트랜스포트(transport)라는 얇은 껍데기</strong>로 그 루프를 감싸 준 것이고, 그 덕에 설정의 <code>Transport.REDIS</code>를 <code>KAFKA</code>로 바꾸는 것만으로 브로커를 갈아끼울 수 있었습니다. 이번 강의에서 손으로 쓴 코드가 바로 그 껍데기 안쪽입니다.</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -334,23 +352,18 @@ async for m in ps.listen():
         <tbody>
           <tr><td><code>ClientProxy.emit()</code> — 이벤트 발행</td><td><code>await r.publish(channel, msg)</code></td></tr>
           <tr><td><code>@EventPattern('x')</code> — 구독 핸들러</td><td><code>pubsub.listen()</code> 루프 + <code>type == "message"</code> 검사</td></tr>
-          <tr><td><code>ClientProxy.send()</code> — 요청/응답(RPC)</td><td>대응 기능 없음 — 필요하면 직접 설계</td></tr>
           <tr><td>페이로드 JSON 직렬화 <strong>자동</strong></td><td><code>json.dumps</code> / <code>json.loads</code> <strong>직접</strong></td></tr>
-          <tr><td><code>Transport.REDIS</code> ↔ <code>RMQ</code> ↔ <code>KAFKA</code> 옵션 교체</td><td>라이브러리 교체 (<code>redis.asyncio</code> / <code>aio-pika</code> / <code>aiokafka</code>)</td></tr>
-          <tr><td><code>@nestjs/event-emitter</code> (프로세스 내부 이벤트)</td><td>그냥 함수 호출 또는 <code>BackgroundTasks</code></td></tr>
-          <tr><td>WebSocket 다중 서버 = <code>@socket.io/redis-adapter</code></td><td>이번 강의의 <code>redis_to_clients()</code> — <strong>같은 원리를 직접</strong></td></tr>
+          <tr><td><code>Transport.REDIS</code> ↔ <code>RMQ</code> ↔ <code>KAFKA</code> 옵션 교체</td><td>브로커별 라이브러리로 교체</td></tr>
+          <tr><td><code>Transport.REDIS</code>의 내부</td><td>이번 강의와 똑같은 Redis Pub/Sub — 유실 특성도 같다. 데코레이터가 메시지를 지켜 주진 않는다</td></tr>
+          <tr><td><code>@nestjs/event-emitter</code> (프로세스 내부 이벤트)</td><td>그냥 함수 호출 또는 <a href="../week08-auth/03-otp-background-tasks.html#background-tasks"><code>BackgroundTasks</code></a></td></tr>
+          <tr><td>WebSocket 다중 서버 = <code>@socket.io/redis-adapter</code></td><td>4절의 <code>redis_to_clients()</code> — 같은 원리를 직접</td></tr>
         </tbody>
       </table>
     </div>
 
-    <div class="callout callout-warn">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>"Nest를 썼으니 메시지가 안전했다"는 착각.</strong> <code>Transport.REDIS</code>도 <strong>내부적으로는 똑같은 Redis Pub/Sub</strong>입니다. 데코레이터가 예뻐 보였을 뿐, <strong>유실 특성은 이번 강의에서 배운 것과 완전히 동일</strong>했습니다 — 구독자가 꺼져 있던 동안의 메시지는 사라집니다. 내구성이 필요하면 Nest에서도 <code>Transport.RMQ</code>나 BullMQ로 갔어야 했죠. <strong>도구가 바뀌어도 "유실 허용 여부"라는 질문은 그대로</strong>입니다.</div>
-    </div>
-
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>파이썬에도 그 껍데기가 있다 — FastStream.</strong> 매번 <code>listen()</code> 루프를 쓰는 게 번거롭다면, <strong>FastStream</strong>(구 Propan)이 <code>@nestjs/microservices</code>와 거의 같은 자리를 채웁니다. <code>@broker.subscriber("order.created")</code> 데코레이터 하나로 Redis·RabbitMQ·Kafka·NATS를 같은 방식으로 다루고, Pydantic 검증까지 붙습니다. 다만 <strong>원리를 먼저 손으로 겪어보는 것</strong>이 순서입니다 — 그래야 추상화가 무엇을 숨기고 있는지 보이니까요.</div>
+      <div class="callout-body"><strong>파이썬에도 그 껍데기가 있다 — FastStream.</strong> 매번 <code>listen()</code> 루프를 쓰는 게 번거로워지면 <strong>FastStream</strong>이 <code>@nestjs/microservices</code>와 거의 같은 자리를 채웁니다. <code>@broker.subscriber("order.created")</code> 데코레이터 하나로 Redis·RabbitMQ·Kafka를 같은 방식으로 다루고 Pydantic 검증까지 붙습니다. 다만 원리를 먼저 손으로 겪어 본 뒤에 쓰는 것이 순서입니다.</div>
     </div>
   </section>
 
@@ -362,15 +375,15 @@ async for m in ps.listen():
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 직접 호출 대신 이벤트를 발행하면 결합도가 왜 낮아지나요?</summary>
-        <div class="qa-answer"><p>발행자는 채널에 이벤트만 던질 뿐, 누가 구독하는지 알지 못하기 때문입니다. 구독자를 추가/제거해도 발행자 코드는 바뀌지 않습니다. 또 발행자가 구독자의 처리 완료를 기다리지 않으므로(비동기), 느린 구독자 때문에 발행자가 막히지도 않습니다.</p></div>
+        <div class="qa-answer"><p>발행자 코드에 구독자 이름이 한 줄도 안 들어가기 때문입니다. 구독자를 늘리거나 빼도, 구독자가 느려도 발행자는 영향을 받지 않습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> WebSocket 채팅에 Redis Pub/Sub을 왜 끼워 넣나요?</summary>
-        <div class="qa-answer"><p>WebSocket 연결 목록은 각 서버 프로세스 메모리에만 있어, 서버를 여러 대 띄우면 다른 서버에 붙은 사용자끼리 메시지가 안 닿습니다. 메시지를 Redis 채널에 publish하고 모든 서버가 그 채널을 구독해 자기 소켓들에 broadcast하면, 어느 서버에 붙었든 전부 같은 메시지를 받습니다(스케일아웃).</p></div>
+        <div class="qa-answer"><p>서버 여러 대가 하나의 채팅방처럼 보이게 하려고요. 각 서버는 자기 소켓만 알지만, 메시지를 Redis 채널로 돌리면 모든 서버가 같은 메시지를 받아 자기 소켓들에 뿌릴 수 있습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> Redis Pub/Sub과 메시지 큐의 결정적 차이는?</summary>
-        <div class="qa-answer"><p>Pub/Sub은 메시지를 <strong>보존하지 않습니다</strong>. 발행 시점에 듣고 있던 구독자에게만 전달되고, 끊겨 있던 구독자는 그 메시지를 못 받습니다. 큐는 소비될 때까지 메시지를 쌓아두어, 잠시 죽었던 워커도 복귀 후 처리할 수 있습니다. 유실이 곤란하면 RabbitMQ/Kafka/Redis Streams를 씁니다.</p></div>
+        <div class="qa-answer"><p>쌓아 두느냐입니다. Pub/Sub은 그 순간 듣고 있던 쪽에만 주고 끝이라 자리를 비운 구독자는 놓치고, 큐는 누군가 가져갈 때까지 보관합니다.</p></div>
       </details>
     </div>
   </section>

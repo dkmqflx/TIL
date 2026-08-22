@@ -69,10 +69,10 @@
 
   <div class="lesson-head">
     <h1>Python 타입 힌트 — TypeScript를 안다면 거의 다 안다</h1>
-    <p class="lesson-subtitle">FastAPI의 거의 모든 마법(검증·자동 문서·자동완성)은 <strong>타입 힌트</strong>에서 나옵니다. 다행히 당신은 이미 TypeScript로 타입을 써봤습니다. 그 직관을 그대로 옮겨봅시다.</p>
+    <p class="lesson-subtitle">FastAPI는 <strong>타입 힌트</strong>를 읽어서 일합니다. TypeScript를 써봤다면 문법은 거의 같으니 그 직관을 그대로 옮기면 되고, 안 써봤어도 오른쪽 Python 카드만 읽으면 됩니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> TypeScript의 타입은 <b>컴파일 후 사라지는</b> 주석에 가깝다. 하지만 Python 타입 힌트는 <b>실행 중에도 살아남아</b> FastAPI가 그것을 읽고 요청을 검증하고 문서를 만든다. 같은 문법, 더 강력한 쓰임.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> Python 타입 힌트는 <b>실행 중에도 남아 있고</b>, FastAPI는 그것을 읽어 검증과 문서 생성을 한다. 문법은 TypeScript와 거의 같다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
@@ -86,7 +86,7 @@
       <div class="section-icon icon-concept">❤️</div>
       <h2>왜 타입 힌트가 FastAPI의 심장인가</h2>
     </div>
-    <p>NestJS에서 DTO 클래스와 <code>class-validator</code>로 요청 본문을 검증했던 걸 떠올려 보세요. FastAPI는 그 역할을 <strong>타입 힌트 + Pydantic</strong>이 통째로 합니다. 함수 매개변수에 타입만 적으면:</p>
+    <p>서버가 하는 일의 절반은 "들어온 데이터가 올바른 모양인지 확인하는 것"입니다. (NestJS라면 DTO 클래스 + <code>class-validator</code>가 하던 일입니다.) FastAPI에서는 이 일을 <strong>타입 힌트 + Pydantic</strong>(Week 3)이 통째로 합니다. 함수 매개변수에 타입만 적으면:</p>
     <ul>
       <li>들어온 요청 데이터를 그 타입으로 <strong>자동 검증·변환</strong></li>
       <li>Swagger <strong>문서를 자동 생성</strong> (Week 1·03에서 직접 봅니다)</li>
@@ -159,7 +159,7 @@ let scores: Record&lt;string, number&gt;;</code></pre>
         </div>
       </div>
       <div class="compare-card">
-        <div class="compare-card-header fast">Python 3.9+</div>
+        <div class="compare-card-header fast">Python</div>
         <div class="code-block">
           <pre><code class="language-python"># 문자열 리스트
 tags: list[str]
@@ -169,6 +169,7 @@ scores: dict[str, int]</code></pre>
       </div>
     </div>
     <p>TS의 <code>T[]</code>가 Python에선 <code>list[T]</code>, <code>Record&lt;K,V&gt;</code>가 <code>dict[K, V]</code>입니다. 고정 길이 묶음은 <code>tuple[int, str]</code> (TS의 튜플 <code>[number, string]</code>과 동일).</p>
+    <p>이 강의는 <strong>Python 3.10 이상</strong>을 기준으로 합니다. 3.9 이전에는 <code>list[str]</code> 대신 <code>from typing import List</code> 뒤에 <code>List[str]</code>처럼 대문자 표기를 썼습니다. 옛 코드나 블로그에서 보이면 같은 뜻으로 읽으면 됩니다.</p>
   </section>
 
   <section class="section" id="optional">
@@ -202,7 +203,7 @@ memo: Optional[str] = None</code></pre>
     </div>
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>Optional은 "필수 아님"이 아니다.</strong> 흔한 오해: <code>Optional[str]</code>은 "값이 <strong>None일 수 있다</strong>"는 뜻이지, "이 필드를 생략해도 된다"는 뜻이 아닙니다. 생략 가능 여부는 <strong>기본값(<code>= None</code>)</strong>이 결정합니다. Week 3 Pydantic에서 이 둘의 차이가 중요해집니다.</div>
+      <div class="callout-body"><strong>Optional은 "필수 아님"이 아니다.</strong> 흔한 오해: <code>Optional[str]</code>은 "값이 <strong>None일 수 있다</strong>"는 뜻이지, "이 필드를 생략해도 된다"는 뜻이 아닙니다. 생략 가능 여부는 <strong>기본값(<code>= None</code>)</strong>이 결정합니다.</div>
     </div>
   </section>
 
@@ -262,7 +263,7 @@ interface Todo {
           <pre><code class="language-python">def repeat(
     text: str, n: int
 ) -> str:
-    return text * n
+    return text * n  # n번 반복
 
 from pydantic import BaseModel
 class Todo(BaseModel):
@@ -290,7 +291,7 @@ class Todo(BaseModel):
 
 add("hello", "world")  # 💥 런타임 에러 안 남! → "helloworld"</code></pre>
         </div>
-        <p>타입 힌트는 <strong>그 자체로는 검사하지 않습니다.</strong> 검사를 해주는 건 ① 정적 분석 도구(mypy·에디터)와 ② <strong>FastAPI/Pydantic</strong>입니다. FastAPI가 특별한 이유가 바로 이것 — 런타임에 힌트를 읽어 실제로 검증해 주기 때문입니다.</p>
+        <p>타입 힌트는 <strong>그 자체로는 검사하지 않습니다.</strong> 검사를 해주는 건 ① 정적 분석 도구(코드를 실행하지 않고 타입만 훑어 주는 프로그램 — <code>mypy</code>, 그리고 에디터의 빨간 밑줄)와 ② 실행 중에 힌트를 읽는 <strong>FastAPI/Pydantic</strong>(첫 섹션의 운송장 이야기)입니다.</p>
       </div>
     </div>
   </section>
@@ -303,7 +304,7 @@ add("hello", "world")  # 💥 런타임 에러 안 남! → "helloworld"</code><
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> TS 타입과 Python 타입 힌트의 가장 큰 차이는?</summary>
-        <div class="qa-answer"><p>TS 타입은 컴파일 시점에만 존재하고 JS로 변환되며 사라집니다(타입 소거). Python 타입 힌트는 런타임에도 객체로 남아 있어 <code>typing.get_type_hints()</code> 등으로 읽을 수 있고, FastAPI/Pydantic이 이를 활용해 실제 검증을 수행합니다.</p></div>
+        <div class="qa-answer"><p>TS 타입은 JS로 변환될 때 사라져서 실행 중엔 아무도 볼 수 없습니다. Python 타입 힌트는 실행 중에도 함수에 붙어 있어서 FastAPI 같은 라이브러리가 읽고 써먹을 수 있습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>list[str]</code>와 <code>List[str]</code>는 뭐가 다른가요?</summary>
@@ -311,7 +312,7 @@ add("hello", "world")  # 💥 런타임 에러 안 남! → "helloworld"</code><
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>memo: str | None</code>과 <code>memo: str | None = None</code>의 차이는?</summary>
-        <div class="qa-answer"><p>앞은 "None일 수 있는 필수 값", 뒤는 "기본값이 None이라 생략 가능한 값"입니다. 타입(None 허용 여부)과 필수성(기본값 존재 여부)은 별개입니다 — Pydantic 모델에서 자주 헷갈리는 지점입니다.</p></div>
+        <div class="qa-answer"><p>앞은 None을 넣을 수는 있지만 반드시 넘겨야 하는 값이고, 뒤는 안 넘기면 None이 되는 값입니다. "어떤 값이 올 수 있나"와 "꼭 넘겨야 하나"는 서로 다른 질문입니다.</p></div>
       </details>
     </div>
   </section>

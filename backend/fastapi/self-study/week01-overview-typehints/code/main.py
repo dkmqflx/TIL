@@ -21,6 +21,9 @@ cURL 테스트
    curl http://127.0.0.1:8000/todos/42
    curl "http://127.0.0.1:8000/todos/42?q=hello"
    curl -i http://127.0.0.1:8000/
+   curl -X POST http://127.0.0.1:8000/todos \
+     -H "Content-Type: application/json" \
+     -d '{"title": "장보기", "done": false}'
 """
 
 from fastapi import FastAPI
@@ -40,3 +43,10 @@ def read_todo(todo_id: int, q: str | None = None):
     #          "/todos/abc" 처럼 변환 불가하면 FastAPI가 422를 자동 응답.
     # q:       쿼리(Query) 파라미터 — 기본값 None 이므로 생략 가능(선택).
     return {"todo_id": todo_id, "q": q}
+
+
+@app.post("/todos", status_code=201)
+def create_todo(todo: dict):
+    # todo: dict 타입 매개변수는 요청 본문(JSON body)으로 받는다.
+    #       Content-Type: application/json 헤더가 없으면 JSON으로 읽지 않아 422.
+    return {"created": todo}

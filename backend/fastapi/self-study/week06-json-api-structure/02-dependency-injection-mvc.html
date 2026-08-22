@@ -89,11 +89,11 @@
       <div class="section-icon icon-concept">💉</div>
       <h2>Depends — 의존성을 주입받기</h2>
     </div>
-    <p>지난 레슨에서 모든 라우트가 <code>db: Session = Depends(get_db)</code>를 적었죠. 이게 바로 <strong>의존성 주입</strong>입니다. 함수가 세션을 직접 만들지 않고, "세션 주세요"라고 선언만 하면 FastAPI가 <code>get_db</code>를 호출해 결과를 넣어 줍니다.</p>
+    <p>지난 레슨에서 모든 라우트가 <code>db: Session = Depends(get_db)</code>를 적었죠. 이게 바로 <strong>의존성 주입(DI)</strong>입니다. "의존성"은 함수가 일을 하려면 꼭 필요한 것(여기서는 DB 세션)이고, "주입"은 그걸 함수가 직접 만들지 않고 <strong>밖에서 넣어 준다</strong>는 뜻입니다. 함수는 "세션 주세요"라고 선언만 하고, FastAPI가 <code>get_db</code>를 호출해 결과를 넣어 줍니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 재료를 받아 쓰는 요리사.</strong> 요리사(라우트 함수)가 요리할 때마다 직접 장을 보러 간다면? 시간도 낭비되고, 테스트하려면 매번 진짜 마트가 필요합니다. 대신 <strong>준비된 재료(DB 세션)를 받아</strong> 쓰면, 요리사는 요리에만 집중하고 — 테스트할 땐 <strong>가짜 재료(목 세션)</strong>를 건네 똑같이 검증할 수 있습니다. DI는 "재료 조달"과 "요리"를 떼어 놓아 <strong>결합도를 낮추고 테스트를 쉽게</strong> 만듭니다.</div>
+      <div class="callout-body"><strong>비유 — 주방 보조가 도마를 건네준다.</strong> 요리사(라우트 함수)가 요리할 때마다 직접 도마를 찾아오고 씻는다면 요리에 집중할 수 없습니다. 대신 "도마 하나 주세요"라고 <strong>선언만</strong> 하면(<code>db: Session = Depends(get_db)</code>), 주방 보조(FastAPI)가 주문이 들어올 때마다 깨끗한 도마를 꺼내 손에 쥐여 주고, 요리가 끝나면 알아서 치웁니다. 요리사는 도마가 어디서 오는지 <strong>몰라도 됩니다</strong>. 덕분에 테스트할 땐 보조에게 "이번엔 가짜 도마를 줘"라고 바꿔치기만 하면 되는데, 이 방법(<code>dependency_overrides</code>)은 Week 10에서 배웁니다.</div>
     </div>
   </section>
 
@@ -102,24 +102,41 @@
       <div class="section-icon icon-setup">🔁</div>
       <h2>yield 의존성 — 열고, 쓰고, 닫기</h2>
     </div>
-    <p><code>get_db</code>는 단순 함수가 아니라 <code>yield</code>를 쓰는 <strong>생성기 의존성</strong>입니다. <code>yield</code> 위쪽은 요청 처리 <strong>전(셋업)</strong>, 아래쪽은 응답 후 <strong>정리(teardown)</strong>로 실행됩니다. 세션을 열고 → 라우트에 넘기고 → 끝나면 반드시 닫는 패턴이죠.</p>
+    <p>그 <code>get_db</code>는 <a href="../week05-postgres-sqlalchemy/03-connection-pool-session.html#session">Week 5·03</a>에서 만든 함수입니다. 평범한 <code>return</code> 대신 <code>yield</code>를 쓰는데, 이런 함수를 <strong>생성기(generator)</strong>라고 부릅니다. 생성기는 <code>yield</code>에서 값을 내놓고 <strong>잠시 멈췄다가</strong>, 나중에 그 자리부터 <strong>이어서 실행</strong>되는 함수입니다. FastAPI는 이 성질을 이용해 <code>yield</code> <strong>위쪽은 요청 전(열기)</strong>, <strong>아래쪽은 응답 후(닫기)</strong>로 돌립니다.</p>
 
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">database.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from collections.abc import Generator
 from sqlalchemy.orm import Session
 
+# Generator[Session, None, None] = "Session을 yield하고, 받는 값·return 값은 없다"
 def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
+    db = SessionLocal()       # ① 열기 — 요청이 오면 여기부터 실행
     try:
-        yield db          # ← 여기서 라우트가 db를 받아 사용
+        yield db              # ② 쓰기 — 라우트에 db를 건네고 여기서 멈춤
     finally:
-        db.close()        # 응답이 끝나면 항상 닫힘(예외가 나도)</code></pre>
+        db.close()            # ③ 닫기 — 응답이 나간 뒤 이어서 실행 (예외가 나도)</code></pre>
+    </div>
+
+    <p><code>GET /todos/1</code> 한 번에 실제로 벌어지는 일을 순서대로 늘어놓으면 이렇습니다.</p>
+
+    <div class="flow-row">
+      <span class="flow-step green">GET /todos/1</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">함수 인자 확인</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step blue">Depends(get_db) 발견</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">get_db() 호출 · yield까지 실행</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step highlight">db 인자에 주입 → 라우트 실행</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">응답 후 finally: db.close()</span>
     </div>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>try/finally가 핵심.</strong> <code>finally</code> 안에서 <code>close()</code>를 하므로, 라우트에서 예외가 터져도 세션은 누수 없이 닫힙니다. 커넥션 풀(Week 5)로 세션을 빌려 쓰고 꼬박꼬박 반납하는 셈입니다. NestJS에서 요청 스코프 프로바이더가 요청 끝에 정리되는 것과 같은 생명주기입니다.</div>
+      <div class="callout-body"><strong>try/finally가 핵심.</strong> <code>finally</code> 안에서 <code>close()</code>를 하므로 라우트에서 예외가 터져도 세션은 반드시 닫히고, 빌려 쓴 커넥션이 풀(Week 5)로 돌아갑니다. <code>return</code>으로 세션을 넘기면 "끝난 뒤 닫기"를 끼워 넣을 자리가 없습니다 — 그래서 <code>yield</code>입니다. (NestJS의 요청 스코프 프로바이더 — 요청마다 만들고 요청이 끝나면 버리는 객체 — 와 같은 생명주기입니다.)</div>
     </div>
   </section>
 
@@ -133,80 +150,31 @@ def get_db() -> Generator[Session, None, None]:
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">from typing import Annotated
-from fastapi import APIRouter, Depends
+from fastapi import Depends
 from sqlalchemy.orm import Session
 from database import get_db
 
-# 의존성 별칭 — 한 번 정의하고 모든 라우트에서 재사용
+# ① 지금까지 쓰던 방식 — 기본값 자리에 Depends
+def get_todo(todo_id: int, db: Session = Depends(get_db)):
+    return services.get_todo(db, todo_id)
+
+# ② Annotated 방식 — 별칭을 한 번 만들어 두고, 모든 라우트에서 재사용
 DbSession = Annotated[Session, Depends(get_db)]
 
-router = APIRouter(prefix="/todos", tags=["todos"])
-
-@router.get("/{todo_id}")
-def get_todo(todo_id: int, db: DbSession):   # ← 깔끔!
+def get_todo(todo_id: int, db: DbSession):   # ①과 완전히 같은 코드
     return services.get_todo(db, todo_id)</code></pre>
     </div>
 
-    <h3>그래서 <code>db</code>는 대체 누가 넣어 주나?</h3>
-    <p>여기서 가장 많이 걸리는 지점입니다. <code>get_todo(todo_id, db)</code>를 호출하는 코드가 어디에도 안 보이는데, <code>db</code>에는 세션이 들어 있죠. 답은 <strong><code>DbSession</code>이라는 이름 안에 <code>Depends(get_db)</code>가 숨어 있기 때문</strong>입니다.</p>
-    <p><code>Annotated[A, B]</code>는 "이 값의 타입은 <b>A</b>인데, 옆에 <b>B</b>라는 메모를 붙여 둔다"는 뜻입니다. 그래서 <code>DbSession</code>은 겉으로는 그냥 <code>Session</code> 타입이지만, <code>Depends(get_db)</code>라는 쪽지가 붙어 있는 <code>Session</code>입니다. 즉 아래 두 코드는 <strong>완전히 같은 코드</strong>입니다.</p>
-
-    <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python"># ① 예전 스타일 — 기본값 자리에 Depends를 쓴다
-def get_todo(todo_id: int, db: Session = Depends(get_db)):
-    ...
-
-# ② Annotated 스타일 — 그 Depends를 '타입 이름' 안으로 접어 넣었을 뿐
-DbSession = Annotated[Session, Depends(get_db)]
-
-def get_todo(todo_id: int, db: DbSession):
-    ...</code></pre>
-    </div>
-
-    <p>요청이 들어오면 FastAPI는 경로 함수의 <strong>시그니처를 훑어보며 인자를 하나씩 채웁니다.</strong> 이때 판단 기준은 딱 하나 — <b>"이 인자에 <code>Depends</code> 쪽지가 붙어 있나?"</b>입니다.</p>
-
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>인자</th><th>붙은 쪽지</th><th>FastAPI가 값을 구하는 곳</th></tr></thead>
-        <tbody>
-          <tr><td><code>todo_id: int</code></td><td>없음 + 경로에 <code>{todo_id}</code> 있음</td><td>URL 경로에서 꺼내 <code>int</code>로 변환</td></tr>
-          <tr><td><code>db: DbSession</code></td><td><code>Depends(get_db)</code></td><td><strong><code>get_db()</code>를 직접 호출</strong>해서 그 결과를 넣음</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <p><code>GET /todos/1</code> 한 번에 실제로 벌어지는 일을 늘어놓으면 이렇습니다.</p>
-
-    <div class="flow-row">
-      <span class="flow-step green">GET /todos/1</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">시그니처 확인</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step blue">Depends(get_db) 발견</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">get_db() 호출 · yield까지 실행</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step highlight">db 인자에 주입 → 함수 실행</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">응답 후 finally: db.close()</span>
-    </div>
-
-    <p>그러니까 <code>services.get_todo(db, todo_id)</code>에 넘기는 <code>db</code>는 여러분이 만든 게 아니라, <strong>FastAPI가 방금 손에 쥐여 준 세션을 그대로 전달</strong>하는 것뿐입니다. 클라이언트가 보내는 값이 아니라서 요청 body나 쿼리스트링에도 나타나지 않고, 자동 생성되는 API 문서에도 <code>db</code> 파라미터는 보이지 않습니다.</p>
-
-    <div class="callout callout-analogy">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 주방 보조가 도마를 건네준다.</strong> 요리사(라우트 함수)는 "도마 하나 주세요"라고 <strong>선언만</strong> 합니다(<code>db: DbSession</code>). 그러면 주방 보조(FastAPI)가 주문이 들어올 때마다 깨끗한 도마를 꺼내 손에 쥐여 주고(<code>SessionLocal()</code>), 요리가 끝나면 알아서 치웁니다(<code>db.close()</code>). 요리사는 도마를 어디서 가져오는지, 어떻게 씻는지 <strong>몰라도 됩니다</strong>. 그래서 테스트할 땐 보조에게 "이번엔 가짜 도마를 줘"라고 바꿔치기(<code>app.dependency_overrides</code>)하는 것만으로 검증이 끝납니다.</div>
-    </div>
+    <p><code>Annotated[A, B]</code>는 "이 값의 타입은 <b>A</b>인데, 옆에 <b>B</b>라는 메모를 붙여 둔다"는 파이썬 표기입니다. 그래서 <code>DbSession</code>은 겉보기엔 그냥 <code>Session</code>이지만 <code>Depends(get_db)</code>라는 쪽지가 붙어 있는 <code>Session</code>입니다. 요청이 오면 FastAPI는 함수 인자를 하나씩 보면서 <strong>"<code>Depends</code> 쪽지가 붙어 있나?"</strong>만 확인하므로, 기본값에 적었든 타입 안에 접어 넣었든 똑같이 <code>get_db()</code>를 호출해 <code>db</code>를 채웁니다. <code>todo_id</code>는 URL에서 오지만 <code>db</code>는 클라이언트가 보내는 값이 아니라서, 자동 생성되는 API 문서에도 <code>db</code> 파라미터는 보이지 않습니다.</p>
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>세션은 요청 하나당 하나.</strong> <code>get_db()</code>는 <b>요청마다</b> 새로 호출되어 새 세션을 만듭니다. 다만 <strong>같은 요청 안에서</strong> 여러 곳이 <code>DbSession</code>을 요구하면(라우트 + 다른 의존성 등) FastAPI가 결과를 캐시해 <strong>같은 세션을 재사용</strong>합니다. <code>DbSession</code>은 그냥 타입 별칭이라 라우트끼리 세션을 공유하는 일은 없습니다.</div>
+      <div class="callout-body"><strong>세션은 요청 하나당 하나.</strong> <code>get_db()</code>는 <b>요청마다</b> 새로 호출되어 새 세션을 만듭니다. 같은 요청 안에서 여러 곳(라우트 + 다른 의존성 등)이 <code>DbSession</code>을 요구하면 FastAPI가 <code>get_db()</code>를 한 번만 호출하고 그 결과를 돌려 씁니다(DB 캐시가 아니라 "같은 요청 안에서 의존성 결과 재사용"입니다). 라우트끼리, 요청끼리 세션을 공유하는 일은 없습니다.</div>
     </div>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>별칭은 한 곳에 모아 두자.</strong> <code>DbSession = Annotated[...]</code>은 <b>쓰기 전에 반드시 정의(또는 import)돼 있어야</b> 하는 평범한 변수입니다. 라우터 파일마다 다시 적지 말고, <code>get_db</code>가 있는 <code>database.py</code>(또는 <code>dependencies.py</code>) 아래쪽에 한 번만 정의해 두고 각 라우터에서 <code>from database import DbSession</code>으로 가져다 쓰세요.</div>
+      <div class="callout-body"><strong>별칭은 한 곳에 모아 두자.</strong> <code>DbSession = Annotated[...]</code>은 쓰기 전에 정의(또는 import)돼 있어야 하는 평범한 변수입니다. <code>get_db</code>가 있는 <code>database.py</code> 아래쪽에 한 번만 정의해 두고, 각 라우터에서 <code>from database import DbSession</code>으로 가져다 쓰세요.</div>
     </div>
   </section>
 
@@ -237,12 +205,10 @@ export class TodosController {
         <div class="compare-card-header fast">FastAPI — Depends</div>
         <div class="code-block">
           <pre><code class="language-python"># 함수 인자에서 주입받음
-@router.get("/{id}")
+@router.get("/{todo_id}")
 def get_todo(
-    id: int,
-    db: DbSession,   # = Depends(get_db)
-):
-    return services.get_todo(db, id)</code></pre>
+    todo_id: int,
+    db: DbSession): ...</code></pre>
         </div>
         <p>생성자 주입 ↔ 함수 인자 주입. 클래스 없이 <strong>함수 단위</strong>로 더 가볍게.</p>
       </div>
@@ -254,7 +220,7 @@ def get_todo(
       <div class="section-icon icon-pattern">🏗️</div>
       <h2>계층 분리(MVC) — 왜 나누나</h2>
     </div>
-    <p>지난 레슨의 라우터는 "요청 받기 + 비즈니스 판단 + DB 쿼리"를 한 함수에 다 했습니다. 작을 땐 괜찮지만, 로직이 커지면 라우터가 비대해지고 재사용·테스트가 어려워집니다. 그래서 책임을 계층으로 나눕니다.</p>
+    <p>지난 레슨의 라우터는 "요청 받기 + 비즈니스 판단 + DB 쿼리"를 한 함수에 다 했습니다. 작을 땐 괜찮지만, 로직이 커지면 라우터가 비대해지고 재사용·테스트가 어려워집니다. 그래서 책임을 계층으로 나눕니다. 흔히 <strong>MVC</strong>(Model·View·Controller)라고 부르는 구조인데, JSON API에서는 화면(View)이 없고 응답 JSON이 그 자리를 대신하므로 실제로는 <strong>라우터 · 서비스 · 모델(리포지토리)</strong> 세 층으로 나눕니다.</p>
 
     <div class="table-wrap">
       <table>
@@ -297,12 +263,21 @@ def get_todo(
       <div class="section-icon icon-update">♻️</div>
       <h2>리팩터링 — 라우터의 로직을 서비스로</h2>
     </div>
-    <p>이제 라우터에 박혀 있던 DB 코드를 <code>services.py</code>로 옮깁니다. 라우터는 "받아서 서비스에 넘기고 결과를 돌려주는" 얇은 껍데기가 됩니다.</p>
+    <p>이제 라우터에 박혀 있던 DB 코드를 <code>services.py</code>로 옮깁니다. 라우터는 "받아서 서비스에 넘기고 결과를 돌려주는" 얇은 껍데기가 됩니다. 먼저 서비스가 던질 <strong>우리만의 예외</strong>를 하나 만듭니다. 파이썬에서 <code>Exception</code>을 상속한 클래스는 <code>raise</code>로 던질 수 있는 예외가 되고, <code>super().__init__(...)</code>은 부모 <code>Exception</code>에 에러 메시지를 넘겨 주는 줄입니다.</p>
 
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python">from sqlalchemy import select
-from sqlalchemy.orm import Session
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">exceptions.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">class TodoNotFoundError(Exception):
+    def __init__(self, todo_id: int) -> None:
+        self.todo_id = todo_id                       # 핸들러가 꺼내 쓸 수 있게 보관
+        super().__init__(f"Todo {todo_id} not found")</code></pre>
+    </div>
+
+    <p>이 예외는 상태코드도 JSON도 모르는 "할 일이 없다"는 사실 그 자체입니다. 이걸 <code>404</code> HTTP 응답으로 바꾸는 일은 <a href="03-exception-handler-pytest.html#exception-handler">03의 전역 예외 핸들러</a>가 맡습니다. 이제 서비스 함수들입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">services.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from sqlalchemy.orm import Session
 from models import Todo
 from schemas import TodoCreate, TodoUpdate
 from exceptions import TodoNotFoundError   # 도메인 예외(HTTP 모름)
@@ -315,19 +290,22 @@ def get_todo(db: Session, todo_id: int) -> Todo:
 
 def create_todo(db: Session, data: TodoCreate) -> Todo:
     todo = Todo(title=data.title, done=data.done)
-    db.add(todo); db.commit(); db.refresh(todo)
+    db.add(todo)
+    db.commit()
+    db.refresh(todo)
     return todo
 
 def update_todo(db: Session, todo_id: int, data: TodoUpdate) -> Todo:
-    todo = get_todo(db, todo_id)            # 없으면 예외 재사용
+    todo = get_todo(db, todo_id)            # 없으면 위의 예외가 그대로 올라감
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(todo, field, value)
-    db.commit(); db.refresh(todo)
+    db.commit()
+    db.refresh(todo)
     return todo</code></pre>
     </div>
 
     <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">routers/todos.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">import services
 from fastapi import APIRouter, status
 from schemas import TodoCreate, TodoUpdate, TodoPublic
@@ -352,7 +330,7 @@ def create_todo(payload: TodoCreate, db: DbSession):
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>commit을 누가 책임지나.</strong> 이 예제는 단순함을 위해 서비스 함수 안에서 <code>commit()</code>합니다. 트랜잭션이 여러 서비스 호출에 걸치는 복잡한 경우엔, 의존성/미들웨어에서 "요청 끝에 한 번 커밋"하도록 경계를 한 곳으로 모으는 패턴이 더 안전합니다. 일단은 "한 요청 = 한 작업 = 한 커밋"으로 익히면 됩니다.</div>
+      <div class="callout-body"><strong>commit은 누가 하나.</strong> 이 예제는 단순함을 위해 서비스 함수 안에서 <code>commit()</code>합니다. 지금은 <strong>"한 요청 = 한 작업 = 한 커밋"</strong>으로 익히면 충분합니다. 한 요청에서 서비스 함수 여러 개를 부르며 하나의 트랜잭션으로 묶어야 하는 경우는 나중 주차에서 다룹니다.</div>
     </div>
   </section>
 
@@ -364,11 +342,11 @@ def create_todo(payload: TodoCreate, db: DbSession):
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> FastAPI의 <code>Depends</code>는 NestJS의 무엇에 대응하나요?</summary>
-        <div class="qa-answer"><p>NestJS의 DI(의존성 주입)에 대응합니다. NestJS가 <code>@Injectable</code> 프로바이더를 생성자로 주입한다면, FastAPI는 <code>Depends(...)</code>로 함수 인자에 주입합니다. 둘 다 "필요한 의존성을 직접 만들지 않고 컨테이너가 넣어 준다"는 원리는 같고, FastAPI는 클래스 없이 함수 단위로 더 가볍습니다.</p></div>
+        <div class="qa-answer"><p>NestJS의 DI 컨테이너(<code>@Injectable</code> + 생성자 주입)에 대응합니다. 차이는 주입 자리뿐 — Nest는 생성자, FastAPI는 함수 인자입니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>def get_todo(todo_id: int, db: DbSession)</code>에서 <code>db</code>는 누가 넣어 주나요?</summary>
-        <div class="qa-answer"><p><strong>FastAPI가 넣어 줍니다.</strong> <code>DbSession</code>은 <code>Annotated[Session, Depends(get_db)]</code> 별칭이라 타입 안에 <code>Depends(get_db)</code> 쪽지가 붙어 있습니다. 요청이 오면 FastAPI가 시그니처를 훑다가 그 쪽지를 발견하고 <code>get_db()</code>를 호출해, <code>yield</code>로 흘러나온 세션을 <code>db</code> 자리에 꽂아 넣습니다. <code>todo_id</code>는 URL에서 오지만 <code>db</code>는 클라이언트가 보내는 값이 아니라서 API 문서에도 나타나지 않습니다. 단, <code>DbSession</code> 별칭은 평범한 변수이므로 <strong>쓰기 전에 정의하거나 import</strong>해 둬야 합니다.</p></div>
+        <div class="qa-answer"><p><strong>FastAPI가 넣어 줍니다.</strong> <code>DbSession</code> 안에 <code>Depends(get_db)</code> 쪽지가 붙어 있어서, 요청마다 FastAPI가 <code>get_db()</code>를 호출해 나온 세션을 <code>db</code> 자리에 꽂습니다. 클라이언트가 보내는 값이 아닙니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>get_db</code>가 일반 <code>return</code>이 아니라 <code>yield</code>를 쓰는 이유는?</summary>

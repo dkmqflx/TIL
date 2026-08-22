@@ -56,7 +56,7 @@
       <div class="nav-lesson-title">03 · 동기/비동기 성능 테스트 &amp; 개선</div>
       <a class="nav-item" href="03-performance-test.html#why-measure">📏 왜 측정하는가 — 감이 아니라 숫자</a>
       <a class="nav-item" href="03-performance-test.html#load-test-tools">🛠️ 부하 테스트 도구 — locust · wrk · ab</a>
-      <a class="nav-item" href="03-performance-test.html#sync-vs-async">🔀 sync def vs async def — 정확히 무슨 일이 일어나나</a>
+      <a class="nav-item" href="03-performance-test.html#sync-vs-async">🔀 sync def vs async def — 처리량에 어떻게 나타나나</a>
       <a class="nav-item" href="03-performance-test.html#async-demo">🚀 데모 — I/O 바운드에서 async의 효과</a>
       <a class="nav-item" href="03-performance-test.html#bottlenecks">🐌 흔한 병목 &amp; 개선</a>
       <a class="nav-item" href="03-performance-test.html#nestjs-compare">📊 NestJS 비교</a>
@@ -73,12 +73,12 @@
     <p class="lesson-subtitle">지금까지의 HTTP는 클라이언트가 <strong>물어봐야만</strong> 서버가 답했습니다. WebSocket은 한 번 연결해두면 <strong>양쪽이 아무 때나 메시지를 던질 수 있는</strong> 지속 회선입니다. 채팅·알림·실시간 대시보드의 토대죠.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> HTTP가 <b>편지 주고받기</b>(매번 봉투 새로 붙여 한 번에 한 통)라면, WebSocket은 <b>전화 통화</b>다. 한 번 연결되면 끊을 때까지 <b>양방향</b>으로 자유롭게 말한다. 서버가 먼저 말을 걸 수 있다는 게 핵심이다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> WebSocket은 한 번 연결하면 끊을 때까지 유지되는 <b>양방향</b> 회선이다. 클라이언트가 묻지 않아도 <b>서버가 먼저</b> 메시지를 보낼 수 있다는 게 핵심이다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
     <li>HTTP와 WebSocket의 통신 모델 차이를 설명한다</li>
-    <li>@app.websocket으로 엔드포인트를 만들고 accept → 수신/송신 루프를 돌린다</li>
+    <li>@app.websocket으로 엔드포인트를 만들고, 브라우저에서 접속해 수신/송신 루프를 확인한다</li>
     <li>WebSocketDisconnect로 연결 종료를 안전하게 처리한다</li>
     <li>ConnectionManager로 다중 접속을 관리하고 broadcast로 채팅을 구현한다</li>
   </ul>
@@ -88,12 +88,12 @@
       <div class="section-icon icon-compare">📞</div>
       <h2>HTTP vs WebSocket — 편지 vs 전화</h2>
     </div>
-    <p>HTTP는 <strong>요청-응답</strong> 모델입니다. 클라이언트가 요청을 보내면 서버가 한 번 답하고 연결이 끝납니다. 다음 데이터를 받으려면 다시 요청해야 하죠. "새 알림 있나요?"를 1초마다 물어보는 <strong>폴링(polling)</strong>이 그래서 등장했지만, 빈손으로 돌아오는 요청이 대부분이라 낭비가 큽니다.</p>
-    <p>WebSocket은 처음 한 번 HTTP로 핸드셰이크한 뒤 <strong>연결을 그대로 유지</strong>합니다. 그 회선 위로 서버와 클라이언트가 <strong>양방향</strong>으로 아무 때나 메시지를 보냅니다. 서버에 새 데이터가 생기면 <strong>서버가 먼저</strong> 밀어줄 수 있습니다(push).</p>
+    <p>HTTP는 <strong>요청-응답</strong> 모델입니다. 클라이언트가 요청을 보내면 서버가 한 번 답하고 연결이 끝납니다. 서버에 새 소식이 생겨도 클라이언트가 다시 물어보기 전까지는 전해줄 방법이 없죠. 그래서 "새 알림 있나요?"를 1초마다 물어보는 <strong>폴링(polling)</strong>이 등장했지만, 대부분의 요청이 빈손으로 돌아와 낭비가 큽니다.</p>
+    <p>WebSocket은 시작만 HTTP로 합니다. 클라이언트가 "이 연결을 WebSocket으로 바꾸자"고 HTTP 요청을 보내고 서버가 동의하는 첫 한 번의 악수를 <strong>핸드셰이크</strong>라고 부릅니다. 그 뒤로는 연결을 끊지 않고 그대로 유지하며, 양쪽이 <strong>동시에, 아무 때나</strong> 메시지를 보낼 수 있습니다(이걸 full-duplex라고 합니다). 서버에 새 데이터가 생기면 <strong>서버가 먼저</strong> 밀어줄 수 있고(push), 이것이 실시간의 본질입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 편지 vs 전화 통화.</strong> <strong>HTTP는 편지</strong>입니다. 할 말이 있을 때마다 봉투를 새로 붙여(연결을 새로 맺어) 한 통 보내고, 답장이 오면 끝. 상대 소식을 알려면 또 편지를 써야 합니다. <strong>WebSocket은 전화 통화</strong>입니다. 한 번 다이얼해 연결되면 끊기 전까지 양쪽이 자유롭게 말합니다. 상대가 먼저 "여보세요, 새 소식!" 하고 말을 걸 수도 있죠. 이게 실시간의 본질입니다.</div>
+      <div class="callout-body"><strong>비유 — 편지 vs 전화 통화.</strong> HTTP는 편지입니다. 할 말이 생길 때마다 봉투를 새로 붙여(연결을 새로 맺어) 보내고, 답장이 오면 끝입니다. WebSocket은 전화 통화입니다. 한 번 연결되면 끊기 전까지 양쪽이 자유롭게 말하고, 상대가 먼저 "여보세요, 새 소식!" 하고 말을 걸 수도 있습니다.</div>
     </div>
 
     <div class="table-wrap">
@@ -104,7 +104,7 @@
           <tr><td>연결</td><td>요청마다 맺고 끊음</td><td>한 번 맺고 유지</td></tr>
           <tr><td>서버가 먼저 보내기</td><td>불가 (폴링으로 흉내)</td><td>가능 (push)</td></tr>
           <tr><td>오버헤드</td><td>매 요청 헤더 반복</td><td>최초 1회 핸드셰이크 후 가벼움</td></tr>
-          <tr><td>주소 스킴</td><td><code>http://</code> / <code>https://</code></td><td><code>ws://</code> / <code>wss://</code></td></tr>
+          <tr><td>주소 스킴</td><td><code>http://</code> / <code>https://</code></td><td><code>ws://</code> / <code>wss://</code> (wss는 https처럼 암호화된 쪽)</td></tr>
         </tbody>
       </table>
     </div>
@@ -188,9 +188,21 @@ async def echo(websocket: WebSocket):
         print("클라이언트 연결 종료")        # 정상적인 종료 신호</code></pre>
     </div>
 
+    <p>만들었으면 바로 붙어 봅시다. <code>uvicorn main:app --reload</code>로 서버를 띄운 뒤, 브라우저 개발자 도구의 콘솔에 아래 네 줄을 붙여 넣으면 됩니다. 브라우저에는 WebSocket 클라이언트가 내장되어 있어 따로 설치할 게 없습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">javascript</span><span class="code-filename">브라우저 콘솔 — 접속해 보기</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-javascript">const ws = new WebSocket("ws://localhost:8000/ws");  // http 대신 ws
+ws.onopen = () => ws.send("안녕");                       // 연결되면 한 마디
+ws.onmessage = (e) => console.log("서버:", e.data);     // → "서버: echo: 안녕"
+// 끝낼 때: ws.close()  → 서버 터미널에 "클라이언트 연결 종료"가 찍힌다</code></pre>
+    </div>
+
+    <p>터미널이 편하다면 <code>websocat ws://localhost:8000/ws</code>(설치: <code>brew install websocat</code>)로 접속해 줄을 입력하는 방식으로도 똑같이 확인할 수 있습니다.</p>
+
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>accept()를 빠뜨리면 연결이 안 된다.</strong> HTTP 라우트와 달리 WebSocket은 <code>await websocket.accept()</code>를 호출해야 비로소 연결이 성립합니다. 빠뜨리면 클라이언트 쪽에서 연결이 거부됩니다. 인증을 먼저 확인한 뒤 통과한 경우에만 <code>accept()</code>하고, 막을 땐 <code>await websocket.close(code=1008)</code>로 거절하는 패턴이 흔합니다.</div>
+      <div class="callout-body"><strong>accept()를 빠뜨리면 연결이 안 된다.</strong> HTTP 라우트와 달리 WebSocket은 <code>await websocket.accept()</code>를 호출해야 비로소 연결이 성립합니다. 빠뜨리면 클라이언트 쪽에서 연결이 거부됩니다. 인증이 필요하면 <code>accept()</code> 전에 확인합니다. WebSocket에는 HTTP의 Authorization 헤더를 붙이기 어려워 보통 <code>ws://.../ws?token=...</code>처럼 쿼리 파라미터로 토큰을 받고(<code>websocket.query_params["token"]</code>), 통과하면 <code>accept()</code>, 아니면 <code>await websocket.close(code=1008)</code>로 거절합니다. 1008은 "정책 위반"을 뜻하는 표준 종료 코드로, 클라이언트가 "내가 뭔가 자격이 안 됐구나"를 알 수 있게 해 줍니다.</div>
     </div>
   </section>
 
@@ -199,8 +211,7 @@ async def echo(websocket: WebSocket):
       <div class="section-icon icon-error">🔌</div>
       <h2>WebSocketDisconnect — 끊김을 다루기</h2>
     </div>
-    <p>전화는 언젠가 끊깁니다. 사용자가 탭을 닫거나, 네트워크가 끊기거나, 새로고침하면 연결이 종료되죠. 이때 <code>receive_text()</code>가 <code>WebSocketDisconnect</code> 예외를 던집니다. <strong>이 예외를 잡아 정리(cleanup)하지 않으면</strong>, 끊긴 연결이 관리 목록에 남아 다음 broadcast 때 에러를 일으킵니다.</p>
-    <p>그래서 루프는 <code>try / except WebSocketDisconnect</code>로 감싸고, 예외가 나면 <strong>해당 연결을 목록에서 제거</strong>하는 것이 기본 패턴입니다. 다음 절의 <code>ConnectionManager</code>가 바로 그 정리를 책임집니다.</p>
+    <p>사용자가 탭을 닫거나, 네트워크가 끊기거나, 새로고침하면 연결이 종료되고, 그 순간 대기 중이던 <code>receive_text()</code>가 <code>WebSocketDisconnect</code> 예외를 던집니다. 위 에코 코드에서 <code>try / except WebSocketDisconnect</code>로 루프를 감싼 이유가 이것입니다. 접속자가 한 명일 땐 예외를 잡고 로그만 남기면 되지만, 여러 명을 관리하기 시작하면 <strong>끊긴 연결을 목록에서 빼는 정리(cleanup)</strong>가 이 자리에서 일어나야 합니다. 그 일을 다음 절의 <code>ConnectionManager</code>가 맡습니다.</p>
   </section>
 
   <section class="section" id="connection-manager">
@@ -230,9 +241,11 @@ async def echo(websocket: WebSocket):
 manager = ConnectionManager()</code></pre>
     </div>
 
+    <p>한 가지만 미리 짚어 둡니다. 위 <code>broadcast</code>는 흐름을 보기 쉽게 단순화한 버전이라, 보내는 도중 끊긴 소켓을 만나면 거기서 예외가 나 뒤에 남은 사람들이 메시지를 못 받습니다. 실전에서는 <code>send_text</code>를 <code>try / except</code>로 감싸 실패한 소켓을 목록에서 빼는 한 줄을 더 넣습니다.</p>
+
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>broadcast는 왜 async이고 await가 필요한가.</strong> <code>send_text</code>는 네트워크로 데이터를 내보내는 <strong>I/O 작업</strong>이라 <code>await</code> 대상입니다. 그래서 이를 호출하는 <code>broadcast</code>도 <code>async def</code>여야 하고, 리스트를 돌며 각 연결마다 <code>await connection.send_text(...)</code>로 보냅니다. Week 4에서 배운 "I/O는 await로 양보한다"가 그대로 적용됩니다.</div>
+      <div class="callout-body"><strong>broadcast는 왜 async인가.</strong> <code>send_text</code>는 네트워크로 데이터를 내보내는 <strong>I/O 작업</strong>이라 <code>await</code>로 기다려야 하고, <code>await</code>를 쓰는 함수는 <code>async def</code>여야 합니다. Week 4에서 배운 "I/O는 await로 양보한다"가 그대로 적용되는 자리입니다.</div>
     </div>
 
     <div class="diagram-card">
@@ -275,13 +288,13 @@ manager = ConnectionManager()</code></pre>
       <div class="section-icon icon-pattern">💬</div>
       <h2>간단 채팅 예제 — 다 합치기</h2>
     </div>
-    <p>이제 라우트 하나로 채팅방이 완성됩니다. 접속하면 manager에 등록하고, 메시지를 받을 때마다 모두에게 방송하고, 끊기면 목록에서 빼고 퇴장을 알립니다.</p>
+    <p>이제 라우트 하나로 채팅방이 완성됩니다. 접속하면 manager에 등록하고, 메시지를 받을 때마다 모두에게 방송하고, 끊기면 목록에서 빼고 퇴장을 알립니다. 에코 서버에 있던 <code>accept()</code>가 사라진 게 아니라 <code>manager.connect()</code> 안으로 들어갔다는 점만 눈여겨보세요. 브라우저 탭 두 개에서 각각 <code>ws://localhost:8000/ws/chat/민수</code>, <code>.../chat/영희</code>로 접속해 보면 서로의 메시지가 보입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><span class="code-filename">main.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">@app.websocket("/ws/chat/{name}")
 async def chat(websocket: WebSocket, name: str):
-    await manager.connect(websocket)            # accept + 목록 등록
+    await manager.connect(websocket)            # 안에서 accept()까지 해 준다
     await manager.broadcast(f"🟢 {name} 님 입장")
     try:
         while True:
@@ -303,13 +316,7 @@ async def chat(websocket: WebSocket, name: str):
       <div class="section-icon icon-compare">📊</div>
       <h2>NestJS와 비교 — Gateway가 대신 해주던 일들</h2>
     </div>
-    <p>"방금 <code>ConnectionManager</code>를 왜 직접 만들었지?" 하는 의문이 들었다면, 그건 <strong>NestJS가 그 일을 대신 해줬기 때문</strong>입니다. NestJS의 WebSocket Gateway는 기본적으로 <strong>Socket.IO</strong> 위에서 돌고, Socket.IO는 접속자 목록·브로드캐스트·방(room)·재연결을 <strong>이미 다 구현해 둔 라이브러리</strong>입니다. <code>this.server.emit()</code> 한 줄이면 전체 방송이 끝났죠.</p>
-    <p>FastAPI의 <code>@app.websocket</code>은 그보다 한 층 <strong>아래, 순수 WebSocket 프로토콜</strong>입니다. 그래서 "누가 접속해 있는지"를 아무도 기억해 주지 않고, 그 명단이 바로 우리가 만든 <code>manager.active</code> 리스트입니다.</p>
-
-    <div class="callout callout-analogy">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 관리사무소가 있는 아파트 vs 단독주택.</strong> Socket.IO는 <strong>관리사무소가 딸린 아파트</strong>입니다. 입주자 명부, 동별 방송(room), 이사 나간 세대 정리까지 사무소가 알아서 합니다. FastAPI의 WebSocket은 <strong>단독주택</strong>이에요. 배관(프로토콜)은 튼튼하게 깔려 있지만, 이웃 목록을 적어두는 수첩(<code>ConnectionManager</code>)은 내가 직접 관리해야 합니다. 대신 <strong>수첩에 뭐가 적히는지 전부 내 눈에 보입니다</strong> — 문제가 생겼을 때 어디를 볼지 알죠.</div>
-    </div>
+    <p>"<code>ConnectionManager</code>를 왜 직접 만들었지?" 싶었다면, NestJS에서는 그 일을 <strong>Socket.IO</strong>라는 라이브러리가 대신 해 줬기 때문입니다. NestJS의 WebSocket Gateway는 기본적으로 Socket.IO 위에서 돌고, Socket.IO는 접속자 목록·전체 방송·방(room, 채팅방처럼 묶어서 보내기)을 이미 구현해 둔 상태라 <code>this.server.emit()</code> 한 줄이면 방송이 끝났습니다. FastAPI의 <code>@app.websocket</code>은 그보다 한 층 아래인 순수 WebSocket이라 아무도 접속자를 기억해 주지 않고, 그래서 그 명단(<code>manager.active</code>)을 우리가 직접 들고 있는 것입니다. 대신 무슨 일이 일어나는지 전부 내 코드 안에 보입니다.</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -335,13 +342,11 @@ export class ChatGw {
 async def chat(ws: WebSocket):
   await mgr.connect(ws)
   try:
-    while True:
-      t = await ws.receive_text()
-      await mgr.broadcast(t)
+    ...  # receive → broadcast
   except WebSocketDisconnect:
     mgr.disconnect(ws)</code></pre>
         </div>
-        <p>목록·방송·정리를 <strong>내가 관리</strong>(그래서 다 보인다).</p>
+        <p>목록·방송·정리를 <strong>내가 관리</strong>(4~5절 코드).</p>
       </div>
     </div>
 
@@ -354,20 +359,13 @@ async def chat(ws: WebSocket):
           <tr><td><code>handleConnection()</code> / <code>handleDisconnect()</code></td><td><code>await ws.accept()</code> / <code>except WebSocketDisconnect</code></td></tr>
           <tr><td><code>server.emit()</code> — 전체 방송 (내장)</td><td><code>manager.broadcast()</code> — <strong>직접 구현</strong></td></tr>
           <tr><td><code>client.join('room')</code> · <code>server.to('room').emit()</code></td><td>방 개념 없음 → <code>dict[room, list[WebSocket]]</code> 직접</td></tr>
-          <tr><td>여러 서버 확장 = <code>@socket.io/redis-adapter</code> 한 줄</td><td>Redis Pub/Sub을 <strong>직접</strong> 연결 (다음 강의!)</td></tr>
-          <tr><td>재연결·하트비트·폴백(long-polling) 내장</td><td>필요하면 클라이언트에서 직접 구현</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>Socket.IO는 "그냥 WebSocket"이 아니다.</strong> 헷갈리기 쉬운 지점입니다. Socket.IO는 WebSocket <strong>위에 자체 프로토콜(핸드셰이크·이벤트 프레임·폴백)을 얹은</strong> 별개의 규격입니다. 그래서 브라우저에서 <code>new WebSocket("ws://...")</code>으로는 <strong>NestJS Socket.IO 게이트웨이에 접속할 수 없고</strong>, 반대로 <code>socket.io-client</code>로는 <strong>FastAPI의 <code>@app.websocket</code>에 접속할 수 없습니다.</strong> 프론트가 <code>socket.io-client</code>를 이미 쓰고 있다면, 서버에 <code>python-socketio</code>를 얹어 프로토콜을 맞춰야 합니다.</div>
-    </div>
-
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>그래도 얇은 게 나쁘지 않은 이유.</strong> Socket.IO의 편의 기능은 <strong>클라이언트도 같은 라이브러리를 쓸 때만</strong> 의미가 있습니다. 모바일 앱·다른 언어 클라이언트·IoT 기기처럼 표준 WebSocket만 지원하는 상대와 붙을 땐 오히려 순수 WebSocket이 자유롭습니다. 그리고 다음 강의에서 보겠지만, 여러 서버로 확장하는 원리(Redis Pub/Sub)는 <code>redis-adapter</code>가 뒤에서 하던 일과 <strong>정확히 같습니다</strong> — 직접 만들어 보면 그 마법이 풀립니다.</div>
+      <div class="callout-body"><strong>Socket.IO는 "그냥 WebSocket"이 아니다.</strong> Socket.IO는 WebSocket 위에 자기만의 규칙을 한 겹 더 얹은 별개 규격이라, 브라우저의 <code>new WebSocket("ws://...")</code>으로는 NestJS Gateway에 붙을 수 없고, 반대로 <code>socket.io-client</code>로는 FastAPI의 <code>@app.websocket</code>에 붙을 수 없습니다. 양쪽이 같은 규격을 써야 합니다. 프론트가 이미 <code>socket.io-client</code>를 쓰고 있다면 서버에 <code>python-socketio</code>를 얹어 맞추면 됩니다.</div>
     </div>
   </section>
 
@@ -379,15 +377,15 @@ async def chat(ws: WebSocket):
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> HTTP 폴링 대신 WebSocket을 쓰면 뭐가 좋아지나요?</summary>
-        <div class="qa-answer"><p>폴링은 "새 데이터 있나요?"를 주기적으로 묻느라 빈손 요청이 대부분이라 낭비가 큽니다. WebSocket은 연결을 유지한 채 <strong>서버가 데이터가 생긴 순간 먼저 push</strong>하므로, 지연이 작고 불필요한 트래픽이 사라집니다. 채팅·알림처럼 서버발 이벤트가 잦은 경우에 특히 유리합니다.</p></div>
+        <div class="qa-answer"><p>물어볼 필요가 없어집니다. 연결을 유지해 두면 서버가 데이터가 생긴 순간 바로 밀어주니, 빈손 요청이 사라지고 지연도 줄어듭니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> WebSocketDisconnect를 처리하지 않으면 어떻게 되나요?</summary>
-        <div class="qa-answer"><p>연결이 끊겨도 manager의 활성 목록에 죽은 연결이 그대로 남습니다. 그 상태로 broadcast하면 끊긴 소켓에 <code>send_text</code>를 시도하다 예외가 나고, 방송 전체가 깨질 수 있습니다. <code>except WebSocketDisconnect</code>에서 <code>disconnect()</code>로 목록에서 제거해야 합니다.</p></div>
+        <div class="qa-answer"><p>끊긴 연결이 manager 목록에 그대로 남아, 다음 broadcast 때 죽은 소켓에 보내다가 예외가 납니다. 예외를 잡는 자리에서 <code>disconnect()</code>로 목록에서 빼 줘야 합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> broadcast 함수는 왜 async로 만들어야 하나요?</summary>
-        <div class="qa-answer"><p>각 연결에 메시지를 보내는 <code>send_text</code>가 네트워크 I/O라서 <code>await</code> 대상이기 때문입니다. <code>await</code>를 쓰려면 그 함수 자체가 <code>async def</code>여야 합니다. 리스트를 돌며 연결마다 <code>await connection.send_text(...)</code>로 보냅니다.</p></div>
+        <div class="qa-answer"><p>안에서 호출하는 <code>send_text</code>가 네트워크 I/O라 <code>await</code>가 붙고, <code>await</code>를 쓰는 함수는 <code>async def</code>여야 하기 때문입니다.</p></div>
       </details>
     </div>
   </section>

@@ -70,7 +70,7 @@
     <p class="lesson-subtitle">들어오는 요청만큼 <strong>나가는 응답</strong>도 중요합니다. <code>response_model</code>은 "이 API는 정확히 이 모양만 돌려준다"를 선언해, 실수로 <strong>비밀번호 같은 민감 정보가 새어나가는 것</strong>을 막습니다.</p>
   </div>
 
-  <div class="tip-box"><strong>한 줄 요약.</strong> 요청 검사가 <b>입국 심사</b>라면, <code>response_model</code>은 <b>출국 검색대</b>다. 정해둔 모양에 없는 필드(예: password)는 <b>밖으로 못 나간다</b>. 입력 모델과 출력 모델을 분리하는 것이 실무의 기본기다.</div>
+  <div class="tip-box"><strong>한 줄 요약.</strong> <code>response_model</code>은 "이 API의 응답은 정확히 이 모양"이라고 미리 정해 두는 것이다. 정해둔 모양에 없는 필드(예: password)는 <b>밖으로 못 나간다</b>. 입력 모델과 출력 모델을 분리하는 것이 실무의 기본기다.</div>
 
   <h3>학습 목표</h3>
   <ul class="checklist">
@@ -84,11 +84,11 @@
       <div class="section-icon icon-concept">🔒</div>
       <h2>왜 응답에도 모델이 필요한가</h2>
     </div>
-    <p>회원 정보를 돌려주는 API를 생각해봅시다. DB의 User 객체에는 <code>hashed_password</code>가 들어 있습니다. 아무 생각 없이 그 객체를 반환하면? <strong>비밀번호 해시가 그대로 클라이언트에 노출</strong>됩니다. 끔찍하죠.</p>
+    <p>회원 정보를 돌려주는 API를 생각해봅시다. DB의 User 객체에는 <code>hashed_password</code>가 들어 있습니다. <strong>해시</strong>란 비밀번호를 알아볼 수 없게 한 번 변형해서 저장한 값입니다(원문 비밀번호를 그대로 저장하진 않지만, 그래도 밖으로 나가면 안 되는 값이죠 — 자세한 건 Week 8). 아무 생각 없이 그 객체를 반환하면? <strong>비밀번호 해시가 그대로 클라이언트에 노출</strong>됩니다. 끔찍하죠. 아래 예제에서는 단순하게 <code>password</code>라고만 쓰겠습니다 — "나가면 안 되는 필드"라는 점은 같습니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 출국 검색대.</strong> 입국 심사대(요청 검증)만 있고 <strong>출국 검색대</strong>가 없으면, 가져가면 안 되는 물건(민감 정보)이 그대로 빠져나갑니다. <code>response_model</code>은 "이 게이트로는 <em>이 목록에 있는 것만</em> 통과"라고 못 박는 출국 검색대입니다. 목록에 없는 <code>hashed_password</code>는 자동으로 걸러집니다.</div>
+      <div class="callout-body"><strong>비유 — 출국 검색대.</strong> 01에서 Pydantic 모델을 입국 심사대(요청 검증)에 비유했죠. 입국 심사대만 있고 <strong>출국 검색대</strong>가 없으면, 가져가면 안 되는 물건(민감 정보)이 그대로 빠져나갑니다. <code>response_model</code>은 "이 게이트로는 <em>이 목록에 있는 것만</em> 통과"라고 못 박는 출국 검색대입니다. 목록에 없는 <code>password</code>는 자동으로 걸러집니다.</div>
     </div>
   </section>
 
@@ -122,8 +122,13 @@ class UserPublic(BaseModel):
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
       <pre><code class="language-python">@app.post("/users", response_model=UserPublic, status_code=201)
 def create_user(user: UserCreate):
-    saved = {"id": 1, **user.model_dump()}  # password 포함된 dict
-    return saved   # 그래도 응답엔 password가 안 나간다! 🎉</code></pre>
+    saved = {"id": 1, **user.model_dump()}  # id를 붙인 dict (password도 들어 있음)
+    return saved</code></pre>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>**user.model_dump()</code> — 딕셔너리 풀어 넣기.</strong> <code>user.model_dump()</code>는 <code>{"username": ..., "email": ..., "password": ...}</code>라는 dict를 돌려주고, 앞의 <code>**</code>는 "이 dict의 키-값을 바깥 중괄호 안에 하나씩 펼쳐 넣어라"는 뜻입니다. 결과는 <code>{"id": 1, "username": ..., "email": ..., "password": ...}</code> — 서버가 만든 id를 앞에 붙인 새 dict가 됩니다. 실제로는 이 자리에서 DB에 저장하겠지만(Week 5~6), 지금은 저장된 결과를 흉내 낸 것입니다.</div>
     </div>
 
     <div class="diagram-card">
@@ -150,7 +155,7 @@ def create_user(user: UserCreate):
           <marker id="rb" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
         </defs>
       </svg>
-      <div class="diagram-caption">response_model이 출국 검색대처럼 password를 걸러낸다.</div>
+      <div class="diagram-caption">response_model이 UserPublic에 없는 password를 걸러낸다.</div>
     </div>
 
     <div class="compare-grid">
@@ -163,7 +168,7 @@ def create_user(user: UserCreate):
   password: string;
 }</code></pre>
         </div>
-        <p><code>@Exclude</code> + ClassSerializerInterceptor.</p>
+        <p><code>@Exclude</code> + ClassSerializerInterceptor(응답을 내보낼 때 <code>@Exclude</code>를 적용해 주는 인터셉터).</p>
       </div>
       <div class="compare-card">
         <div class="compare-card-header fast">FastAPI — response_model</div>
@@ -180,7 +185,7 @@ def get(id): ...</code></pre>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>response_model의 3가지 이득.</strong> ① <strong>보안</strong> — 민감 필드 자동 제거 · ② <strong>문서</strong> — Swagger에 정확한 응답 스키마 표시 · ③ <strong>검증</strong> — 응답조차 모델에 맞는지 확인(잘못된 응답이면 서버 에러로 잡힘). 입력 검증만큼 출력 계약도 명확해집니다.</div>
+      <div class="callout-body"><strong>response_model의 3가지 이득.</strong> ① <strong>보안</strong> — 민감 필드 자동 제거 · ② <strong>문서</strong> — Swagger에 정확한 응답 스키마 표시 · ③ <strong>검증</strong> — 응답조차 모델에 맞는지 확인합니다. 예를 들어 <code>id</code>를 빠뜨린 채 반환하면 <code>ResponseValidationError</code>가 나며 500 에러로 잡히고, 터미널 로그에 어떤 필드가 빠졌는지 찍히니 개발 중에 바로 알아챌 수 있습니다. 입력 검증만큼 출력 계약도 명확해집니다.</div>
     </div>
   </section>
 
@@ -189,15 +194,42 @@ def get(id): ...</code></pre>
       <div class="section-icon icon-setup">⚙️</div>
       <h2>유용한 옵션 몇 가지</h2>
     </div>
+    <p>출력 모델을 새로 만들지 않고, 라우트 데코레이터의 옵션만으로 응답을 살짝 손보는 방법도 있습니다.</p>
+
     <div class="table-wrap">
       <table>
         <thead><tr><th>옵션</th><th>효과</th></tr></thead>
         <tbody>
-          <tr><td><code>response_model_exclude_unset=True</code></td><td>설정 안 한(기본값인) 필드는 응답에서 생략</td></tr>
+          <tr><td><code>response_model_exclude_unset=True</code></td><td>값을 넣은 적 없는 필드(기본값만 가진 필드)는 응답에서 생략</td></tr>
           <tr><td><code>response_model_exclude={"email"}</code></td><td>특정 필드 제외</td></tr>
           <tr><td><code>response_model_include={"id","username"}</code></td><td>특정 필드만 포함</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <p>첫 번째 <code>exclude_unset</code>은 조금 미묘해서 예를 보는 게 빠릅니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">class TodoPublic(BaseModel):
+    id: int
+    title: str
+    done: bool = False
+    memo: str | None = None
+
+@app.get("/todos/{id}", response_model=TodoPublic, response_model_exclude_unset=True)
+def get_todo(id: int):
+    return TodoPublic(id=1, title="장보기")
+    # 응답: {"id": 1, "title": "장보기"}   ← done·memo는 값을 넣은 적이 없으니 생략
+    # 만약 TodoPublic(id=1, title="장보기", done=False)로 만들었다면
+    # done=False는 기본값과 같아도 "직접 넣은 값"이라 응답에 포함된다</code></pre>
+    </div>
+
+    <p>즉 "설정 안 한"은 <strong>기본값과 같다</strong>는 뜻이 아니라 <strong>값을 넣은 적이 없다</strong>는 뜻입니다. 이 구분이 진짜 빛을 보는 곳은 <strong>PATCH(부분 수정)</strong>입니다 — 클라이언트가 보낸 필드만 골라내 DB에 반영할 때 <code>payload.model_dump(exclude_unset=True)</code>를 쓰는데, <a href="../week06-json-api-structure/01-rest-api-crud.html#crud-router">Week 6·01</a>에서 실제로 해봅니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>보통은 출력 모델을 따로 만드는 게 낫습니다.</strong> <code>response_model_exclude={"email"}</code> 같은 옵션은 코드만 봐서는 실제 응답 모양을 한눈에 알기 어렵고, Swagger 문서에는 여전히 전체 모델이 표시됩니다. <code>UserPublic</code>처럼 출력 모델을 명시적으로 만드는 게 정석이고, 옵션은 "같은 모델을 딱 한 곳에서만 살짝 다르게 내보낼 때" 정도로만 쓰세요.</div>
     </div>
   </section>
 
@@ -213,10 +245,10 @@ def get(id): ...</code></pre>
         <thead><tr><th>클래스</th><th>용도</th></tr></thead>
         <tbody>
           <tr><td><code>JSONResponse</code></td><td>기본 JSON 응답 (직접 상태·헤더 제어)</td></tr>
-          <tr><td><code>ORJSONResponse</code></td><td>orjson 기반 초고속 JSON (대용량에 유리)</td></tr>
+          <tr><td><code>ORJSONResponse</code></td><td>orjson(표준 json보다 훨씬 빠른 JSON 라이브러리) 기반 — 대용량에 유리</td></tr>
           <tr><td><code>PlainTextResponse</code></td><td>순수 텍스트</td></tr>
-          <tr><td><code>RedirectResponse</code></td><td>리다이렉트(3xx)</td></tr>
-          <tr><td><code>StreamingResponse</code></td><td>스트리밍(대용량 파일·실시간)</td></tr>
+          <tr><td><code>RedirectResponse</code></td><td>리다이렉트(3xx) — "다른 주소로 가세요"라고 클라이언트를 보내는 응답</td></tr>
+          <tr><td><code>StreamingResponse</code></td><td>스트리밍 — 응답을 한 번에 다 만들지 않고 조각조각 흘려보냄(대용량 파일·실시간)</td></tr>
         </tbody>
       </table>
     </div>
@@ -230,11 +262,12 @@ def custom():
     return JSONResponse(
         content={"ok": True},
         status_code=200,
-        headers={"X-Custom": "hello"},
+        headers={"X-Custom": "hello"},   # 직접 만든 헤더는 관례상 X- 로 시작
     )
 
 @app.get("/old-path")
 def moved():
+    # 307 = "임시로 옮겼으니 같은 메서드로 저기에 다시 요청하라" (302는 GET으로 바뀔 수 있음)
     return RedirectResponse("/new-path", status_code=307)</code></pre>
     </div>
 
@@ -252,15 +285,15 @@ def moved():
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 함수가 password를 포함해 반환했는데도 응답에 안 나오는 이유는?</summary>
-        <div class="qa-answer"><p>라우트에 <code>response_model=UserPublic</code>을 지정했기 때문입니다. FastAPI가 반환값을 UserPublic 모양으로 다시 직렬화하면서, 그 모델에 없는 <code>password</code> 필드를 자동으로 제거합니다.</p></div>
+        <div class="qa-answer"><p><code>response_model=UserPublic</code> 때문입니다. FastAPI가 반환값을 그 모델 모양으로 다시 만들면서 모델에 없는 필드는 버립니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 왜 입력 모델(UserCreate)과 출력 모델(UserPublic)을 나누나요?</summary>
-        <div class="qa-answer"><p>받는 데이터와 돌려주는 데이터의 형태가 다르기 때문입니다. 입력엔 password가 필요하지만 출력엔 없어야 하고, 출력엔 서버가 만든 id가 추가됩니다. 분리하면 보안·문서·유지보수가 모두 명확해집니다.</p></div>
+        <div class="qa-answer"><p>받는 데이터(password 필요)와 돌려주는 데이터(password 금지, 서버가 만든 id 추가)의 모양이 애초에 다르기 때문입니다.</p></div>
       </details>
       <details class="qa-item">
-        <summary><span class="qa-mark">Q</span> <code>JSONResponse</code>를 직접 반환할 때 주의점은?</summary>
-        <div class="qa-answer"><p>response_model 필터링과 자동 문서 생성이 적용되지 않습니다. 완성된 Response를 반환하면 FastAPI가 후처리를 건너뛰기 때문입니다. 꼭 필요한 경우에만 쓰고, 평소엔 모델/dict 반환을 권장합니다.</p></div>
+        <summary><span class="qa-mark">Q</span> <code>response_model_exclude_unset=True</code>일 때, 기본값과 같은 값을 직접 넣은 필드는 응답에 나오나요?</summary>
+        <div class="qa-answer"><p>나옵니다. "설정 안 한"은 값을 넣은 적이 없다는 뜻이지, 기본값과 같다는 뜻이 아닙니다.</p></div>
       </details>
     </div>
   </section>

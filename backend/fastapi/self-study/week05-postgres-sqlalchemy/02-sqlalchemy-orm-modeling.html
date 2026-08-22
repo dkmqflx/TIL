@@ -89,7 +89,7 @@
       <div class="section-icon icon-concept">🔁</div>
       <h2>ORM이란 — 객체와 테이블의 번역기</h2>
     </div>
-    <p>DB는 <strong>행과 열</strong>로 데이터를 저장하지만, 우리 코드는 <strong>객체</strong>로 생각합니다. 이 둘 사이의 간극(임피던스 불일치)을 메우는 게 ORM(Object-Relational Mapping)입니다.</p>
+    <p>DB는 <strong>행과 열</strong>로 데이터를 저장하지만, 우리 코드는 <strong>객체</strong>로 생각합니다. 이 둘 사이의 간극을 메우는 게 ORM(Object-Relational Mapping)입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
@@ -125,7 +125,7 @@ from sqlalchemy.orm import (
 )
 
 class Base(DeclarativeBase):
-    pass                              # 모든 모델의 부모. metadata가 모인다.
+    pass                              # 모든 모델의 부모. 자기 밑 모델 목록(metadata)을 기억한다.
 
 class Todo(Base):
     __tablename__ = "todos"
@@ -137,6 +137,8 @@ class Todo(Base):
         server_default=func.now(),
     )</code></pre>
     </div>
+
+    <p>처음 보는 것 세 가지만 짚고 갑니다. <code>primary_key=True</code>가 붙은 정수 <code>id</code>는 우리가 값을 주지 않아도 <strong>DB가 1, 2, 3… 번호를 자동으로 매겨</strong> 줍니다(TypeORM의 <code>@PrimaryGeneratedColumn</code>과 같은 일). <code>func</code>는 DB에 내장된 함수를 파이썬에서 부르는 통로로, <code>func.now()</code>는 "DB의 <code>now()</code>로 현재 시각을 찍어라"는 뜻입니다. 그리고 <code>Base</code>가 기억해 두는 모델 목록(<code>metadata</code>)은 마지막 섹션의 <code>create_all</code>이 테이블을 만들 때 참고합니다.</p>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
@@ -150,23 +152,18 @@ class Todo(Base):
       <h2>Mapped[T] vs Mapped[T | None] — "이 칸, 비워도 되나요?"</h2>
     </div>
 
-    <p>2.0 스타일에서 처음 배울 때 가장 많이 막히는 지점입니다. 결론부터 말하면, <strong>타입 힌트에 <code>| None</code>이 붙어 있느냐 없느냐가 테이블의 <code>NOT NULL</code> 제약을 결정</strong>합니다. 왜 그렇게 되는지 이해하려면 원래 상관없어 보이는 두 가지를 따로 짚어야 합니다. <strong>①</strong> DB에서 말하는 <em>NULL</em>이 무엇인지, <strong>②</strong> 파이썬에서 <code>| None</code>이 무엇인지. 그리고 <strong>③</strong> SQLAlchemy가 이 둘을 어떻게 이어 붙이는지가 이 섹션의 전부입니다.</p>
+    <p>2.0 스타일에서 처음 배울 때 가장 많이 막히는 지점입니다. 결론부터 말하면, <strong>타입 힌트에 <code>| None</code>이 붙어 있느냐 없느냐가 테이블의 <code>NOT NULL</code> 제약을 결정</strong>합니다. 왜 그런지 보려면 서로 상관없어 보이는 두 가지 — <strong>①</strong> DB의 <em>NULL</em>, <strong>②</strong> 파이썬의 <code>| None</code> — 를 따로 짚은 뒤, <strong>③</strong> SQLAlchemy가 둘을 어떻게 이어 붙이는지를 보면 됩니다.</p>
 
     <h3>① NULL은 0도, 빈 문자열도 아니다</h3>
-    <p>DB에서 <code>NULL</code>은 <strong>"값이 아예 없음"</strong>이라는 뜻입니다. 숫자 <code>0</code>이나 빈 문자열 <code>''</code>과는 전혀 다릅니다. 0과 <code>''</code>은 <em>값이 있는</em> 상태고, <code>NULL</code>은 <em>값 자체가 없는</em> 상태입니다. 그리고 <code>NOT NULL</code>은 "이 칸은 <strong>절대 비어 있으면 안 된다</strong>"고 DB가 직접 거는 규칙입니다. 이 규칙을 어긴 저장 요청은 DB가 아예 거부합니다.</p>
+    <p>DB에서 <code>NULL</code>은 <strong>"값이 아예 없음"</strong>이라는 뜻입니다. 숫자 <code>0</code>이나 빈 문자열 <code>''</code>은 <em>값이 있는</em> 상태고, <code>NULL</code>은 <em>값 자체가 없는</em> 상태입니다. 그리고 <code>NOT NULL</code>은 "이 칸은 <strong>절대 비어 있으면 안 된다</strong>"고 DB가 직접 거는 규칙으로, 이 규칙을 어긴 저장 요청은 DB가 아예 거부합니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 종이 신청서의 별표(<code>*</code>).</strong> 회원가입 신청서를 떠올려 보세요. <strong>이름 <code>*</code></strong> 처럼 별표가 붙은 칸은 <em>반드시</em> 채워야 접수가 됩니다(<code>NOT NULL</code>). 반면 "별명" 칸은 <em>비워둬도</em> 접수가 되죠(<code>NULL</code> 허용). 여기서 중요한 건, 별명 칸에 <strong>"없음"이라고 적는 것</strong>과 <strong>아무것도 안 적고 비워두는 것</strong>이 다르다는 점입니다. 앞은 <code>'없음'</code>이라는 값이 적힌 것이고, 뒤가 바로 <code>NULL</code>입니다.</div>
+      <div class="callout-body"><strong>비유 — 종이 신청서의 별표(<code>*</code>).</strong> 회원가입 신청서를 떠올려 보세요. <strong>이름 <code>*</code></strong> 처럼 별표가 붙은 칸은 <em>반드시</em> 채워야 접수가 됩니다(<code>NOT NULL</code>). 반면 "별명" 칸은 <em>비워둬도</em> 접수가 되죠(<code>NULL</code> 허용). 여기서 중요한 건, 별명 칸에 <strong>"없음"이라고 적는 것</strong>과 <strong>아무것도 안 적고 비워두는 것</strong>이 다르다는 점입니다. 앞은 <code>'없음'</code>이라는 값이 적힌 것이고, 뒤가 바로 <code>NULL</code>입니다. 그리고 타입 힌트에 <code>| None</code>을 붙이는 행위가 곧 <strong>별표를 떼는 것</strong>입니다.</div>
     </div>
 
     <h3>② <code>| None</code>은 파이썬의 "또는"</h3>
-    <p>파이썬 타입 힌트에서 <code>|</code>는 "또는"이라는 뜻입니다. 그래서 <code>str | None</code>은 <strong>"여기엔 문자열이 들어오거나, None이 들어올 수 있다"</strong>는 선언이 됩니다. <code>None</code>은 파이썬이 "값이 없음"을 표현하는 방식이고요. 정리하면 <code>str</code>은 "문자열이 <em>반드시</em> 있다", <code>str | None</code>은 "없을 수도 있다"입니다. 여기까지는 DB와 아무 상관 없는, 순수한 파이썬 문법 이야기입니다.</p>
-
-    <div class="callout callout-note">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><code>Optional[str]</code>이라고 쓴 코드도 자주 보실 텐데, <strong><code>str | None</code>과 완전히 같은 뜻</strong>입니다. <code>|</code>는 파이썬 3.10부터 생긴 새 표기일 뿐이에요. 예전 코드·문서에선 <code>Optional[...]</code>, 요즘 코드에선 <code>| None</code>을 주로 씁니다.</div>
-    </div>
+    <p>Week 1에서 본 타입 힌트 문법입니다. <code>|</code>는 "또는"이라는 뜻이라 <code>str | None</code>은 <strong>"문자열이 들어오거나, None이 들어올 수 있다"</strong>는 선언이 됩니다. <code>None</code>은 파이썬이 "값이 없음"을 표현하는 방식이고요. 정리하면 <code>str</code>은 "문자열이 <em>반드시</em> 있다", <code>str | None</code>은 "없을 수도 있다"입니다. (예전 코드에서 자주 보이는 <code>Optional[str]</code>은 <code>str | None</code>과 완전히 같은 뜻의 옛 표기입니다.) 여기까지는 DB와 아무 상관 없는, 순수한 파이썬 문법 이야기입니다.</p>
 
     <h3>③ SQLAlchemy가 둘을 이어 붙인다</h3>
     <p>여기가 연결 고리입니다. SQLAlchemy 2.0은 모델 클래스를 읽을 때 <strong>타입 힌트를 그냥 읽고 넘어가지 않고, 그것을 스키마 설계도로 해석</strong>합니다. "파이썬에서 <code>None</code>이 될 수 있다 = DB에서도 비어 있을 수 있다"로 번역하는 것이죠. 그래서 <code>nullable=True</code> 같은 옵션을 따로 적을 필요가 없습니다.</p>
@@ -186,113 +183,37 @@ class Todo(Base):
       <div class="flow-step blue"><code>VARCHAR</code> (비워도 됨)</div>
     </div>
 
-    <p>실제 모델과, 그 모델로 만들어지는 테이블을 나란히 놓고 보면 확실해집니다. 기본키 <code>id</code>는 앞 예제와 같으니 접어두고, 필수인 <code>title</code>과 선택인 <code>memo</code> 두 컬럼만 봅니다.</p>
-
-    <div class="compare-grid">
-      <div class="compare-card">
-        <div class="compare-card-header fast">파이썬 — 내가 쓰는 모델</div>
-        <div class="code-block">
-          <pre><code class="language-python">class Todo(Base):
-    __tablename__ = "todos"
-
-    # | None 없음 → 필수
-    title: Mapped[str] = \
-      mapped_column(String(100))
-
-    # | None 있음 → 선택
-    memo: Mapped[str | None] = \
-      mapped_column(String(500))</code></pre>
-        </div>
-      </div>
-      <div class="compare-card">
-        <div class="compare-card-header good">DB — 실제로 만들어지는 테이블</div>
-        <div class="code-block">
-          <pre><code class="language-sql">CREATE TABLE todos (
-    ...
-
-    -- 비우면 DB가 거부한다
-    title VARCHAR(100) NOT NULL,
-
-    -- 비워도 통과한다
-    memo VARCHAR(500)
-);</code></pre>
-        </div>
-      </div>
-    </div>
-
     <h3>어기면 어떻게 되나 — 두 군데서 잡아준다</h3>
-    <p><code>| None</code>의 유무는 <strong>값을 넣을 때</strong>와 <strong>값을 꺼내 쓸 때</strong> 양쪽에서 효과를 냅니다. 이 두 가지를 한 줄로 동시에 얻는 게 2.0 스타일의 핵심 이득입니다.</p>
+    <p><code>| None</code>의 유무는 <strong>값을 넣을 때</strong>와 <strong>값을 꺼내 쓸 때</strong> 양쪽에서 효과를 냅니다. 필수인 <code>title</code>과 선택인 <code>memo</code> 두 컬럼으로 확인해 봅니다.</p>
 
-    <h4>넣을 때 — DB가 거부한다</h4>
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python">session.add(Todo(title="장보기", memo=None))   # ✅ memo는 선택 → 통과
-session.add(Todo(title="장보기"))              # ✅ memo 생략 → NULL로 저장
+      <pre><code class="language-python">class Todo(Base):
+    __tablename__ = "todos"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(100))        # | None 없음 → 필수
+    memo: Mapped[str | None] = mapped_column(String(500))  # | None 있음 → 선택
 
+# 넣을 때 — DB가 거부한다
+session.add(Todo(title="장보기"))              # ✅ memo 생략 → NULL로 저장
 session.add(Todo(title=None, memo="메모"))     # ❌ title은 필수
 session.commit()
 # sqlalchemy.exc.IntegrityError:
-#   null value in column "title" violates not-null constraint</code></pre>
-    </div>
-    <p>이 에러는 파이썬이 만든 게 아니라 <strong>PostgreSQL이 직접 뱉은 것</strong>입니다. 앱 코드에 구멍이 생겨도 DB가 마지막 방어선 역할을 해 준다는 뜻이죠.</p>
+#   null value in column "title" violates not-null constraint
 
-    <h4>꺼내 쓸 때 — 에디터가 미리 경고한다</h4>
-    <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python">todo = session.get(Todo, 1)
-
+# 꺼내 쓸 때 — 에디터가 미리 경고한다
+todo = session.get(Todo, 1)
 todo.title.upper()      # ✅ str이 확실하니 그냥 호출 가능
 todo.memo.upper()       # ⚠️ 경고: "None일 수도 있는데 .upper()를 부른다고?"
-
 if todo.memo:           # ✅ None인지 확인하고 쓰면 안전
     print(todo.memo.upper())</code></pre>
     </div>
 
-    <div class="callout callout-good">
+    <p>위의 <code>IntegrityError</code>는 파이썬이 만든 게 아니라 <strong>PostgreSQL이 직접 뱉은 것</strong>입니다. 앱 코드에 구멍이 생겨도 DB가 마지막 방어선이 되어 준다는 뜻이죠. 그리고 <code>memo.upper()</code>의 경고는 <strong>코드를 돌려보기도 전에</strong> VS Code 같은 에디터가 빨간 줄로 알려 줍니다. 실제 서비스에서 <code>AttributeError</code>로 터질 버그를 미리 잡는 것이죠. 타입 힌트 한 줄로 <strong>DB 제약 + 파이썬 코드 안전성</strong>을 동시에 챙기는 셈입니다.</p>
+
+    <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>실행 전에 잡힌다는 게 포인트.</strong> <code>memo</code>가 <code>None</code>인 줄 모르고 <code>.upper()</code>를 호출하면 실제 서비스에서 <code>AttributeError</code>로 터집니다. 그런데 <code>Mapped[str | None]</code>이라고 선언해 두면 <strong>코드를 돌려보기도 전에</strong> 에디터(VS Code·Pyright·mypy)가 빨간 줄을 그어 줍니다. 타입 힌트 한 번으로 <strong>DB 제약 + 파이썬 코드 안전성</strong>을 동시에 챙기는 셈입니다.</div>
-    </div>
-
-    <h3>왜 이렇게 바꿨을까 — 1.x 스타일과 비교</h3>
-    <p>예전 스타일에서는 "파이썬 타입"과 "DB 제약"을 <strong>서로 다른 곳에</strong> 적어야 했습니다. 게다가 옛 <code>Column()</code>의 기본값은 <code>nullable=True</code>라, 아무 옵션도 안 주면 <em>모든 컬럼이 조용히 NULL 허용</em>이 되어 버렸습니다.</p>
-
-    <div class="compare-grid">
-      <div class="compare-card">
-        <div class="compare-card-header bad">1.x 스타일 — 두 군데를 손으로 맞춤</div>
-        <div class="code-block">
-          <pre><code class="language-python">class Todo(Base):
-    __tablename__ = "todos"
-
-    # 기본이 nullable=True 라서
-    # 필수는 직접 명시해야 한다
-    title = Column(
-        String, nullable=False
-    )
-
-    # 파이썬 타입 정보는 없다
-    # → 에디터는 str인지 모른다</code></pre>
-        </div>
-      </div>
-      <div class="compare-card">
-        <div class="compare-card-header good">2.0 스타일 — 타입 힌트 한 곳으로 통일</div>
-        <div class="code-block">
-          <pre><code class="language-python">class Todo(Base):
-    __tablename__ = "todos"
-
-    # 타입 힌트 한 줄이
-    # NOT NULL 과 str 을 함께 선언
-    title: Mapped[str]
-
-    # 이 한 줄이면 NULL 허용
-    memo: Mapped[str | None]</code></pre>
-        </div>
-      </div>
-    </div>
-    <p>선언의 출처를 <strong>타입 힌트 한 곳</strong>으로 모았기 때문에, "타입은 <code>str</code>인데 스키마는 NULL 허용" 같은 <strong>어긋남이 생길 수가 없습니다</strong>. 고칠 때도 한 줄만 고치면 둘 다 따라옵니다.</p>
-
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>NestJS를 해봤다면.</strong> TypeORM에서는 <code>@Column({ nullable: true }) memo: string | null;</code>처럼 <strong>데코레이터 옵션과 TS 타입을 각각</strong> 적어야 합니다. 둘이 어긋나도(옵션은 <code>nullable: true</code>인데 타입은 <code>string</code>) 아무도 알려주지 않죠. SQLAlchemy 2.0은 <strong><code>Mapped[str | None]</code> 한 곳만</strong> 고치면 스키마와 타입이 함께 움직입니다.</div>
+      <div class="callout-body"><strong>1.x 스타일과 뭐가 달라졌나.</strong> 예전에는 <code>title = Column(String, nullable=False)</code>처럼 DB 제약을 옵션으로 따로 적었고 파이썬 타입 정보는 없었습니다. 기본값이 <code>nullable=True</code>라 옵션을 빼먹으면 모든 컬럼이 조용히 NULL 허용이 됐고요. 2.0은 선언의 출처를 <strong>타입 힌트 한 곳</strong>으로 모아, "타입은 <code>str</code>인데 스키마는 NULL 허용" 같은 어긋남이 생길 수 없게 했습니다.</div>
     </div>
 
     <h3>헷갈리기 쉬운 세 가지</h3>
@@ -318,8 +239,6 @@ if todo.memo:           # ✅ None인지 확인하고 쓰면 안전
         </tbody>
       </table>
     </div>
-
-    <div class="tip-box"><strong>한 줄로 기억하기.</strong> 타입에 <code>| None</code>이 <strong>있으면 "비워도 되는 칸", 없으면 "반드시 채워야 하는 칸"</strong>입니다. 신청서로 치면 <code>| None</code>을 붙이는 행위가 곧 <strong>별표(<code>*</code>)를 떼는 것</strong>입니다.</div>
   </section>
 
   <section class="section" id="column-options">
@@ -335,8 +254,8 @@ if todo.memo:           # ✅ None인지 확인하고 쓰면 안전
           <tr><td><code>Mapped[T]</code> / <code>Mapped[T | None]</code></td><td>NOT NULL / NULL 허용</td><td><code>title</code> / 선택 필드</td></tr>
           <tr><td><code>default=...</code></td><td>파이썬 측 기본값</td><td><code>done=False</code></td></tr>
           <tr><td><code>server_default=func.now()</code></td><td>DB가 채우는 기본값</td><td><code>created_at</code></td></tr>
-          <tr><td><code>index=True</code></td><td>조회용 인덱스</td><td><code>title</code></td></tr>
-          <tr><td><code>String(100)</code></td><td>VARCHAR 길이 제한</td><td><code>title</code></td></tr>
+          <tr><td><code>index=True</code></td><td>조회용 인덱스 — 책 뒤의 색인처럼, 이 컬럼으로 찾을 때 표 전체를 훑지 않게 해 준다. 자주 검색하는 컬럼에 건다</td><td><code>title</code></td></tr>
+          <tr><td><code>String(100)</code></td><td>VARCHAR 길이 제한 — 100자를 넘는 값은 DB가 거부한다</td><td><code>title</code></td></tr>
         </tbody>
       </table>
     </div>
@@ -352,7 +271,7 @@ if todo.memo:           # ✅ None인지 확인하고 쓰면 안전
       <div class="section-icon icon-compare">⚖️</div>
       <h2>NestJS TypeORM과 나란히</h2>
     </div>
-    <p>같은 "할 일" 엔티티를 양쪽으로 그려 봅니다. 데코레이터(Nest) ↔ 타입 힌트(SQLAlchemy)의 대비가 핵심입니다.</p>
+    <p>같은 "할 일" 엔티티를 양쪽으로 그려 봅니다. 데코레이터(Nest) ↔ 타입 힌트(SQLAlchemy)의 대비가 핵심입니다. 오른쪽은 <a href="#declarative-base">위에서 만든 모델</a>의 앞부분만 다시 적었습니다.</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -366,8 +285,8 @@ export class Todo {
   @Column({ length: 100 })
   title: string;
 
-  @Column({ default: false })
-  done: boolean;
+  @Column({ nullable: true })
+  memo: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -379,19 +298,15 @@ export class Todo {
         <div class="code-block">
           <pre><code class="language-python">class Todo(Base):
     __tablename__ = "todos"
-
-    id: Mapped[int] = \
-        mapped_column(primary_key=True)
     title: Mapped[str] = \
-        mapped_column(String(100))
-    done: Mapped[bool] = \
-        mapped_column(default=False)
-    created_at: Mapped[datetime] = \
-        mapped_column(server_default=func.now())</code></pre>
+      mapped_column(String(100))
+    memo: Mapped[str | None]
+    # id·done·created_at은 위와 같음</code></pre>
         </div>
-        <p><code>@PrimaryGeneratedColumn</code> ↔ <code>primary_key=True</code>, <code>@Column</code> ↔ <code>mapped_column</code>. 데코레이터 대신 타입 힌트가 일합니다.</p>
       </div>
     </div>
+
+    <p><code>@PrimaryGeneratedColumn</code> ↔ <code>primary_key=True</code>, <code>@Column</code> ↔ <code>mapped_column</code>, <code>@CreateDateColumn</code> ↔ <code>server_default=func.now()</code>. 가장 큰 차이는 <code>memo</code> 줄입니다. TypeORM은 <strong>데코레이터 옵션(<code>nullable: true</code>)과 TS 타입(<code>string | null</code>)을 각각</strong> 적어야 하고, 둘이 어긋나도 아무도 알려주지 않습니다. SQLAlchemy 2.0은 <code>Mapped[str | None]</code> <strong>한 곳만</strong> 고치면 스키마와 타입이 함께 움직입니다. (옵션이 없는 컬럼은 이렇게 <code>mapped_column()</code>을 생략해도 됩니다.)</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 660 250" role="img" aria-label="파이썬 클래스와 데이터베이스 테이블의 매핑">
@@ -443,7 +358,7 @@ export class Todo {
       <div class="section-icon icon-entity">🏗️</div>
       <h2>create_all — 테이블 생성(DDL)</h2>
     </div>
-    <p>모델을 선언했다고 테이블이 생기진 않습니다. <code>Base.metadata.create_all(engine)</code>를 호출하면, 등록된 모든 모델을 보고 <strong><code>CREATE TABLE</code>(DDL)을 실행</strong>합니다. 이미 있는 테이블은 건드리지 않습니다.</p>
+    <p>모델을 선언했다고 테이블이 생기진 않습니다. <code>Base.metadata.create_all(engine)</code>를 호출하면, <code>Base</code>가 기억해 둔 모델 목록을 보고 <strong><code>CREATE TABLE</code>을 실행</strong>합니다. 이런 "테이블을 만들고 바꾸는 종류의 SQL"을 <strong>DDL</strong>(Data Definition Language)이라고 부릅니다. 이미 있는 테이블은 건드리지 않습니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -456,12 +371,7 @@ Base.metadata.create_all(engine)</code></pre>
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>create_all은 "변경"을 못 한다.</strong> <code>create_all</code>은 <strong>없는 테이블을 만들 뿐</strong>, 이미 있는 테이블의 컬럼 추가·타입 변경은 하지 못합니다. 모델을 고쳐도 기존 테이블엔 반영되지 않죠. 그래서 데모·초기 개발에만 쓰고, 운영의 스키마 변경은 <strong>Week 10의 Alembic 마이그레이션</strong>으로 버전 관리합니다.</div>
-    </div>
-
-    <div class="callout callout-note">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>다음 단계 예고 — Alembic.</strong> 실무에선 "컬럼 하나 추가"도 기록(마이그레이션)으로 남겨 팀·운영 DB에 순서대로 적용합니다. NestJS의 <code>typeorm migration:generate</code>에 대응하는 게 Alembic의 <code>alembic revision --autogenerate</code>입니다. 지금은 <code>create_all</code>로 빠르게 시작하고, 구조가 안정되면 Alembic으로 갈아탑니다.</div>
+      <div class="callout-body"><strong>create_all은 "변경"을 못 한다 — 그래서 Alembic.</strong> <code>create_all</code>은 <strong>없는 테이블을 만들 뿐</strong>, 이미 있는 테이블의 컬럼 추가·타입 변경은 하지 못합니다. 모델을 고쳐도 기존 테이블엔 반영되지 않죠. 실무에선 "컬럼 하나 추가"도 기록(마이그레이션)으로 남겨 팀·운영 DB에 순서대로 적용하는데, NestJS의 <code>typeorm migration:generate</code>에 대응하는 도구가 <strong>Alembic</strong>입니다(Week 10). 지금은 <code>create_all</code>로 빠르게 시작하고, 구조가 안정되면 Alembic으로 갈아탑니다.</div>
     </div>
   </section>
 
@@ -473,19 +383,19 @@ Base.metadata.create_all(engine)</code></pre>
     <div class="qa-list">
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> SQLAlchemy 2.0 스타일에서 컬럼의 nullable 여부는 어떻게 정하나요?</summary>
-        <div class="qa-answer"><p>타입 힌트로 정합니다. <code>Mapped[str]</code>는 NOT NULL, <code>Mapped[str | None]</code>은 NULL 허용입니다. 별도 옵션 없이 타입 자체가 nullable 여부를 선언합니다.</p></div>
+        <div class="qa-answer"><p>타입 힌트 자체로 정합니다. <code>| None</code>이 없으면 NOT NULL, 있으면 NULL 허용이라 별도 옵션이 필요 없습니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>Mapped[str]</code>에 <code>default=None</code>을 주면 빈 값으로 저장되나요?</summary>
-        <div class="qa-answer"><p>아닙니다. <code>default</code>는 "값을 안 적었을 때 파이썬이 대신 채워 넣을 값"이고, nullable은 "빈 값을 DB가 허용하는가"라서 서로 다른 문제입니다. <code>Mapped[str]</code>인 채로 <code>None</code>이 들어가면 DB가 <code>IntegrityError</code>(not-null constraint 위반)로 거부합니다. 비워도 되게 하려면 타입을 <code>Mapped[str | None]</code>으로 바꿔야 합니다.</p></div>
+        <div class="qa-answer"><p>아닙니다. <code>default</code>는 값을 빠뜨렸을 때 대신 넣어 줄 값일 뿐, "비워도 되는가"는 여전히 <code>Mapped[str]</code>이 결정합니다. 그래서 <code>None</code>이 들어가는 순간 DB가 not-null 위반으로 거부합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> <code>default</code>와 <code>server_default</code>의 차이는?</summary>
-        <div class="qa-answer"><p><code>default</code>는 파이썬(앱) 쪽에서 값을 채우고, <code>server_default</code>는 DB 서버가 채웁니다. <code>created_at</code>처럼 정확한 시각·여러 인스턴스 일관성이 중요한 경우 <code>server_default=func.now()</code>로 DB가 찍게 하는 편이 안전합니다.</p></div>
+        <div class="qa-answer"><p>누가 값을 채우느냐의 차이입니다. <code>default</code>는 파이썬 쪽이, <code>server_default</code>는 DB 서버가 채웁니다. 시각처럼 기준이 하나여야 하는 값은 DB 시계로 찍는 <code>server_default</code>가 안전합니다.</p></div>
       </details>
       <details class="qa-item">
         <summary><span class="qa-mark">Q</span> 모델 컬럼을 바꿨는데 <code>create_all</code>로 테이블이 안 바뀌어요.</summary>
-        <div class="qa-answer"><p><code>create_all</code>은 없는 테이블을 만들 뿐, 기존 테이블의 컬럼 변경은 하지 못합니다. 스키마 변경은 Alembic 마이그레이션(Week 10)으로 처리해야 합니다. 데모라면 테이블을 드롭 후 다시 만들 수도 있지만, 실데이터가 있으면 절대 그러면 안 됩니다.</p></div>
+        <div class="qa-answer"><p>정상입니다. <code>create_all</code>은 없는 테이블만 만들고 기존 테이블은 손대지 않습니다. 데모라면 테이블을 지우고 다시 만들면 되지만, 실데이터가 있는 DB는 Alembic 마이그레이션(Week 10)으로 바꿔야 합니다.</p></div>
       </details>
     </div>
   </section>

@@ -340,7 +340,7 @@ td code { font-size: 12px; }
 .doc-footer a:hover { text-decoration: underline; }
 
 /* ── Part pager (파일 상단 이전/다음) ── */
-.part-pager { display: flex; align-items: stretch; gap: 12px; margin-bottom: 32px; }
+.part-pager { display: flex; align-items: stretch; gap: 12px; margin-top: 56px; }
 .part-pager-link {
   display: flex; flex-direction: column; gap: 2px;
   padding: 10px 16px; border: 1px solid var(--border); border-radius: var(--radius);

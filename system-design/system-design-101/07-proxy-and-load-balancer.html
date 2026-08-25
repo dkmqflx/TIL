@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>07차시 · 프록시와 로드 밸런서 — 시스템 디자인 101</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 101</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 시스템 디자인 첫걸음</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-item" href="index.html">01 · 오리엔테이션</a>
+    <a class="nav-item" href="02-system-design-overview.html">02 · 시스템 디자인 개요</a>
+    <a class="nav-item" href="03-networking-basics.html">03 · 네트워킹 기초</a>
+    <a class="nav-item" href="04-server-and-client.html">04 · 서버와 클라이언트</a>
+    <a class="nav-item" href="05-http-websocket-api.html">05 · HTTP, WebSocket, API</a>
+    <a class="nav-item" href="06-caching-and-cdn.html">06 · 캐싱과 CDN</a>
+    <div class="nav-section-title" style="margin-top:8px">07 · 프록시와 로드 밸런서</div>
+    <a class="nav-item" href="#what-proxy">🔀 프록시란?</a>
+    <a class="nav-item" href="#forward">➡️ Forward Proxy</a>
+    <a class="nav-item" href="#reverse">⬅️ Reverse Proxy</a>
+    <a class="nav-item" href="#compare">⚖️ Forward vs Reverse</a>
+    <a class="nav-item" href="#what-lb">⚖️ 로드 밸런서란?</a>
+    <a class="nav-item" href="#algorithms">🧮 분산 알고리즘 4가지</a>
+    <a class="nav-item" href="#health">🩺 헬스 체크 &amp; L4/L7</a>
+    <a class="nav-item" href="#spof">🛡️ 단일 장애점과 다중 LB</a>
+    <a class="nav-item" href="08-storage.html" style="margin-top:8px">08 · 스토리지</a>
+    <a class="nav-item" href="09-big-data.html">09 · 빅 데이터</a>
+    <a class="nav-item" href="10-design-process.html">10 · 문제 해결 프로세스</a>
+    <a class="nav-item" href="11-key-value-store.html">11 · Key-Value Store</a>
+    <a class="nav-item" href="12-rate-limiter.html">12 · Rate Limiter</a>
+    <a class="nav-item" href="13-url-shortener.html">13 · URL Shortener</a>
+    <a class="nav-item" href="14-message-queue.html">14 · Distributed Message Queue</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="06-caching-and-cdn.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">06 · 캐싱과 CDN</span></a>
+    <a class="part-pager-link next" href="08-storage.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">08 · 스토리지</span></a>
+  </div>
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 07차시</div>
+    <h1>프록시와 로드 밸런서</h1>
+    <p>클라이언트와 서버 사이에는 중계자가 서 있습니다. 누구 편에 서서 누구를 감추느냐에 따라 Forward Proxy와 Reverse Proxy로 나뉘고, Reverse Proxy의 핵심 기능인 로드 밸런싱은 서버를 여러 대로 늘릴 때 반드시 필요한 교통정리입니다. 이 차시에서 그 둘을 한 번에 정리합니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">Proxy</span>
+      <span class="hero-chip">Reverse Proxy</span>
+      <span class="hero-chip">Load Balancer</span>
+      <span class="hero-chip">Health Check</span>
+      <span class="hero-chip">SPOF</span>
+    </div>
+  </div>
+
+  <!-- ── 프록시란? ── -->
+  <section class="section" id="what-proxy">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🔀</div>
+      <h2>프록시(Proxy)란?</h2>
+    </div>
+
+    <p>프록시는 시스템 디자인, 특히 <strong>네트워크 계층</strong>에서 자주 등장하는 용어입니다. 한마디로 <strong>"중간에서 통신을 대신 중계해 주는 대리인"</strong>이에요. 클라이언트와 서버 사이, 혹은 서버와 서버 사이에 서서 <strong>대화를 중계하고 통제</strong>합니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 심부름 대리인</strong><br>
+        내가 직접 가게에 가는 대신 <strong>심부름꾼</strong>을 보낸다고 해봅시다. 가게 주인은 심부름꾼만 볼 뿐, <strong>진짜 나(원래 요청자)가 누군지 모릅니다.</strong>
+        게다가 심부름꾼은 "이 가게는 가지 마세요", "이건 지난번에 사둔 거니 그냥 드릴게요(캐싱)" 같은 <strong>통제·최적화</strong>도 할 수 있어요.
+      </div>
+    </div>
+
+    <p>프록시의 핵심은 <strong>"두 대상의 직접 연결을 감추고, 중간에서 제어한다"</strong>는 점입니다. 대표적인 종류가 두 가지 있는데, <strong>누구 편에 서서 누구를 감추느냐</strong>가 다릅니다.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">➡️</div>
+        <div class="card-title">Forward Proxy</div>
+        <div class="card-body"><strong>클라이언트 편</strong>에 서서 <strong>클라이언트를 감춰줍니다.</strong></div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">⬅️</div>
+        <div class="card-title">Reverse Proxy</div>
+        <div class="card-body"><strong>서버 편</strong>에 서서 <strong>서버를 감춰줍니다.</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Forward Proxy ── -->
+  <section class="section" id="forward">
+    <div class="section-header">
+      <div class="section-icon icon-insert">➡️</div>
+      <h2>Forward Proxy — 클라이언트 편</h2>
+    </div>
+
+    <p>Forward Proxy는 <strong>클라이언트 쪽에 서서</strong>, 클라이언트를 대신해 서버에 요청을 보냅니다. 그래서 서버 입장에서는 <strong>프록시의 IP만 보이고, 진짜 클라이언트가 누군지 알 수 없습니다.</strong></p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">🙍 클라이언트들</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🛡️ Forward Proxy</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🌐 인터넷 / 서버</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 회사 정문의 경비실</strong><br>
+        직원이 외부로 나갈 때 반드시 <strong>정문 경비실</strong>을 거칩니다. 경비실은 "이 사이트는 가지 마세요"라고 막기도 하고, 누가 언제 나갔는지 <strong>기록</strong>도 합니다.
+        바깥에서 보면 전부 <strong>'회사 정문'에서 나온 것</strong>처럼 보이죠. Forward Proxy가 바로 이 경비실입니다.
+      </div>
+    </div>
+
+    <h3>Forward Proxy가 하는 일</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🕶️</div>
+        <div class="card-title">익명성 (IP 숨김)</div>
+        <div class="card-body">서버는 프록시 IP만 봅니다. 진짜 클라이언트 IP는 가려집니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚧</div>
+        <div class="card-title">접근 제어 / 필터링</div>
+        <div class="card-body">특정 사이트·IP 차단, 특정 시간대만 허용, 유해·비업무 사이트 차단 등을 설정할 수 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">캐싱</div>
+        <div class="card-body">자주 요청되는 응답을 프록시에 저장해 두고 재사용 → 응답 지연(딜레이)을 줄입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📝</div>
+        <div class="card-title">모니터링 / 로깅</div>
+        <div class="card-body">누가 어떤 사이트에 얼마나 접속했는지 기록이 쌓입니다. 트래픽을 감시할 수 있죠.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>어디서 쓰나?</strong> 학교·기업·공공기관처럼 <strong>클라이언트(내부 사용자)를 보호·통제</strong>해야 할 때 씁니다.
+        한마디로 Forward Proxy는 <strong>"클라이언트의 방패막"</strong>이에요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Reverse Proxy ── -->
+  <section class="section" id="reverse">
+    <div class="section-header">
+      <div class="section-icon icon-update">⬅️</div>
+      <h2>Reverse Proxy — 서버 편</h2>
+    </div>
+
+    <p>Reverse Proxy는 Forward Proxy와 <strong>정반대</strong>입니다. 이번엔 <strong>서버 쪽에 서서</strong> 서버들을 보호합니다. 클라이언트는 서버에 직접 접근하지 못하고, 반드시 프록시를 거쳐야 합니다. 그래서 <strong>진짜 서버의 IP가 클라이언트에게 감춰집니다.</strong></p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">🙍 클라이언트들</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🛡️ Reverse Proxy</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🖥️ 서버들</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 건물 1층 안내데스크</strong><br>
+        방문객은 무조건 <strong>안내데스크</strong>를 먼저 상대합니다. 실제 직원들이 몇 층 어느 자리에 있는지 방문객은 몰라요.
+        안내데스크가 "김 대리는 지금 바쁘니 이 대리에게 안내(분산)", "출입증 없는 사람은 차단(보안)"을 해줍니다. 이게 Reverse Proxy예요.
+      </div>
+    </div>
+
+    <h3>Reverse Proxy가 하는 일</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">서버 IP 보호</div>
+        <div class="card-body">클라이언트는 프록시 IP만 압니다. 진짜 서버 주소가 숨겨져 보안이 강해집니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚫</div>
+        <div class="card-title">DDoS 공격 방어</div>
+        <div class="card-body">서버가 프록시 뒤에 숨어 있어, 서버를 직접 노리는 대규모 공격을 어렵게 만듭니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚖️</div>
+        <div class="card-title">로드 밸런싱</div>
+        <div class="card-body">한 서버에 몰릴 트래픽을 여러 서버로 나눠줍니다. (대표 도구: <strong>Nginx</strong>) → 이 차시 <a href="#what-lb">뒷부분</a>에서 자세히!</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">캐싱</div>
+        <div class="card-body">자주 요청되는 콘텐츠를 저장해 두고 재사용 → 네트워크 요청↓, 응답 시간↓.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        한마디로 Reverse Proxy는 <strong>"서버의 방패막"</strong>입니다. 우리가 자주 듣는 <strong>Nginx</strong>가 대표적인 Reverse Proxy이자 로드 밸런서예요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Forward vs Reverse ── -->
+  <section class="section" id="compare">
+    <div class="section-header">
+      <div class="section-icon icon-compare">⚖️</div>
+      <h2>Forward vs Reverse 한눈에 비교</h2>
+    </div>
+
+    <p>둘 다 "중계자"지만 <strong>누구 편에 서는지</strong>가 정반대입니다. 그림으로 보면 위치가 대칭이에요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">➡️ Forward Proxy</div>
+        <div style="padding:16px;font-size:13px;color:#374151;text-align:center">
+          <div style="font-family:var(--mono);line-height:2">
+            🙍 클라이언트<br>
+            <span style="color:var(--primary)">↓ (프록시가 여기 붙음)</span><br>
+            🛡️ <strong>Forward Proxy</strong><br>
+            ↓<br>
+            🌐 서버
+          </div>
+          <div style="margin-top:12px">프록시가 <strong>클라이언트 쪽</strong>에 위치<br>→ <strong>클라이언트</strong>를 감추고 보호</div>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#065f46;border-bottom:1px solid #a7f3d0">⬅️ Reverse Proxy</div>
+        <div style="padding:16px;font-size:13px;color:#374151;text-align:center">
+          <div style="font-family:var(--mono);line-height:2">
+            🙍 클라이언트<br>
+            ↓<br>
+            🛡️ <strong>Reverse Proxy</strong><br>
+            <span style="color:var(--primary)">↓ (프록시가 여기 붙음)</span><br>
+            🖥️ 서버
+          </div>
+          <div style="margin-top:12px">프록시가 <strong>서버 쪽</strong>에 위치<br>→ <strong>서버</strong>를 감추고 보호</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th></th><th>➡️ Forward Proxy</th><th>⬅️ Reverse Proxy</th></tr></thead>
+        <tbody>
+          <tr><td><strong>위치</strong></td><td>클라이언트 쪽</td><td>서버 쪽</td></tr>
+          <tr><td><strong>보호 대상</strong></td><td>클라이언트</td><td>서버</td></tr>
+          <tr><td><strong>누구 IP를 감추나</strong></td><td>클라이언트 IP</td><td>서버 IP</td></tr>
+          <tr><td><strong>주요 목적</strong></td><td>익명성, 접근 제어, 콘텐츠 필터링, 캐싱</td><td>서버 보호, 로드 밸런싱, DDoS 방어, 캐싱</td></tr>
+          <tr><td><strong>대표 예</strong></td><td>회사·학교 내부망 프록시</td><td>Nginx</td></tr>
+          <tr><td><strong>비유</strong></td><td>회사 정문 경비실</td><td>건물 안내데스크</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>헷갈릴 땐 이렇게</strong>: <strong>Forward</strong>는 "나(클라이언트)를 대신해 <strong>앞으로 내보내는</strong>" 프록시, <strong>Reverse</strong>는 "요청을 <strong>거꾸로 받아</strong> 서버에 전달하는" 프록시라고 기억하세요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        리버스 프록시 + 캐싱을 <strong>지구 규모로 확장</strong>한 것이 <strong>CDN</strong>인데, 그건 캐싱 차시
+        (<a href="06-caching-and-cdn.html#cdn">06차시 · CDN</a>)에서 다뤘습니다. 여기서는 리버스 프록시의 또 다른 핵심 기능인
+        <strong>로드 밸런싱</strong>을 이어서 깊게 파봅니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 로드 밸런서란? ── -->
+  <section class="section" id="what-lb">
+    <div class="section-header">
+      <div class="section-icon icon-setup">⚖️</div>
+      <h2>로드 밸런서(Load Balancer)란?</h2>
+    </div>
+
+    <p><a href="04-server-and-client.html#one-server-limit">서버 한 대의 한계</a>를 넘기 위해 여러 대를 두면(수평 확장, <a href="02-system-design-overview.html#scaling">02차시</a>), 곧바로 질문이 하나 생깁니다. <strong>누가 요청을 나눠 줄까?</strong></p>
+
+    <p>로드 밸런서는 여러 서버 <strong>앞단</strong>에 서서, 들어오는 요청을 각 서버에 <strong>고르게 분산</strong>시켜 주는 장치입니다. 한 서버에 트래픽이 몰리지 않도록 미리 받아서 골고루 뿌려주죠.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 마트 계산대 안내 직원</strong><br>
+        계산대가 여러 개인데 손님이 한 줄로만 몰리면 비효율적이죠. 그래서 안내 직원이 <strong>"손님, 3번 계산대가 비었어요!"</strong>라며 골고루 보내줍니다.
+        로드 밸런서가 바로 이 안내 직원이고, 계산대가 서버입니다.
+      </div>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-step blue">🙍 요청들</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">⚖️ 로드 밸런서</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🖥️ 서버 1</div>
+      <div class="flow-step green">🖥️ 서버 2</div>
+      <div class="flow-step green">🖥️ 서버 3</div>
+    </div>
+
+    <h3>로드 밸런서가 존재하는 이유</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">성능 향상</div>
+        <div class="card-body">부하를 여러 서버로 나눠 각 서버가 여유 있게 일하니 전체가 빨라집니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">고가용성 (High Availability)</div>
+        <div class="card-body">서버 한 대가 죽어도 나머지가 처리하니 서비스가 멈추지 않습니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: 로드 밸런서의 존재 이유 = <strong>성능</strong> + <strong>고가용성</strong>. 가장 핵심 역할은 <strong>요청을 고르게 분산</strong>하는 것입니다.</div>
+    </div>
+  </section>
+
+  <!-- ── 분산 알고리즘 ── -->
+  <section class="section" id="algorithms">
+    <div class="section-header">
+      <div class="section-icon icon-query">🧮</div>
+      <h2>분산 알고리즘 4가지</h2>
+    </div>
+
+    <p>"고르게 분산한다"고 했지만, <strong>어떤 기준으로</strong> 나눌지는 여러 방법이 있습니다. 대표적인 4가지를 비유와 함께 봅시다.</p>
+
+    <h3>1️⃣ 라운드 로빈 (Round Robin) — 순서대로</h3>
+    <p>서버 성능은 따지지 않고 <strong>1 → 2 → 3 → 다시 1 → 2 → 3…</strong> 순서대로 돌아가며 요청을 분배합니다. 가장 간단하고 균형 잡힌 방법이에요.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유</strong> — 카드 딜러가 순서대로 한 장씩 나눠주듯. <strong>단점</strong>: 서버마다 성능이 다른데도 똑같이 나눠줘서, 성능 좋은 서버의 여유를 낭비할 수 있습니다.</div>
+    </div>
+
+    <h3>2️⃣ 가중 라운드 로빈 (Weighted Round Robin) — 성능만큼 더</h3>
+    <p>라운드 로빈의 단점을 보완합니다. 각 서버에 <strong>가중치(weight)</strong>를 매겨, 성능 좋은 서버에 <strong>더 많은 요청</strong>을 보냅니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유</strong> — 힘센 사람에게 짐을 더 많이 맡기듯. 예를 들어 서버 A가 B·C보다 2배 빠르면, A에 2번 갈 동안 B·C엔 각 1번씩 보냅니다.</div>
+    </div>
+
+    <h3>3️⃣ 최소 연결 (Least Connection) — 가장 한가한 곳으로</h3>
+    <p>지금 <strong>연결(처리 중인 작업)이 가장 적은 서버</strong>에 요청을 보냅니다. 각 서버의 현재 상태를 실시간으로 살펴 부하가 적은 곳으로 보내죠.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유</strong> — 마트에서 <strong>줄이 가장 짧은 계산대</strong>로 가듯. 서버 1이 과부하로 느려지면, 완화될 때까지 서버 2·3 위주로 보냅니다.</div>
+    </div>
+
+    <h3>4️⃣ IP 해시 (IP Hash) — 단골은 늘 같은 서버로</h3>
+    <p>클라이언트의 <strong>IP 주소</strong>를 기준으로, <strong>같은 IP는 항상 같은 서버</strong>로 보냅니다. 특정 사용자를 계속 같은 서버에 붙여둬야 할 때(연결 지속) 유용합니다. 다만 세션을 서버에 두지 않는 <a href="04-server-and-client.html#stateless">무상태 설계</a>라면 이런 고정 자체가 필요 없어집니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유</strong> — 단골 손님은 <strong>항상 같은 담당 직원</strong>에게 안내하듯. 로그인 세션처럼 "같은 사용자는 같은 서버가 기억하고 있어야" 할 때 씁니다.</div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead><tr><th>알고리즘</th><th>기준</th><th>비유</th><th>특징</th></tr></thead>
+        <tbody>
+          <tr><td><strong>라운드 로빈</strong></td><td>순서대로</td><td>카드 딜러</td><td>간단하지만 서버 성능 차이 무시</td></tr>
+          <tr><td><strong>가중 라운드 로빈</strong></td><td>성능(가중치)</td><td>힘센 사람에 짐 더</td><td>성능 좋은 서버에 더 많이</td></tr>
+          <tr><td><strong>최소 연결</strong></td><td>현재 부하</td><td>줄 짧은 계산대</td><td>실시간 상태 기반, 부하 적은 곳</td></tr>
+          <tr><td><strong>IP 해시</strong></td><td>클라이언트 IP</td><td>단골 = 같은 직원</td><td>같은 사용자를 같은 서버로 고정</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 헬스 체크 & L4/L7 ── -->
+  <section class="section" id="health">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🩺</div>
+      <h2>한 걸음 더: 헬스 체크 &amp; L4/L7</h2>
+    </div>
+
+    <h3>🩺 헬스 체크 (Health Check)</h3>
+    <p>로드 밸런서는 <strong>죽은 서버에 요청을 보내면 안 됩니다.</strong> 그래서 각 서버에 주기적으로 "너 살아있니?"라고 <strong>신호를 보내 상태를 확인</strong>하는데, 이걸 헬스 체크라고 합니다. 응답이 없는 서버는 <strong>목록에서 잠시 빼두고</strong>, 살아있는 서버에만 요청을 보냅니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>비유</strong> — 안내 직원이 "3번 계산대 직원 자리 비었네?"를 미리 확인하고, 손님을 그리 안 보내는 것과 같습니다.</div>
+    </div>
+
+    <h3>🔀 L4 vs L7 로드 밸런싱</h3>
+    <p>로드 밸런서는 <strong>무엇을 보고 판단하느냐</strong>에 따라 두 종류로 나뉩니다. 지금은 "이런 게 있구나" 정도만 알아두면 됩니다.</p>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">L4 — 빠른 분류</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151">
+          <strong>IP 주소·포트</strong>만 보고 분산합니다. 편지 <strong>겉봉투(받는 주소)</strong>만 보고 나눠주는 우체국처럼요.<br><br>
+          → 내용을 안 보니 <strong>빠릅니다.</strong>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">L7 — 똑똑한 분류</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151">
+          <strong>URL·쿠키 등 내용</strong>까지 보고 분산합니다. 편지 <strong>내용을 읽고</strong> "이건 민원팀, 저건 배송팀"으로 나눠주듯.<br><br>
+          → 더 똑똑하지만 <strong>조금 더 무겁습니다.</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 단일 장애점과 다중 LB ── -->
+  <section class="section" id="spof">
+    <div class="section-header">
+      <div class="section-icon icon-error">🛡️</div>
+      <h2>단일 장애점과 다중 LB</h2>
+    </div>
+
+    <p>로드 밸런서 덕분에 서버 한 대가 죽어도 안전해졌습니다. 그런데 여기서 아주 중요한 질문 하나. <strong>"그럼 로드 밸런서 자체가 죽으면?"</strong></p>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        로드 밸런서가 다운되면 <strong>모든 트래픽이 중단</strong>됩니다. 서버들이 멀쩡해도 요청을 나눠줄 장치가 없으니 서비스 전체가 멈추죠.
+        이렇게 <strong>"한 곳이 죽으면 전체가 멈추는 지점"</strong>을 <strong>단일 장애점(SPOF, Single Point of Failure)</strong>이라고 합니다.
+      </div>
+    </div>
+
+    <p>해결책은? 서버를 여러 대 뒀던 것처럼, <strong>로드 밸런서도 여러 대</strong> 두면 됩니다. 첫 번째 LB가 죽으면 두 번째 LB로 트래픽을 넘기는 거죠. 구성 방식은 크게 두 가지입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header good">🟢🟢 Active-Active</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151">
+          LB <strong>A와 B가 동시에 작동</strong>합니다. 둘 다 일하다가 하나가 죽으면 <strong>나머지가 그 몫까지</strong> 처리합니다.<br><br>
+          → 평소에도 둘 다 활용 (효율적)
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--yellow-soft);color:#b45309;border-bottom:1px solid #fde68a">🟢⚪ Active-Passive</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151">
+          LB A만 작동하고 <strong>B는 대기(standby)</strong> 상태로 쉽니다. A에 문제가 생기면 <strong>그때 B가 활성화</strong>되어 넘겨받습니다.<br><br>
+          → 평소엔 B가 놀지만 구성이 단순 (예비군)
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유</strong> — Active-Active는 <strong>계산대 안내 직원 2명이 늘 함께 근무</strong>, Active-Passive는 <strong>1명이 근무하고 1명은 대기실에서 대기</strong>하다 무슨 일이 생기면 투입.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 차시 정리</strong><br>
+        프록시는 <strong>중계자</strong>이고, 그중 서버 편에 서는 리버스 프록시의 핵심 기능이 <strong>로드 밸런싱</strong>이었습니다.
+        로드 밸런서는 시스템의 <strong>성능 · 확장성 · 고가용성</strong>을 극대화하는 핵심 부품으로, 라운드 로빈·IP 해시 등 다양한 알고리즘으로 상황에 맞게 트래픽을 분산하고,
+        LB를 여러 대로 구성해 <strong>단일 장애점</strong>까지 없앨 수 있습니다.<br><br>
+        여기까지가 요청이 <strong>서버에 닿기까지</strong>의 이야기입니다. 다음 차시부터는 서버 뒤편 — 데이터가 실제로 쌓이는 <strong>스토리지</strong>로 들어갑니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="06-caching-and-cdn.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">06 · 캐싱과 CDN</span></a>
+    <a class="part-pager-link next" href="08-storage.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">08 · 스토리지</span></a>
+  </div>
+
+  <div class="doc-footer">
+    System Design 101 · 07차시 · 프록시와 로드 밸런서 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

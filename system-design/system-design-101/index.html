@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>System Design 101 — 왕초보 입문 가이드</title>
+  <title>System Design 101 — 14차시 왕초보 입문 가이드</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
@@ -16,41 +16,27 @@
 <!-- ── Sidebar ── -->
 <nav class="sidebar">
   <div class="sidebar-header">
-    <a class="sidebar-logo" href="#top">
+    <a class="sidebar-logo" href="index.html">
       <span class="logo-badge">SYSTEM</span>
       <span class="logo-text">시스템 디자인 101</span>
     </a>
     <div class="logo-sub">왕초보를 위한 시스템 디자인 첫걸음</div>
   </div>
   <div class="sidebar-nav">
-    <div class="nav-section-title">Part 1 · 시스템 디자인이란?</div>
-    <a class="nav-item" href="01-what-is-system-design.html#what">🧭 시스템 디자인이 뭐예요?</a>
-    <a class="nav-item" href="01-what-is-system-design.html#why">🤔 왜 배워야 하나요?</a>
-    <a class="nav-item" href="01-what-is-system-design.html#goals">🎯 좋은 시스템의 4가지 목표</a>
-    <a class="nav-item" href="01-what-is-system-design.html#scaling">📈 수직 확장 vs 수평 확장</a>
-    <a class="nav-item" href="01-what-is-system-design.html#requirements">📋 기능적 vs 비기능적 요구사항</a>
-    <a class="nav-item" href="01-what-is-system-design.html#components">🗺️ 시스템을 이루는 구성요소</a>
-
-    <div class="nav-section-title" style="margin-top:8px">Part 2 · 브라우저 &amp; 클라이언트</div>
-    <a class="nav-item" href="02-browser-client.html#client-vs-browser">🖥️ 클라이언트 vs 브라우저</a>
-    <a class="nav-item" href="02-browser-client.html#browser-role">🌐 브라우저가 하는 일</a>
-    <a class="nav-item" href="02-browser-client.html#url-journey">🚀 URL 입력하면 벌어지는 일</a>
-    <a class="nav-item" href="02-browser-client.html#dns">📇 DNS: 인터넷 전화번호부</a>
-    <a class="nav-item" href="02-browser-client.html#rendering">🎨 화면에 그려지는 과정</a>
-
-    <div class="nav-section-title" style="margin-top:8px">Part 3 · 프록시</div>
-    <a class="nav-item" href="03-proxy.html#what-proxy">🔀 프록시란?</a>
-    <a class="nav-item" href="03-proxy.html#forward">➡️ Forward Proxy</a>
-    <a class="nav-item" href="03-proxy.html#reverse">⬅️ Reverse Proxy</a>
-    <a class="nav-item" href="03-proxy.html#compare">⚖️ Forward vs Reverse</a>
-    <a class="nav-item" href="03-proxy.html#cdn">🌍 한 걸음 더: CDN</a>
-
-    <div class="nav-section-title" style="margin-top:8px">Part 4 · 로드 밸런서</div>
-    <a class="nav-item" href="04-load-balancer.html#scaling-recap">📈 확장 복습: 수직의 한계</a>
-    <a class="nav-item" href="04-load-balancer.html#what-lb">⚖️ 로드 밸런서란?</a>
-    <a class="nav-item" href="04-load-balancer.html#algorithms">🧮 분산 알고리즘 4가지</a>
-    <a class="nav-item" href="04-load-balancer.html#health">🩺 헬스 체크 &amp; L4/L7</a>
-    <a class="nav-item" href="04-load-balancer.html#spof">🛡️ 단일 장애점과 다중 LB</a>
+    <a class="nav-item" href="#intro">01 · 오리엔테이션</a>
+    <a class="nav-item" href="02-system-design-overview.html">02 · 시스템 디자인 개요</a>
+    <a class="nav-item" href="03-networking-basics.html">03 · 네트워킹 기초</a>
+    <a class="nav-item" href="04-server-and-client.html">04 · 서버와 클라이언트</a>
+    <a class="nav-item" href="05-http-websocket-api.html">05 · HTTP, WebSocket, API</a>
+    <a class="nav-item" href="06-caching-and-cdn.html">06 · 캐싱과 CDN</a>
+    <a class="nav-item" href="07-proxy-and-load-balancer.html">07 · 프록시와 로드 밸런서</a>
+    <a class="nav-item" href="08-storage.html">08 · 스토리지</a>
+    <a class="nav-item" href="09-big-data.html">09 · 빅 데이터</a>
+    <a class="nav-item" href="10-design-process.html">10 · 문제 해결 프로세스</a>
+    <a class="nav-item" href="11-key-value-store.html">11 · Key-Value Store</a>
+    <a class="nav-item" href="12-rate-limiter.html">12 · Rate Limiter</a>
+    <a class="nav-item" href="13-url-shortener.html">13 · URL Shortener</a>
+    <a class="nav-item" href="14-message-queue.html">14 · Distributed Message Queue</a>
   </div>
 </nav>
 
@@ -60,102 +46,259 @@
   <div class="hero">
     <div class="hero-tag">SYSTEM DESIGN · 왕초보 입문</div>
     <h1>시스템 디자인 101</h1>
-    <p>"시스템 디자인이 뭔지 하나도 모르겠어요." — 그런 분들을 위한 가이드입니다. 어려운 용어 대신 비유와 그림으로, 큰 그림부터 차근차근 잡아드립니다.</p>
+    <p>14차시로 배우는 왕초보 시스템 디자인. "시스템 디자인이 뭔지 하나도 모르겠어요." — 그런 분들을 위한 강의입니다. 어려운 용어 대신 비유와 그림으로, 큰 그림부터 차근차근 잡아드립니다.</p>
     <div class="hero-chips">
       <span class="hero-chip">System Design</span>
-      <span class="hero-chip">Scalability</span>
-      <span class="hero-chip">Browser / Client</span>
-      <span class="hero-chip">DNS</span>
-      <span class="hero-chip">Proxy</span>
+      <span class="hero-chip">Networking</span>
+      <span class="hero-chip">HTTP·WebSocket</span>
+      <span class="hero-chip">Caching·CDN</span>
       <span class="hero-chip">Load Balancer</span>
-      <span class="hero-chip">CDN</span>
-      <span class="hero-chip">High Availability</span>
+      <span class="hero-chip">Storage</span>
+      <span class="hero-chip">Big Data</span>
+      <span class="hero-chip">Case Studies</span>
     </div>
   </div>
 
-  <div class="tip-box">
-    <strong>이 가이드를 읽는 법</strong>: 시스템 디자인은 "코드"가 아니라 "큰 그림"을 다루는 영역입니다. 그래서 외우려 하지 말고,
-    <strong>"이 부품이 왜 여기 있지?"</strong>라는 질문에 답할 수 있게 되는 걸 목표로 읽어보세요. Part 1(큰 그림)부터 순서대로 읽는 걸 추천합니다.
-  </div>
-
-  <div class="section">
+  <!-- ── 오리엔테이션 ── -->
+  <section class="section" id="intro">
     <div class="section-header">
-      <div class="section-icon icon-concept">🗂️</div>
-      <h2>목차</h2>
+      <div class="section-icon icon-concept">🎓</div>
+      <h2>오리엔테이션 — 이 강의는 무엇을 배우나</h2>
+    </div>
+
+    <p>시스템 디자인은 특별한 사람만 하는 일이 아닙니다. <strong>서비스가 커지는 순간 누구나 마주치는 고민</strong>이에요. 언제 필요해지는지부터 감을 잡아봅시다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 동네 가게가 프랜차이즈가 될 때</strong><br>
+        손님이 하루에 열 명 오는 <strong>동네 가게</strong>는 사장님 혼자서도 충분합니다. 주문받고, 만들고, 계산하고 — 구조를 고민할 이유가 없죠.<br>
+        그런데 손님이 하루 만 명이 되면 이야기가 달라집니다. 지점을 몇 개 낼지, 손님을 어느 지점으로 보낼지, 재료 창고는 어디에 둘지,
+        한 지점이 문을 닫아도 장사가 되게 하려면 어떻게 할지 — <strong>본사가 고민해야 할 것들</strong>이 생깁니다.
+        시스템 디자인은 바로 이 <strong>본사의 고민</strong>이고, 이 강의는 그 고민에 쓰이는 부품과 절차를 하나씩 알려줍니다.
+      </div>
+    </div>
+
+    <h3>이 강의를 다 들으면 할 수 있는 것</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🧩</div>
+        <div class="card-title">부품 이름을 보고 역할을 말한다</div>
+        <div class="card-body">"리버스 프록시", "샤딩", "메시지 큐" 같은 말이 나왔을 때 <strong>그게 어디에 왜 붙는 부품인지</strong> 설명할 수 있게 됩니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧭</div>
+        <div class="card-title">요구사항을 4단계로 푼다</div>
+        <div class="card-body">"○○을 설계해 보세요"라는 막막한 질문을 <strong>요구사항 → 개략 설계 → 상세 설계 → 마무리</strong>의 정해진 순서로 풀어냅니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✍️</div>
+        <div class="card-title">면접 사례 4개를 스스로 그린다</div>
+        <div class="card-body">Key-Value Store · Rate Limiter · URL Shortener · Message Queue를 <strong>직접 그려가며</strong> 설명할 수 있게 됩니다.</div>
+      </div>
+    </div>
+
+    <h3>강의는 이렇게 구성돼 있어요</h3>
+    <p>앞부분에서 <strong>부품</strong>을 하나씩 익히고, 가운데에서 그 부품들을 조립하는 <strong>절차</strong>를 배운 뒤, 마지막에 실제 <strong>사례</strong>로 연습하는 순서입니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">02~09차시<br>부품 익히기</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">10차시<br>설계 절차</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">11~14차시<br>면접 사례</div>
+    </div>
+
+    <div class="tip-box">
+      <strong>이 강의를 읽는 법</strong>: 시스템 디자인은 "코드"가 아니라 "큰 그림"을 다루는 영역입니다. 그래서 외우려 하지 말고,
+      <strong>"이 부품이 왜 여기 있지?"</strong>라는 질문에 답할 수 있게 되는 걸 목표로 읽어보세요. 02차시부터 순서대로 읽는 걸 추천하고,
+      사례 편(11~14차시)에서는 본문에 걸린 <strong>앞 차시 링크를 따라가며</strong> 필요한 부품을 다시 확인하면 훨씬 잘 붙습니다.
+    </div>
+  </section>
+
+  <!-- ── 목차 ── -->
+  <section class="section" id="toc">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🗂️</div>
+      <h2>목차 · 전체 14차시</h2>
     </div>
 
     <div class="part-card">
-      <a class="part-card-head" href="01-what-is-system-design.html">
-        <div class="part-card-num">1</div>
+      <a class="part-card-head" href="02-system-design-overview.html">
+        <div class="part-card-num">02</div>
         <div>
-          <div class="part-card-title">Part 1 · 시스템 디자인이란?</div>
+          <div class="part-card-title">02 · 시스템 디자인 개요</div>
           <div class="part-card-sub">개념 · 좋은 시스템의 4대 목표 · 확장 방법 · 요구사항</div>
         </div>
       </a>
       <ul class="part-card-list">
-        <li><a href="01-what-is-system-design.html#what">🧭 시스템 디자인이 뭐예요?</a></li>
-        <li><a href="01-what-is-system-design.html#why">🤔 왜 배워야 하나요?</a></li>
-        <li><a href="01-what-is-system-design.html#goals">🎯 좋은 시스템의 4가지 목표</a></li>
-        <li><a href="01-what-is-system-design.html#scaling">📈 수직 확장 vs 수평 확장</a></li>
-        <li><a href="01-what-is-system-design.html#requirements">📋 기능적 vs 비기능적 요구사항</a></li>
-        <li><a href="01-what-is-system-design.html#components">🗺️ 시스템을 이루는 구성요소</a></li>
+        <li><a href="02-system-design-overview.html#what">🧭 시스템 디자인이 뭐예요?</a></li>
+        <li><a href="02-system-design-overview.html#why">🤔 왜 배워야 하나요?</a></li>
+        <li><a href="02-system-design-overview.html#goals">🎯 좋은 시스템의 4가지 목표</a></li>
+        <li><a href="02-system-design-overview.html#scaling">📈 수직 확장 vs 수평 확장</a></li>
+        <li><a href="02-system-design-overview.html#requirements">📋 기능적 vs 비기능적 요구사항</a></li>
+        <li><a href="02-system-design-overview.html#components">🗺️ 시스템을 이루는 구성요소</a></li>
       </ul>
     </div>
 
     <div class="part-card">
-      <a class="part-card-head" href="02-browser-client.html">
-        <div class="part-card-num">2</div>
+      <a class="part-card-head" href="03-networking-basics.html">
+        <div class="part-card-num">03</div>
         <div>
-          <div class="part-card-title">Part 2 · 브라우저 &amp; 클라이언트</div>
-          <div class="part-card-sub">사용자와 가장 가까운 부품 · 주소창에 URL을 치면 벌어지는 일</div>
+          <div class="part-card-title">03 · 네트워킹 기초</div>
+          <div class="part-card-sub">IP·포트 · DNS · TCP vs UDP · URL 입력의 여정</div>
         </div>
       </a>
       <ul class="part-card-list">
-        <li><a href="02-browser-client.html#client-vs-browser">🖥️ 클라이언트 vs 브라우저</a></li>
-        <li><a href="02-browser-client.html#browser-role">🌐 브라우저가 하는 일</a></li>
-        <li><a href="02-browser-client.html#url-journey">🚀 URL을 입력하면 벌어지는 일</a></li>
-        <li><a href="02-browser-client.html#dns">📇 DNS: 인터넷 전화번호부</a></li>
-        <li><a href="02-browser-client.html#rendering">🎨 화면에 그려지는 과정</a></li>
+        <li><a href="03-networking-basics.html#ip-port">📮 IP 주소와 포트</a></li>
+        <li><a href="03-networking-basics.html#dns">📇 DNS: 인터넷 전화번호부</a></li>
+        <li><a href="03-networking-basics.html#tcp-udp">📦 TCP vs UDP</a></li>
+        <li><a href="03-networking-basics.html#url-journey">🚀 URL 입력하면 벌어지는 일</a></li>
       </ul>
     </div>
 
     <div class="part-card">
-      <a class="part-card-head" href="03-proxy.html">
-        <div class="part-card-num">3</div>
+      <a class="part-card-head" href="04-server-and-client.html">
+        <div class="part-card-num">04</div>
         <div>
-          <div class="part-card-title">Part 3 · 프록시 (Proxy)</div>
-          <div class="part-card-sub">네트워크의 중계자 · Forward vs Reverse Proxy</div>
+          <div class="part-card-title">04 · 서버와 클라이언트</div>
+          <div class="part-card-sub">브라우저와 렌더링 · 요청-응답 사이클 · 무상태 서버</div>
         </div>
       </a>
       <ul class="part-card-list">
-        <li><a href="03-proxy.html#what-proxy">🔀 프록시란? (중계자)</a></li>
-        <li><a href="03-proxy.html#forward">➡️ Forward Proxy — 클라이언트 편</a></li>
-        <li><a href="03-proxy.html#reverse">⬅️ Reverse Proxy — 서버 편</a></li>
-        <li><a href="03-proxy.html#compare">⚖️ Forward vs Reverse 비교</a></li>
-        <li><a href="03-proxy.html#cdn">🌍 한 걸음 더: CDN</a></li>
+        <li><a href="04-server-and-client.html#client-vs-browser">🖥️ 클라이언트 vs 브라우저</a></li>
+        <li><a href="04-server-and-client.html#browser-role">🌐 브라우저가 하는 일</a></li>
+        <li><a href="04-server-and-client.html#rendering">🎨 화면에 그려지는 과정</a></li>
+        <li><a href="04-server-and-client.html#request-response">🔁 요청-응답 사이클</a></li>
+        <li><a href="04-server-and-client.html#stateless">🧳 상태 있는 서버 vs 없는 서버</a></li>
+        <li><a href="04-server-and-client.html#one-server-limit">🧱 서버 한 대의 한계</a></li>
       </ul>
     </div>
 
     <div class="part-card">
-      <a class="part-card-head" href="04-load-balancer.html">
-        <div class="part-card-num">4</div>
+      <a class="part-card-head" href="05-http-websocket-api.html">
+        <div class="part-card-num">05</div>
         <div>
-          <div class="part-card-title">Part 4 · 로드 밸런서 (Load Balancer)</div>
-          <div class="part-card-sub">트래픽을 골고루 나눠주는 교통정리 · 알고리즘 · 고가용성</div>
+          <div class="part-card-title">05 · HTTP, WebSocket, API</div>
+          <div class="part-card-sub">웹의 대화 규칙 · 실시간 통신 · API 스타일</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="06-caching-and-cdn.html">
+        <div class="part-card-num">06</div>
+        <div>
+          <div class="part-card-title">06 · 캐싱과 CDN</div>
+          <div class="part-card-sub">왜 캐시를 두나 · 무엇을 얼마나 오래 · 전 세계에 둔 분점</div>
         </div>
       </a>
       <ul class="part-card-list">
-        <li><a href="04-load-balancer.html#scaling-recap">📈 확장 복습: 수직의 한계</a></li>
-        <li><a href="04-load-balancer.html#what-lb">⚖️ 로드 밸런서란?</a></li>
-        <li><a href="04-load-balancer.html#algorithms">🧮 분산 알고리즘 4가지</a></li>
-        <li><a href="04-load-balancer.html#health">🩺 헬스 체크 &amp; L4/L7</a></li>
-        <li><a href="04-load-balancer.html#spof">🛡️ 단일 장애점과 다중 LB</a></li>
+        <li><a href="06-caching-and-cdn.html#cdn">🌍 CDN: 전 세계에 둔 분점</a></li>
       </ul>
     </div>
-  </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="07-proxy-and-load-balancer.html">
+        <div class="part-card-num">07</div>
+        <div>
+          <div class="part-card-title">07 · 프록시와 로드 밸런서</div>
+          <div class="part-card-sub">중계자 Forward/Reverse · 분산 알고리즘 · 고가용성</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="07-proxy-and-load-balancer.html#what-proxy">🔀 프록시란?</a></li>
+        <li><a href="07-proxy-and-load-balancer.html#forward">➡️ Forward Proxy</a></li>
+        <li><a href="07-proxy-and-load-balancer.html#reverse">⬅️ Reverse Proxy</a></li>
+        <li><a href="07-proxy-and-load-balancer.html#compare">⚖️ Forward vs Reverse</a></li>
+        <li><a href="07-proxy-and-load-balancer.html#what-lb">⚖️ 로드 밸런서란?</a></li>
+        <li><a href="07-proxy-and-load-balancer.html#algorithms">🧮 분산 알고리즘 4가지</a></li>
+        <li><a href="07-proxy-and-load-balancer.html#health">🩺 헬스 체크 &amp; L4/L7</a></li>
+        <li><a href="07-proxy-and-load-balancer.html#spof">🛡️ 단일 장애점과 다중 LB</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="08-storage.html">
+        <div class="part-card-num">08</div>
+        <div>
+          <div class="part-card-title">08 · 스토리지</div>
+          <div class="part-card-sub">RDB vs NoSQL · 복제 · 샤딩 · CAP</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="09-big-data.html">
+        <div class="part-card-num">09</div>
+        <div>
+          <div class="part-card-title">09 · 빅 데이터</div>
+          <div class="part-card-sub">배치 vs 스트리밍 · MapReduce · 메시지 큐</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="10-design-process.html">
+        <div class="part-card-num">10</div>
+        <div>
+          <div class="part-card-title">10 · 문제 해결 프로세스</div>
+          <div class="part-card-sub">4단계 절차 · 봉투 뒷면 계산</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="11-key-value-store.html">
+        <div class="part-card-num">11</div>
+        <div>
+          <div class="part-card-title">11 · Key-Value Store</div>
+          <div class="part-card-sub">안정 해시 · 정족수 · 읽기/쓰기 경로</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="12-rate-limiter.html">
+        <div class="part-card-num">12</div>
+        <div>
+          <div class="part-card-title">12 · Rate Limiter</div>
+          <div class="part-card-sub">알고리즘 5종 · Redis · 분산 환경</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="13-url-shortener.html">
+        <div class="part-card-num">13</div>
+        <div>
+          <div class="part-card-title">13 · URL Shortener</div>
+          <div class="part-card-sub">base62 · 301 vs 302 · 캐시</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="14-message-queue.html">
+        <div class="part-card-num">14</div>
+        <div>
+          <div class="part-card-title">14 · Distributed Message Queue</div>
+          <div class="part-card-sub">토픽·파티션 · 전달 보장 · 소비자 그룹</div>
+        </div>
+      </a>
+      <ul class="part-card-list"></ul>
+    </div>
+  </section>
 
   <div class="doc-footer">
-    System Design 101 · 왕초보 입문 가이드 · 시스템 디자인의 큰 그림부터 차근차근
+    System Design 101 · 14차시 왕초보 입문 가이드 · 시스템 디자인의 큰 그림부터 차근차근
   </div>
 
 </main>

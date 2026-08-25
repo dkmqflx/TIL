@@ -354,7 +354,7 @@
       <div class="callout-body">
         <strong>비동기의 대가 — 세 가지는 꼭 기억하세요</strong><br>
         <strong>① "끝났다"를 알릴 방법이 따로 필요합니다.</strong> 응답을 이미 보내 버렸으니, 완료 시점을 알리려면 <a href="05-http-websocket-api.html#realtime">05차시의 폴링이나 WebSocket</a> 같은 장치를 따로 붙여야 해요.<br>
-        <strong>② 같은 메시지가 두 번 올 수 있습니다.</strong> 대부분의 큐는 <strong>"적어도 한 번(at-least-once)"</strong> 전달을 보장합니다. 잃어버리지 않는 대신 중복은 허용한다는 뜻이라, 소비자는 <strong>두 번 처리해도 결과가 같도록</strong>(멱등, idempotent) 만들어야 합니다. 썸네일을 두 번 만드는 건 괜찮지만, <strong>포인트를 두 번 적립하면 사고</strong>죠.<br>
+        <strong>② 같은 메시지가 두 번 올 수 있습니다.</strong> 대부분의 큐는 <a href="14-message-queue.html#delivery-guarantee"><strong>"적어도 한 번(at-least-once)"</strong></a> 전달을 보장합니다. 잃어버리지 않는 대신 중복은 허용한다는 뜻이라, 소비자는 <strong>두 번 처리해도 결과가 같도록</strong>(<a href="05-http-websocket-api.html#methods-status">멱등</a>, idempotent) 만들어야 합니다. 썸네일을 두 번 만드는 건 괜찮지만, <strong>포인트를 두 번 적립하면 사고</strong>죠.<br>
         <strong>③ 큐 길이를 반드시 지켜보세요.</strong> 소비자가 생산자보다 느린 상태가 계속되면 큐는 <strong>조용히 계속 길어집니다.</strong> 에러는 하나도 안 나는데 처리가 30분씩 밀리는, 알아채기 가장 늦은 종류의 장애예요.
       </div>
     </div>

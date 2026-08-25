@@ -207,18 +207,11 @@
         <thead><tr><th>도구</th><th>무슨 역할?</th><th>어디서 다루나</th></tr></thead>
         <tbody>
           <tr><td><strong>로드 밸런서</strong></td><td>요청을 여러 서버에 나눠줘서 한 곳에 몰리지 않게 함</td><td><a href="07-proxy-and-load-balancer.html#what-lb">07차시</a></td></tr>
-          <tr><td><strong>DB 인덱싱</strong></td><td>데이터베이스 조회를 빠르게 (책의 '찾아보기 색인'과 같음)</td><td>아래 💡 참고</td></tr>
+          <tr><td><strong>DB 인덱싱</strong></td><td>데이터베이스 조회를 빠르게 (책의 '찾아보기 색인'과 같음)</td><td><a href="08-storage.html#index">08차시</a></td></tr>
         </tbody>
       </table>
     </div>
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body">
-        <strong>DB 인덱싱이 뭐예요?</strong> 500쪽짜리 책에서 "로드 밸런서"라는 단어를 찾는다고 해봅시다. 1쪽부터 다 읽으면 느리죠.
-        하지만 책 뒤 <strong>'찾아보기(색인)'</strong>를 보면 "로드 밸런서 … 321쪽"이라고 바로 알려줍니다. 데이터베이스 인덱스도 똑같이,
-        자주 찾는 값에 대해 미리 '색인'을 만들어 두어 조회를 <strong>훨씬 빠르게</strong> 만드는 기술입니다.
-      </div>
-    </div>
+    <p>인덱스가 왜 조회를 빠르게 만드는지는 <a href="08-storage.html#index">08차시 · 인덱스: 책 뒤 색인</a>에서 비유와 함께 자세히 봅니다.</p>
 
     <h4>📈 확장성 — 손님이 몰려도 대처하기</h4>
     <p>확장성은 워낙 중요해서 바로 다음 섹션에서 <strong>수직 확장 / 수평 확장</strong>이라는 두 가지 방법으로 자세히 다룹니다.</p>
@@ -255,7 +248,7 @@
       <div class="callout-body">
         <strong>수직 확장의 한계 두 가지</strong><br>
         ① <strong>물리적 한계</strong>: 하드웨어는 아무리 좋은 걸로 바꿔도 어느 순간 더 이상 올릴 수 없습니다. (사람도 아무리 훈련해도 한계가 있듯)<br>
-        ② <strong>단일 장애점</strong>: 결국 서버는 <strong>한 대</strong>입니다. 그 한 대가 죽으면 <strong>전체 서비스가 멈춥니다.</strong>
+        ② <strong><a href="07-proxy-and-load-balancer.html#spof">단일 장애점</a></strong>: 결국 서버는 <strong>한 대</strong>입니다. 그 한 대가 죽으면 <strong>전체 서비스가 멈춥니다.</strong>
       </div>
     </div>
 
@@ -314,7 +307,7 @@
     </div>
 
     <h3>검색 엔진을 만든다고 해봅시다</h3>
-    <p>영상의 예시를 따라가 볼게요. 검색 엔진을 설계한다면 요구사항은 이렇게 나뉩니다.</p>
+    <p>검색 엔진을 설계한다면 요구사항은 이렇게 나뉩니다.</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -392,7 +385,7 @@
           <tr><td><strong>⚖️ 로드 밸런서 / 리버스 프록시</strong></td><td>주문을 여러 주방에 나눠주는 배차 담당</td><td><a href="07-proxy-and-load-balancer.html#reverse">07차시</a></td></tr>
           <tr><td><strong>🖥️ 웹 서버</strong></td><td>실제로 요리를 하는 주방</td><td><a href="04-server-and-client.html#request-response">04차시</a></td></tr>
           <tr><td><strong>⚡ 캐시</strong></td><td>자주 나가는 음식을 미리 만들어 두는 곳 (더 빠름)</td><td><a href="06-caching-and-cdn.html#cache-layers">06차시</a></td></tr>
-          <tr><td><strong>🗄️ 데이터베이스</strong></td><td>모든 재료와 기록을 보관하는 창고</td><td><a href="08-storage.html">08차시</a></td></tr>
+          <tr><td><strong>🗄️ 데이터베이스</strong></td><td>모든 재료와 기록을 보관하는 창고</td><td><a href="08-storage.html#rdb-vs-nosql">08차시</a></td></tr>
           <tr><td><strong>🌍 CDN</strong></td><td>손님 동네마다 둔 '가까운 지점' (사진·영상을 빠르게)</td><td><a href="06-caching-and-cdn.html#cdn">06차시</a></td></tr>
         </tbody>
       </table>

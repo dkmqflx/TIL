@@ -524,26 +524,15 @@ Location: https://example.com/articles/2026/system-design</code></pre>
     <p>둘째, <strong>인기가 심하게 쏠립니다.</strong> 링크 대부분은 만들어지고 몇 번 눌리다 잊히는데, 소수의 링크는 SNS를 타고 <strong>수백만 번</strong> 눌려요. 흔히 말하는 <strong>80/20</strong> 현상입니다 — 요청의 80%가 상위 20%의 링크에서 나온다는 거죠. 그러니 <strong>전체를 캐시할 필요가 전혀 없습니다.</strong> 인기 있는 것만 담아도 대부분이 걸립니다.</p>
 
     <h3>캐시 아사이드로 읽는다</h3>
-    <p>읽기 방식은 <a href="06-caching-and-cdn.html#read-strategies">06차시의 캐시 아사이드(cache-aside)</a> 그대로입니다. 이 문제에 대입하면 이렇게 돼요.</p>
-
-    <div class="timeline">
-      <div class="timeline-item">
-        <div class="timeline-num">1</div>
-        <div class="timeline-content"><strong>캐시에서 짧은 키를 찾는다</strong><br><code>2TX</code>를 키로, <strong>긴 URL</strong>을 값으로 저장해 둡니다. 있으면 곧바로 <code>Location</code> 헤더에 실어 응답 — <strong>DB에 가지 않습니다.</strong></div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">2</div>
-        <div class="timeline-content"><strong>없으면 DB에서 읽는다</strong><br>캐시에 없는 링크입니다. 처음 눌렸거나 한참 잊혔던 링크죠. DB에서 <code>short_url</code>로 찾아옵니다. 여기에 없으면 <strong>존재하지 않는 링크</strong>이니 <code>404</code>예요.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">3</div>
-        <div class="timeline-content"><strong>캐시에 넣어 두고 응답한다</strong><br>읽어 온 값을 캐시에 넣습니다. 그 링크가 <strong>지금 막 퍼지기 시작한 것</strong>이라면, 뒤따라오는 수천 건은 전부 1번에서 끝나요. <strong>인기 링크가 저절로 캐시에 올라오는</strong> 구조입니다.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">4</div>
-        <div class="timeline-content"><strong>유효기간을 걸어 자리를 비운다</strong><br>캐시 용량은 유한하니 <strong>한동안 안 눌린 링크는 스스로 사라지게</strong> 둡니다. 링크가 만료되거나 삭제될 때는 <strong>캐시에서도 지워 줘야</strong> 하고요. 안 그러면 지운 링크가 <strong>한동안 계속 살아 있습니다.</strong></div>
-      </div>
+    <p>읽기 방식은 <a href="06-caching-and-cdn.html#read-strategies">06차시의 캐시 아사이드(cache-aside)</a> 그대로입니다 — <strong>캐시 확인 → 미스면 DB → 읽어 온 값을 캐시에 채우기.</strong> 키는 <code>2TX</code>, 값은 긴 URL이에요.</p>
+    <div class="flow-row">
+      <div class="flow-step blue">🔗 2TX</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">⚡ 캐시 히트? → Location</div>
+      <div class="flow-arrow">미스</div>
+      <div class="flow-step green">💾 DB → 캐시에 채우고 응답</div>
     </div>
+    <p>이 문제에서 덧붙일 것은 둘뿐입니다. 첫째, DB에도 없으면 <strong>존재하지 않는 링크</strong>이니 <code>404</code>. 둘째, 링크가 만료되거나 삭제될 때는 <strong>캐시 키도 함께 지워야</strong> 합니다 — 안 그러면 지운 링크가 TTL이 끝날 때까지 살아 있어요. 그리고 지금 막 퍼지기 시작한 링크는 <strong>첫 미스 한 번으로 캐시에 올라와</strong> 뒤따르는 수천 건이 전부 캐시에서 끝납니다. 인기 링크가 저절로 캐시에 오르는 구조예요.</p>
 
     <h3>DB가 실제로 얼마나 편해지나</h3>
     <p>숫자로 확인해 봅시다. 매대 비유가 말한 <strong>"열 명 중 한 명"</strong>, 즉 <strong>캐시 적중률 90%</strong>를 가정합니다.</p>

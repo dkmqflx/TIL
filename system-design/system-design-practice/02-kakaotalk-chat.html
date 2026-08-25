@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>카카오톡 시스템 디자인 — 채팅 앱은 어떻게 만들까</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="#top">
+      <span class="logo-badge">PRACTICE</span>
+      <span class="logo-text">시스템 디자인 실전</span>
+    </a>
+    <div class="logo-sub">02 · 카카오톡 — 채팅 앱 설계</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">문제 정의</div>
+    <a class="nav-item" href="#intro">💬 채팅 앱은 무슨 문제를 풀까?</a>
+    <a class="nav-item" href="#traffic">🌊 트래픽 특성 3가지</a>
+
+    <div class="nav-section-title" style="margin-top:8px">실시간으로 받기</div>
+    <a class="nav-item" href="#http-problem">🚪 HTTP의 근본 한계</a>
+    <a class="nav-item" href="#polling">🔁 방법 1: 폴링</a>
+    <a class="nav-item" href="#long-polling">⏳ 방법 2: 롱 폴링</a>
+    <a class="nav-item" href="#websocket">🔌 방법 3: 웹소켓 (정답)</a>
+
+    <div class="nav-section-title" style="margin-top:8px">시스템 구성</div>
+    <a class="nav-item" href="#chat-server">🏗️ 채팅 서버 vs API 서버</a>
+    <a class="nav-item" href="#message-queue">📮 메시지 큐란?</a>
+    <a class="nav-item" href="#decoupling">🧩 디커플링</a>
+    <a class="nav-item" href="#one-to-one-flow">🔄 일대일 채팅 전체 흐름</a>
+
+    <div class="nav-section-title" style="margin-top:8px">저장과 확장</div>
+    <a class="nav-item" href="#database">🗄️ 어떤 DB를 쓸까?</a>
+    <a class="nav-item" href="#group-chat">👥 그룹 채팅 얹기</a>
+    <a class="nav-item" href="#summary">📌 한눈에 정리</a>
+
+    <div class="nav-section-title" style="margin-top:8px">다른 실전 사례</div>
+    <a class="nav-item" href="01-twitter-twitch-kakaotalk.html">📚 01 · 트위터 · 트위치 · 카카오톡</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 실전 사례편 02</div>
+    <h1>카카오톡 시스템 디자인 — 채팅 앱은 어떻게 만들까</h1>
+    <p>"내가 보낸 카톡이 어떻게 상대방 폰에 <strong>바로</strong> 뜰까?" 이 단순한 질문 하나를 끝까지 따라가면 <strong>웹소켓 · 메시지 큐 · SQL vs NoSQL</strong>이라는 시스템 디자인의 핵심 부품 세 개가 왜 필요한지 자연스럽게 알게 됩니다. 어려운 용어는 나올 때마다 비유로 풀어드릴게요.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">카카오톡</span>
+      <span class="hero-chip">1:1 채팅</span>
+      <span class="hero-chip">그룹 채팅</span>
+      <span class="hero-chip">Polling</span>
+      <span class="hero-chip">WebSocket</span>
+      <span class="hero-chip">Message Queue</span>
+      <span class="hero-chip">Pub/Sub</span>
+      <span class="hero-chip">Key-Value Store</span>
+      <span class="hero-chip">Fan-out</span>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>이 자료를 읽는 법</strong>: 정답을 외우려 하지 말고, <strong>"왜 이 부품이 필요해졌을까?"</strong>를 따라가며 읽어보세요. 이 자료는 <strong>① 문제가 생기고 → ② 부품 하나를 넣어 풀고 → ③ 그 다음 문제가 생기는</strong> 순서로 이어집니다. 마지막에 다다르면 채팅 앱 하나가 통째로 머릿속에 그려질 거예요.
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 문제 정의                                     -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── 채팅 앱은 무슨 문제를 풀까? ── -->
+  <section class="section" id="intro">
+    <div class="section-header">
+      <div class="section-icon icon-concept">💬</div>
+      <h2>채팅 앱은 무슨 문제를 풀까?</h2>
+    </div>
+    <p class="source-link">🎬 원본 강의: <a href="https://www.youtube.com/watch?v=VODXNECZOBQ" target="_blank" rel="noopener">코맹탈출 — 카카오톡 시스템 디자인 | WebSocket | 메시지 큐 | SQL vs NoSQL</a></p>
+
+    <p>오늘의 주인공은 국민 앱 <strong>카카오톡</strong>입니다. 다만 카카오톡 내부 구조를 그대로 파헤치는 건 아니고, 카카오톡·왓츠앱·페이스북 메신저처럼 <strong>"채팅 앱"이라면 대체로 이렇게 생겼다</strong>는 일반적인 설계를 봅니다. 어느 회사 채팅 앱이든 풀어야 하는 문제는 비슷하거든요.</p>
+
+    <p>채팅 앱에는 기능이 정말 많죠. 일대일 채팅, 그룹 채팅, 읽음 표시(1이 사라지는 것), 상대가 지금 접속 중인지 보여주는 온라인 표시… 이걸 다 다루면 끝이 없으니, 오늘은 <strong>딱 두 가지</strong>에만 집중합니다.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">👤</div>
+        <div class="card-title">일대일 채팅</div>
+        <div class="card-body">A가 B에게 메시지를 보내면 B의 화면에 <strong>바로</strong> 뜬다. 채팅 앱의 <strong>뼈대</strong>입니다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">👥</div>
+        <div class="card-title">그룹 채팅</div>
+        <div class="card-body">A가 보낸 메시지가 그룹 멤버 <strong>전원</strong>에게 간다. 일대일 위에 <strong>얹는</strong> 기능입니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 집을 지을 때 뼈대부터</strong><br>
+        읽음 표시나 온라인 표시는 인테리어 같은 겁니다. 뼈대(일대일 채팅)가 서 있어야 그 위에 올릴 수 있죠. 그래서 오늘은 뼈대를 세우고, 그 위에 방 하나(그룹 채팅)만 더 올려봅니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 트래픽 특성 ── -->
+  <section class="section" id="traffic">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🌊</div>
+      <h2>먼저 트래픽 특성 3가지</h2>
+    </div>
+
+    <p>설계에 들어가기 전에 <strong>이 서비스에 어떤 트래픽이 들어오는지</strong>부터 봅니다. 왜냐하면 나중에 "어떤 DB를 쓸까?"를 결정할 때, 지금 볼 이 특성들이 <strong>결정적인 근거</strong>가 되기 때문이에요. 지금은 가볍게 읽고 넘어가도 됩니다. 뒤에서 다시 불러올 거예요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🌊</div>
+        <div class="card-title">1. 양이 어마어마하다</div>
+        <div class="card-body">인스타그램에 사진 한 장 올리는 동안 카톡은 수십 개 보내죠. 페이스북·왓츠앱 기준 <strong>하루 약 600억 개</strong>의 메시지가 오갑니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕐</div>
+        <div class="card-title">2. 오래된 채팅은 잘 안 본다</div>
+        <div class="card-body">몇 년 전 대화를 가끔 뒤지긴 하지만, 비율로 보면 <strong>압도적으로 최근 메시지</strong>를 봅니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚖️</div>
+        <div class="card-title">3. 읽기 : 쓰기 ≈ 1 : 1</div>
+        <div class="card-body">대화는 주고받는 것이라 <strong>하나 읽고 하나 보내는</strong> 식. 읽기·쓰기 <strong>둘 다</strong> 빨라야 합니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비교해 보면</strong> — 트위터는 읽기가 쓰기보다 <strong>25배</strong>쯤 많은 read-heavy 서비스라서 "읽기를 미리 준비해 두는" 설계를 골랐습니다(<a href="01-twitter-twitch-kakaotalk.html#twitter-choice">01 · 트위터의 선택</a>). 채팅은 <strong>읽기와 쓰기가 비슷</strong>하니 한쪽만 편애하는 설계로는 안 됩니다. 같은 "메시지"를 다루는 서비스인데도 트래픽 성격이 다르면 설계가 달라진다는 걸 기억해 두세요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 실시간으로 받기                                -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── HTTP의 근본 한계 ── -->
+  <section class="section" id="http-problem">
+    <div class="section-header">
+      <div class="section-icon icon-error">🚪</div>
+      <h2>HTTP의 근본 한계 — 서버는 먼저 말을 걸 수 없다</h2>
+    </div>
+
+    <p>일대일 채팅부터 시작합니다. 시나리오는 아주 단순해요. <strong>유저 A가 유저 B에게 메시지를 보낸다.</strong> 그런데 이 단순한 일을 하려고 하니 첫 번째 벽에 부딪힙니다. <strong>클라이언트(앱)와 서버가 어떤 방식으로 대화해야 할까?</strong></p>
+
+    <p>우리가 웹에서 늘 쓰는 건 <strong>HTTP</strong>죠. HTTP는 <strong>항상 클라이언트가 먼저 말을 거는</strong> 구조입니다. 앱이 "이거 주세요"(요청)라고 하면 서버가 "여기요"(응답)라고 답하고 끝. 서버는 <strong>요청이 없으면 아무 말도 못 합니다.</strong></p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">👤 A</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🖥️ 서버<br><span style="font-size:12px">A의 요청은 잘 받음 ✅</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step red">👤 B<br><span style="font-size:12px">서버가 먼저 못 보냄 ❌</span></div>
+    </div>
+
+    <p style="margin-top:16px">A가 서버에 메시지를 보내는 것까지는 HTTP로 문제없어요. 문제는 그 다음입니다. 서버가 B에게 <strong>"너한테 메시지 왔어!"라고 먼저 말을 걸 방법이 없습니다.</strong> B가 먼저 물어보기 전까지 서버는 입을 다물고 있어야 하니까요.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 가게 카운터</strong><br>
+        HTTP는 가게 카운터와 같습니다. 손님(클라이언트)이 와서 말을 걸어야 점원(서버)이 대답하죠. 점원이 집에 있는 손님에게 <strong>먼저 전화를 걸 수는 없습니다.</strong> 그래서 "B에게 새 메시지가 왔다는 걸 어떻게 알려줄까?"가 첫 번째 풀어야 할 문제가 됩니다. 이 문제의 해법이 세 가지 있고, 하나씩 보면서 <strong>왜 마지막 것이 정답인지</strong> 확인할 거예요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 방법 1: 폴링 ── -->
+  <section class="section" id="polling">
+    <div class="section-header">
+      <div class="section-icon icon-query">🔁</div>
+      <h2>방법 1: 폴링(Polling) — 계속 물어보기</h2>
+    </div>
+
+    <p>서버가 먼저 말을 못 건다면, 가장 단순한 해법은 <strong>B가 계속 물어보는 것</strong>입니다. 이걸 <strong>폴링</strong>이라고 해요. 물어보는 간격은 우리 마음대로 정할 수 있는데, 여기서는 <strong>1초에 한 번</strong>이라고 해봅시다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step">B: 새 메시지 있나요?</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step red">서버: 없어요</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">(1초 뒤) 있나요?</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step red">없어요</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">(1초 뒤) 있나요?</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">있어요! 📨</div>
+    </div>
+
+    <p style="margin-top:16px">이렇게 하면 일단 <strong>동작은 합니다.</strong> A가 서버에 메시지를 보내놓으면, B가 다음에 물어볼 때 받아갈 수 있으니까요. 그런데 단점이 두 가지 있어요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🗑️</div>
+        <div class="card-title">단점 ① 헛요청이 대부분</div>
+        <div class="card-body">대부분의 경우 답은 <strong>"없어요"</strong>입니다. 그런데도 요청은 계속 날아가죠. 유저가 수천만 명이면 <strong>"없어요"만 답하느라</strong> 서버가 바빠집니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏱️</div>
+        <div class="card-title">단점 ② 지연이 생긴다</div>
+        <div class="card-body">A가 보내자마자 B에게 가는 게 아니라, B가 <strong>다음에 물어볼 때</strong> 갑니다. 1초 간격이면 최대 <strong>1초 늦게</strong> 받는 거예요.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>딜레마</strong> — 지연을 줄이려고 간격을 0.1초로 줄이면 헛요청이 10배로 늘고, 요청을 줄이려고 간격을 10초로 늘리면 메시지가 10초 늦게 옵니다. <strong>어느 쪽을 고쳐도 다른 쪽이 나빠지는</strong> 구조예요. 그래서 폴링은 "일단 되긴 하는" 방법이지 채팅의 답은 아닙니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 방법 2: 롱 폴링 ── -->
+  <section class="section" id="long-polling">
+    <div class="section-header">
+      <div class="section-icon icon-query">⏳</div>
+      <h2>방법 2: 롱 폴링(Long Polling) — 답을 미뤄두기</h2>
+    </div>
+
+    <p>이름이 비슷하죠? 폴링과 같은 계열의 기법인데, 한 가지를 바꿉니다. B가 "새 메시지 있나요?"라고 물었을 때 서버가 바로 "없어요"라고 답하지 않고, <strong>메시지가 생길 때까지 대답을 미뤄두는</strong> 거예요. 메시지가 오면 그때 응답하고, B는 응답을 받자마자 <strong>다시 물어봅니다.</strong></p>
+
+    <div class="flow-row">
+      <div class="flow-step">B: 새 메시지 있나요?</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">서버: (잠깐만… 기다려)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">A 메시지 도착 → 바로 응답 📨</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">B: 다시 물어봄</div>
+    </div>
+
+    <div class="compare-grid" style="margin-top:16px">
+      <div class="compare-card">
+        <div class="compare-card-header good">👍 폴링보다 나아진 점</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          <strong>헛요청이 확 줄어듭니다.</strong> "없어요"를 1초마다 듣는 대신, 한 번 물어놓고 기다리니까요.<br>
+          <strong>지연도 줄어듭니다.</strong> 메시지가 생기는 순간 응답이 가니, 다음 폴링까지 기다릴 필요가 없어요.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header bad">👎 여전히 남는 문제</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          응답을 받을 때마다 <strong>연결을 다시 맺어야</strong> 합니다. 여전히 HTTP 요청·응답의 반복이에요.<br>
+          서버는 답을 안 한 채 <strong>수많은 요청을 붙들고</strong> 있어야 하고, 너무 오래 기다리면 끊기는 <strong>타임아웃</strong>도 챙겨야 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 전화 대기</strong><br>
+        폴링이 1초마다 전화를 걸어 "왔어요?" 하고 끊는 거라면, 롱 폴링은 전화를 걸어놓고 <strong>"오면 말해주세요" 하고 수화기를 들고 기다리는</strong> 겁니다. 낫긴 하죠. 하지만 소식을 하나 들을 때마다 <strong>끊고 다시 걸어야</strong> 합니다. "아예 계속 통화 상태로 두면 안 되나?" — 그게 바로 다음 방법입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 방법 3: 웹소켓 ── -->
+  <section class="section" id="websocket">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🔌</div>
+      <h2>방법 3: 웹소켓(WebSocket) — 연결을 열어두기 (정답)</h2>
+    </div>
+
+    <p>결론부터 말하면 <strong>채팅의 답은 웹소켓</strong>입니다. HTTP는 "요청 하나 → 응답 하나 → 끝"인데, 웹소켓은 클라이언트와 서버가 한 번 연결하고 나면 <strong>그 연결을 계속 열어둡니다.</strong> 그리고 열려 있는 동안은 <strong>양쪽 모두 아무 때나 말을 걸 수 있어요.</strong></p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--yellow-soft);color:#92400e;border-bottom:1px solid #fde68a">🌐 HTTP</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          <strong>요청 → 응답 → 끝.</strong> 매번 새로 말을 겁니다.<br>
+          말을 거는 쪽은 <strong>항상 클라이언트</strong>. 서버는 먼저 못 보냅니다.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">🔌 웹소켓</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          <strong>한 번 연결 → 계속 열어둠.</strong><br>
+          열려 있는 동안 <strong>양방향</strong>. 서버가 B에게 <strong>먼저</strong> 메시지를 밀어줄(push) 수 있습니다.
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:16px">그러니까 B가 카카오톡을 켜는 순간 서버와 웹소켓을 하나 열어두면, 그 다음부터 B에게 가는 메시지가 도착할 때마다 서버가 <strong>그 연결을 통해 곧바로 밀어주면</strong> 됩니다. 물어볼 필요도, 기다릴 필요도, 다시 연결할 필요도 없어요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 택배를 기다리는 세 가지 방법</strong><br>
+        <strong>폴링</strong>: 택배 왔나 하고 <strong>1초마다 현관문을 열어보는</strong> 것. 대부분 헛걸음.<br>
+        <strong>롱 폴링</strong>: 경비실에 전화 걸어놓고 <strong>"오면 말해줘요" 하고 기다리는</strong> 것. 한 번 들으면 끊고 다시 걸어야 함.<br>
+        <strong>웹소켓</strong>: 택배기사와 <strong>인터폰을 계속 연결</strong>해 둔 것. 도착하는 순간 "택배 왔어요!" 하고 <strong>바로</strong> 알려줌.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>오늘 알아야 할 건 딱 두 가지</strong>입니다. ① 웹소켓은 <strong>열린 연결을 유지</strong>한다. ② 그 연결로 <strong>양방향 소통</strong>이 된다. 웹소켓이 내부적으로 어떻게 동작하는지(핸드셰이크 등)는 <a href="../system-design-101/05-http-websocket-api.html">시스템 디자인 101 · HTTP·WebSocket·API</a>에서 따로 다룹니다. 그리고 폴링·롱 폴링을 굳이 설명한 이유는, 채팅엔 안 쓰더라도 <strong>시스템 디자인 곳곳에서 자주 등장하는 기법</strong>이라 알아두면 좋기 때문이에요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 시스템 구성                                   -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── 채팅 서버 vs API 서버 ── -->
+  <section class="section" id="chat-server">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏗️</div>
+      <h2>채팅 서버 vs API 서버 — 왜 나눌까?</h2>
+    </div>
+
+    <p>웹소켓으로 가기로 했으니 이제 서버를 그려봅시다. 그런데 웹소켓은 HTTP와 성격이 하나 다릅니다. HTTP 요청은 <strong>올 때마다 처리하고 끝</strong>이지만, 웹소켓은 <strong>열린 연결을 계속 붙들고 있어야</strong> 해요. 유저가 접속해 있는 내내 그 연결을 기억하고 관리해야 합니다.</p>
+
+    <p>그래서 이 <strong>연결 유지 업무만 전담하는 서버</strong>를 따로 두는 게 좋습니다. 이걸 <strong>채팅 서버(Chat Server)</strong>라고 부를게요. 그리고 로그인, 프로필 사진 바꾸기, 친구 목록 불러오기 같은 <strong>평범한 요청은 지금까지처럼 HTTP</strong>로 처리하는 <strong>API 서버</strong>가 맡습니다.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">🔌</div>
+        <div class="card-title">채팅 서버 (WebSocket)</div>
+        <div class="card-body">접속 중인 유저들과 <strong>열린 연결</strong>을 유지. 메시지를 실시간으로 받고 밀어주는 일만 담당합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌐</div>
+        <div class="card-title">API 서버 (HTTP)</div>
+        <div class="card-body">로그인, 프로필 변경 등 <strong>실시간이 아니어도 되는</strong> 일반 요청. 필요하면 나중에 더 잘게 마이크로서비스로 쪼갤 수도 있습니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>모든 걸 웹소켓으로 할 필요는 없습니다.</strong> 실시간이 필요한 채팅만 웹소켓(채팅 서버)으로, 나머지는 HTTP(API 서버)로. "웹소켓이 좋다"고 해서 전부 바꾸는 게 아니라, <strong>성격이 다른 일은 다른 서버에</strong> 맡기는 겁니다. 오늘은 API 서버 쪽은 깊게 들어가지 않고 채팅 서버에 집중합니다.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 콜센터와 안내데스크</strong><br>
+        통화를 계속 붙들고 있어야 하는 <strong>콜센터(채팅 서버)</strong>와, 잠깐 물어보고 가는 <strong>안내데스크(API 서버)</strong>는 다른 직원이 맡는 게 낫죠. 콜센터 직원에게 안내데스크 일까지 시키면 통화가 끊기니까요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 메시지 큐란? ── -->
+  <section class="section" id="message-queue">
+    <div class="section-header">
+      <div class="section-icon icon-repo">📮</div>
+      <h2>메시지 큐(Message Queue)란?</h2>
+    </div>
+
+    <p>더 깊이 들어가기 전에 부품 하나를 먼저 소개해야 합니다. <strong>카프카(Kafka)</strong>나 <strong>RabbitMQ</strong>라는 이름을 들어본 적 있으신가요? 이들이 바로 <strong>메시지 큐</strong>예요. 한 줄로 말하면 <strong>서비스들끼리 데이터를 주고받는 방법 중 하나</strong>입니다.</p>
+
+    <h3>메시지 큐가 없을 때는 어떻게 주고받나?</h3>
+    <p>보통은 <strong>REST API</strong>나 <strong>RPC</strong> 호출을 씁니다. 서비스 A가 서비스 B에게 필요한 게 있으면 직접 요청을 보내고, B가 처리해서 <strong>바로 응답</strong>을 줍니다. 요청하고 답이 올 때까지 기다리니 <strong>동기(synchronous)</strong> 방식이에요. 메시지 큐를 쓰면 이걸 <strong>비동기(asynchronous)</strong>로 바꿀 수 있습니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--yellow-soft);color:#92400e;border-bottom:1px solid #fde68a">📞 REST / RPC (동기)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          A → B에게 <strong>직접</strong> 요청. B가 처리해서 <strong>바로 응답</strong>.<br>
+          A는 B가 <strong>누구인지, 어디 있는지</strong> 알아야 하고, 답이 올 때까지 <strong>기다립니다.</strong>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">📮 메시지 큐 (비동기)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          A는 큐에 <strong>"이런 일이 생겼어"</strong>만 넣고 <strong>바로 자기 일로 돌아감</strong>.<br>
+          누가 그걸 꺼내 처리할지 A는 <strong>몰라도 됩니다.</strong>
+        </div>
+      </div>
+    </div>
+
+    <h3>등장인물 둘 — 퍼블리셔와 서브스크라이버</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">📢 퍼블리셔 (Publisher)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          어떤 <strong>이벤트가 일어났을 때</strong> 그 소식을 <strong>큐에 넣는</strong> 쪽. "새 메시지 도착!"을 던지고 나면 <strong>퍼블리셔의 할 일은 끝</strong>입니다.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">👂 서브스크라이버 (Subscriber)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          "이 이벤트가 생기면 <strong>나한테 알려줘</strong>"라고 큐에 <strong>구독 신청</strong>해 둔 쪽. 이벤트가 들어오면 큐가 구독자 <strong>전원</strong>에게 알려주고, 각자 자기 일을 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-row" style="margin-top:16px">
+      <div class="flow-step blue">📢 서비스 A<br>(퍼블리셔)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">📮 메시지 큐<br>"토픽 1에 새 이벤트!"</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">👂 서비스 B</div>
+      <div class="flow-step green">👂 서비스 C</div>
+      <div class="flow-step green">👂 서비스 D</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 신문 구독</strong><br>
+        신문사(퍼블리셔)는 신문을 <strong>배달소(큐)</strong>에 넘기면 끝입니다. 구독 신청한 집(서브스크라이버)마다 배달소가 알아서 넣어주죠. 신문사는 <strong>누가 구독하는지 몰라도 되고</strong>, 구독자는 <strong>신문사에 직접 전화할 필요가 없습니다.</strong> 이 "서로 몰라도 된다"가 다음 섹션의 핵심입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 디커플링 ── -->
+  <section class="section" id="decoupling">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🧩</div>
+      <h2>메시지 큐를 왜 쓸까? — 디커플링(Decoupling)</h2>
+    </div>
+
+    <p>REST나 RPC로도 되는데 굳이 메시지 큐를 쓰는 이유는 여러 가지가 있습니다. 오늘은 그중 가장 중요한 하나, <strong>디커플링</strong>만 봅니다. 채팅 서버로 예를 들어볼게요.</p>
+
+    <h3>메시지 큐가 없다면</h3>
+    <p>유저가 메시지 하나를 보냈을 때 해야 할 일이 생각보다 많습니다. ① DB에 저장해야 하고 ② 받는 유저에게 전달해야 하고 ③ 받는 유저가 로그아웃 상태면 푸시 알림을 보내야 하고 ④ 경우에 따라 이메일도 보내야 할 수 있죠. 이걸 전부 <strong>채팅 서버가 직접 호출</strong>하면 이렇게 됩니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">💬 채팅 서버</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step red">💾 DB 저장 호출</div>
+      <div class="flow-step red">📨 전달 호출</div>
+      <div class="flow-step red">🔔 푸시 호출</div>
+      <div class="flow-step red">📧 이메일 호출</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        채팅 서버가 <strong>네 개 서비스의 존재와 호출 방법을 전부 알아야</strong> 합니다. 새 기능이 붙을 때마다 채팅 서버 코드가 늘어나고, 테스트는 어려워지고, 하나가 고장 나면 채팅 서버까지 흔들립니다. 이렇게 <strong>서로 단단히 얽힌 상태</strong>를 <strong>커플링(coupling)</strong>이 심하다고 하고, 시스템 디자인에서는 나쁜 신호로 봅니다.
+      </div>
+    </div>
+
+    <h3>메시지 큐를 사이에 끼우면</h3>
+    <p>채팅 서버는 이제 큐에 <strong>"유저 A가 B에게 메시지를 보냈어"</strong>라는 이벤트 하나만 넣고 끝입니다. 채팅 서버의 의존성은 <strong>큐 하나</strong>로 줄어요. DB 저장, 전달, 푸시, 이메일 서비스는 각자 그 이벤트를 <strong>구독</strong>하고 있다가 큐가 알려주면 자기 일을 합니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">💬 채팅 서버<br>(퍼블리셔)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">📮 메시지 큐</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">💾 DB 저장</div>
+      <div class="flow-step green">📨 전달</div>
+      <div class="flow-step green">🔔 푸시</div>
+      <div class="flow-step green">📧 이메일</div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        하는 일은 <strong>완전히 똑같습니다.</strong> 달라진 건 채팅 서버가 <strong>B·C·D가 존재한다는 사실조차 몰라도 된다</strong>는 것. 그래서 나중에 "슬랙으로도 알림 보내자"가 추가돼도 <strong>채팅 서버는 한 줄도 안 고칩니다.</strong> 새 구독자 하나가 큐에 붙기만 하면 돼요. 이것이 <strong>디커플링(느슨하게 떼어놓기)</strong>입니다.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 우체국</strong><br>
+        편지를 <strong>우체국(큐)</strong>에 맡기면 우체국이 관련된 모든 곳에 배달합니다. 나는 받는 사람이 어디 사는지, 몇 명인지 신경 쓸 필요가 없죠. 디커플링 말고도 메시지 큐의 장점(버퍼 역할, 재시도 등)은 더 있지만 주제가 커서 오늘은 여기까지만 합니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 일대일 채팅 전체 흐름 ── -->
+  <section class="section" id="one-to-one-flow">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🔄</div>
+      <h2>일대일 채팅 — 전체 흐름 따라가기</h2>
+    </div>
+
+    <p>부품이 다 모였습니다. 이제 전체 그림을 그려놓고, <strong>유저 A가 유저 B에게 메시지를 보내는 과정</strong>을 처음부터 끝까지 따라가 봅시다. 등장인물은 이렇습니다.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🟢</div>
+        <div class="card-title">로그인 유저</div>
+        <div class="card-body">각자 어느 <strong>채팅 서버와 웹소켓</strong>이 열려 있음. 채팅 서버는 여러 대이고, 유저마다 붙은 서버가 다를 수 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔴</div>
+        <div class="card-title">로그아웃 유저</div>
+        <div class="card-body">웹소켓 연결이 <strong>없음</strong>. 실시간으로 밀어줄 통로가 없으니 <strong>푸시 알림</strong>이 필요합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📮</div>
+        <div class="card-title">메시지 큐</div>
+        <div class="card-body"><strong>유저마다 큐가 하나씩</strong> 있다고 생각하면 편합니다. "B의 큐"에 들어간 메시지는 B에게 가야 할 메시지예요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💾🔔</div>
+        <div class="card-title">DB · 푸시 알림 서비스</div>
+        <div class="card-body">둘 다 큐를 <strong>구독</strong>하고 있는 서브스크라이버입니다.</div>
+      </div>
+    </div>
+
+    <h3>A가 "전송"을 누르면</h3>
+    <div class="flow-row">
+      <div class="flow-step blue">① A가 전송<br>(웹소켓)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">② A와 연결된 채팅 서버가<br><strong>B의 큐</strong>에 메시지 넣음</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">③ 큐가 B의 큐를<br>구독 중인 모두에게 알림</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">④ 구독자 각자 처리</div>
+    </div>
+
+    <p style="margin-top:16px">④에서 구독자들이 <strong>동시에, 서로 상관없이</strong> 자기 일을 합니다.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">📨</div>
+        <div class="card-title">B가 로그인 상태라면</div>
+        <div class="card-body">B와 웹소켓이 열려 있는 채팅 서버가 <strong>B의 큐를 구독</strong>하고 있다가 알림을 받고, 웹소켓으로 <strong>B에게 즉시 밀어줍니다.</strong> 이게 "카톡이 바로 뜨는" 순간이에요.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">💾</div>
+        <div class="card-title">DB 저장</div>
+        <div class="card-body">DB 서비스가 같은 알림을 받아 메시지를 <strong>기록</strong>합니다. 나중에 채팅방을 다시 열었을 때 보이는 건 이 덕분입니다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🔔</div>
+        <div class="card-title">B가 로그아웃 상태라면</div>
+        <div class="card-body">밀어줄 웹소켓이 없으니 푸시 알림 서비스가 <strong>"새 메시지가 왔어요"</strong>를 폰에 띄웁니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>핵심은 ②에서 끝난다는 것.</strong> A 쪽 채팅 서버는 B가 로그인 중인지, B가 어느 채팅 서버에 붙어 있는지 <strong>전혀 몰라도 됩니다.</strong> 그냥 "B의 큐"에 넣으면 끝. B가 어디에 있든 B의 큐를 구독 중인 서버가 알아서 받아갑니다. 앞에서 배운 디커플링이 여기서 그대로 힘을 발휘하는 거예요.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 아파트 우편함</strong><br>
+        A는 편지를 <strong>B네 우편함(B의 큐)</strong>에 넣기만 합니다. B가 집에 있으면(로그인) 관리인(채팅 서버)이 인터폰(웹소켓)으로 "편지 왔어요" 하고, 집에 없으면(로그아웃) 문자(푸시)를 보내죠. 그리고 관리사무소 장부(DB)에는 항상 기록이 남습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 저장과 확장                                   -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── 어떤 DB를 쓸까? ── -->
+  <section class="section" id="database">
+    <div class="section-header">
+      <div class="section-icon icon-repo">🗄️</div>
+      <h2>어떤 DB를 쓸까? — SQL vs NoSQL</h2>
+    </div>
+
+    <p>지금까지 "DB"라고만 뭉뚱그렸는데, 이제 <strong>어떤 종류의 DB</strong>를 쓸지 정해야 합니다. 여기서 <a href="#traffic">맨 처음 봤던 트래픽 특성</a>을 다시 불러옵니다. 거기에 하나를 더 얹어요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🌊</div>
+        <div class="card-title">양이 어마어마하다</div>
+        <div class="card-body">→ 데이터가 늘어도 <strong>쉽게 확장</strong>되어야 함</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕐</div>
+        <div class="card-title">최근 것 위주로 본다</div>
+        <div class="card-body">→ <strong>최근 메시지를 빠르게</strong> 읽을 수 있어야 함</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚖️</div>
+        <div class="card-title">읽기 : 쓰기 ≈ 1 : 1</div>
+        <div class="card-body">→ 읽기·쓰기 <strong>둘 다</strong> 효율적이어야 함</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🔗</div>
+        <div class="card-title">(추가) 조인할 일이 거의 없다</div>
+        <div class="card-body">채팅 메시지는 다른 테이블과 <strong>엮어서 볼 일이 거의 없음</strong>. 메시지는 메시지끼리만 봅니다.</div>
+      </div>
+    </div>
+
+    <h3>후보 둘을 비교하면</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">🐘 관계형 DB (MySQL, PostgreSQL)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          여러 테이블을 <strong>조인</strong>하는 게 강점. 하지만 데이터와 인덱스가 많아질수록 <strong>점점 느려집니다.</strong><br>
+          채팅은 애초에 <strong>조인할 일이 별로 없어서</strong> 가장 큰 강점을 써먹지 못해요.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">🔑 키-값 스토어 (Key-Value Store)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          <strong>확장하기 쉽고</strong>, 읽기 지연(read latency)이 <strong>낮습니다.</strong><br>
+          조인이 필요 없는 대용량 데이터에 딱. 실제로 <strong>페이스북·디스코드</strong>가 <strong>카산드라(Cassandra)</strong>를 씁니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 키-값 스토어는 '번호 사물함'</strong><br>
+        <strong>번호(키)</strong>만 대면 그 칸의 <strong>내용물(값)</strong>을 즉시 꺼내주는 사물함입니다. 옆 사물함과 엮어서 볼 일(조인)은 없고, 사물함이 부족하면 <strong>옆에 한 줄 더 세우면(확장)</strong> 그만이죠. 채팅 메시지 저장에 안성맞춤입니다.
+      </div>
+    </div>
+
+    <h3>한 가지 설계 팁 — 키를 '레인지 스캔'하기 좋게</h3>
+    <p>키-값 스토어를 쓸 때 신경 쓸 게 딱 하나 있습니다. 채팅은 <strong>시간 순서대로 쭉 읽는</strong> 경우가 대부분이죠. 채팅방을 열면 최근 메시지 30개, 위로 올리면 그 전 30개… 이렇게 <strong>연속된 범위를 한 번에 읽는 것</strong>을 <strong>레인지 스캔(range scan)</strong>이라고 하는데, 키를 이 스캔에 유리하게 설계해야 합니다.</p>
+
+    <p>가장 쉬운 방법은 <strong>메시지 ID를 계속 증가시키는</strong> 겁니다. 그러면 <strong>키 순서가 곧 채팅 순서</strong>가 되니까, "이 채팅방의 ID 101부터 130까지"처럼 범위만 지정하면 시간순으로 쭉 나옵니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>키 (채팅방 ID + 메시지 ID)</th><th>값</th></tr></thead>
+        <tbody>
+          <tr><td><code>room42 : 000101</code></td><td>A: 점심 뭐 먹지?</td></tr>
+          <tr><td><code>room42 : 000102</code></td><td>B: 김치찌개?</td></tr>
+          <tr><td><code>room42 : 000103</code></td><td>A: 콜</td></tr>
+          <tr><td colspan="2" style="color:var(--text-muted);font-size:13px">→ <code>room42 : 000101 ~ 000103</code> 범위를 한 번에 읽으면 <strong>그대로 시간순</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        반대로 키를 무작위 값(예: 랜덤 UUID)으로 만들면, 같은 채팅방 메시지가 <strong>사물함 여기저기 흩어져</strong> 시간순으로 모으려면 일일이 찾아야 합니다. <strong>키를 어떻게 만드느냐</strong>가 읽기 속도를 좌우한다는 것, 키-값 스토어를 쓸 때 늘 떠올려야 할 포인트입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 그룹 채팅 얹기 ── -->
+  <section class="section" id="group-chat">
+    <div class="section-header">
+      <div class="section-icon icon-insert">👥</div>
+      <h2>그룹 채팅 얹기</h2>
+    </div>
+
+    <p>일대일 채팅 뼈대가 완성됐습니다. 이제 그 위에 <strong>그룹 채팅</strong>을 얹어 봅시다. 그런데 설계를 시작하기 전에 먼저 정해야 할 질문이 하나 있어요. <strong>"한 그룹에 몇 명까지 지원할 것인가?"</strong></p>
+
+    <p>이 숫자에 따라 설계가 완전히 달라집니다. 100만 명이 들어가는 초대형 그룹까지 지원할 건지, 적당한 선에서 인원을 제한할 건지. 여기서는 <strong>한 그룹 최대 200명</strong>이라고 가정하겠습니다. 200명 정도면 뒤에 나올 팬아웃이 <strong>감당할 만한 수준</strong>이라고 볼 수 있어요.</p>
+
+    <h3>A가 그룹(A·B·C)에 메시지를 보내면</h3>
+    <div class="flow-row">
+      <div class="flow-step blue">① A가 그룹에 전송<br>(웹소켓)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">② 채팅 서버가 <strong>그룹챗 DB</strong>에<br>"이 그룹 멤버 누구?" 조회</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">③ 멤버 = A·B·C 확인</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">④ <strong>B의 큐, C의 큐</strong>에<br>각각 메시지 넣기 (팬아웃)</div>
+    </div>
+
+    <p style="margin-top:16px">④ 이후는 <strong>일대일 채팅과 완전히 똑같습니다.</strong> B의 큐, C의 큐에 메시지가 들어갔으니, 각 큐를 구독 중인 채팅 서버가 웹소켓으로 밀어주고, DB에 저장되고, 로그아웃 유저에겐 푸시가 갑니다. 일대일을 잘 만들어 두면 그룹은 <strong>"큐에 넣는 횟수만 늘어난"</strong> 셈이에요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🐘</div>
+        <div class="card-title">그룹챗 DB는 관계형이어도 OK</div>
+        <div class="card-body">"어느 그룹에 누가 있나"는 멤버·유저 정보를 <strong>엮어서(조인) 볼 일</strong>이 있는 데이터입니다. 굳이 키-값 스토어일 필요가 없어요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <div class="card-title">메시지 본문은 키-값 스토어</div>
+        <div class="card-body">앞 섹션 그대로. <strong>데이터 성격에 따라 DB를 나눠 쓰는</strong> 것이 자연스럽습니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>여기서 팬아웃(Fan-out)이 등장합니다.</strong> 메시지 하나가 멤버 수만큼 <strong>여러 갈래로 퍼지는</strong> 게 팬아웃이에요. 200명이면 큐에 200번 넣는 정도라 괜찮지만, 만약 "수백만 명짜리 초대형 그룹"만 지원하는 앱이라면 메시지 하나에 수백만 번 넣어야 하니 이 설계는 무너집니다. 그때는 <a href="01-twitter-twitch-kakaotalk.html#twitter-influencer">트위터의 인플루언서 문제</a>처럼 <strong>큰 그룹만 다르게 처리하는</strong> 방법을 고민해야 해요. 서로 다른 서비스에서 <strong>같은 문제가 반복</strong>됩니다.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 단체 문자</strong><br>
+        친구 200명에게 단체 문자를 보내는 건 폰이 200번 전송하면 되니 금방 끝나죠. 그런데 200만 명에게 보내야 한다면 폰 하나로는 무리고, 아예 다른 방식(방송)이 필요합니다. <strong>"몇 명까지?"를 먼저 정하는 이유</strong>가 바로 이거예요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 한눈에 정리 ── -->
+  <section class="section" id="summary">
+    <div class="section-header">
+      <div class="section-icon icon-entity">📌</div>
+      <h2>한눈에 정리 — 카카오톡에서 배운 것</h2>
+    </div>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">🔌</div>
+        <div class="card-title">웹소켓</div>
+        <div class="card-body">HTTP는 서버가 먼저 말을 못 건다 → 폴링·롱 폴링은 임시방편 → <strong>연결을 열어두는 웹소켓</strong>이 답. 연결 유지는 <strong>채팅 서버</strong>가 전담.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">📮</div>
+        <div class="card-title">메시지 큐 &amp; 디커플링</div>
+        <div class="card-body">퍼블리셔는 큐에 던지기만, 서브스크라이버는 구독만. 채팅 서버는 <strong>"B의 큐에 넣기"까지만</strong> 하면 저장·전달·푸시는 알아서.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🔑</div>
+        <div class="card-title">키-값 스토어</div>
+        <div class="card-body">대량 · 최근 위주 · 읽기≈쓰기 · 조인 없음 → 확장 쉽고 빠른 <strong>키-값 스토어(카산드라)</strong>. 키는 <strong>증가하는 ID</strong>로 시간순 레인지 스캔.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">👥</div>
+        <div class="card-title">그룹 채팅 &amp; 팬아웃</div>
+        <div class="card-body">"몇 명까지?"를 먼저 정한다. <strong>200명</strong>이면 멤버 조회 후 큐에 팬아웃으로 충분. 초대형 그룹은 트위터 인플루언서 문제와 같아진다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 사례의 큰 흐름:</strong> ① HTTP로는 서버가 유저에게 먼저 말을 못 걸어서 <strong>웹소켓</strong>을 골랐다 → ② 열린 연결을 관리하는 <strong>채팅 서버</strong>를 따로 뒀다 → ③ 후속 작업들을 깔끔히 떼어내려고 <strong>메시지 큐</strong>를 넣었다 → ④ 트래픽 특성에 맞춰 <strong>키-값 스토어</strong>를 골랐다 → ⑤ 그룹 채팅에서 <strong>팬아웃</strong>을 만났고, 인원 제한으로 감당했다. 부품 하나하나가 <strong>앞 단계의 문제 때문에</strong> 등장했다는 걸 기억하면, 다른 서비스를 설계할 때도 같은 사고 흐름을 쓸 수 있습니다.
+      </div>
+    </div>
+
+    <h3>스스로 생각해 보기</h3>
+    <p>오늘 다루지 않은 기능들을 오늘 배운 부품으로 어떻게 만들 수 있을지 한번 떠올려 보세요. 정답을 맞히는 게 목적이 아니라, <strong>"어느 부품이 어디에 끼어들까?"</strong>를 생각해 보는 연습입니다.</p>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">👀</div>
+        <div class="card-title">읽음 표시(1이 사라지는 것)</div>
+        <div class="card-body">B가 읽었다는 사실을 A에게 알려야 합니다. 이것도 결국 <strong>"B → A로 가는 작은 메시지"</strong> 아닐까요? 어느 큐에 넣으면 될까요?</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🟢</div>
+        <div class="card-title">온라인 / 오프라인 표시</div>
+        <div class="card-body">웹소켓이 <strong>열려 있으면 온라인, 끊기면 오프라인</strong>이라고 볼 수 있겠죠. 그 상태를 누가 기억하고, 친구들에게 어떻게 알릴까요?</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    시스템 디자인 실전 02 · 카카오톡 — 채팅 앱 설계<br>
+    원본 강의: <a href="https://www.youtube.com/watch?v=VODXNECZOBQ" target="_blank" rel="noopener">코맹탈출 — 카카오톡 시스템 디자인 | WebSocket | 메시지 큐 | SQL vs NoSQL</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

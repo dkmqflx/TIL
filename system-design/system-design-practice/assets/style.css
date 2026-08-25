@@ -410,6 +410,9 @@
     hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
 
     /* ── Footer ── */
+    .source-link { font-size: 13px; color: var(--text-muted); margin: -8px 0 20px; }
+    .source-link a { color: var(--blue); text-decoration: underline; }
+
     .doc-footer {
       margin-top: 64px;
       padding: 24px;

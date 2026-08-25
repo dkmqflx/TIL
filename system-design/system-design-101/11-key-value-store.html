@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>11차시 · Key-Value Store — 시스템 디자인 101</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 101</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 시스템 디자인 첫걸음</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-item" href="index.html">01 · 오리엔테이션</a>
+    <a class="nav-item" href="02-system-design-overview.html">02 · 시스템 디자인 개요</a>
+    <a class="nav-item" href="03-networking-basics.html">03 · 네트워킹 기초</a>
+    <a class="nav-item" href="04-server-and-client.html">04 · 서버와 클라이언트</a>
+    <a class="nav-item" href="05-http-websocket-api.html">05 · HTTP, WebSocket, API</a>
+    <a class="nav-item" href="06-caching-and-cdn.html">06 · 캐싱과 CDN</a>
+    <a class="nav-item" href="07-proxy-and-load-balancer.html">07 · 프록시와 로드 밸런서</a>
+    <a class="nav-item" href="08-storage.html">08 · 스토리지</a>
+    <a class="nav-item" href="09-big-data.html">09 · 빅 데이터</a>
+    <a class="nav-item" href="10-design-process.html">10 · 문제 해결 프로세스</a>
+    <div class="nav-section-title" style="margin-top:8px">11 · Key-Value Store</div>
+    <a class="nav-item" href="#requirements">📋 1단계 · 요구사항</a>
+    <a class="nav-item" href="#estimation">🧮 봉투 뒷면 계산</a>
+    <a class="nav-item" href="#high-level">🗺️ 2단계 · 개략 설계</a>
+    <a class="nav-item" href="#consistent-hashing">🔄 안정 해시</a>
+    <a class="nav-item" href="#replication-quorum">🗳️ 복제와 정족수</a>
+    <a class="nav-item" href="#read-write-path">🛣️ 쓰기·읽기 경로</a>
+    <a class="nav-item" href="#failure">🚑 장애 다루기</a>
+    <a class="nav-item" href="#wrap-up">✅ 4단계 · 마무리</a>
+    <a class="nav-item" href="12-rate-limiter.html" style="margin-top:8px">12 · Rate Limiter</a>
+    <a class="nav-item" href="13-url-shortener.html">13 · URL Shortener</a>
+    <a class="nav-item" href="14-message-queue.html">14 · Distributed Message Queue</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="10-design-process.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">10 · 문제 해결 프로세스</span></a>
+    <a class="part-pager-link next" href="12-rate-limiter.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">12 · Rate Limiter</span></a>
+  </div>
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 11차시</div>
+    <h1>Key-Value Store 설계</h1>
+    <p>10차시에서 익힌 네 걸음을 이제 진짜 문제 위에서 밟아 봅니다. 첫 사례는 키-값 저장소예요. 하는 일은 "키를 주면 값을 돌려준다" 딱 하나뿐이라 기능은 세상에서 제일 단순한데, 그 값이 수십억 개가 되고 서버가 수백 대로 늘어나는 순간 분산 시스템의 어려운 문제가 전부 한 번에 튀어나옵니다. 데이터를 어느 서버에 둘지, 그 서버가 죽으면 어떻게 할지, 여러 벌의 복사본 중 어느 것이 진짜인지를 차례로 풀어 가면서 08차시에서 이름만 스쳤던 안정 해시를 이번에는 제대로 배웁니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">Key-Value</span>
+      <span class="hero-chip">Consistent Hashing</span>
+      <span class="hero-chip">Replication</span>
+      <span class="hero-chip">Quorum</span>
+      <span class="hero-chip">SSTable</span>
+      <span class="hero-chip">Gossip</span>
+    </div>
+  </div>
+
+  <!-- ── 1단계 · 요구사항 ── -->
+  <section class="section" id="requirements">
+    <div class="section-header">
+      <div class="section-icon icon-concept">📋</div>
+      <h2>1단계 · 문제 이해와 요구사항</h2>
+    </div>
+
+    <p>면접관이 한 문장을 던집니다. <strong>"키-값 저장소를 설계해 보세요."</strong> 여기서 바로 박스를 그리기 시작하면 안 된다는 걸 우리는 이미 압니다. <a href="10-design-process.html#four-steps">10차시의 4단계 절차</a>에서 첫 걸음은 그리기가 아니라 <strong>좁히기</strong>였으니까요. 이 절에서는 무엇을 만들 것인지 합의부터 합니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 전국 물품 보관함 체인</strong><br>
+        역마다 있는 <strong>물품 보관함</strong>을 떠올려 보세요. 짐을 넣으면 <strong>번호표</strong>를 주고, 번호표를 내밀면 짐을 돌려줍니다. 그게 전부예요. "3번 칸과 7번 칸의 짐을 합쳐 달라"거나 "무거운 순서대로 정렬해 달라"는 요구는 애초에 받지 않습니다.<br>
+        번호표가 <strong>키(key)</strong>, 짐이 <strong>값(value)</strong>, 맡기기가 <code>put</code>, 찾기가 <code>get</code>입니다.<br>
+        그런데 이 체인이 <strong>전국 수천 개 역</strong>으로 커지면 갑자기 어려운 질문이 생깁니다. 이 번호표의 짐은 <strong>어느 역에 있지?</strong> 그 역에 불이 나면? 역을 새로 열면 짐을 전부 다시 나눠야 하나? <strong>기능은 그대로인데 규모가 문제를 만드는</strong> 것 — 이 차시의 정체가 바로 이겁니다.
+      </div>
+    </div>
+
+    <h3>기능 요구사항 — 딱 두 개만</h3>
+    <p>기능은 일부러 좁게 잡습니다. 이 문제의 어려움은 기능이 아니라 <strong>규모</strong>에 있으니까요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📥</div>
+        <div class="card-title">put(key, value)</div>
+        <div class="card-body">키에 값을 저장합니다. 같은 키로 다시 넣으면 <strong>덮어씁니다.</strong> 짐을 맡기고 번호표를 받는 일이에요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📤</div>
+        <div class="card-title">get(key)</div>
+        <div class="card-body">키에 해당하는 값을 돌려줍니다. 없으면 <strong>"없음"</strong>을 돌려줘요. 번호표를 내밀고 짐을 찾는 일입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📏</div>
+        <div class="card-title">키와 값은 작다</div>
+        <div class="card-body">키는 짧은 문자열, 값은 <strong>10KB 이하</strong>로 정합니다. 큰 파일은 <a href="08-storage.html#blob-storage">객체 스토리지</a>의 일이지 이 저장소의 일이 아니에요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚫</div>
+        <div class="card-title">그 밖에는 없다</div>
+        <div class="card-body">범위 조회, 정렬, 조인, 여러 키를 묶는 트랜잭션은 <strong>이번 범위 밖</strong>입니다. 이 선을 긋는 것 자체가 1단계의 성과예요.</div>
+      </div>
+    </div>
+
+    <h3>비기능 요구사항 — 여기가 진짜 문제</h3>
+    <p><a href="02-system-design-overview.html#requirements">02차시에서 나눠 본</a> 기능/비기능 구분이 이번 문제에서 유난히 선명합니다. 기능은 두 줄인데 비기능은 넷이고, 남은 시간의 대부분은 이 넷에 씁니다.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🗄️</div>
+        <div class="card-title">대용량 데이터</div>
+        <div class="card-body">한 대에 담을 수 없는 양을 다룹니다. 그러니 <strong>여러 대에 나눠 담는 것</strong>이 선택이 아니라 전제입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💚</div>
+        <div class="card-title">고가용성</div>
+        <div class="card-body">서버 몇 대가 죽어도 <strong>사용자는 계속 답을 받습니다.</strong> 수백 대 규모에서 매일 몇 대가 죽는 건 사고가 아니라 일상이에요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <div class="card-title">자동 확장·축소</div>
+        <div class="card-body">트래픽이 늘면 서버를 <strong>서비스를 멈추지 않고</strong> 꽂을 수 있어야 합니다. 줄일 때도 마찬가지고요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎚️</div>
+        <div class="card-title">조정 가능한 일관성 · 낮은 지연</div>
+        <div class="card-body">데이터마다 "정확함"과 "빠름" 중 무엇이 급한지 다릅니다. <strong>설정으로 그 다이얼을 돌릴 수</strong> 있어야 해요.</div>
+      </div>
+    </div>
+
+    <h3>면접관에게 물어볼 질문</h3>
+    <p>위 요구사항은 하늘에서 떨어진 게 아니라 <strong>아래 질문에 답을 받아서</strong> 적은 것입니다. 실제 면접에서는 이 목록을 소리 내어 물어야 해요.</p>
+
+    <ul class="checklist">
+      <li><span><strong>값의 크기는 얼마까지 잡을까요?</strong> — 10KB짜리 JSON과 100MB짜리 동영상은 완전히 다른 설계가 됩니다. 값이 크면 이 저장소에는 URL만 두는 쪽이 맞습니다.</span></li>
+      <li><span><strong>키는 몇 개나 될까요?</strong> — 저장량 계산의 출발점입니다. 100만 개면 한 대로 끝나고, 10억 개면 이 차시의 이야기가 전부 필요해집니다.</span></li>
+      <li><span><strong>읽기와 쓰기 중 어느 쪽이 많을까요?</strong> — 읽기가 압도적이면 복사본을 늘려 읽기를 나눠 받는 쪽으로, 쓰기가 많으면 나누는 쪽으로 무게가 기웁니다.</span></li>
+      <li><span><strong>잠깐 낡은 값을 읽어도 괜찮은가요?</strong> — 이 한 줄이 <a href="08-storage.html#cap">CP냐 AP냐</a>를 정합니다. 장바구니는 괜찮고, 잔액은 안 괜찮아요.</span></li>
+      <li><span><strong>응답은 얼마나 빨라야 하나요?</strong> — 밀리초 단위를 요구하면 값을 메모리에 두는 이야기까지 가야 하고, 수십 밀리초면 디스크에 두고도 충분합니다.</span></li>
+    </ul>
+  </section>
+
+  <!-- ── 봉투 뒷면 계산 ── -->
+  <section class="section" id="estimation">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🧮</div>
+      <h2>봉투 뒷면 계산</h2>
+    </div>
+
+    <p>요구사항을 좁혔으니 이제 <strong>규모에 숫자를 붙일</strong> 차례입니다. 공식과 외워 둘 값은 <a href="10-design-process.html#estimation">10차시 · 봉투 뒷면 계산</a>에 정리해 두었으니, 여기서는 <strong>이 문제의 숫자만</strong> 굴립니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 이삿짐 트럭 견적</strong><br>
+        이사 견적을 내는 기사는 <strong>집 안을 하나하나 세지 않습니다.</strong> "상자 하나가 대략 이만하고, 이 정도 집이면 상자 200개쯤 나오니 <strong>5톤 트럭 한 대</strong>" — 이렇게 끝내요.<br>
+        틀려도 상관없습니다. 상자가 180개든 220개든 <strong>트럭 한 대라는 결론은 안 바뀌니까요.</strong> 하지만 2,000개라면? 그건 트럭 한 대로 안 됩니다. 견적의 목적은 개수를 맞히는 게 아니라 <strong>"트럭 한 대냐 열 대냐"를 가르는 것</strong>이에요.<br>
+        아래 계산이 노리는 것도 똑같습니다 — <strong>"서버 한 대로 되는가, 안 되는가."</strong>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>가정을 소리 내어 말한다</strong><br>키 하나는 <strong>10바이트</strong>, 값 하나는 <strong>1KB</strong>, 저장할 키는 <strong>10억 개</strong>로 잡겠습니다. 그리고 읽기가 쓰기보다 열 배 많아서 <strong>읽기 초당 10만 건, 쓰기 초당 1만 건</strong>이라고 가정하죠. 이 네 줄을 먼저 확인받고 시작합니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>한 건의 크기를 정한다</strong><br><code>10B(키) + 1KB(값) ≈ 1KB</code><br>키는 값에 비하면 반올림하면 사라지는 크기입니다. 그러니 <strong>한 건 ≈ 1KB</strong>로 놓고 갑니다. 봉투 뒷면 계산에서는 이런 과감함이 미덕이에요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>전체 저장량을 구한다</strong><br><code>1KB × 10억 = 10억 KB = 100만 MB = 1,000GB = 1TB</code><br>약 <strong>1TB</strong>. 이게 이 절에서 뽑아낼 가장 중요한 숫자입니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>한 대에 들어가는지 따진다</strong><br>서버 한 대의 메모리는 보통 <strong>수십에서 수백 GB</strong>입니다. 1TB는 <span style="color:#b91c1c">한 대의 메모리에 들어가지 않아요.</span> 그러면 답은 하나뿐입니다 — <strong>여러 대에 나눠 담는다.</strong> <a href="08-storage.html#sharding">08차시의 샤딩</a>이 여기서 선택이 아니라 필수가 됩니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">5</div>
+        <div class="timeline-content"><strong>복사본까지 세어 본다</strong><br>고가용성을 위해 같은 데이터를 <strong>3벌</strong>씩 두기로 하면(뒤의 <a href="#replication-quorum">복제</a> 절에서 정합니다),<br><code>1TB × 3 = 3TB</code><br>실제로 준비할 디스크는 <strong>3TB</strong>입니다. 한 대가 500GB씩 맡는다면 대략 <strong>여섯 대 이상</strong>이 필요하겠네요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">6</div>
+        <div class="timeline-content"><strong>QPS로 서버 대수를 다시 본다</strong><br>노드 한 대가 초당 <strong>1만 건</strong>을 감당한다고 잡으면, 읽기 10만 건을 받으려면 <code>100,000 ÷ 10,000 = 10대</code>. 용량으로는 여섯 대, 처리량으로는 열 대. 그러면 <strong>큰 쪽인 열 대</strong>가 출발선입니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 계산이 정한 것은 숫자가 아니라 설계입니다</strong><br>
+        위에서 나온 <strong>1TB</strong>가 0.7TB든 1.5TB든 이어질 이야기는 하나도 달라지지 않습니다. 중요한 건 <strong>"한 대에 안 들어간다"</strong>는 결론이에요. 그 한 줄에서 <strong>나눠 담기 → 어느 대에 있는지 찾는 방법 → 그 대가 죽었을 때의 대비</strong>가 줄줄이 따라 나옵니다.<br>
+        반대로 만약 계산 결과가 <strong>10GB</strong>였다면 이 차시의 나머지는 전부 필요 없습니다. 서버 한 대에 <a href="06-caching-and-cdn.html#why-cache">Redis</a> 하나 띄우면 끝이거든요. <strong>계산은 설계를 고르기 위해 하는 것</strong>이지, 계산 자체가 답이 아닙니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2단계 · 개략 설계 ── -->
+  <section class="section" id="high-level">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🗺️</div>
+      <h2>2단계 · 개략 설계</h2>
+    </div>
+
+    <p>이제 박스를 그립니다. 다만 곧장 분산 구조로 뛰어들지 않고, <strong>가장 단순한 한 대짜리부터</strong> 그린 다음 그게 왜 무너지는지를 보이는 순서로 갑니다. 이렇게 하면 뒤에 나오는 복잡한 장치들이 <strong>전부 이유를 갖게</strong> 돼요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 동네 열쇠 가게에서 전국 체인으로</strong><br>
+        처음엔 <strong>동네 열쇠 가게 하나</strong>입니다. 주인 아저씨 머릿속에 "몇 번 열쇠는 몇 번 서랍" 이 다 들어 있어서, 번호를 대면 즉시 꺼내 줍니다. 세상에서 제일 빠릅니다.<br>
+        그런데 손님이 <strong>10억 명</strong>이 되면 두 가지가 동시에 무너져요. <strong>서랍이 모자라고</strong>(용량), <strong>아저씨가 감기에 걸리면 아무도 열쇠를 못 찾습니다</strong>(가용성).<br>
+        그래서 전국에 지점을 냅니다. 그러면 새 일이 생기죠 — 손님이 번호를 대면 <strong>"그 열쇠는 대전점에 있습니다"라고 안내해 줄 사람</strong>이 필요합니다. 이 안내 데스크가 아래 그림의 <strong>조정자 노드</strong>이고, 안내하는 규칙이 다음 절의 <strong>안정 해시</strong>입니다.
+      </div>
+    </div>
+
+    <h3>한 대 버전 — 그리고 왜 안 되는가</h3>
+    <p>한 대짜리 키-값 저장소는 사실 <strong>프로그래밍 시간에 배운 해시 테이블</strong> 그 자체입니다. 키를 해시 함수에 넣어 나온 자리에 값을 넣어 두고, 찾을 때 같은 계산을 해서 그 자리를 바로 열면 되죠. 메모리 안에서 벌어지는 일이라 <strong>마이크로초</strong> 단위로 끝납니다. 문제는 이 아름다운 구조가 딱 두 가지 이유로 무너진다는 것입니다.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">💥</div>
+        <div class="card-title">메모리가 모자란다</div>
+        <div class="card-body">앞 절에서 <strong>1TB</strong>가 나왔습니다. 한 대의 메모리에 들어가지 않아요. 값을 압축하거나 자주 안 쓰는 것만 디스크로 내려도 <strong>시간을 조금 벌 뿐</strong>, 데이터가 계속 늘면 결국 같은 벽을 만납니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">☠️</div>
+        <div class="card-title">한 대가 죽으면 끝이다</div>
+        <div class="card-body">그 한 대가 <a href="07-proxy-and-load-balancer.html#spof">단일 장애점</a>입니다. 재부팅하는 몇 분 동안 <strong>모든 요청이 실패</strong>하고, 메모리에만 있던 데이터는 <strong>그대로 사라집니다.</strong> 고가용성 요구사항과 정면으로 충돌해요.</div>
+      </div>
+    </div>
+
+    <h3>분산 버전 — 부품 배치</h3>
+    <p>그래서 데이터를 여러 노드에 나눠 담습니다. 그림은 이렇게 됩니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">📱 클라이언트</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🧭 조정자 노드</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🔄 해시 링에서 담당 찾기</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🗄️ 담당 노드 3대</div>
+    </div>
+
+    <p>클라이언트의 요청을 가장 먼저 받는 <strong>조정자(coordinator)</strong>는 특별한 서버가 아닙니다. 데이터를 들고 있는 <strong>아무 노드나</strong> 그 역할을 할 수 있어요. 조정자가 하는 일은 <strong>키를 보고 담당 노드를 계산해 요청을 넘기고, 돌아온 답을 모아 클라이언트에게 돌려주는 것</strong>뿐이거든요. 자기만 아는 상태를 들고 있지 않으니 <a href="04-server-and-client.html#stateless">04차시의 무상태 서버</a>와 같은 성질이고, 그래서 어느 노드가 받아도 결과가 같습니다.</p>
+
+    <p>이 구조에는 <strong>중앙 관리자가 없습니다.</strong> 모든 노드가 같은 규칙과 같은 멤버 목록을 갖고 있어서, 누가 죽어도 <strong>대신 죽어 줄 대장이 없어 곤란해지는 일</strong>이 벌어지지 않아요. 대신 "누가 살아 있는지"를 모두가 알아야 한다는 새 숙제가 생기는데, 그건 <a href="#failure">장애 다루기</a> 절에서 풉니다.</p>
+
+    <h3>API</h3>
+    <p>주고받을 인터페이스는 두 줄이면 끝납니다. <a href="10-design-process.html#four-steps">2단계에서는 이름과 입출력만</a> 적으면 충분해요.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>API</th><th>입력</th><th>출력</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>put(key, value)</code></td>
+            <td>키(짧은 문자열)<br>값(10KB 이하)</td>
+            <td>성공 / 실패</td>
+            <td>키에 값을 저장합니다. 같은 키가 이미 있으면 <strong>덮어씁니다.</strong></td>
+          </tr>
+          <tr>
+            <td><code>get(key)</code></td>
+            <td>키</td>
+            <td>값 <strong>또는</strong> 없음</td>
+            <td>키에 저장된 값을 돌려줍니다. 저장된 적이 없으면 <strong>없음</strong>을 돌려줘요.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>여기서 "성공"이 정확히 <strong>몇 대에 저장됐다는 뜻인지</strong>, "값"이 <strong>몇 대에게 물어본 결과인지</strong>는 아직 정하지 않았습니다. 놀랍게도 이 문제에서 가장 재미있는 논쟁이 바로 거기에 있어요. <a href="#replication-quorum">복제와 정족수</a> 절에서 그 두 숫자를 정합니다.</p>
+  </section>
+
+  <!-- ── 안정 해시 ── -->
+  <section class="section" id="consistent-hashing">
+    <div class="section-header">
+      <div class="section-icon icon-query">🔄</div>
+      <h2>안정 해시: 키를 어느 노드에 둘 것인가</h2>
+    </div>
+
+    <p>3단계 상세 설계의 첫 번째 주제입니다. 데이터를 여러 노드에 나눈다고 했는데, <strong>어떤 키를 어느 노드에 둘지</strong>를 아직 안 정했어요. 이 규칙 하나가 확장성과 장애 대응을 동시에 좌우합니다.</p>
+
+    <h3>먼저, 가장 단순한 방법이 왜 안 되는가</h3>
+    <p>제일 먼저 떠오르는 방법은 <a href="08-storage.html#sharding">08차시의 해시 기반 샤딩</a>입니다. 노드가 4대라면 <code>hash(key) % 4</code>를 계산해서 나온 번호의 노드에 두는 거죠. 데이터가 아주 고르게 흩어지고 계산도 순식간입니다. 평상시에는 아무 문제가 없어요.</p>
+
+    <p>문제는 <strong>노드 수가 바뀌는 순간</strong> 터집니다. 4대를 5대로 늘리면 나누는 수가 <code>% 4</code>에서 <code>% 5</code>로 바뀌고, 그러면 <strong>거의 모든 키의 소속이 한꺼번에 달라집니다.</strong> 숫자로 보면 이렇습니다.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>키의 해시값</th><th>4대일 때 <code>% 4</code></th><th>5대일 때 <code>% 5</code></th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td>12</td><td>0번 노드</td><td>2번 노드</td><td><span style="color:#b91c1c">이사</span></td></tr>
+          <tr><td>13</td><td>1번 노드</td><td>3번 노드</td><td><span style="color:#b91c1c">이사</span></td></tr>
+          <tr><td>14</td><td>2번 노드</td><td>4번 노드</td><td><span style="color:#b91c1c">이사</span></td></tr>
+          <tr><td>15</td><td>3번 노드</td><td>0번 노드</td><td><span style="color:#b91c1c">이사</span></td></tr>
+          <tr><td>16</td><td>0번 노드</td><td>1번 노드</td><td><span style="color:#b91c1c">이사</span></td></tr>
+          <tr><td>21</td><td>1번 노드</td><td>1번 노드</td><td><span style="color:#065f46">그대로</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>여섯 개 중 다섯 개가 자리를 옮겼습니다. 우연이 아니에요. <strong>노드를 N대에서 N+1대로 늘리면 제자리에 남는 키는 대략 N+1개 중 1개뿐</strong>입니다. 4대에서 5대로 갈 때는 <strong>약 80%가 이사</strong>를 갑니다.</p>
+
+    <p>이게 왜 재앙이냐면, 1TB 중 800GB가 <strong>서비스를 열어 둔 채</strong> 노드 사이를 옮겨 다닌다는 뜻이기 때문입니다. 그동안 네트워크는 이사 트래픽으로 막히고, 아직 안 옮겨진 키를 찾는 요청은 <strong>엉뚱한 노드에 도착해 "없음"을 받습니다.</strong> 노드 한 대가 죽었을 때도 똑같은 일이 벌어져요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 반을 하나 늘렸더니 전교생이 자리를 옮긴 학교</strong><br>
+        학번을 <strong>4로 나눈 나머지</strong>로 반을 정하는 학교가 있습니다. 잘 굴러가던 어느 날 학생이 늘어 <strong>반을 다섯 개로</strong> 늘렸어요. 규칙에 따라 <strong>5로 나눈 나머지</strong>로 다시 배정하니, <strong>전교생이 거의 다 짐을 싸서 다른 교실로</strong> 갑니다. 사물함도 명찰도 시간표도 전부 다시.<br>
+        상식적인 학교라면 이렇게 하지 않겠죠. <strong>새 반에 들어갈 학생만 뽑아서 옮기고</strong> 나머지는 그대로 둘 겁니다. 이 당연한 발상을 해시에 적용한 것이 <strong>안정 해시(consistent hashing)</strong>예요.<br>
+        "안정(consistent)"이라는 이름이 붙은 이유도 여기 있습니다. <strong>노드 수가 바뀌어도 대부분의 키가 원래 자리에 그대로 있다</strong>는 뜻이거든요.
+      </div>
+    </div>
+
+    <h3>해결 — 원 위에 올려놓기</h3>
+    <p>안정 해시의 아이디어는 딱 한 문장입니다. <strong>해시값의 범위를 원(ring)으로 둥글게 이어 붙이고, 노드와 키를 그 원 위에 올려놓는다.</strong></p>
+
+    <p>해시 함수가 뱉는 값의 범위가 0부터 아주 큰 수까지라고 해 봅시다. 그 <strong>끝과 처음을 붙여 시계판처럼</strong> 만듭니다. 이제 두 가지를 이 시계판 위에 올려요.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>노드를 원 위에 올린다</strong><br>노드의 이름이나 IP를 해시 함수에 넣습니다. 나온 값이 그 노드의 <strong>시계판 위 위치</strong>예요. 노드 A는 2시 방향, B는 5시 방향, C는 9시 방향 하는 식으로 자리를 잡습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>키도 같은 원 위에 올린다</strong><br>키를 <strong>같은 해시 함수</strong>에 넣어 위치를 구합니다. 어떤 키가 3시 방향에 떨어졌다고 해 보죠.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>시계 방향으로 처음 만나는 노드가 담당</strong><br>3시에서 시계 방향으로 돌면 5시의 <strong>노드 B</strong>를 처음 만납니다. 그러면 이 키는 B가 맡아요. 규칙은 이게 전부입니다. <strong>노드 개수로 나누는 계산이 어디에도 없다</strong>는 점이 핵심이에요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>노드를 하나 추가한다</strong><br>새 노드 D가 4시 방향에 들어왔습니다. 그러면 <strong>3시~4시 구간의 키만</strong> B에서 D로 넘어갑니다. 4시~5시 구간은 여전히 B가, 나머지 원 전체는 <span style="color:#065f46">아무 변화 없이 그대로</span>예요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">5</div>
+        <div class="timeline-content"><strong>노드가 하나 죽는다</strong><br>B가 죽으면 B가 맡던 구간이 <strong>시계 방향 다음 노드</strong>에게 넘어갑니다. 역시 그 구간만 움직이고 나머지는 그대로입니다. <strong>추가와 제거가 정확히 대칭</strong>이에요.</div>
+      </div>
+    </div>
+
+    <p>결과를 한 줄로 요약하면 이렇습니다. 나머지 연산 방식에서는 노드가 하나 바뀔 때 <strong>거의 전부</strong>가 이사했지만, 안정 해시에서는 <strong>평균적으로 전체의 1/N만</strong> 이사합니다. 노드가 10대라면 10%, 100대라면 1%예요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--red-soft);color:#b91c1c;border-bottom:1px solid #fecaca">🔢 나머지 연산 <code>% N</code></div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          담당 노드 = <code>hash(key) % N</code><br><br>
+          <strong>평상시</strong> — 아주 고르게 퍼지고 계산도 빠릅니다.<br>
+          <strong>N이 바뀌면</strong> — 나누는 수가 통째로 바뀌어 <strong>거의 모든 키가 이사</strong>합니다. 4→5에서 약 80%.<br><br>
+          노드 수가 <strong>영원히 안 바뀌는</strong> 경우에만 쓸 만합니다.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#065f46;border-bottom:1px solid #a7f3d0">🔄 안정 해시</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          담당 노드 = <strong>원 위에서 시계 방향 첫 노드</strong><br><br>
+          <strong>평상시</strong> — 가상 노드를 충분히 쓰면 <code>% N</code>만큼 고르게 퍼집니다.<br>
+          <strong>N이 바뀌면</strong> — 바뀐 노드의 <strong>이웃 구간만</strong> 움직입니다. 평균 <strong>1/N</strong>.<br><br>
+          노드가 <strong>수시로 늘고 죽는</strong> 환경을 위한 방법입니다.
+        </div>
+      </div>
+    </div>
+
+    <h3>가상 노드 — 쏠림을 없애는 장치</h3>
+    <p>여기까지 읽고 "그런데 시계판 위에 노드 세 개를 뿌리면 구간 크기가 제각각이지 않나?" 싶다면 정확한 지적입니다. 실제로 그렇습니다. 2시·5시·9시에 노드가 있으면 9시부터 2시까지 맡는 노드는 <strong>다른 노드보다 훨씬 넓은 구간</strong>을 떠안아요. 노드가 죽었을 때도 그 부담이 <strong>바로 옆 한 대에게만</strong> 통째로 쏠립니다.</p>
+
+    <p>해법은 의외로 단순합니다. <strong>노드 하나를 원 위 여러 지점에 올려놓는 것.</strong> 노드 A를 <code>A-1</code>, <code>A-2</code>, … <code>A-150</code>처럼 이름을 조금씩 바꿔 가며 해시해서, <strong>원 위 150군데</strong>에 A의 표식을 뿌립니다. 이 표식 하나하나를 <strong>가상 노드(virtual node)</strong>라고 불러요. 어느 가상 노드가 담당하게 되든 실제로 데이터를 갖는 건 물리 서버 A입니다.</p>
+
+    <p>이렇게 하면 두 가지가 한꺼번에 해결됩니다. 첫째, 구간이 잘게 쪼개져 섞이므로 <strong>노드별 담당량이 훨씬 고르게</strong> 맞아떨어집니다. 가상 노드를 많이 뿌릴수록 편차가 줄어요. 둘째, 노드 A가 죽으면 A의 150개 구간이 <strong>여러 노드에게 조금씩 나뉘어</strong> 넘어갑니다. 한 대에게 부담이 몰리지 않죠. 덤으로, 성능 좋은 서버에 가상 노드를 더 많이 배정해 <strong>서버마다 다른 몫을 맡기는</strong> 것도 가능해집니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>08차시에서 미뤄 둔 문제의 답이 이것입니다</strong><br>
+        <a href="08-storage.html#sharding">08차시 · 샤딩</a>의 마지막 함정이 <strong>"샤드를 추가하면 대이동이 일어난다"</strong>였습니다. <code>% 4</code>에서 <code>% 5</code>로 바꾸는 순간 거의 모든 데이터의 소속이 바뀌는 그 문제요. 그때 "안정 해시로 푼다"고만 적어 두고 넘어갔는데, <strong>방금 그 방법을 배운 겁니다.</strong><br>
+        그래서 안정 해시는 키-값 저장소만의 이야기가 아니에요. <strong>무언가를 여러 대에 나눠 담고 그 대수가 변하는 곳이라면 어디든</strong> 같은 방법이 쓰입니다. 샤딩된 데이터베이스, 분산 캐시, <a href="07-proxy-and-load-balancer.html#algorithms">로드 밸런서가 같은 사용자를 같은 서버로 보내는 규칙</a>까지 전부요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 복제와 정족수 ── -->
+  <section class="section" id="replication-quorum">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🗳️</div>
+      <h2>복제와 정족수</h2>
+    </div>
+
+    <p>이제 키가 어느 노드로 가는지는 정해졌습니다. 그런데 <strong>그 노드가 죽으면?</strong> 그 노드가 맡던 키들은 통째로 사라집니다. 고가용성 요구사항이 아직 하나도 지켜지지 않은 상태예요. 답은 <a href="08-storage.html#replication">08차시에서 배운 복제</a>입니다 — <strong>같은 데이터를 여러 대에 복사해 두는 것.</strong></p>
+
+    <h3>원 위에서 복제하기</h3>
+    <p>안정 해시의 원이 있으니 복제 규칙도 자연스럽게 나옵니다. 키가 시계 방향으로 처음 만난 노드에 저장하고, <strong>거기서 시계 방향으로 계속 돌며 만나는 노드에 같은 값을 더 저장</strong>하는 거예요. 몇 대에 저장할지를 정하는 이 숫자를 <strong>N</strong>이라고 부르고, 실무에서는 대개 <strong>N = 3</strong>을 씁니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">🔑 키의 위치</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🗄️ 노드 B</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🗄️ 노드 C</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🗄️ 노드 D</div>
+    </div>
+
+    <p>주의할 점이 하나 있습니다. 앞 절에서 노드 하나를 가상 노드 여러 개로 뿌려 놨기 때문에, 시계 방향으로 돌다 보면 <strong>같은 물리 서버를 두 번 만날 수</strong> 있어요. 그러면 3벌을 저장했는데 실제로는 두 대에만 있는 셈이 됩니다. 그래서 규칙에 한 줄을 더합니다 — <strong>서로 다른 물리 서버 N대</strong>를 만날 때까지 돈다. 더 욕심을 내면 세 대를 <strong>서로 다른 데이터센터</strong>에 두어, 건물 하나가 통째로 정전돼도 데이터가 남게 만들 수도 있습니다.</p>
+
+    <h3>정족수 — 몇 대에게 확인받을 것인가</h3>
+    <p>3벌을 저장하기로 했습니다. 그런데 새 질문이 생겨요. <strong>put이 "성공"이라고 답하려면 세 대 중 몇 대가 저장을 마쳐야 할까요?</strong> 그리고 <strong>get은 몇 대에게 물어봐야 할까요?</strong> 이 두 숫자를 <strong>W</strong>(쓰기 정족수)와 <strong>R</strong>(읽기 정족수)이라고 부릅니다. <strong>정족수(quorum)</strong>는 "결정을 내리는 데 필요한 최소 인원"이라는 뜻이에요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 세 명 중 두 명의 서명</strong><br>
+        중요한 서류에 <strong>결재자가 세 명</strong> 있다고 해 봅시다. 세 명 전원의 서명을 받으면 가장 확실하지만, <strong>한 명이 출장 중이면 서류가 멈춥니다.</strong> 반대로 한 명만 서명해도 통과시키면 빠르지만, 나머지 두 명은 <strong>그 결정을 모른 채</strong>로 남아요.<br>
+        그래서 흔히 <strong>"세 명 중 두 명"</strong>으로 정합니다. 한 명이 자리를 비워도 일이 굴러가고, 그러면서도 <strong>서명한 사람과 확인하러 온 사람이 반드시 한 명은 겹칩니다.</strong><br>
+        마지막 문장이 이 절 전체의 핵심입니다. <strong>겹치기만 하면 최신 값을 놓치지 않아요.</strong>
+      </div>
+    </div>
+
+    <p>겹친다는 게 왜 중요한지 그림으로 생각해 봅시다. 방금 <strong>W대</strong>에 새 값을 썼습니다. 이제 <strong>R대</strong>에게 값을 물어봅니다. 만약 이 두 무리가 하나도 겹치지 않는다면, 물어본 R대가 전부 <strong>옛날 값만 가진 노드</strong>일 수 있어요. 그러면 방금 쓴 값을 못 읽습니다.</p>
+
+    <p>반대로 <strong>겹치는 노드가 최소 한 대라도 있으면</strong>, 그 노드는 새 값을 갖고 있으니 최신 값이 반드시 응답에 섞여 들어옵니다. 전체 N대 중에서 W대와 R대를 뽑는데 반드시 겹치게 만드는 조건이 바로 이것입니다.</p>
+
+    <p style="text-align:center;font-size:16px;margin:20px 0"><code><strong>W + R &gt; N</strong></code></p>
+
+    <p>N이 3인데 W와 R을 더해 4 이상이면, 세 개의 자리에 넷을 배정하는 셈이라 <strong>어딘가는 반드시 겹칩니다.</strong> 반대로 W=1, R=1이면 합이 2라서 겹친다는 보장이 없어요. 이 부등식 하나가 <strong>"방금 쓴 값을 반드시 읽을 수 있는가"</strong>를 결정합니다.</p>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead><tr><th>설정 (N = 3)</th><th>W + R</th><th>최신 값 보장</th><th>성격</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>W = 1, R = 3</strong></td>
+            <td>4 &gt; 3 ✅</td>
+            <td>보장됨</td>
+            <td><strong>쓰기가 빠릅니다.</strong> 한 대만 저장하면 바로 성공을 돌려주니까요. 대신 읽을 때 세 대를 다 기다려서, <strong>한 대만 느려도 읽기 전체가 느려집니다.</strong> 쓰기가 많은 로그 성격의 데이터에 어울려요.</td>
+          </tr>
+          <tr>
+            <td><strong>W = 3, R = 1</strong></td>
+            <td>4 &gt; 3 ✅</td>
+            <td>보장됨</td>
+            <td><strong>읽기가 빠릅니다.</strong> 아무 한 대에게만 물어보면 되니까요. 대신 쓸 때 세 대를 다 기다려서, <strong>한 대라도 죽어 있으면 쓰기가 실패</strong>합니다. 읽기가 압도적으로 많은 데이터에 어울립니다.</td>
+          </tr>
+          <tr>
+            <td><strong>W = 2, R = 2</strong></td>
+            <td>4 &gt; 3 ✅</td>
+            <td>보장됨</td>
+            <td><strong>균형점이자 기본값.</strong> 읽기든 쓰기든 <strong>한 대가 죽어도 계속 동작</strong>하면서 최신 값도 보장합니다. 특별한 이유가 없으면 여기서 시작하세요.</td>
+          </tr>
+          <tr>
+            <td><strong>W = 1, R = 1</strong></td>
+            <td>2 ≤ 3 ❌</td>
+            <td><span style="color:#b91c1c">보장 안 됨</span></td>
+            <td><strong>가장 빠릅니다.</strong> 대신 방금 쓴 값이 안 읽힐 수 있어요. 시간이 지나면 결국 같아지는 <a href="08-storage.html#cap">최종적 일관성</a>에 기대는 설정입니다. 조회수처럼 <strong>잠깐 어긋나도 괜찮은</strong> 데이터에만.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>W와 R은 08차시의 CP↔AP 다이얼입니다</strong><br>
+        <a href="08-storage.html#cap">08차시의 CAP</a>에서 우리는 <strong>분단이 일어나면 일관성(CP)과 가용성(AP) 중 하나를 골라야 한다</strong>고 배웠습니다. 그때는 제품을 고르는 이야기처럼 들렸는데, 여기서는 <strong>숫자 두 개를 조절하는 일</strong>이 됐어요.<br>
+        W와 R을 <strong>크게</strong> 잡을수록 CP 쪽입니다 — 정확하지만 노드가 죽으면 요청이 실패하고 응답도 느려집니다. <strong>작게</strong> 잡을수록 AP 쪽이고요 — 늘 빠르게 답하지만 값이 잠깐 낡을 수 있습니다.<br>
+        중요한 건 이 다이얼을 <strong>데이터 종류마다 다르게</strong> 돌릴 수 있다는 점입니다. 같은 저장소 안에서 장바구니는 W=1·R=1로, 결제 상태는 W=3·R=1로 쓰는 식이죠. 1단계 요구사항에 적었던 <strong>"조정 가능한 일관성"</strong>의 정체가 바로 이 두 숫자였습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 쓰기·읽기 경로 ── -->
+  <section class="section" id="read-write-path">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🛣️</div>
+      <h2>쓰기·읽기 경로: 노드 한 대 안에서 벌어지는 일</h2>
+    </div>
+
+    <p>지금까지는 <strong>노드들 사이의 이야기</strong>였습니다. 이제 카메라를 노드 한 대 안으로 옮겨 봅시다. 요청이 도착한 그 노드는 데이터를 정확히 어떤 순서로 저장하고 어떻게 찾아낼까요? 이 부분의 설계가 <strong>왜 이런 저장소는 쓰기가 그렇게 빠른가</strong>를 설명해 줍니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 바쁜 식당의 주문서</strong><br>
+        점심시간 식당 홀에서 주문이 쏟아집니다. 종업원은 이렇게 일해요.<br>
+        <strong>① 접수 노트에 한 줄 적는다</strong> — 무조건 <strong>맨 아래에 이어서</strong> 적습니다. 정리는 나중 일이고, 일단 <strong>적혔다는 사실</strong>이 중요해요. 정전이 나도 이 노트만 있으면 복구됩니다.<br>
+        <strong>② 주방 화이트보드에 붙인다</strong> — 지금 진행 중인 주문은 <strong>눈앞의 화이트보드</strong>에 있습니다. 보기도 고치기도 즉시죠.<br>
+        <strong>③ 보드가 꽉 차면 장부로 옮긴다</strong> — 테이블 번호순으로 <strong>정리해서 한 번에</strong> 장부에 옮겨 적고, 보드는 지웁니다.<br>
+        ①이 <strong>커밋 로그</strong>, ②가 <strong>메모리 테이블</strong>, ③이 <strong>SSTable</strong>입니다. 손님을 기다리게 하는 건 ①과 ②뿐이고 <strong>둘 다 순식간</strong>이라, 이 식당은 주문을 아주 빨리 받습니다.
+      </div>
+    </div>
+
+    <h3>쓰기 경로</h3>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>커밋 로그(commit log)에 먼저 적는다</strong><br>들어온 쓰기를 디스크의 로그 파일 <strong>맨 뒤에 이어 붙입니다.</strong> 정리도 정렬도 하지 않고 그냥 덧붙이기만 해요. 디스크에서 <strong>이어 쓰기는 아주 빠릅니다.</strong> 이걸 먼저 하는 이유는 하나입니다 — 이 노드가 다음 줄에서 갑자기 죽어도, <strong>로그를 다시 읽으면 그대로 복구</strong>되니까요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>메모리 테이블(memtable)에 넣는다</strong><br>메모리 안의 정렬된 자료구조에 키와 값을 담습니다. 여기까지 끝나면 <strong>클라이언트에게 "성공"을 돌려줍니다.</strong> 디스크에 정리해 넣는 걸 기다리지 않아요. 쓰기가 빠른 진짜 이유가 이겁니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>가득 차면 SSTable로 통째로 내려쓴다</strong><br>메모리 테이블이 정해진 크기를 넘으면, 그 내용을 <strong>키 순서로 정렬된 파일 하나</strong>로 디스크에 한 번에 씁니다. 이 파일이 <strong>SSTable(Sorted String Table)</strong>이에요. 한 번 쓰인 SSTable은 <strong>고쳐지지 않습니다.</strong> 값이 바뀌면 나중에 새 SSTable에 새 값이 들어갈 뿐이에요.</div>
+      </div>
+    </div>
+
+    <p>이 구조에서 디스크에 하는 일은 <strong>이어 쓰기와 한 번에 몰아쓰기</strong>뿐입니다. 여기저기 흩어진 자리를 찾아가 고치는 일이 없어요. 그래서 <a href="08-storage.html#rdb-vs-nosql">08차시에서 본 NoSQL 저장소들</a>이 초당 쏟아지는 쓰기에 강한 겁니다.</p>
+
+    <h3>읽기 경로</h3>
+    <p>쓰기를 빠르게 만든 대가는 읽기가 치릅니다. 값이 <strong>메모리 테이블에 있을 수도, 여러 SSTable 중 하나에 있을 수도</strong> 있거든요. 그래서 읽기는 이런 순서로 찾아 갑니다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>메모리 테이블부터 본다</strong><br>가장 최근에 쓰인 값은 아직 메모리에 있습니다. 여기서 찾으면 <strong>디스크를 건드리지 않고</strong> 끝나요. 방금 쓴 데이터를 곧바로 읽는 경우가 실제로 아주 많습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>블룸 필터(Bloom filter)로 헛걸음을 막는다</strong><br>SSTable마다 <strong>"이 파일에 어떤 키들이 들어 있는지"를 아주 작게 요약해 둔 것</strong>이 블룸 필터입니다. 메모리에 올려 두고 물어보면 <strong>"확실히 없다"</strong> 또는 <strong>"아마 있다"</strong>로 답해요. "없다"가 나온 SSTable은 <strong>열어 보지도 않고 건너뜁니다.</strong></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>남은 SSTable을 최신순으로 열어 본다</strong><br>"아마 있다"고 답한 파일만 실제로 읽습니다. 안이 <strong>키 순서로 정렬돼 있으니</strong> 범위를 반씩 좁혀 금방 도착해요. <strong>가장 최근에 만들어진 SSTable부터</strong> 보고, 값을 찾으면 거기서 멈춥니다. 그게 최신 값이니까요.</div>
+      </div>
+    </div>
+
+    <p>블룸 필터의 성격은 <strong>출입 명단 대조</strong>와 똑같습니다. 명단에 이름이 <strong>없으면 확실히 못 들어온 사람</strong>이지만, 명단에 이름이 <strong>있어도 동명이인일 수 있어</strong> 안에 들어가 확인해 봐야 하죠. 틀리는 방향이 <strong>한쪽뿐</strong>이라는 게 핵심입니다. "없다"는 언제나 정확해서, 그것만으로도 쓸데없는 디스크 접근을 대부분 막아 줍니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 설계는 쓰기의 편함을 읽기에게 빌린 것입니다</strong><br>
+        쓰기가 빠른 이유는 <strong>정리를 미뤘기 때문</strong>이에요. 그리고 미룬 정리는 사라지지 않고 <strong>읽는 쪽이 대신 치릅니다.</strong> SSTable이 쌓일수록 뒤져야 할 파일이 늘어나거든요. 그래서 이런 저장소는 한가한 시간에 <strong>여러 SSTable을 하나로 합치고 낡은 값을 버리는 정리 작업</strong>을 백그라운드로 돌립니다. <strong>컴팩션(compaction)</strong>이라고 불러요.<br>
+        <a href="08-storage.html#index">08차시의 인덱스</a>에서 본 것과 정확히 같은 모양의 거래입니다. 그때는 <strong>읽기를 위해 쓰기를 팔았고</strong>, 여기서는 <strong>쓰기를 위해 읽기를 팔았습니다.</strong> 공짜는 어디에도 없어요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 장애 다루기 ── -->
+  <section class="section" id="failure">
+    <div class="section-header">
+      <div class="section-icon icon-error">🚑</div>
+      <h2>장애 다루기</h2>
+    </div>
+
+    <p>수백 대 규모에서는 매일 몇 대가 죽습니다. 그러니 장애는 <strong>예외 상황이 아니라 평상시</strong>예요. 이 절에서는 세 가지 질문에 답합니다 — <strong>죽은 걸 어떻게 아는가, 잠깐 죽었을 때 무엇을 하는가, 그리고 데이터가 서로 어긋났을 때 누구 말을 믿는가.</strong></p>
+
+    <h3>1. 죽었다는 걸 어떻게 아는가</h3>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 반상회 소문</strong><br>
+        아파트 한 동에 <strong>관리사무소 한 곳</strong>만 두고 모든 세대의 안부를 확인하게 하면, <strong>관리사무소가 문을 닫는 날</strong> 아무도 서로의 안부를 모릅니다. 확인해야 할 집이 500세대로 늘면 감당도 안 되고요.<br>
+        현실의 동네는 이렇게 굴러가지 않죠. <strong>주민들이 오가며 서로 안부를 주고받습니다.</strong> "301호 어제부터 안 보이더라"는 말이 몇 다리 건너면 <strong>동 전체에 퍼집니다.</strong> 중심이 없어도, 아니 중심이 없기 때문에 <strong>누가 빠져도 소문은 계속 돕니다.</strong><br>
+        앞이 중앙 감시 방식이고 뒤가 <strong>가십(gossip)</strong>입니다. 분산 키-값 저장소가 뒤를 고르는 이유도 같아요 — <strong>감시자마저 죽을 수 있으니까요.</strong>
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">💓</div>
+        <div class="card-title">하트비트(heartbeat)</div>
+        <div class="card-body">각 노드가 주기적으로 <strong>"나 살아 있음"</strong> 신호를 보냅니다. 정해진 시간 동안 신호가 안 오면 의심하기 시작해요. <a href="07-proxy-and-load-balancer.html#health">07차시의 헬스 체크</a>와 같은 발상인데, 여기서는 <strong>노드끼리 서로에게</strong> 보낸다는 점이 다릅니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗣️</div>
+        <div class="card-title">가십(gossip) 프로토콜</div>
+        <div class="card-body">각 노드가 <strong>무작위로 고른 몇 노드</strong>에게 자기가 아는 멤버 목록과 마지막 하트비트 시각을 전해 줍니다. 받은 쪽은 더 최신 정보로 갱신하고 또 퍼뜨려요. 소문처럼 번지므로 <strong>중앙 감시자 없이도</strong> 금방 전체가 같은 그림을 갖게 됩니다.</div>
+      </div>
+    </div>
+
+    <p>한 노드가 "A가 응답이 없다"고 생각하는 것만으로는 A를 죽었다고 판정하지 않습니다. <strong>네트워크가 잠깐 흔들린 것</strong>일 수도 있으니까요. 여러 노드가 <strong>독립적으로 같은 판단</strong>을 내리고 그 사실이 가십으로 모였을 때 비로소 A를 장애로 표시합니다. <a href="08-storage.html#replication">08차시에서 본 성급한 장애 조치의 위험</a>을 여기서 <strong>다수결로</strong> 줄이는 셈이에요.</p>
+
+    <h3>2. 잠깐 죽었을 때 — 힌트 핸드오프</h3>
+    <p>노드 B가 재부팅으로 30초쯤 사라졌다고 해 봅시다. 그 사이 B가 맡을 쓰기가 들어오면 어떻게 할까요? 실패로 돌려주면 <strong>고작 30초 때문에 가용성이 깨집니다.</strong></p>
+
+    <p>그래서 다른 노드가 <strong>대신 받아 둡니다.</strong> 값을 자기 자리에 임시로 저장하면서 <strong>"이건 원래 B 것"이라는 쪽지</strong>를 붙여 두는 거예요. B가 살아 돌아오면 그동안 쌓인 쪽지를 <strong>B에게 전달하고 자기 것은 지웁니다.</strong> 이 방식을 <strong>힌트 핸드오프(hinted handoff)</strong>라고 부릅니다. 옆집이 잠깐 비운 사이 <strong>택배를 대신 받아 뒀다가 돌아오면 건네주는</strong> 것과 똑같아요. 덕분에 짧은 장애는 사용자에게 <strong>보이지도 않고 지나갑니다.</strong></p>
+
+    <h3>3. 값이 서로 어긋났을 때 — 버전</h3>
+    <p>마지막 문제입니다. 네트워크가 갈라진 동안 <strong>양쪽에서 같은 키에 서로 다른 값</strong>이 쓰였다고 해 봅시다. 연결이 회복되면 어느 쪽이 맞을까요? 시계를 비교하는 방법은 위험합니다. 서버마다 시계가 조금씩 다르게 가거든요. 그래서 쓰기마다 <strong>"이 값은 어떤 값을 보고 만든 것인지"를 적은 꼬리표</strong>를 붙입니다. 이 꼬리표를 서버별 카운터 목록으로 관리하는 방식이 <strong>벡터 클록(vector clock)</strong>이에요. 꼬리표를 비교하면 <strong>한쪽이 다른 쪽보다 확실히 나중인지</strong>, 아니면 <strong>둘이 서로를 모른 채 갈라져 나온 진짜 충돌인지</strong>를 구분할 수 있습니다. 나중 것이면 조용히 덮어쓰고, 진짜 충돌이면 시스템이 마음대로 하나를 버리지 않고 <strong>두 값을 모두 클라이언트에게 돌려줘</strong> 합치게 합니다. 장바구니라면 두 목록을 합집합으로 합치는 식이죠.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 세 장치는 전부 "완벽함"이 아니라 "덜 아픔"을 삽니다</strong><br>
+        가십은 <strong>모두가 즉시</strong> 같은 그림을 갖게 해 주지 않습니다. 몇 초의 시차가 있어요. 힌트 핸드오프는 대신 받아 준 노드가 <strong>전달하기 전에 죽으면</strong> 그 쓰기를 잃습니다. 벡터 클록은 충돌을 <strong>감지할 뿐 해결해 주지는 않아</strong>, 결국 애플리케이션이 합치는 규칙을 갖고 있어야 하고요.<br>
+        그런데도 이것들을 쓰는 이유는 <strong>대안이 더 나쁘기 때문</strong>입니다. 완벽한 합의를 매번 기다리면 노드 한 대가 느려질 때마다 전체가 멈추거든요. 분산 시스템 설계는 <strong>완벽을 포기하는 대신 무엇을 얼마나 포기할지 고르는 일</strong>에 가깝습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4단계 · 마무리 ── -->
+  <section class="section" id="wrap-up">
+    <div class="section-header">
+      <div class="section-icon icon-tx">✅</div>
+      <h2>4단계 · 마무리와 트레이드오프</h2>
+    </div>
+
+    <p>마지막 5분입니다. 그린 그림을 <strong>스스로 되짚으며</strong> 각 부품이 어떤 요구사항 때문에 들어왔는지 한 줄씩 말할 차례예요. 부품을 나열하는 것과 이유를 붙이는 것은 완전히 다른 답입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 요리를 내놓으며 해설하는 셰프</strong><br>
+        요리 대회에서 접시를 내놓고 <strong>말없이 물러나는 참가자</strong>와, <strong>"산미가 강한 소스라 단맛 나는 채소를 곁들였습니다"</strong>라고 한 줄 덧붙이는 참가자가 있습니다. 접시가 같아도 심사위원이 받는 인상은 전혀 달라요.<br>
+        앞사람의 선택은 <strong>운으로 보이고</strong>, 뒷사람의 선택은 <strong>의도로 보입니다.</strong> 게다가 뒷사람은 "이 소스는 식으면 맛이 떨어집니다"처럼 <strong>약점까지 먼저 말할 수</strong> 있죠. 자기 요리를 아는 사람만 할 수 있는 말이거든요.<br>
+        4단계가 하는 일이 정확히 이겁니다. <strong>같은 그림에 이유와 약점을 붙이는 것.</strong>
+      </div>
+    </div>
+
+    <h3>무엇을 왜 골랐나</h3>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>부품</th><th>어떤 요구사항 때문에</th><th>대신 무엇을 포기했나</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><a href="#consistent-hashing"><strong>안정 해시 + 가상 노드</strong></a></td>
+            <td><strong>자동 확장</strong> — 노드를 넣고 빼도 <strong>전체의 1/N만</strong> 이사하므로 서비스를 멈추지 않고 늘릴 수 있습니다.</td>
+            <td>담당 노드를 찾는 규칙이 <code>% N</code>보다 복잡해지고, 가상 노드 정보를 <strong>모든 노드가 알고</strong> 있어야 합니다.</td>
+          </tr>
+          <tr>
+            <td><a href="#replication-quorum"><strong>복제 N = 3</strong></a></td>
+            <td><strong>고가용성</strong> — 두 대가 죽어도 데이터가 남고, 한 대가 죽어도 <strong>계속 읽고 쓸 수</strong> 있습니다.</td>
+            <td>디스크가 <strong>3배</strong> 필요하고, 쓰기 한 건마다 <strong>네트워크로 세 번</strong> 나갑니다.</td>
+          </tr>
+          <tr>
+            <td><a href="#replication-quorum"><strong>정족수 W · R</strong></a></td>
+            <td><strong>조정 가능한 일관성</strong> — 숫자 두 개로 <a href="08-storage.html#cap">CP와 AP 사이</a>를 데이터마다 다르게 정합니다.</td>
+            <td>숫자를 크게 잡으면 <strong>느려지고</strong>, 작게 잡으면 <strong>낡은 값</strong>이 읽힐 수 있습니다. 공짜 설정은 없어요.</td>
+          </tr>
+          <tr>
+            <td><a href="#read-write-path"><strong>커밋 로그 + SSTable</strong></a></td>
+            <td><strong>낮은 지연(쓰기)</strong> — 디스크에 <strong>이어 쓰기만</strong> 하므로 초당 쏟아지는 쓰기를 받아 냅니다.</td>
+            <td>읽기가 <strong>여러 파일을 뒤져야</strong> 하고, 백그라운드 <strong>컴팩션</strong>이 계속 돌아야 합니다.</td>
+          </tr>
+          <tr>
+            <td><a href="#failure"><strong>가십 + 힌트 핸드오프</strong></a></td>
+            <td><strong>고가용성</strong> — 중앙 감시자 없이 장애를 알아채고, 짧은 장애는 <strong>사용자 모르게</strong> 넘어갑니다.</td>
+            <td>노드들의 판단에 <strong>몇 초의 시차</strong>가 생기고, 대신 받아 둔 노드가 죽으면 그 쓰기를 <strong>잃을 수</strong> 있습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>더 물어보면 좋은 확장 질문</h3>
+    <p>시간이 남았거나 면접관이 더 파고 싶어 할 때 꺼낼 카드들입니다. 전부 <strong>지금 설계에서 자연스럽게 이어지는</strong> 질문이에요.</p>
+
+    <ul class="checklist">
+      <li><span><strong>키에 유효기간(TTL)을 주려면?</strong> — 값 옆에 만료 시각을 함께 저장하고, 읽을 때 지났으면 없는 것처럼 답한 뒤 <a href="#read-write-path">컴팩션</a> 때 실제로 지우는 방식이 흔합니다. <a href="06-caching-and-cdn.html#ttl-eviction">06차시의 TTL</a>과 같은 개념이에요.</span></li>
+      <li><span><strong>여러 키를 묶은 트랜잭션이 필요하다면?</strong> — 이 저장소는 키 하나 단위로만 보장합니다. 여러 키를 원자적으로 묶어야 한다면 <a href="08-storage.html#rdb-vs-nosql">관계형 DB</a>가 맞는 도구일 수 있어요. "이 저장소가 맞는 도구가 아니다"라고 말하는 것도 좋은 답입니다.</span></li>
+      <li><span><strong>값이 10KB를 훌쩍 넘으면?</strong> — 값 자체는 <a href="08-storage.html#blob-storage">객체 스토리지</a>에 두고 이 저장소에는 <strong>그 주소만</strong> 저장합니다. 큰 값은 복제 비용도 3배로 커지니까요.</span></li>
+      <li><span><strong>특정 키 하나에 트래픽이 몰리면?</strong> — <a href="08-storage.html#sharding">08차시의 핫스팟</a>이 여기서도 그대로 나타납니다. 그 키만 복제본을 더 늘리거나, 앞단에 <a href="06-caching-and-cdn.html#why-cache">캐시</a>를 한 겹 두어 막습니다.</span></li>
+      <li><span><strong>노드가 영구히 죽어 복사본이 2벌만 남았다면?</strong> — 새 노드를 원에 넣고, 남은 복사본에서 데이터를 받아 3벌을 다시 채웁니다. 이때 <strong>무엇이 다른지</strong>를 통째로 비교하지 않고 빠르게 찾아내는 기법들이 따로 있어요.</span></li>
+    </ul>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>첫 사례를 통과했습니다</strong><br>
+        문제를 좁히고(<a href="#requirements">1단계</a>), 규모를 어림잡고(<a href="#estimation">계산</a>), 큰 그림을 그린 뒤(<a href="#high-level">2단계</a>), 가장 어려운 부품 셋을 깊게 팠고(<a href="#consistent-hashing">안정 해시</a> · <a href="#replication-quorum">정족수</a> · <a href="#read-write-path">저장 구조</a>), 마지막에 이유와 약점을 정리했습니다. <a href="10-design-process.html#four-steps">10차시의 네 걸음</a> 그대로예요. <strong>순서는 앞으로도 바뀌지 않습니다.</strong><br><br>
+        다음 문제는 성격이 조금 다릅니다. 이번엔 데이터를 <strong>어떻게 보관할까</strong>가 아니라, <strong>너무 많이 부르는 손님을 어떻게 막을까</strong>예요. 초당 몇 번까지 허용할지 세는 일이 왜 분산 환경에서 갑자기 어려워지는지를 봅니다. <a href="12-rate-limiter.html">12차시 · Rate Limiter</a>로 갑니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="10-design-process.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">10 · 문제 해결 프로세스</span></a>
+    <a class="part-pager-link next" href="12-rate-limiter.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">12 · Rate Limiter</span></a>
+  </div>
+
+  <div class="doc-footer">
+    System Design 101 · 11차시 · Key-Value Store · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 9 · 데이터베이스 — 시스템 디자인 개념 완전판</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 개념 완전판</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 크래시 코스</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 컴퓨터의 기본 구조</div>
+    <a class="nav-item" href="01-computer-basics.html#bit-byte">🔢 비트와 바이트</a>
+    <a class="nav-item" href="01-computer-basics.html#storage">💽 저장장치 (HDD/SSD)</a>
+    <a class="nav-item" href="01-computer-basics.html#ram">🧠 RAM</a>
+    <a class="nav-item" href="01-computer-basics.html#cache">⚡ 캐시 (L1/L2/L3)</a>
+    <a class="nav-item" href="01-computer-basics.html#cpu">🧮 CPU & 컴파일</a>
+    <a class="nav-item" href="01-computer-basics.html#hierarchy">🪜 메모리 계층 정리</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 실전 서비스의 전체 구조</div>
+    <a class="nav-item" href="02-production-architecture.html#cicd">🚀 전체 그림 & CI/CD</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-lb">⚖️ 로드밸런서 & 리버스 프록시</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-storage">🗄️ 외부 스토리지 & 서비스</a>
+    <a class="nav-item" href="02-production-architecture.html#logging">📈 로깅 & 모니터링</a>
+    <a class="nav-item" href="02-production-architecture.html#alerting">🔔 알림</a>
+    <a class="nav-item" href="02-production-architecture.html#debugging">🐛 디버깅 흐름</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 좋은 설계와 품질 지표</div>
+    <a class="nav-item" href="03-design-principles-metrics.html#good-design">🏛️ 좋은 설계란?</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#data-3">🔄 데이터의 3요소</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#cap">⚖️ CAP 정리</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#availability">🟢 가용성 & 9의 개수</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#slo-sla">📜 SLO vs SLA</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#resilience">🛡️ 신뢰성·장애내성·이중화</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#throughput">🏎️ 처리량 vs 지연시간</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 네트워킹 기초</div>
+    <a class="nav-item" href="04-networking-basics.html#ip">📍 IP 주소</a>
+    <a class="nav-item" href="04-networking-basics.html#packet">📦 패킷과 계층</a>
+    <a class="nav-item" href="04-networking-basics.html#tcp-udp">🚚 TCP vs UDP</a>
+    <a class="nav-item" href="04-networking-basics.html#dns">📇 DNS</a>
+    <a class="nav-item" href="04-networking-basics.html#ports">🚪 포트 & 방화벽</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 애플리케이션 계층 프로토콜</div>
+    <a class="nav-item" href="05-application-protocols.html#http">🌐 HTTP</a>
+    <a class="nav-item" href="05-application-protocols.html#https">🔒 HTTPS</a>
+    <a class="nav-item" href="05-application-protocols.html#status-method">🔢 상태코드 & 메서드</a>
+    <a class="nav-item" href="05-application-protocols.html#websocket">🔌 WebSocket</a>
+    <a class="nav-item" href="05-application-protocols.html#email">✉️ 이메일 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#other-proto">🧰 기타 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#rpc">📞 RPC</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · API 설계</div>
+    <a class="nav-item" href="06-api-design.html#crud">✏️ CRUD</a>
+    <a class="nav-item" href="06-api-design.html#paradigms">🔀 REST vs GraphQL vs gRPC</a>
+    <a class="nav-item" href="06-api-design.html#endpoints">🔗 관계 & 엔드포인트</a>
+    <a class="nav-item" href="06-api-design.html#api-best">✅ 모범 사례</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 7 · 캐싱 & CDN</div>
+    <a class="nav-item" href="07-caching-cdn.html#caching-what">⚡ 캐싱이란?</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-places">📍 캐시가 사는 곳</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-hit">🎯 hit / miss / ratio</a>
+    <a class="nav-item" href="07-caching-cdn.html#invalidation">🧊 캐시 무효화</a>
+    <a class="nav-item" href="07-caching-cdn.html#write-policy">✍️ write 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#eviction">🧹 eviction 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#cdn">🌍 CDN</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 8 · 프록시 & 로드 밸런서</div>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-what">🔀 프록시란?</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#forward">➡️ Forward Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#reverse">⬅️ Reverse Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-compare">⚖️ Forward vs Reverse</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-what">⚖️ 로드밸런서란? · L4/L7</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-algo">🧮 분산 알고리즘</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-health">🩺 헬스체크 & 종류</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-fail">🛡️ 장애 대응</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 9 · 데이터베이스</div>
+    <a class="nav-item" href="#db-types">🗃️ DB 종류</a>
+    <a class="nav-item" href="#acid">🔒 ACID</a>
+    <a class="nav-item" href="#db-scaling">📈 수직 vs 수평 확장</a>
+    <a class="nav-item" href="#sharding">🍰 샤딩 & 복제</a>
+    <a class="nav-item" href="#db-perf">🚀 성능 기법</a>
+  </div>
+</nav>
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="08-proxy-load-balancer.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 8 · 프록시 & 로드 밸런서</span></a>
+    <a class="part-pager-link next" href="index.html"><span class="part-pager-dir">끝 →</span><span class="part-pager-title">전체 목차로</span></a>
+  </div>
+
+  <!-- ── 🗃️ DB 종류 ── -->
+  <section class="section" id="db-types">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🗃️</div>
+      <h2>데이터베이스 종류 — 상황마다 다른 그릇</h2>
+    </div>
+
+    <p>데이터베이스는 종류마다 잘하는 일이 다릅니다. 크게 세 부류를 봅시다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">🗄️</div>
+        <div class="card-title">관계형 (SQL)</div>
+        <div class="card-body">잘 정리된 <strong>서류함</strong>. 모든 파일이 서랍·폴더로 깔끔히 분류됨. <strong>PostgreSQL·MySQL·SQLite</strong>. <strong>테이블</strong>에 저장하고 <strong>SQL</strong>로 질의. 트랜잭션·복잡 쿼리·<strong>무결성</strong>에 강함. <strong>ACID</strong> 준수.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧩</div>
+        <div class="card-title">NoSQL</div>
+        <div class="card-body"><strong>포스트잇 보드</strong>. 자유롭게 붙이고 뗌(유연). <strong>MongoDB·Cassandra·Redis</strong>. key-value, document, graph 등 종류 다양. <strong>스키마가 없어</strong> 테이블 간 외래키로 엮지 않음. <strong>비정형 데이터·확장성·빠른 반복</strong>에 좋음.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧠</div>
+        <div class="card-title">인메모리 (In-memory)</div>
+        <div class="card-body">빠른 계산용 <strong>화이트보드</strong>. 모든 게 메모리에 있어 <strong>번개처럼 빠름</strong>. <strong>Redis·Memcached</strong>. 주로 <strong>캐싱·세션 저장</strong>에 사용.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>NoSQL의 종류 예시</strong> — key-value(<strong>Redis</strong>), document(<strong>MongoDB</strong>), graph(<strong>Neo4j</strong>). "정형·엄격 = SQL", "유연·자유 = NoSQL", "초고속 임시 = 인메모리"로 큰 그림을 잡으세요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🔒 ACID ── -->
+  <section class="section" id="acid">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🔒</div>
+      <h2>ACID — 관계형 DB가 지키는 4가지 약속</h2>
+    </div>
+
+    <p>관계형 DB는 <strong>ACID</strong>라는 성질을 지킵니다. 신뢰할 수 있는 데이터 처리를 위한 네 가지 약속이에요. (NoSQL은 확장성을 위해 이 중 <strong>일관성(C)</strong>을 완화하곤 합니다.)</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>글자</th><th>이름</th><th>의미</th></tr></thead>
+        <tbody>
+          <tr><td><strong>A</strong></td><td>원자성 (Atomicity)</td><td>트랜잭션은 <strong>전부 되거나 전부 안 되거나</strong>. 중간까지만 반영되는 일은 없음.</td></tr>
+          <tr><td><strong>C</strong></td><td>일관성 (Consistency)</td><td>트랜잭션이 끝나면 DB는 항상 <strong>일관된 상태</strong>여야 함.</td></tr>
+          <tr><td><strong>I</strong></td><td>격리성 (Isolation)</td><td>동시에 실행되는 트랜잭션들은 <strong>서로 독립적</strong>이어야 함.</td></tr>
+          <tr><td><strong>D</strong></td><td>지속성 (Durability)</td><td>한 번 <strong>커밋(commit)</strong>된 데이터는 (장애가 나도) <strong>사라지지 않고 유지</strong>됨.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 계좌 이체</strong>: A가 B에게 만 원을 보낼 때, "A에서 만 원 빠짐 + B에 만 원 들어옴"은 <strong>둘 다 되거나 둘 다 안 돼야</strong> 합니다(원자성).
+        A에서만 빠지고 B에 안 들어오면 큰일이죠. 은행이 SQL·ACID를 쓰는 이유가 바로 이겁니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 📈 수직 vs 수평 확장 ── -->
+  <section class="section" id="db-scaling">
+    <div class="section-header">
+      <div class="section-icon icon-entity">📈</div>
+      <h2>DB 확장 — 수직(scale up) vs 수평(scale out)</h2>
+    </div>
+
+    <p>데이터가 늘어 DB가 버거워지면 <strong>확장(scaling)</strong>해야 합니다. 방법은 두 가지예요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">⬆️ 수직 확장 (Scale Up)</div>
+        <div class="compare-card-body">
+          DB가 도는 <strong>서버 한 대의 성능</strong>을 끌어올림.<br><br>
+          • CPU 늘리기 • RAM 키우기<br>
+          • 더 빠른 디스크 • 네트워크 업그레이드<br><br>
+          <span class="badge badge-no">한계</span> 한 대에 넣을 수 있는 자원엔 <strong>물리적 상한</strong>이 있어 매우 제한적.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">➡️ 수평 확장 (Scale Out)</div>
+        <div class="compare-card-body">
+          <strong>머신을 여러 대로 늘려</strong> 기존 자원 풀에 추가.<br><br>
+          데이터를 <strong>여러 머신에 분산</strong>합니다. 방법은 두 가지:<br>
+          • <strong>샤딩(sharding)</strong><br>
+          • <strong>복제(replication)</strong><br><br>
+          <span class="badge badge-ok">장점</span> 이론상 거의 무제한으로 확장.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        이 두 갈래는 DB만의 이야기가 아니라 <strong>서버 확장에도 똑같이</strong> 적용됩니다. "한 대를 강하게(수직)" vs "여러 대로 나누기(수평)". DB에서는 그 "나누기"를 <strong>샤딩·복제</strong>로 구현해요. 바로 아래에서 봅니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🍰 샤딩 & 복제 ── -->
+  <section class="section" id="sharding">
+    <div class="section-header">
+      <div class="section-icon icon-page">🍰</div>
+      <h2>샤딩 & 복제 — 나누기와 복사하기</h2>
+    </div>
+
+    <h3>🍰 샤딩 (Sharding) — 데이터를 조각내 나누기</h3>
+    <p><strong>샤딩</strong>은 데이터셋을 <strong>여러 조각(shard)</strong>으로 나눠 <strong>여러 서버에 분산</strong>하는 것입니다. 데이터를 작은 덩어리로 쪼개 서버마다 <strong>다른 부분</strong>을 맡깁니다.</p>
+
+    <div class="db-demo">
+      <div class="db-demo-header">users 테이블을 이름 첫 글자로 샤딩한 예</div>
+      <table>
+        <thead><tr><th>샤드</th><th>담당 범위</th><th>저장 서버</th></tr></thead>
+        <tbody>
+          <tr><td class="pk">Shard 1</td><td>A ~ H</td><td class="fk">DB 서버 #1</td></tr>
+          <tr><td class="pk">Shard 2</td><td>I ~ P</td><td class="fk">DB 서버 #2</td></tr>
+          <tr><td class="pk">Shard 3</td><td>Q ~ Z</td><td class="fk">DB 서버 #3</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <ul>
+      <li><strong>범위 기반(range-based)</strong> — 특정 키의 <strong>범위</strong>로 나눔 (예: 이름 A~H는 1번, I~P는 2번…).</li>
+      <li><strong>디렉터리 기반(directory-based)</strong> — <strong>룩업 서비스(주소록)</strong>가 "이 데이터는 몇 번 DB에 있다"고 알려줘 그리로 보냄.</li>
+      <li><strong>지리 기반(geographic)</strong> — <strong>지역별</strong>로 DB를 나눔 (한국 사용자 데이터는 한국 DB에).</li>
+    </ul>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>샤딩의 대가</strong> — ① <strong>샤드 키</strong>를 잘못 고르면 한 샤드에만 몰립니다(<strong>핫 샤드</strong>: 이름 첫 글자로 나누면 '김'·'이'가 몰림).
+        그래서 보통 사용자 ID를 <strong>해시</strong>해 고르게 뿌려요. ② 여러 샤드에 걸친 <strong>JOIN·집계</strong>가 어렵습니다. ③ 샤드를 늘릴 때 데이터를 옮겨야 하는데, 이때 <a href="08-proxy-load-balancer.html#lb-algo">일관된 해싱</a>이 이동량을 줄여 줍니다.
+        그래서 샤딩은 <strong>캐시·복제·인덱스로도 안 될 때 마지막에</strong> 꺼내는 카드예요.
+      </div>
+    </div>
+
+    <h3>👯 복제 (Replication) — 데이터를 복사해 여러 곳에</h3>
+    <p><strong>복제</strong>는 같은 데이터의 <strong>복사본을 여러 서버에</strong> 두어 <strong>고가용성</strong>을 얻는 방법입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">Primary-Replica 복제 (Master-Slave)</div>
+        <div class="compare-card-body">
+          <strong>Primary 1대(쓰기 담당)</strong> + <strong>여러 Replica(읽기 전용)</strong>.<br><br>
+          쓰기는 Primary로, 읽기는 여러 Replica가 나눠 처리 → <strong>읽기 부하 분산</strong>에 유리.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">Multi-Primary 복제 (Master-Master)</div>
+        <div class="compare-card-body">
+          <strong>여러 DB가 모두 읽기·쓰기</strong>를 다 할 수 있음.<br><br>
+          쓰기 지점이 여러 곳이라 유연하지만, 서로 <strong>충돌을 맞추는 처리</strong>가 더 복잡해짐.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>복제 지연(replication lag)</strong> — 복사본은 원본보다 <strong>아주 조금 늦습니다</strong>. 글을 쓰고(Primary) 바로 새로고침하면 읽기가 Replica로 가서
+        "내 글이 안 보이는" 일이 생길 수 있어요. <a href="03-design-principles-metrics.html#cap">CAP</a>에서 본 "A를 택하면 잠깐 옛 값이 보인다"의 실제 모습입니다.
+        대응은 두 가지 — 방금 쓴 사용자는 <strong>잠시 Primary에서 읽게</strong> 하거나, 잠깐의 불일치를 <strong>허용</strong>합니다(<strong>최종적 일관성</strong>, eventual consistency).
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>샤딩 vs 복제 한 줄 구분</strong> — <strong>샤딩은 "나누기"</strong>(서버마다 다른 데이터 → 용량·쓰기 분산), <strong>복제는 "복사"</strong>(서버마다 같은 데이터 → 가용성·읽기 분산)입니다.
+        실무에선 <strong>둘을 함께</strong> 쓰기도 해요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🚀 성능 기법 ── -->
+  <section class="section" id="db-perf">
+    <div class="section-header">
+      <div class="section-icon icon-tx">🚀</div>
+      <h2>DB 성능 기법 — 더 빠르게 접근하기</h2>
+    </div>
+
+    <p>확장이 "더 많이 감당하기"라면, 성능 기법은 "<strong>더 빨리 꺼내기</strong>"입니다. 대표적인 세 가지를 봅시다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">1. 캐싱</div>
+        <div class="card-body"><strong>Redis</strong> 같은 인메모리 DB로 <strong>자주 실행되는 쿼리 결과</strong>를 캐싱해 성능을 높임. (<a href="07-caching-cdn.html#caching-what">Part 7</a> 그대로!)</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔖</div>
+        <div class="card-title">2. 인덱싱</div>
+        <div class="card-body"><strong>자주 조회하는 컬럼에 인덱스</strong>를 만들면 조회 속도가 크게 빨라짐.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔧</div>
+        <div class="card-title">3. 쿼리 최적화</div>
+        <div class="card-body"><strong>JOIN을 최소화</strong>하고, <code>EXPLAIN</code> 같은 도구로 쿼리 성능을 분석해 개선.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>인덱스가 뭐예요?</strong> — 500쪽짜리 책에서 특정 단어를 찾을 때 1쪽부터 다 읽으면 느리죠. 하지만 책 뒤 <strong>'찾아보기(색인)'</strong>를 보면 "그 단어 … 321쪽"이라고 바로 알려줍니다.
+        DB 인덱스도 똑같이, 자주 찾는 컬럼에 미리 <strong>색인</strong>을 만들어 조회를 <strong>훨씬 빠르게</strong> 합니다.
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">sql</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-sql">-- email 컬럼으로 자주 조회한다면, 인덱스를 만들어 두면 빨라진다
+CREATE INDEX idx_users_email ON users (email);
+
+-- 쿼리가 어떻게 실행되는지(인덱스를 타는지) 확인
+EXPLAIN SELECT * FROM users WHERE email = 'kim@example.com';</code></pre>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>🎓 마지막으로 — 항상 <a href="03-design-principles-metrics.html#cap">CAP 정리</a>를 떠올리세요.</strong> 어떤 시스템을 설계하든 <strong>일관성 · 가용성 · 분할내성 중 둘</strong>만 가질 수 있습니다.
+        면접에서 주어진 요구사항에 따라 <strong>"우리는 이 둘을 우선한다"</strong>고 근거를 대며 고르는 것 — 그게 바로 시스템 디자인의 핵심입니다.
+        완벽한 정답을 찾는 게 아니라, <strong>우리 상황에 맞는 최선의 트레이드오프</strong>를 고르는 것이죠.
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    시스템 디자인 개념 완전판 · Part 9 · 데이터베이스 · <a href="index.html">전체 목차로</a>
+  </div>
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

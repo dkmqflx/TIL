@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>시스템 디자인 개념 완전판 — 왕초보 크래시 코스</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="#top">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 개념 완전판</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 크래시 코스</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 컴퓨터의 기본 구조</div>
+    <a class="nav-item" href="01-computer-basics.html#bit-byte">🔢 비트와 바이트</a>
+    <a class="nav-item" href="01-computer-basics.html#storage">💽 저장장치 (HDD/SSD)</a>
+    <a class="nav-item" href="01-computer-basics.html#ram">🧠 RAM</a>
+    <a class="nav-item" href="01-computer-basics.html#cache">⚡ 캐시 (L1/L2/L3)</a>
+    <a class="nav-item" href="01-computer-basics.html#cpu">🧮 CPU & 컴파일</a>
+    <a class="nav-item" href="01-computer-basics.html#hierarchy">🪜 메모리 계층 정리</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 실전 서비스의 전체 구조</div>
+    <a class="nav-item" href="02-production-architecture.html#cicd">🚀 전체 그림 & CI/CD</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-lb">⚖️ 로드밸런서 & 리버스 프록시</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-storage">🗄️ 외부 스토리지 & 서비스</a>
+    <a class="nav-item" href="02-production-architecture.html#logging">📈 로깅 & 모니터링</a>
+    <a class="nav-item" href="02-production-architecture.html#alerting">🔔 알림</a>
+    <a class="nav-item" href="02-production-architecture.html#debugging">🐛 디버깅 흐름</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 좋은 설계와 품질 지표</div>
+    <a class="nav-item" href="03-design-principles-metrics.html#good-design">🏛️ 좋은 설계란?</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#data-3">🔄 데이터의 3요소</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#cap">⚖️ CAP 정리</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#availability">🟢 가용성 & 9의 개수</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#slo-sla">📜 SLO vs SLA</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#resilience">🛡️ 신뢰성·장애내성·이중화</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#throughput">🏎️ 처리량 vs 지연시간</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 네트워킹 기초</div>
+    <a class="nav-item" href="04-networking-basics.html#ip">📍 IP 주소</a>
+    <a class="nav-item" href="04-networking-basics.html#packet">📦 패킷과 계층</a>
+    <a class="nav-item" href="04-networking-basics.html#tcp-udp">🚚 TCP vs UDP</a>
+    <a class="nav-item" href="04-networking-basics.html#dns">📇 DNS</a>
+    <a class="nav-item" href="04-networking-basics.html#ports">🚪 포트 & 방화벽</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 애플리케이션 계층 프로토콜</div>
+    <a class="nav-item" href="05-application-protocols.html#http">🌐 HTTP</a>
+    <a class="nav-item" href="05-application-protocols.html#https">🔒 HTTPS</a>
+    <a class="nav-item" href="05-application-protocols.html#status-method">🔢 상태코드 & 메서드</a>
+    <a class="nav-item" href="05-application-protocols.html#websocket">🔌 WebSocket</a>
+    <a class="nav-item" href="05-application-protocols.html#email">✉️ 이메일 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#other-proto">🧰 기타 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#rpc">📞 RPC</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · API 설계</div>
+    <a class="nav-item" href="06-api-design.html#crud">✏️ CRUD</a>
+    <a class="nav-item" href="06-api-design.html#paradigms">🔀 REST vs GraphQL vs gRPC</a>
+    <a class="nav-item" href="06-api-design.html#endpoints">🔗 관계 & 엔드포인트</a>
+    <a class="nav-item" href="06-api-design.html#api-best">✅ 모범 사례</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 7 · 캐싱 & CDN</div>
+    <a class="nav-item" href="07-caching-cdn.html#caching-what">⚡ 캐싱이란?</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-places">📍 캐시가 사는 곳</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-hit">🎯 hit / miss / ratio</a>
+    <a class="nav-item" href="07-caching-cdn.html#invalidation">🧊 캐시 무효화</a>
+    <a class="nav-item" href="07-caching-cdn.html#write-policy">✍️ write 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#eviction">🧹 eviction 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#cdn">🌍 CDN</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 8 · 프록시 & 로드 밸런서</div>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-what">🔀 프록시란?</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#forward">➡️ Forward Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#reverse">⬅️ Reverse Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-compare">⚖️ Forward vs Reverse</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-what">⚖️ 로드밸런서란? · L4/L7</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-algo">🧮 분산 알고리즘</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-health">🩺 헬스체크 & 종류</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-fail">🛡️ 장애 대응</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 9 · 데이터베이스</div>
+    <a class="nav-item" href="09-database.html#db-types">🗃️ DB 종류</a>
+    <a class="nav-item" href="09-database.html#acid">🔒 ACID</a>
+    <a class="nav-item" href="09-database.html#db-scaling">📈 수직 vs 수평 확장</a>
+    <a class="nav-item" href="09-database.html#sharding">🍰 샤딩 & 복제</a>
+    <a class="nav-item" href="09-database.html#db-perf">🚀 성능 기법</a>
+  </div>
+</nav>
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 크래시 코스</div>
+    <h1>시스템 디자인 개념 완전판</h1>
+    <p>컴퓨터 한 대의 구조부터 대규모 분산 시스템까지 — 시스템 디자인 면접에 필요한 핵심 개념을 <strong style="color:#c7d2fe">비유와 예시</strong>로 하나씩 풀어냅니다. 코드를 짜는 게 아니라 <strong style="color:#c7d2fe">전체를 어떻게 조립하는가</strong>를 배우는 자료입니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">Computer Architecture</span>
+      <span class="hero-chip">CAP</span>
+      <span class="hero-chip">Availability</span>
+      <span class="hero-chip">TCP / UDP</span>
+      <span class="hero-chip">HTTP / HTTPS</span>
+      <span class="hero-chip">API Design</span>
+      <span class="hero-chip">Caching / CDN</span>
+      <span class="hero-chip">Proxy / LB</span>
+      <span class="hero-chip">Database</span>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>이 자료를 읽는 법</strong> — 시스템 디자인은 "코드"가 아니라 "큰 그림"을 다룹니다. 그래서 용어를 통째로 외우려 하지 말고,
+    <strong>"이 부품이 왜 여기 있지?"</strong>라는 질문에 스스로 답할 수 있게 되는 걸 목표로 읽어보세요.
+    Part 1(컴퓨터 한 대)에서 시작해 Part 9(대규모 데이터베이스)까지, 점점 더 큰 그림으로 확장됩니다. 한 개념은 한 곳에서만 자세히 설명하고, 다른 Part에서는 링크로 되돌아갑니다.
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🛤️</div>
+      <h2>한눈에 보는 여정</h2>
+    </div>
+    <p>아홉 개 Part는 <strong>작은 것에서 큰 것으로</strong> 한 방향으로 흐릅니다. 지금은 순서만 눈에 익혀 두세요.</p>
+    <div class="flow-row">
+      <div class="flow-step blue">🧮 컴퓨터 1대<br><small>Part 1</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🏭 서비스 전체 구조<br><small>Part 2</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🏛️ 좋은 설계의 기준<br><small>Part 3</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">📡 네트워크 · 프로토콜<br><small>Part 4 · 5</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🔗 API<br><small>Part 6</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">⚡ 캐시 · 프록시/LB · DB<br><small>Part 7 · 8 · 9</small></div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 건물 한 채를 이해하는 순서</strong><br>
+        먼저 <strong>벽돌과 철근</strong>(컴퓨터 부품)을 알고, 완성된 건물을 <strong>한 바퀴 둘러본</strong> 뒤(서비스 전체 구조), <strong>좋은 건물의 기준</strong>(확장성·가용성·CAP)을 정합니다.
+        그다음 <strong>도로와 배관</strong>(네트워크·프로토콜), <strong>출입구 규칙</strong>(API)을 보고, 마지막으로 사람이 몰릴 때 필요한 <strong>편의시설</strong>(캐시·로드밸런서·DB 확장)을 붙입니다.
+        Part 3의 "무엇을 양보할지 정하는 게 설계다"라는 문장이 뒤의 모든 선택을 관통합니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🗂️</div>
+      <h2>목차</h2>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="01-computer-basics.html">
+        <div class="part-card-num">1</div>
+        <div>
+          <div class="part-card-title">Part 1 · 컴퓨터의 기본 구조</div>
+          <div class="part-card-sub">비트·바이트 · HDD/SSD · RAM · CPU 캐시 · 컴파일 · 메모리 계층</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="01-computer-basics.html#bit-byte">🔢 비트와 바이트</a></li>
+        <li><a href="01-computer-basics.html#storage">💽 저장장치 (HDD/SSD)</a></li>
+        <li><a href="01-computer-basics.html#ram">🧠 RAM</a></li>
+        <li><a href="01-computer-basics.html#cache">⚡ 캐시 (L1/L2/L3)</a></li>
+        <li><a href="01-computer-basics.html#cpu">🧮 CPU & 컴파일</a></li>
+        <li><a href="01-computer-basics.html#hierarchy">🪜 메모리 계층 정리</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="02-production-architecture.html">
+        <div class="part-card-num">2</div>
+        <div>
+          <div class="part-card-title">Part 2 · 실전 서비스의 전체 구조</div>
+          <div class="part-card-sub">전체 그림 한 장 · CI/CD · 로드밸런서 · 외부 스토리지 · 로깅·모니터링 · 알림 · 디버깅</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="02-production-architecture.html#cicd">🚀 전체 그림 & CI/CD</a></li>
+        <li><a href="02-production-architecture.html#prod-lb">⚖️ 로드밸런서 & 리버스 프록시</a></li>
+        <li><a href="02-production-architecture.html#prod-storage">🗄️ 외부 스토리지 & 서비스</a></li>
+        <li><a href="02-production-architecture.html#logging">📈 로깅 & 모니터링</a></li>
+        <li><a href="02-production-architecture.html#alerting">🔔 알림</a></li>
+        <li><a href="02-production-architecture.html#debugging">🐛 디버깅 흐름</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="03-design-principles-metrics.html">
+        <div class="part-card-num">3</div>
+        <div>
+          <div class="part-card-title">Part 3 · 좋은 설계와 품질 지표</div>
+          <div class="part-card-sub">확장성·유지보수성·효율성 · 데이터 3요소 · CAP · 가용성과 9의 개수 · SLO/SLA · 처리량 vs 지연시간</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="03-design-principles-metrics.html#good-design">🏛️ 좋은 설계란?</a></li>
+        <li><a href="03-design-principles-metrics.html#data-3">🔄 데이터의 3요소</a></li>
+        <li><a href="03-design-principles-metrics.html#cap">⚖️ CAP 정리</a></li>
+        <li><a href="03-design-principles-metrics.html#availability">🟢 가용성 & 9의 개수</a></li>
+        <li><a href="03-design-principles-metrics.html#slo-sla">📜 SLO vs SLA</a></li>
+        <li><a href="03-design-principles-metrics.html#resilience">🛡️ 신뢰성·장애내성·이중화</a></li>
+        <li><a href="03-design-principles-metrics.html#throughput">🏎️ 처리량 vs 지연시간</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="04-networking-basics.html">
+        <div class="part-card-num">4</div>
+        <div>
+          <div class="part-card-title">Part 4 · 네트워킹 기초</div>
+          <div class="part-card-sub">IP 주소 · 패킷과 4계층 · TCP vs UDP · DNS · 포트와 방화벽</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="04-networking-basics.html#ip">📍 IP 주소</a></li>
+        <li><a href="04-networking-basics.html#packet">📦 패킷과 계층</a></li>
+        <li><a href="04-networking-basics.html#tcp-udp">🚚 TCP vs UDP</a></li>
+        <li><a href="04-networking-basics.html#dns">📇 DNS</a></li>
+        <li><a href="04-networking-basics.html#ports">🚪 포트 & 방화벽</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="05-application-protocols.html">
+        <div class="part-card-num">5</div>
+        <div>
+          <div class="part-card-title">Part 5 · 애플리케이션 계층 프로토콜</div>
+          <div class="part-card-sub">HTTP · HTTPS · 상태코드·메서드 · WebSocket · 이메일 · 기타 프로토콜 · RPC</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="05-application-protocols.html#http">🌐 HTTP</a></li>
+        <li><a href="05-application-protocols.html#https">🔒 HTTPS</a></li>
+        <li><a href="05-application-protocols.html#status-method">🔢 상태코드 & 메서드</a></li>
+        <li><a href="05-application-protocols.html#websocket">🔌 WebSocket</a></li>
+        <li><a href="05-application-protocols.html#email">✉️ 이메일 프로토콜</a></li>
+        <li><a href="05-application-protocols.html#other-proto">🧰 기타 프로토콜</a></li>
+        <li><a href="05-application-protocols.html#rpc">📞 RPC</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="06-api-design.html">
+        <div class="part-card-num">6</div>
+        <div>
+          <div class="part-card-title">Part 6 · API 설계</div>
+          <div class="part-card-sub">CRUD · REST vs GraphQL vs gRPC · 엔드포인트·페이지네이션 · 멱등성·버저닝·Rate Limit·CORS</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="06-api-design.html#crud">✏️ CRUD</a></li>
+        <li><a href="06-api-design.html#paradigms">🔀 REST vs GraphQL vs gRPC</a></li>
+        <li><a href="06-api-design.html#endpoints">🔗 관계 & 엔드포인트</a></li>
+        <li><a href="06-api-design.html#api-best">✅ 모범 사례</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="07-caching-cdn.html">
+        <div class="part-card-num">7</div>
+        <div>
+          <div class="part-card-title">Part 7 · 캐싱 & CDN</div>
+          <div class="part-card-sub">캐시가 사는 4곳 · hit/miss · 무효화와 TTL · write 정책 · eviction · CDN</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="07-caching-cdn.html#caching-what">⚡ 캐싱이란?</a></li>
+        <li><a href="07-caching-cdn.html#cache-places">📍 캐시가 사는 곳</a></li>
+        <li><a href="07-caching-cdn.html#cache-hit">🎯 hit / miss / ratio</a></li>
+        <li><a href="07-caching-cdn.html#invalidation">🧊 캐시 무효화</a></li>
+        <li><a href="07-caching-cdn.html#write-policy">✍️ write 정책</a></li>
+        <li><a href="07-caching-cdn.html#eviction">🧹 eviction 정책</a></li>
+        <li><a href="07-caching-cdn.html#cdn">🌍 CDN</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="08-proxy-load-balancer.html">
+        <div class="part-card-num">8</div>
+        <div>
+          <div class="part-card-title">Part 8 · 프록시 & 로드 밸런서</div>
+          <div class="part-card-sub">Forward vs Reverse · L4/L7 · 분산 알고리즘 · 헬스체크 · 로드밸런서가 죽으면?</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="08-proxy-load-balancer.html#proxy-what">🔀 프록시란?</a></li>
+        <li><a href="08-proxy-load-balancer.html#forward">➡️ Forward Proxy</a></li>
+        <li><a href="08-proxy-load-balancer.html#reverse">⬅️ Reverse Proxy</a></li>
+        <li><a href="08-proxy-load-balancer.html#proxy-compare">⚖️ Forward vs Reverse</a></li>
+        <li><a href="08-proxy-load-balancer.html#lb-what">⚖️ 로드밸런서란? · L4/L7</a></li>
+        <li><a href="08-proxy-load-balancer.html#lb-algo">🧮 분산 알고리즘</a></li>
+        <li><a href="08-proxy-load-balancer.html#lb-health">🩺 헬스체크 & 종류</a></li>
+        <li><a href="08-proxy-load-balancer.html#lb-fail">🛡️ 장애 대응</a></li>
+      </ul>
+    </div>
+    <div class="part-card">
+      <a class="part-card-head" href="09-database.html">
+        <div class="part-card-num">9</div>
+        <div>
+          <div class="part-card-title">Part 9 · 데이터베이스</div>
+          <div class="part-card-sub">SQL/NoSQL/인메모리 · ACID · 수직/수평 확장 · 샤딩·복제 · 인덱스와 성능</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="09-database.html#db-types">🗃️ DB 종류</a></li>
+        <li><a href="09-database.html#acid">🔒 ACID</a></li>
+        <li><a href="09-database.html#db-scaling">📈 수직 vs 수평 확장</a></li>
+        <li><a href="09-database.html#sharding">🍰 샤딩 & 복제</a></li>
+        <li><a href="09-database.html#db-perf">🚀 성능 기법</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    시스템 디자인 개념 완전판 · 왕초보 크래시 코스 · 컴퓨터 한 대에서 대규모 분산 시스템까지
+  </div>
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

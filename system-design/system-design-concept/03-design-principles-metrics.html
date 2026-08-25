@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 3 · 좋은 설계와 품질 지표 — 시스템 디자인 개념 완전판</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 개념 완전판</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 크래시 코스</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 컴퓨터의 기본 구조</div>
+    <a class="nav-item" href="01-computer-basics.html#bit-byte">🔢 비트와 바이트</a>
+    <a class="nav-item" href="01-computer-basics.html#storage">💽 저장장치 (HDD/SSD)</a>
+    <a class="nav-item" href="01-computer-basics.html#ram">🧠 RAM</a>
+    <a class="nav-item" href="01-computer-basics.html#cache">⚡ 캐시 (L1/L2/L3)</a>
+    <a class="nav-item" href="01-computer-basics.html#cpu">🧮 CPU & 컴파일</a>
+    <a class="nav-item" href="01-computer-basics.html#hierarchy">🪜 메모리 계층 정리</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 실전 서비스의 전체 구조</div>
+    <a class="nav-item" href="02-production-architecture.html#cicd">🚀 전체 그림 & CI/CD</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-lb">⚖️ 로드밸런서 & 리버스 프록시</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-storage">🗄️ 외부 스토리지 & 서비스</a>
+    <a class="nav-item" href="02-production-architecture.html#logging">📈 로깅 & 모니터링</a>
+    <a class="nav-item" href="02-production-architecture.html#alerting">🔔 알림</a>
+    <a class="nav-item" href="02-production-architecture.html#debugging">🐛 디버깅 흐름</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 좋은 설계와 품질 지표</div>
+    <a class="nav-item" href="#good-design">🏛️ 좋은 설계란?</a>
+    <a class="nav-item" href="#data-3">🔄 데이터의 3요소</a>
+    <a class="nav-item" href="#cap">⚖️ CAP 정리</a>
+    <a class="nav-item" href="#availability">🟢 가용성 & 9의 개수</a>
+    <a class="nav-item" href="#slo-sla">📜 SLO vs SLA</a>
+    <a class="nav-item" href="#resilience">🛡️ 신뢰성·장애내성·이중화</a>
+    <a class="nav-item" href="#throughput">🏎️ 처리량 vs 지연시간</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 네트워킹 기초</div>
+    <a class="nav-item" href="04-networking-basics.html#ip">📍 IP 주소</a>
+    <a class="nav-item" href="04-networking-basics.html#packet">📦 패킷과 계층</a>
+    <a class="nav-item" href="04-networking-basics.html#tcp-udp">🚚 TCP vs UDP</a>
+    <a class="nav-item" href="04-networking-basics.html#dns">📇 DNS</a>
+    <a class="nav-item" href="04-networking-basics.html#ports">🚪 포트 & 방화벽</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 애플리케이션 계층 프로토콜</div>
+    <a class="nav-item" href="05-application-protocols.html#http">🌐 HTTP</a>
+    <a class="nav-item" href="05-application-protocols.html#https">🔒 HTTPS</a>
+    <a class="nav-item" href="05-application-protocols.html#status-method">🔢 상태코드 & 메서드</a>
+    <a class="nav-item" href="05-application-protocols.html#websocket">🔌 WebSocket</a>
+    <a class="nav-item" href="05-application-protocols.html#email">✉️ 이메일 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#other-proto">🧰 기타 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#rpc">📞 RPC</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · API 설계</div>
+    <a class="nav-item" href="06-api-design.html#crud">✏️ CRUD</a>
+    <a class="nav-item" href="06-api-design.html#paradigms">🔀 REST vs GraphQL vs gRPC</a>
+    <a class="nav-item" href="06-api-design.html#endpoints">🔗 관계 & 엔드포인트</a>
+    <a class="nav-item" href="06-api-design.html#api-best">✅ 모범 사례</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 7 · 캐싱 & CDN</div>
+    <a class="nav-item" href="07-caching-cdn.html#caching-what">⚡ 캐싱이란?</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-places">📍 캐시가 사는 곳</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-hit">🎯 hit / miss / ratio</a>
+    <a class="nav-item" href="07-caching-cdn.html#invalidation">🧊 캐시 무효화</a>
+    <a class="nav-item" href="07-caching-cdn.html#write-policy">✍️ write 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#eviction">🧹 eviction 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#cdn">🌍 CDN</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 8 · 프록시 & 로드 밸런서</div>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-what">🔀 프록시란?</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#forward">➡️ Forward Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#reverse">⬅️ Reverse Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-compare">⚖️ Forward vs Reverse</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-what">⚖️ 로드밸런서란? · L4/L7</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-algo">🧮 분산 알고리즘</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-health">🩺 헬스체크 & 종류</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-fail">🛡️ 장애 대응</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 9 · 데이터베이스</div>
+    <a class="nav-item" href="09-database.html#db-types">🗃️ DB 종류</a>
+    <a class="nav-item" href="09-database.html#acid">🔒 ACID</a>
+    <a class="nav-item" href="09-database.html#db-scaling">📈 수직 vs 수평 확장</a>
+    <a class="nav-item" href="09-database.html#sharding">🍰 샤딩 & 복제</a>
+    <a class="nav-item" href="09-database.html#db-perf">🚀 성능 기법</a>
+  </div>
+</nav>
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-production-architecture.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 2 · 실전 서비스의 전체 구조</span></a>
+    <a class="part-pager-link next" href="04-networking-basics.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 4 · 네트워킹 기초</span></a>
+  </div>
+
+  <!-- ── 🏛️ 좋은 설계란? ── -->
+  <section class="section" id="good-design">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🏛️</div>
+      <h2>좋은 설계란 무엇인가?</h2>
+    </div>
+
+    <p>본격적인 기술로 들어가기 전에, <strong>"좋은 설계란 무엇인가"</strong>를 먼저 정해야 합니다. 목표를 알아야 그쪽으로 설계할 수 있으니까요. 좋은 설계는 크게 <strong>세 가지 원칙</strong>에 집중합니다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card highlight">
+        <div class="card-icon">📈</div>
+        <div class="card-title">확장성 (Scalability)</div>
+        <div class="card-body">사용자가 늘어나도 시스템이 함께 <strong>성장</strong>할 수 있는가?</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🧱</div>
+        <div class="card-title">유지보수성 (Maintainability)</div>
+        <div class="card-body">미래의 개발자가 시스템을 <strong>이해하고 개선</strong>할 수 있는가?</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">⚙️</div>
+        <div class="card-title">효율성 (Efficiency)</div>
+        <div class="card-body">자원을 <strong>최대한 알뜰하게</strong> 쓰고 있는가?</div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>좋은 설계 = "실패까지 대비하는 것"</strong><br>
+        진짜 좋은 설계는 <strong>모든 게 잘 돌아갈 때</strong>뿐 아니라, <strong>문제가 터졌을 때도 침착함을 유지</strong>합니다.
+        그래서 "고장 나면 대신할 백업(이중화)"이나 "일부 기능이 죽어도 핵심은 살아 있게(우아한 성능 저하, graceful degradation)" 같은 걸 미리 설계에 넣습니다.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>모든 결정에는 트레이드오프(trade-off)가 있다</strong><br>
+        읽기(read)에 최적화한 시스템은 쓰기(write)가 느려질 수 있고, 성능을 얻으려면 복잡도를 조금 감수해야 할 수도 있습니다.
+        <strong>완벽한 정답은 없습니다.</strong> 시스템 디자인은 "우리의 <strong>구체적인 상황</strong>에 가장 알맞은 답"을 찾는 일이고,
+        그건 <strong>"어디서 무엇을 양보할지"</strong>를 현명하게 정하는 것입니다. 이 사고방식을 꼭 기억하세요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🔄 데이터의 3요소 ── -->
+  <section class="section" id="data-3">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🔄</div>
+      <h2>시스템의 심장 — 데이터의 3요소</h2>
+    </div>
+
+    <p>시스템 디자인의 한가운데에는 결국 <strong>데이터</strong>가 있습니다. 그리고 데이터로 하는 일은 크게 세 가지로 나뉩니다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">🚚</div>
+        <div class="card-title">1. 데이터 이동 (Moving)</div>
+        <div class="card-body">데이터가 시스템의 한 부분에서 다른 부분으로 <strong>매끄럽게 흐르게</strong> 하는 것. 사용자 요청이 서버로, 서버 데이터가 DB로. <strong>속도와 보안</strong>을 최적화합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">2. 데이터 저장 (Storing)</div>
+        <div class="card-body">단순히 SQL/NoSQL 선택이 아닙니다. <strong>접근 패턴, 인덱싱 전략, 백업</strong>까지 이해해서, 안전하게 저장하면서도 <strong>필요할 때 바로 꺼낼 수</strong> 있게 하는 것.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔧</div>
+        <div class="card-title">3. 데이터 변환 (Transforming)</div>
+        <div class="card-body">날것의 데이터(raw data)를 <strong>의미 있는 정보</strong>로 바꾸는 것. 로그를 모아 분석하거나, 사용자 입력을 다른 형식으로 가공하는 일 등.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 택배 물류</strong>: 데이터를 <strong>택배 상자</strong>라고 하면 — <strong>이동</strong>은 배송(트럭·비행기), <strong>저장</strong>은 물류창고 보관(어디에 둬야 빨리 꺼낼까),
+        <strong>변환</strong>은 부품을 조립해 완제품으로 만드는 가공이라고 볼 수 있어요. 시스템은 이 세 가지를 끊임없이 반복합니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ⚖️ CAP 정리 ── -->
+  <section class="section" id="cap">
+    <div class="section-header">
+      <div class="section-icon icon-page">⚖️</div>
+      <h2>CAP 정리 — 셋 중 둘만 고를 수 있다</h2>
+    </div>
+
+    <p>분산 시스템(여러 대의 컴퓨터가 협력하는 시스템)을 설계할 때 반드시 아는 개념이 <strong>CAP 정리(CAP theorem)</strong>입니다. 컴퓨터 과학자 <strong>에릭 브루어(Eric Brewer)</strong>의 이름을 따 <strong>브루어 정리</strong>라고도 해요. 분산 시스템의 세 가지 핵심 속성 사이에서 <strong>현명한 트레이드오프</strong>를 하도록 안내하는 원칙입니다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">🟦 C</div>
+        <div class="card-title">일관성 (Consistency)</div>
+        <div class="card-body">모든 노드가 <strong>같은 시각에 같은 데이터</strong>를 가집니다. 한 노드를 바꾸면 <strong>모든 노드에 즉시 반영</strong>돼요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🟩 A</div>
+        <div class="card-title">가용성 (Availability)</div>
+        <div class="card-body">뒤에서 무슨 일이 있든 시스템은 <strong>항상 동작하고 요청에 응답</strong>합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🟨 P</div>
+        <div class="card-title">분할내성 (Partition tolerance)</div>
+        <div class="card-body">노드 사이 <strong>통신이 끊겨도(네트워크 분할)</strong> 시스템이 계속 동작합니다.</div>
+      </div>
+    </div>
+
+    <h3>비유로 이해하기</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>속성</th><th>비유</th></tr></thead>
+        <tbody>
+          <tr><td><strong>🟦 일관성</strong></td><td>구글 독스(Google Docs) — 한 명이 수정하면 <strong>모두에게 즉시</strong> 똑같이 보임</td></tr>
+          <tr><td><strong>🟩 가용성</strong></td><td>믿음직한 온라인 상점 — 언제 방문해도 <strong>항상 열려 있고</strong> 주문을 받아줌</td></tr>
+          <tr><td><strong>🟨 분할내성</strong></td><td>단톡방 — 한 명이 <strong>연결이 끊겨도</strong> 나머지는 계속 대화함</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>핵심 — 셋 중 둘만!</strong> CAP 정리에 따르면 분산 시스템은 세 속성을 <strong>동시에 다 가질 수 없고, 최대 두 개</strong>만 만족할 수 있습니다.
+        예를 들어 <strong>일관성 + 분할내성</strong>을 택하면 <strong>가용성</strong>을 일부 포기해야 할 수 있어요.
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>실전에서는 "둘 중 하나"에 가깝다</strong><br>
+        네트워크로 연결된 컴퓨터 사이에서 통신 단절(분할)은 <strong>막을 수 없는 사고</strong>입니다. 그래서 P는 사실상 포기할 수 없고, 진짜 질문은
+        <strong>"분할이 일어난 그 순간, C와 A 중 무엇을 지킬까?"</strong>가 됩니다.
+        C를 고르면 "확실하지 않으면 답하지 않는다"(에러·대기), A를 고르면 "일단 답하고 나중에 맞춘다"(잠깐 옛 값이 보일 수 있음)예요.
+        은행 잔액은 전자, SNS 좋아요 수는 후자를 택합니다.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>예시 — 은행 시스템</strong>: 은행은 돈 계산이 <strong>정확</strong>해야 하므로 <strong>일관성(C) + 분할내성(P)</strong>을 택합니다.
+        그 대가로 어떤 거래는 처리에 시간이 조금 더 걸릴 수 있죠(가용성 일부 희생). "잔액이 잠깐 틀리게 보이는 것"보다 "잠깐 기다리는 것"이 낫기 때문입니다.
+        <br><br>👉 CAP은 이 자료 곳곳(가용성, DB 확장 등)에서 계속 등장합니다. <strong>"무엇을 양보할지 정하는 게 설계다"</strong>라는 <a href="#good-design">이 Part 첫머리</a>의 메시지를 압축한 정리예요.
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <!-- ── 🟢 가용성 & 9의 개수 ── -->
+  <section class="section" id="availability">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🟢</div>
+      <h2>가용성 (Availability) — "필요할 때 켜져 있는가?"</h2>
+    </div>
+
+    <p>시스템의 중요한 측정 지표 중 하나가 <strong>가용성(availability)</strong>입니다. 시스템의 <strong>운영 성능과 신뢰성</strong>을 재는 지표로, 본질은 이 질문이에요. <strong>"사용자가 필요할 때 우리 시스템이 켜져서 돌아가고 있는가?"</strong></p>
+
+    <p>가용성은 보통 <strong>백분율(%)</strong>로 나타내고, 업계는 이른바 <strong>"파이브 나인(5 nines)"</strong>, 즉 99.999%를 이상적인 목표로 삼습니다. 9가 하나 늘어날 때마다 허용되는 <strong>다운타임(downtime, 서비스가 멈춘 시간)</strong>이 극적으로 줄어들어요.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>가용성</th><th>별칭</th><th>연간 허용 다운타임</th></tr></thead>
+        <tbody>
+          <tr><td><strong>99%</strong></td><td>투 나인</td><td>약 3.65일</td></tr>
+          <tr><td><strong>99.9%</strong></td><td>쓰리 나인</td><td>약 8.76시간</td></tr>
+          <tr><td><strong>99.99%</strong></td><td>포 나인</td><td>약 52분</td></tr>
+          <tr><td><strong>99.999%</strong></td><td>파이브 나인 🏆</td><td>약 5분</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>9 하나가 이렇게 크다</strong> — 99.9%면 1년에 약 <strong>8.76시간</strong>이나 서비스가 멈출 수 있습니다. 여기에 9를 두 개 더 붙여 99.999%가 되면
+        다운타임은 연 <strong>약 5분</strong>으로 줄어요. 1초가 아쉬운 서비스(결제, 증권 등)에서는 이 차이가 어마어마합니다.
+      </div>
+    </div>
+    <p>계산은 간단합니다. <strong>가용성 = 업타임(켜져 있던 시간) ÷ (업타임 + 다운타임)</strong>. 1년 8,760시간 중 8.76시간 멈췄다면 99.9%죠. 그리고 이 목표를 문서로 약속한 것이 바로 다음에 볼 SLO·SLA예요.</p>
+  </section>
+
+  <!-- ── 📜 SLO vs SLA ── -->
+  <section class="section" id="slo-sla">
+    <div class="section-header">
+      <div class="section-icon icon-repo">📜</div>
+      <h2>SLO vs SLA — 목표와 계약의 차이</h2>
+    </div>
+
+    <p>가용성 이야기가 나오면 <strong>SLO</strong>와 <strong>SLA</strong>가 따라옵니다. 둘 다 "얼마나 잘 서비스할지"를 정하지만, <strong>하나는 스스로 세운 목표</strong>이고 <strong>다른 하나는 고객과 맺은 계약</strong>이라는 점이 다릅니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header good">SLO — 서비스 수준 "목표"</div>
+        <div class="compare-card-body">
+          <strong>Service Level Objective</strong><br>
+          우리 팀이 스스로 세운 <strong>성능·가용성 목표</strong>입니다.<br><br>
+          예) "웹 서비스는 요청의 <strong>99.9%</strong>를 <strong>300ms 이내</strong>에 응답한다."<br><br>
+          → 내부적으로 "이 정도는 지키자"고 정한 <strong>다짐/기준선</strong>.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">SLA — 서비스 수준 "계약"</div>
+        <div class="compare-card-body">
+          <strong>Service Level Agreement</strong><br>
+          고객·사용자와 맺는 <strong>공식적인 계약</strong>입니다. 최소로 보장하는 서비스 수준을 명시해요.<br><br>
+          예) "가용성 <strong>99.99%</strong>를 보장한다. 못 지키면 <strong>환불·보상</strong>한다."<br><br>
+          → 어기면 <strong>실제로 돈이 나가는</strong> 약속.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>한 줄 정리</strong>: SLO는 <strong>"우리끼리의 목표"</strong>, SLA는 <strong>"고객과의 계약"</strong>. 그래서 보통 SLA(계약)보다 SLO(내부 목표)를 <strong>더 빡세게</strong> 잡아둡니다.
+        내부 목표를 먼저 못 지키면 경고등이 켜져서, 계약 위반이라는 진짜 사고로 번지기 전에 손을 쓸 수 있으니까요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🛡️ 신뢰성·장애내성·이중화 ── -->
+  <section class="section" id="resilience">
+    <div class="section-header">
+      <div class="section-icon icon-tx">🛡️</div>
+      <h2>회복탄력성 — 신뢰성 · 장애내성 · 이중화</h2>
+    </div>
+
+    <p>시스템에 <strong>회복탄력성(resilience)</strong>을 넣는다는 건 <strong>"예상치 못한 일을 예상하는 것"</strong>입니다. 이를 위한 세 가지 개념을 기억하세요.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <div class="card-title">신뢰성 (Reliability)</div>
+        <div class="card-body">시스템이 <strong>올바르고 일관되게</strong> 동작하는 것. "부르면 항상 제대로 답하는가?"</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧯</div>
+        <div class="card-title">장애내성 (Fault Tolerance)</div>
+        <div class="card-body">문제에 <strong>대비</strong>하는 것. 예상치 못한 <strong>고장이나 공격</strong>을 시스템이 어떻게 견디는가?</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">👯</div>
+        <div class="card-title">이중화 (Redundancy)</div>
+        <div class="card-body"><strong>백업</strong>을 두는 것. 한 부분이 고장 나면 <strong>대신할 다른 부분</strong>이 준비돼 있는가?</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 비행기의 엔진</strong>: 여객기는 엔진이 <strong>여러 개(이중화)</strong>라, 하나가 꺼져도 나머지로 안전하게 비행합니다(장애내성).
+        그리고 매 비행마다 흔들림 없이 잘 나는 것(신뢰성)이죠. 좋은 시스템도 똑같이 "하나 고장 나도 괜찮게" 만듭니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🏎️ 처리량 vs 지연시간 ── -->
+  <section class="section" id="throughput">
+    <div class="section-header">
+      <div class="section-icon icon-page">🏎️</div>
+      <h2>처리량 vs 지연시간 — 시스템의 속도 두 얼굴</h2>
+    </div>
+
+    <p>시스템의 속도는 <strong>두 가지 다른 지표</strong>로 잽니다. 이 둘을 헷갈리면 안 돼요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">처리량 (Throughput)</div>
+        <div class="compare-card-body">
+          <strong>일정 시간에 얼마나 많이</strong> 처리할 수 있는가.<br><br>
+          🖥️ <strong>서버 처리량</strong> — RPS(초당 요청 수). 동시에 얼마나 많은 사용자를 감당하는지.<br>
+          🗄️ <strong>DB 처리량</strong> — QPS(초당 쿼리 수).<br>
+          📶 <strong>데이터 처리량</strong> — bytes/s (초당 전송 바이트).<br><br>
+          → 값이 <strong>클수록</strong> 좋음. "한 번에 몇 명?"
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--yellow-soft);color:#b45309;border-bottom:1px solid #fde68a">지연시간 (Latency)</div>
+        <div class="compare-card-body">
+          <strong>요청 하나</strong>를 처리하는 데 걸리는 시간.<br><br>
+          요청을 보내고 <strong>응답을 받기까지</strong>의 시간이에요.<br><br>
+          → 값이 <strong>작을수록</strong> 좋음. "한 명이 얼마나 빨리?"
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>둘은 자주 상충한다 (트레이드오프)</strong> — 예를 들어 요청을 모아서 한꺼번에 처리하는 <strong>배칭(batching)</strong>을 하면 <strong>처리량은 올라가지만</strong>,
+        모으는 동안 기다려야 하므로 <strong>지연시간은 늘어날</strong> 수 있어요. 하나를 최적화하면 다른 하나를 희생하기 쉽습니다.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 고속도로</strong>: <strong>처리량</strong>은 "1시간에 지나가는 차의 수"(차선을 넓히면 증가), <strong>지연시간</strong>은 "내 차가 이 구간을 통과하는 데 걸린 시간"입니다.
+        차선을 늘려 처리량을 키워도, 신호가 많으면 내 통과 시간(지연시간)은 그대로일 수 있죠.
+      </div>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>왜 설계를 처음부터 잘해야 할까?</strong> 코드는 리팩터링으로 쉽게 고치지만, <strong>시스템 재설계는 거대한 작업</strong>입니다.
+        그래서 처음부터 <strong>미래의 기능과 사용자 증가</strong>를 버틸 <strong>탄탄한 기초</strong>를 놓는 데 시간을 투자해야 합니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    시스템 디자인 개념 완전판 · Part 3 · 좋은 설계와 품질 지표 · <a href="index.html">전체 목차로</a>
+  </div>
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

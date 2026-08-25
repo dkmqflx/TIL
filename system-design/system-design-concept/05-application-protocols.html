@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 5 · 애플리케이션 계층 프로토콜 — 시스템 디자인 개념 완전판</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 개념 완전판</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 크래시 코스</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 컴퓨터의 기본 구조</div>
+    <a class="nav-item" href="01-computer-basics.html#bit-byte">🔢 비트와 바이트</a>
+    <a class="nav-item" href="01-computer-basics.html#storage">💽 저장장치 (HDD/SSD)</a>
+    <a class="nav-item" href="01-computer-basics.html#ram">🧠 RAM</a>
+    <a class="nav-item" href="01-computer-basics.html#cache">⚡ 캐시 (L1/L2/L3)</a>
+    <a class="nav-item" href="01-computer-basics.html#cpu">🧮 CPU & 컴파일</a>
+    <a class="nav-item" href="01-computer-basics.html#hierarchy">🪜 메모리 계층 정리</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 실전 서비스의 전체 구조</div>
+    <a class="nav-item" href="02-production-architecture.html#cicd">🚀 전체 그림 & CI/CD</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-lb">⚖️ 로드밸런서 & 리버스 프록시</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-storage">🗄️ 외부 스토리지 & 서비스</a>
+    <a class="nav-item" href="02-production-architecture.html#logging">📈 로깅 & 모니터링</a>
+    <a class="nav-item" href="02-production-architecture.html#alerting">🔔 알림</a>
+    <a class="nav-item" href="02-production-architecture.html#debugging">🐛 디버깅 흐름</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 좋은 설계와 품질 지표</div>
+    <a class="nav-item" href="03-design-principles-metrics.html#good-design">🏛️ 좋은 설계란?</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#data-3">🔄 데이터의 3요소</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#cap">⚖️ CAP 정리</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#availability">🟢 가용성 & 9의 개수</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#slo-sla">📜 SLO vs SLA</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#resilience">🛡️ 신뢰성·장애내성·이중화</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#throughput">🏎️ 처리량 vs 지연시간</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 네트워킹 기초</div>
+    <a class="nav-item" href="04-networking-basics.html#ip">📍 IP 주소</a>
+    <a class="nav-item" href="04-networking-basics.html#packet">📦 패킷과 계층</a>
+    <a class="nav-item" href="04-networking-basics.html#tcp-udp">🚚 TCP vs UDP</a>
+    <a class="nav-item" href="04-networking-basics.html#dns">📇 DNS</a>
+    <a class="nav-item" href="04-networking-basics.html#ports">🚪 포트 & 방화벽</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 애플리케이션 계층 프로토콜</div>
+    <a class="nav-item" href="#http">🌐 HTTP</a>
+    <a class="nav-item" href="#https">🔒 HTTPS</a>
+    <a class="nav-item" href="#status-method">🔢 상태코드 & 메서드</a>
+    <a class="nav-item" href="#websocket">🔌 WebSocket</a>
+    <a class="nav-item" href="#email">✉️ 이메일 프로토콜</a>
+    <a class="nav-item" href="#other-proto">🧰 기타 프로토콜</a>
+    <a class="nav-item" href="#rpc">📞 RPC</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · API 설계</div>
+    <a class="nav-item" href="06-api-design.html#crud">✏️ CRUD</a>
+    <a class="nav-item" href="06-api-design.html#paradigms">🔀 REST vs GraphQL vs gRPC</a>
+    <a class="nav-item" href="06-api-design.html#endpoints">🔗 관계 & 엔드포인트</a>
+    <a class="nav-item" href="06-api-design.html#api-best">✅ 모범 사례</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 7 · 캐싱 & CDN</div>
+    <a class="nav-item" href="07-caching-cdn.html#caching-what">⚡ 캐싱이란?</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-places">📍 캐시가 사는 곳</a>
+    <a class="nav-item" href="07-caching-cdn.html#cache-hit">🎯 hit / miss / ratio</a>
+    <a class="nav-item" href="07-caching-cdn.html#invalidation">🧊 캐시 무효화</a>
+    <a class="nav-item" href="07-caching-cdn.html#write-policy">✍️ write 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#eviction">🧹 eviction 정책</a>
+    <a class="nav-item" href="07-caching-cdn.html#cdn">🌍 CDN</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 8 · 프록시 & 로드 밸런서</div>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-what">🔀 프록시란?</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#forward">➡️ Forward Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#reverse">⬅️ Reverse Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-compare">⚖️ Forward vs Reverse</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-what">⚖️ 로드밸런서란? · L4/L7</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-algo">🧮 분산 알고리즘</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-health">🩺 헬스체크 & 종류</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-fail">🛡️ 장애 대응</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 9 · 데이터베이스</div>
+    <a class="nav-item" href="09-database.html#db-types">🗃️ DB 종류</a>
+    <a class="nav-item" href="09-database.html#acid">🔒 ACID</a>
+    <a class="nav-item" href="09-database.html#db-scaling">📈 수직 vs 수평 확장</a>
+    <a class="nav-item" href="09-database.html#sharding">🍰 샤딩 & 복제</a>
+    <a class="nav-item" href="09-database.html#db-perf">🚀 성능 기법</a>
+  </div>
+</nav>
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="04-networking-basics.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 4 · 네트워킹 기초</span></a>
+    <a class="part-pager-link next" href="06-api-design.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 6 · API 설계</span></a>
+  </div>
+
+  <!-- ── 🌐 HTTP ── -->
+  <section class="section" id="http">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🌐</div>
+      <h2>HTTP — 웹의 기본 대화 규칙</h2>
+    </div>
+
+    <p>가장 흔한 애플리케이션 계층 프로토콜은 <strong>HTTP(HyperText Transfer Protocol)</strong>입니다. 앞서 본 <strong>TCP/IP 위에서</strong> 동작하며, <strong>요청(request)-응답(response)</strong> 방식으로 대화해요.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>HTTP는 "기억이 없는" 대화 (Stateless)</strong><br>
+        HTTP를 <strong>기억력이 없는 대화</strong>라고 생각하세요. 각 상호작용은 <strong>서로 독립적</strong>이고, 과거를 기억하지 않습니다.
+        그래서 서버는 요청 사이의 맥락을 저장할 필요가 없어요. 대신 <strong>각 요청이 필요한 정보를 전부 스스로 담고</strong> 옵니다.
+      </div>
+    </div>
+
+    <p>요청과 응답은 <strong>헤더(header)</strong>와 <strong>바디(body)</strong>로 나뉩니다. 헤더에는 URL·메서드(Method) 같은 정보가, 바디에는 실제 내용물이 담겨요.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">http</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-http">POST /api/products HTTP/1.1
+Host: shop.example.com
+Content-Type: application/json     ← 헤더 (부가 정보)
+
+{                                   ← 바디 (실제 내용물)
+  "name": "무선 키보드",
+  "price": 39000
+}</code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>HTTP/1.1 → 2 → 3, 뭐가 다른가요?</strong> 대화 규칙(메서드·상태코드)은 그대로이고 <strong>실어 나르는 방식</strong>만 좋아졌습니다.
+        1.1은 한 연결에서 요청이 <strong>줄을 서고</strong>, 2는 한 연결에 여러 요청을 <strong>동시에</strong>(멀티플렉싱), 3은 TCP 대신 UDP 기반 <strong>QUIC</strong> 위에서 더 빨리 연결합니다.
+        뒤에 나올 gRPC가 HTTP/2를 쓰는 이유가 이 "동시에"예요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🔒 HTTPS ── -->
+  <section class="section" id="https">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🔒</div>
+      <h2>HTTPS — HTTP에 자물쇠를 채운 것</h2>
+    </div>
+
+    <p>HTTP는 내용이 <strong>그대로 노출된 채</strong> 오갑니다. 카페 Wi-Fi에서 누군가 중간에서 엿보면 비밀번호도 읽을 수 있죠. 그래서 실제 서비스는 거의 전부 <strong>HTTPS</strong>를 씁니다. HTTPS는 <strong>HTTP + TLS</strong>로, TLS라는 암호화 층이 HTTP 대화를 통째로 감쌉니다. 포트도 80 대신 <strong>443</strong>을 써요.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">🔐</div>
+        <div class="card-title">암호화</div>
+        <div class="card-body">중간에서 가로채도 <strong>내용을 읽을 수 없다</strong>.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🪪</div>
+        <div class="card-title">신원 확인</div>
+        <div class="card-body"><strong>인증서(certificate)</strong>로 "진짜 그 사이트"인지 확인. 브라우저 주소창의 자물쇠가 이것.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧾</div>
+        <div class="card-title">무결성</div>
+        <div class="card-body">오가는 도중 내용이 <strong>바뀌지 않았음</strong>을 보장.</div>
+      </div>
+    </div>
+
+    <p>연결을 시작할 때 <strong>TLS 핸드셰이크</strong>를 한 번 거칩니다. 서버가 인증서를 보여주고, 둘만 아는 비밀 열쇠를 합의한 뒤, 그 열쇠로 이후 대화를 전부 암호화해요. <a href="04-networking-basics.html#tcp-udp">TCP의 3-way handshake</a> 뒤에 악수를 한 번 더 하는 셈이라 첫 연결이 조금 느리지만, 그 뒤로는 거의 차이가 없습니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 엽서와 봉투</strong>: HTTP는 <strong>엽서</strong>(배달부 누구나 읽을 수 있음), HTTPS는 <strong>봉인된 봉투 + 발신인 신분증 확인</strong>입니다.
+        나중에 <a href="08-proxy-load-balancer.html#reverse">리버스 프록시</a>에서 나오는 "SSL 오프로딩"은 이 봉투를 뜯고 봉하는 일을 서버 대신 프록시가 해 주는 것이에요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🔢 상태코드 & 메서드 ── -->
+  <section class="section" id="status-method">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🔢</div>
+      <h2>상태 코드 & 메서드 — 응답의 결과와 요청의 의도</h2>
+    </div>
+
+    <h3>상태 코드 (Status Code) — "요청이 어떻게 됐나?"</h3>
+    <p>모든 응답에는 <strong>상태 코드</strong>가 붙어, 클라이언트의 요청이 서버에서 어떻게 처리됐는지 알려줍니다. 백의 자리 숫자로 <strong>대분류</strong>를 기억하세요.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>코드대</th><th>의미</th><th>대표 예시</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge badge-ok">2xx</span></td><td><strong>성공</strong> — 요청이 잘 처리됨</td><td>200 OK, 201 Created</td></tr>
+          <tr><td><span class="badge" style="background:#dbeafe;color:#1d4ed8">3xx</span></td><td><strong>리다이렉션</strong> — 추가 동작 필요(다른 곳으로)</td><td>301 Moved, 304 Not Modified</td></tr>
+          <tr><td><span class="badge badge-warn">4xx</span></td><td><strong>클라이언트 오류</strong> — 요청이 잘못됨</td><td>400 Bad Request, 404 Not Found</td></tr>
+          <tr><td><span class="badge badge-no">5xx</span></td><td><strong>서버 오류</strong> — 서버에서 문제 발생</td><td>500 Internal Server Error</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>메서드 (Method) — "무엇을 하고 싶은가?"</h3>
+    <p>각 요청에는 <strong>메서드</strong>가 있어 의도를 나타냅니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>메서드</th><th>용도</th></tr></thead>
+        <tbody>
+          <tr><td><span class="method method-get">GET</span></td><td>데이터 <strong>조회</strong> (가져오기)</td></tr>
+          <tr><td><span class="method method-post">POST</span></td><td>데이터 <strong>생성</strong> (서버에 새로 만들기)</td></tr>
+          <tr><td><span class="method method-patch">PUT / PATCH</span></td><td>데이터 <strong>수정</strong> (기존 레코드 갱신)</td></tr>
+          <tr><td><span class="method method-delete">DELETE</span></td><td>데이터 <strong>삭제</strong> (레코드 제거)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 🔌 WebSocket ── -->
+  <section class="section" id="websocket">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🔌</div>
+      <h2>WebSocket — 끊기지 않는 양방향 대화</h2>
+    </div>
+
+    <p>HTTP는 기본적으로 <strong>한 방향(요청하면 응답)</strong> 연결입니다. 하지만 <strong>실시간 업데이트</strong>가 필요하면 어떻게 할까요? 이때 <strong>WebSocket(웹소켓)</strong>을 씁니다. WebSocket은 <strong>하나의 오래 유지되는 연결</strong> 위에서 <strong>양방향(two-way) 통신</strong>을 제공해, 서버가 클라이언트에게 <strong>실시간으로 데이터를 밀어 넣을(push)</strong> 수 있어요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--bg);color:var(--text-muted);border-bottom:1px solid var(--border)">HTTP (요청-응답)</div>
+        <div class="compare-card-body">
+          클라이언트가 <strong>물어봐야만</strong> 서버가 답합니다.<br>
+          "새 메시지 있어?" → "없어" → "지금은?" → "없어" …<br><br>
+          → 실시간엔 비효율적 (계속 물어봐야 함)
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">WebSocket (양방향)</div>
+        <div class="compare-card-body">
+          연결을 <strong>한 번 열어두면</strong> 서버가 알아서 밀어줍니다.<br>
+          (조용히 대기) → 서버: "새 메시지 도착!" → 즉시 표시<br><br>
+          → 채팅, 실시간 스포츠 중계, 주식 시세에 딱
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유</strong> — HTTP는 <strong>편지</strong>(보내야 답장이 옴), WebSocket은 <strong>전화 통화</strong>(연결을 열어두고 양쪽이 아무 때나 말함)입니다.
+        반복해서 "왔어? 왔어?"를 묻는 HTTP 요청-응답의 오버헤드 없이, 끊임없이 오는 업데이트를 실시간으로 주고받을 수 있죠.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ✉️ 이메일 프로토콜 ── -->
+  <section class="section" id="email">
+    <div class="section-header">
+      <div class="section-icon icon-page">✉️</div>
+      <h2>이메일 프로토콜 — 보내기와 받기</h2>
+    </div>
+
+    <p>이메일에는 <strong>보내는 프로토콜</strong>과 <strong>받는(가져오는) 프로토콜</strong>이 따로 있습니다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">📤</div>
+        <div class="card-title">SMTP — 보내기</div>
+        <div class="card-body">인터넷에서 <strong>이메일 전송의 표준</strong>. 서버 사이에서 메일을 보낼 때 사용. 대부분의 메일 클라이언트가 발송에 SMTP를 씀.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📥</div>
+        <div class="card-title">IMAP — 받기(동기화)</div>
+        <div class="card-body">서버에서 메일을 <strong>가져와 열람·관리</strong>. 메일이 <strong>서버에 남아</strong> 있어 <strong>여러 기기</strong>에서 접근하기 좋음.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📩</div>
+        <div class="card-title">POP3 — 받기(내려받기)</div>
+        <div class="card-body">서버에서 로컬로 메일을 <strong>다운로드</strong>. 보통 <strong>한 기기</strong>에서만 메일을 관리할 때 사용.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>IMAP vs POP3 한 줄 구분</strong>: 폰·노트북 등 <strong>여러 기기에서 같은 메일함</strong>을 보고 싶으면 <strong>IMAP</strong>(서버에 원본 유지),
+        <strong>한 기기</strong>로만 받아서 관리하면 <strong>POP3</strong>(내려받아 보관)라고 기억하세요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🧰 기타 프로토콜 ── -->
+  <section class="section" id="other-proto">
+    <div class="section-header">
+      <div class="section-icon icon-repo">🧰</div>
+      <h2>기타 주요 프로토콜 — 파일 · 원격접속 · 실시간 · 메시징</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>프로토콜</th><th>한 줄 설명</th><th>대표 용도</th></tr></thead>
+        <tbody>
+          <tr><td><strong>FTP</strong></td><td>클라이언트-서버 간 <strong>파일 전송</strong>의 전통적 프로토콜</td><td>웹사이트 관리, 대용량 파일 전송·백업</td></tr>
+          <tr><td><strong>SSH</strong></td><td>안전하지 않은 네트워크에서 <strong>안전하게 원격 접속</strong>·명령 실행</td><td>원격 서버 로그인, 명령 실행, 파일 전송</td></tr>
+          <tr><td><strong>WebRTC</strong></td><td>플러그인 없이 <strong>브라우저 간</strong> 음성·영상·파일 공유</td><td>화상회의, 라이브 스트리밍</td></tr>
+          <tr><td><strong>MQTT</strong></td><td><strong>가벼운</strong> 메시징. 저사양·저대역폭 환경에 적합</td><td>IoT 기기</td></tr>
+          <tr><td><strong>AMQP</strong></td><td>견고하고 안전한 <strong>메시지 지향 미들웨어</strong> 프로토콜</td><td>엔터프라이즈 메시징(예: RabbitMQ)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        이걸 전부 외울 필요는 없습니다. <strong>"상황마다 최적화된 전용 프로토콜이 따로 있다"</strong>는 감만 잡으세요.
+        파일은 FTP, 원격 접속은 SSH, 실시간 미디어는 WebRTC, IoT 메시징은 MQTT처럼요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 📞 RPC ── -->
+  <section class="section" id="rpc">
+    <div class="section-header">
+      <div class="section-icon icon-tx">📞</div>
+      <h2>RPC — 남의 컴퓨터 함수를 내 함수처럼 부르기</h2>
+    </div>
+
+    <p><strong>RPC(Remote Procedure Call, 원격 프로시저 호출)</strong>는 한 컴퓨터의 프로그램이 <strong>다른 컴퓨터(서버)의 코드를 실행</strong>하게 해주는 프로토콜입니다. 마치 <strong>로컬 함수를 호출하듯</strong> 함수를 부르지만, 실제로는 그 함수가 <strong>원격 기계에서</strong> 실행돼요.</p>
+
+    <p>RPC는 <strong>네트워크 통신의 세부사항을 감춰(추상화)</strong>, 개발자가 원격 함수를 <strong>마치 내 앱 안의 로컬 함수처럼</strong> 다루게 해줍니다. 실제로 많은 애플리케이션 계층 프로토콜이 내부적으로 RPC 방식을 씁니다. (예: 웹 서비스의 HTTP 요청이 백엔드에서 RPC 호출을 유발하기도 합니다.)</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 리모컨</strong>: 내 손의 리모컨 버튼(로컬 함수 호출)을 누르면, 실제 동작은 <strong>저 멀리 있는 TV(원격 서버)</strong>에서 일어납니다.
+        중간에 적외선 신호가 어떻게 오가는지(네트워크 통신)는 몰라도 되죠. RPC가 그 복잡함을 감춰 줍니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    시스템 디자인 개념 완전판 · Part 5 · 애플리케이션 계층 프로토콜 · <a href="index.html">전체 목차로</a>
+  </div>
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

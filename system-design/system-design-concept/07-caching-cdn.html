@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 7 · 캐싱 & CDN — 시스템 디자인 개념 완전판</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 개념 완전판</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 크래시 코스</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 컴퓨터의 기본 구조</div>
+    <a class="nav-item" href="01-computer-basics.html#bit-byte">🔢 비트와 바이트</a>
+    <a class="nav-item" href="01-computer-basics.html#storage">💽 저장장치 (HDD/SSD)</a>
+    <a class="nav-item" href="01-computer-basics.html#ram">🧠 RAM</a>
+    <a class="nav-item" href="01-computer-basics.html#cache">⚡ 캐시 (L1/L2/L3)</a>
+    <a class="nav-item" href="01-computer-basics.html#cpu">🧮 CPU & 컴파일</a>
+    <a class="nav-item" href="01-computer-basics.html#hierarchy">🪜 메모리 계층 정리</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 실전 서비스의 전체 구조</div>
+    <a class="nav-item" href="02-production-architecture.html#cicd">🚀 전체 그림 & CI/CD</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-lb">⚖️ 로드밸런서 & 리버스 프록시</a>
+    <a class="nav-item" href="02-production-architecture.html#prod-storage">🗄️ 외부 스토리지 & 서비스</a>
+    <a class="nav-item" href="02-production-architecture.html#logging">📈 로깅 & 모니터링</a>
+    <a class="nav-item" href="02-production-architecture.html#alerting">🔔 알림</a>
+    <a class="nav-item" href="02-production-architecture.html#debugging">🐛 디버깅 흐름</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 좋은 설계와 품질 지표</div>
+    <a class="nav-item" href="03-design-principles-metrics.html#good-design">🏛️ 좋은 설계란?</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#data-3">🔄 데이터의 3요소</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#cap">⚖️ CAP 정리</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#availability">🟢 가용성 & 9의 개수</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#slo-sla">📜 SLO vs SLA</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#resilience">🛡️ 신뢰성·장애내성·이중화</a>
+    <a class="nav-item" href="03-design-principles-metrics.html#throughput">🏎️ 처리량 vs 지연시간</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 네트워킹 기초</div>
+    <a class="nav-item" href="04-networking-basics.html#ip">📍 IP 주소</a>
+    <a class="nav-item" href="04-networking-basics.html#packet">📦 패킷과 계층</a>
+    <a class="nav-item" href="04-networking-basics.html#tcp-udp">🚚 TCP vs UDP</a>
+    <a class="nav-item" href="04-networking-basics.html#dns">📇 DNS</a>
+    <a class="nav-item" href="04-networking-basics.html#ports">🚪 포트 & 방화벽</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 애플리케이션 계층 프로토콜</div>
+    <a class="nav-item" href="05-application-protocols.html#http">🌐 HTTP</a>
+    <a class="nav-item" href="05-application-protocols.html#https">🔒 HTTPS</a>
+    <a class="nav-item" href="05-application-protocols.html#status-method">🔢 상태코드 & 메서드</a>
+    <a class="nav-item" href="05-application-protocols.html#websocket">🔌 WebSocket</a>
+    <a class="nav-item" href="05-application-protocols.html#email">✉️ 이메일 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#other-proto">🧰 기타 프로토콜</a>
+    <a class="nav-item" href="05-application-protocols.html#rpc">📞 RPC</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · API 설계</div>
+    <a class="nav-item" href="06-api-design.html#crud">✏️ CRUD</a>
+    <a class="nav-item" href="06-api-design.html#paradigms">🔀 REST vs GraphQL vs gRPC</a>
+    <a class="nav-item" href="06-api-design.html#endpoints">🔗 관계 & 엔드포인트</a>
+    <a class="nav-item" href="06-api-design.html#api-best">✅ 모범 사례</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 7 · 캐싱 & CDN</div>
+    <a class="nav-item" href="#caching-what">⚡ 캐싱이란?</a>
+    <a class="nav-item" href="#cache-places">📍 캐시가 사는 곳</a>
+    <a class="nav-item" href="#cache-hit">🎯 hit / miss / ratio</a>
+    <a class="nav-item" href="#invalidation">🧊 캐시 무효화</a>
+    <a class="nav-item" href="#write-policy">✍️ write 정책</a>
+    <a class="nav-item" href="#eviction">🧹 eviction 정책</a>
+    <a class="nav-item" href="#cdn">🌍 CDN</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 8 · 프록시 & 로드 밸런서</div>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-what">🔀 프록시란?</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#forward">➡️ Forward Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#reverse">⬅️ Reverse Proxy</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#proxy-compare">⚖️ Forward vs Reverse</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-what">⚖️ 로드밸런서란? · L4/L7</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-algo">🧮 분산 알고리즘</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-health">🩺 헬스체크 & 종류</a>
+    <a class="nav-item" href="08-proxy-load-balancer.html#lb-fail">🛡️ 장애 대응</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 9 · 데이터베이스</div>
+    <a class="nav-item" href="09-database.html#db-types">🗃️ DB 종류</a>
+    <a class="nav-item" href="09-database.html#acid">🔒 ACID</a>
+    <a class="nav-item" href="09-database.html#db-scaling">📈 수직 vs 수평 확장</a>
+    <a class="nav-item" href="09-database.html#sharding">🍰 샤딩 & 복제</a>
+    <a class="nav-item" href="09-database.html#db-perf">🚀 성능 기법</a>
+  </div>
+</nav>
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="06-api-design.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 6 · API 설계</span></a>
+    <a class="part-pager-link next" href="08-proxy-load-balancer.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 8 · 프록시 & 로드 밸런서</span></a>
+  </div>
+
+  <!-- ── ⚡ 캐싱이란? ── -->
+  <section class="section" id="caching-what">
+    <div class="section-header">
+      <div class="section-icon icon-concept">⚡</div>
+      <h2>캐싱이란? — 멀리 있는 데이터를 가까이</h2>
+    </div>
+
+    <p>한 회사가 웹사이트를 <strong>핀란드의 구글 클라우드 데이터센터</strong>에 두고 있다고 해봅시다. 유럽 사용자에겐 <strong>약 100ms</strong>면 로드되지만, <strong>멕시코 사용자</strong>에겐 <strong>3~5초</strong>나 걸릴 수 있어요. 물리적으로 멀기 때문이죠. 이런 <strong>먼 거리 사용자의 지연시간</strong>을 줄이는 대표 전략이 <strong>캐싱(caching)</strong>과 <strong>CDN</strong>입니다.</p>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>캐싱의 정의</strong> — 데이터의 <strong>복사본을 임시 저장소</strong>에 두어서, 이후에 같은 데이터를 요청하면 <strong>더 빠르게</strong> 돌려주는 기법입니다.
+        (<a href="01-computer-basics.html#cache">Part 1의 CPU 캐시</a>와 원리가 똑같아요. "자주 쓰는 걸 가까이 둔다.")
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 📍 캐시가 사는 곳 ── -->
+  <section class="section" id="cache-places">
+    <div class="section-header">
+      <div class="section-icon icon-setup">📍</div>
+      <h2>캐시가 사는 곳 — 4가지 위치</h2>
+    </div>
+
+    <p>캐시는 흔히 네 군데에 둡니다. 사용자와 가까운 쪽부터 볼게요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🖥️</div>
+        <div class="card-title">1. 브라우저 캐시</div>
+        <div class="card-body">웹사이트 리소스(HTML·CSS·JS 번들 등)를 <strong>사용자 로컬 컴퓨터</strong>에 저장. 재방문 시 서버에서 다시 안 받고 로컬에서 로드. 개발자 도구(예: Chrome Network 탭 "Disable cache")로 끌 수 있음.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗄️</div>
+        <div class="card-title">2. 서버 캐시</div>
+        <div class="card-body">자주 접근하는 데이터를 <strong>서버 쪽</strong>에 저장해 비싼 작업(DB 쿼리 등)을 줄임. <strong>Redis</strong> 같은 인메모리 저장소나 디스크에 둠.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💾</div>
+        <div class="card-title">3. DB 캐시</div>
+        <div class="card-body"><strong>쿼리 결과</strong>를 캐싱. DB 시스템 자체 안에서 하거나 <strong>Redis·Memcached</strong> 같은 외부 캐시 계층으로. <strong>읽기 위주</strong> 앱에서 효과적.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌍</div>
+        <div class="card-title">4. CDN</div>
+        <div class="card-body">지리적으로 분산된 서버망에 <strong>정적 콘텐츠</strong>를 캐싱. (바로 아래에서 자세히!)</div>
+      </div>
+    </div>
+
+    <h3>서버·DB 캐시의 동작 흐름</h3>
+    <div class="flow-row">
+      <div class="flow-step">요청 도착</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">캐시에 있나?</div>
+      <div class="flow-arrow">있으면(hit) →</div>
+      <div class="flow-step green">캐시에서 바로 반환 ⚡</div>
+    </div>
+    <div class="flow-row">
+      <div class="flow-arrow" style="margin-left:180px">없으면(miss) →</div>
+      <div class="flow-step">DB 조회</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">결과 반환 + <strong>캐시에 저장</strong></div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        캐시 유효기간은 <strong><code>Cache-Control</code> 헤더</strong>로 지정합니다. 예를 들어 <code>Cache-Control: max-age=7200</code>은 "이 콘텐츠를 <strong>7,200초(=2시간)</strong> 동안 캐싱하라"는 뜻이에요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🎯 hit / miss / ratio ── -->
+  <section class="section" id="cache-hit">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🎯</div>
+      <h2>Cache Hit / Miss / Ratio — 캐시가 잘 되고 있나?</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>용어</th><th>의미</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Cache Hit</strong> ⚡</td><td>요청한 데이터가 <strong>캐시에 있음</strong> → 빠르게 반환</td></tr>
+          <tr><td><strong>Cache Miss</strong></td><td>캐시에 <strong>없어서</strong> 원본(DB 등)에서 다시 가져와야 함</td></tr>
+          <tr><td><strong>Cache Ratio</strong></td><td>전체 요청 중 <strong>캐시로 처리된 비율</strong>. <strong>높을수록</strong> 캐시가 효과적</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        응답의 <strong><code>X-Cache</code> 헤더</strong>를 보면 캐시 적중 여부를 알 수 있습니다. 예를 들어 <code>X-Cache: MISS</code>면 캐시에 없어서 원본을 다녀온 것, <code>HIT</code>이면 캐시에서 바로 준 것이에요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🧊 캐시 무효화 ── -->
+  <section class="section" id="invalidation">
+    <div class="section-header">
+      <div class="section-icon icon-error">🧊</div>
+      <h2>캐시 무효화 — 캐시의 진짜 어려운 문제</h2>
+    </div>
+
+    <p>캐시는 <strong>복사본</strong>입니다. 원본(DB)이 바뀌면 캐시는 <strong>오래된 값(stale)</strong>이 되죠. 상품 가격을 내렸는데 손님에겐 여전히 옛 가격이 보이는 상황입니다. 이 복사본을 <strong>언제, 어떻게 지우느냐</strong>가 <strong>캐시 무효화(invalidation)</strong>이고, 캐시를 다루는 사람이 가장 많이 실수하는 지점이에요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">⏳ TTL — 유효기간</div>
+        <div class="compare-card-body">
+          캐시에 넣을 때 "<strong>N초 뒤 자동 삭제</strong>"를 붙입니다. (<code>Cache-Control: max-age</code>가 이것)<br><br>
+          <span class="badge badge-ok">장점</span> 단순하고, 놓칠 일이 없음<br>
+          <span class="badge badge-no">단점</span> 그 N초 동안은 <strong>옛 값이 보일 수 있음</strong><br><br>
+          → 조금 늦어도 되는 데이터: 인기 글 목록, 프로필 사진
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">🗑️ 능동 무효화 — 바뀔 때 직접 삭제</div>
+        <div class="compare-card-body">
+          원본을 바꾸는 코드가 <strong>그 순간 캐시 항목을 지우거나 갱신</strong>합니다.<br><br>
+          <span class="badge badge-ok">장점</span> 항상 최신<br>
+          <span class="badge badge-no">단점</span> "어디에 캐시됐는지"를 코드가 전부 알아야 해서 <strong>빠뜨리기 쉬움</strong><br><br>
+          → 틀리면 안 되는 데이터: 가격, 재고, 잔액
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>실무는 보통 둘을 함께</strong> 씁니다. 바꿀 때 지우되(능동), 혹시 놓쳐도 TTL이 청소해 주게요.
+        냉장고 음식에 <strong>유통기한 스티커(TTL)</strong>를 붙여 두고, 상한 걸 발견하면 <strong>바로 버리는(능동)</strong> 것과 같습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── ✍️ write 정책 ── -->
+  <section class="section" id="write-policy">
+    <div class="section-header">
+      <div class="section-icon icon-page">✍️</div>
+      <h2>쓰기(Write) 정책 — 캐시와 저장소에 어떻게 쓸까</h2>
+    </div>
+
+    <p>데이터를 <strong>쓸 때</strong> 캐시와 영구 저장소(DB)에 어떤 순서로 반영할지에 따라 세 가지 정책이 있습니다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">↪️</div>
+        <div class="card-title">Write-Around</div>
+        <div class="card-body">캐시를 <strong>건너뛰고</strong> 영구 저장소에 바로 씀. <strong>쓰기 성능이 덜 중요</strong>할 때 사용.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">➡️</div>
+        <div class="card-title">Write-Through</div>
+        <div class="card-body">캐시와 영구 저장소에 <strong>동시에</strong> 씀. <strong>일관성</strong>이 좋지만 write-around보다 <strong>느릴 수</strong> 있음.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔙</div>
+        <div class="card-title">Write-Back</div>
+        <div class="card-body"><strong>캐시에 먼저</strong> 쓰고, 나중에 영구 저장소에 반영. 쓰기 성능은 좋지만 <strong>서버 크래시 시 데이터 손실</strong> 위험.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        여기서도 <strong>트레이드오프</strong>가 보이죠? <strong>write-back</strong>은 빠르지만 위험하고, <strong>write-through</strong>는 안전하지만 느립니다.
+        "우리 서비스는 속도가 중요한가, 데이터 안전이 중요한가?"에 따라 고릅니다. (<a href="03-design-principles-metrics.html#good-design">Part 3의 트레이드오프 사고방식</a>!)
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 🧹 eviction 정책 ── -->
+  <section class="section" id="eviction">
+    <div class="section-header">
+      <div class="section-icon icon-tx">🧹</div>
+      <h2>제거(Eviction) 정책 — 캐시가 꽉 차면 무엇을 버릴까</h2>
+    </div>
+
+    <p>캐시는 작기 때문에 <strong>꽉 차면 공간을 비워야</strong> 합니다. 이때 "무엇을 버릴지" 정하는 규칙이 <strong>eviction(제거) 정책</strong>이에요.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>정책</th><th>버리는 기준</th><th>기억법</th></tr></thead>
+        <tbody>
+          <tr><td><strong>LRU</strong> (Least Recently Used)</td><td>가장 <strong>오랫동안 안 쓴</strong> 것</td><td>"오래 안 봤으니 빼자"</td></tr>
+          <tr><td><strong>FIFO</strong> (First In First Out)</td><td>가장 <strong>먼저 들어온</strong> 것</td><td>"먼저 온 순서대로 빼자"</td></tr>
+          <tr><td><strong>LFU</strong> (Least Frequently Used)</td><td>가장 <strong>드물게 쓴</strong> 것</td><td>"제일 안 쓰니 빼자"</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>참고로 서버·DB 캐시도 <strong>이 동일한 eviction 정책</strong>들을 사용합니다.</p>
+  </section>
+
+  <!-- ── 🌍 CDN ── -->
+  <section class="section" id="cdn">
+    <div class="section-header">
+      <div class="section-icon icon-repo">🌍</div>
+      <h2>CDN — 전 세계에 뿌려둔 '동네 지점'</h2>
+    </div>
+
+    <p><strong>CDN(Content Delivery Network)</strong>은 <strong>지리적으로 분산된 서버들의 네트워크</strong>입니다. 주로 <strong>정적 콘텐츠</strong>(JavaScript·HTML·CSS·이미지·영상 파일)를 제공하는 데 씁니다. 원본 서버의 콘텐츠를 미리 받아 두고, 사용자에게는 <strong>가장 가까운 CDN 서버</strong>에서 전달해요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">멕시코 사용자</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">가까운 멕시코 CDN 서버 ⚡</div>
+      <div class="flow-arrow">(원본까지 안 감)</div>
+      <div class="flow-step" style="opacity:.5">핀란드 원본 서버</div>
+    </div>
+
+    <h3>Pull 방식 vs Push 방식</h3>
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header good">Pull 기반 CDN</div>
+        <div class="compare-card-body">
+          사용자가 <strong>처음 요청할 때</strong> CDN이 원본 서버에서 콘텐츠를 <strong>자동으로 당겨와(pull)</strong> 캐싱.<br><br>
+          → <strong>정적 콘텐츠가 많고 자주 갱신</strong>되는 사이트에 적합. CDN이 알아서 최신화하므로 <strong>관리가 덜</strong> 필요.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">Push 기반 CDN</div>
+        <div class="compare-card-body">
+          내가 콘텐츠를 <strong>직접 CDN에 올려(push)</strong> 배포.<br><br>
+          → <strong>큰 파일인데 자주 안 바뀌지만</strong> 갱신 시 빠르게 퍼뜨려야 할 때 적합. 무엇을 올릴지 <strong>직접 관리</strong>해야 함.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>CDN·캐싱의 이점</strong> — ① <strong>지연시간↓</strong>(가까운 곳에서 제공) ② <strong>고가용성·확장성</strong>(높은 트래픽·하드웨어 장애에 강함)
+        ③ <strong>보안</strong>(DDoS 방어, 트래픽 암호화 등) ④ <strong>원본 서버 부하↓</strong>. 단, <strong>동적 콘텐츠</strong>나 <strong>실시간 처리·복잡한 서버 로직</strong>이 필요한 요청은 여전히 원본 서버를 거쳐야 합니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    시스템 디자인 개념 완전판 · Part 7 · 캐싱 & CDN · <a href="index.html">전체 목차로</a>
+  </div>
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

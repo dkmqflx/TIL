@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>09차시 · 빅 데이터 — 시스템 디자인 101</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 101</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 시스템 디자인 첫걸음</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-item" href="index.html">01 · 오리엔테이션</a>
+    <a class="nav-item" href="02-system-design-overview.html">02 · 시스템 디자인 개요</a>
+    <a class="nav-item" href="03-networking-basics.html">03 · 네트워킹 기초</a>
+    <a class="nav-item" href="04-server-and-client.html">04 · 서버와 클라이언트</a>
+    <a class="nav-item" href="05-http-websocket-api.html">05 · HTTP, WebSocket, API</a>
+    <a class="nav-item" href="06-caching-and-cdn.html">06 · 캐싱과 CDN</a>
+    <a class="nav-item" href="07-proxy-and-load-balancer.html">07 · 프록시와 로드 밸런서</a>
+    <a class="nav-item" href="08-storage.html">08 · 스토리지</a>
+    <div class="nav-section-title" style="margin-top:8px">09 · 빅 데이터</div>
+    <a class="nav-item" href="#what-big-data">📊 빅데이터란</a>
+    <a class="nav-item" href="#batch-vs-stream">⏱️ 배치 vs 스트리밍</a>
+    <a class="nav-item" href="#mapreduce">🧮 MapReduce 감 잡기</a>
+    <a class="nav-item" href="#message-queue-basics">📬 메시지 큐</a>
+    <a class="nav-item" href="#lake-warehouse">🏞️ 데이터 레이크와 웨어하우스</a>
+    <a class="nav-item" href="10-design-process.html" style="margin-top:8px">10 · 문제 해결 프로세스</a>
+    <a class="nav-item" href="11-key-value-store.html">11 · Key-Value Store</a>
+    <a class="nav-item" href="12-rate-limiter.html">12 · Rate Limiter</a>
+    <a class="nav-item" href="13-url-shortener.html">13 · URL Shortener</a>
+    <a class="nav-item" href="14-message-queue.html">14 · Distributed Message Queue</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="08-storage.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">08 · 스토리지</span></a>
+    <a class="part-pager-link next" href="10-design-process.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">10 · 문제 해결 프로세스</span></a>
+  </div>
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 09차시</div>
+    <h1>빅 데이터</h1>
+    <p>앞 차시가 데이터를 어디에 어떻게 둘지의 이야기였다면, 이번 차시는 그렇게 쌓인 데이터가 너무 많아져서 생기는 문제를 다룹니다. 한 대로는 계산조차 안 되는 양을 여러 대가 나눠서 세는 방법, 몰아서 처리할지 흐르는 대로 처리할지의 갈림길, 그 사이를 이어 주는 우체통 같은 장치, 그리고 분석용 데이터를 서비스용 데이터와 왜 따로 두는지까지. 이 차시를 끝내면 시스템을 이루는 부품은 전부 만난 셈이 됩니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">3V</span>
+      <span class="hero-chip">Batch</span>
+      <span class="hero-chip">Streaming</span>
+      <span class="hero-chip">MapReduce</span>
+      <span class="hero-chip">Message Queue</span>
+      <span class="hero-chip">Data Lake</span>
+    </div>
+  </div>
+
+  <!-- ── 빅데이터란 ── -->
+  <section class="section" id="what-big-data">
+    <div class="section-header">
+      <div class="section-icon icon-concept">📊</div>
+      <h2>빅데이터란: 한 대로 안 되는 순간</h2>
+    </div>
+
+    <p>"빅데이터"라는 말은 유행어처럼 쓰이지만, 정의는 의외로 담백합니다. <strong>데이터가 너무 커서 지금까지 쓰던 방법으로는 감당이 안 되는 상태.</strong> 몇 기가바이트부터 빅데이터인지 같은 기준선은 없어요. 노트북 한 대에서 엑셀로 열리면 빅데이터가 아니고, <strong>서버 한 대의 메모리와 디스크로는 계산을 끝낼 수 없으면</strong> 빅데이터입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 동네 도서관 vs 국립도서관 서고</strong><br>
+        <strong>동네 도서관</strong>에서 "이 책 몇 권 있어요?"라고 물으면 사서 한 명이 직접 서가를 돌며 세어 옵니다. 5분이면 끝나요. 책이 3만 권이니까요.<br>
+        <strong>국립도서관 서고</strong>에 같은 질문을 하면 어떻게 될까요. 책이 1,300만 권입니다. 사서 한 명이 아무리 빨라도 <strong>혼자서는 평생 못 셉니다.</strong> 여기서는 방법을 바꿔야 해요 — 사서 100명이 <strong>각자 한 층씩 맡아 세고, 마지막에 숫자만 모으는</strong> 겁니다.<br>
+        빅데이터의 전부가 이 문장 하나에 들어 있습니다. <strong>기계를 더 빠르게 만드는 게 아니라, 일을 쪼개서 여러 대가 나눠 하게 만드는 것.</strong>
+      </div>
+    </div>
+
+    <h3>세 가지 V — 무엇이 "빅"한가</h3>
+    <p>빅데이터를 설명할 때 관례적으로 쓰는 틀이 <strong>3V</strong>입니다. 커진 게 <strong>양만</strong>이 아니라는 점을 짚어 주는 분류예요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">양(Volume)</div>
+        <div class="card-body">테라바이트, 페타바이트 단위로 쌓입니다. <strong>한 대의 디스크에 다 안 들어갑니다.</strong> 넣는 것부터가 문제라서, <a href="08-storage.html#sharding">08차시의 샤딩</a>처럼 처음부터 여러 대에 나눠 두게 됩니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌊</div>
+        <div class="card-title">속도(Velocity)</div>
+        <div class="card-body">데이터가 <strong>끊임없이, 아주 빠르게</strong> 도착합니다. 클릭 로그·결제 이벤트·센서 값은 잠시도 쉬지 않아요. 쌓아 두는 속도가 처리하는 속도보다 빠르면 <strong>영영 따라잡지 못합니다.</strong></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎭</div>
+        <div class="card-title">다양성(Variety)</div>
+        <div class="card-body">표에 딱 들어맞는 데이터만 오는 게 아닙니다. JSON 로그, 이미지, 동영상, 자유 텍스트가 뒤섞여요. <a href="08-storage.html#rdb-vs-nosql">열을 미리 정해 두는 방식</a>으로는 담기조차 어려운 것들입니다.</div>
+      </div>
+    </div>
+
+    <p>세 가지를 관통하는 결론은 하나입니다 — <strong>한 대로는 안 된다.</strong> <a href="02-system-design-overview.html#scaling">02차시의 수직 확장</a>, 그러니까 서버 사양을 올리는 방법은 여기서 완전히 무릎을 꿇습니다. CPU를 두 배로 늘려도 1,300만 권을 혼자 세는 사서가 두 배 빨라질 뿐, 여전히 평생이 걸리거든요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step">💽 한 대에 다 담기</div>
+      <div class="flow-arrow">✕</div>
+      <div class="flow-step blue">🔪 데이터를 쪼개 여러 대에</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🧮 각자 계산하고 합치기</div>
+    </div>
+
+    <p><a href="08-storage.html#sharding">08차시의 샤딩</a>이 <strong>"저장을 나누는" 이야기</strong>였다면, 이번 차시는 <strong>"계산을 나누는" 이야기</strong>입니다. 데이터가 이미 여러 대에 흩어져 있으니, 계산도 데이터가 있는 곳으로 찾아가는 게 자연스러워요. 그리고 그 계산을 <strong>언제 할 것인가</strong>가 곧바로 다음 갈림길입니다.</p>
+  </section>
+
+  <!-- ── 배치 vs 스트리밍 ── -->
+  <section class="section" id="batch-vs-stream">
+    <div class="section-header">
+      <div class="section-icon icon-setup">⏱️</div>
+      <h2>배치 vs 스트리밍</h2>
+    </div>
+
+    <p>데이터를 처리하는 방식은 크게 두 갈래입니다. <strong>배치(batch)</strong> — 일단 모아 두었다가 정해진 시각에 한꺼번에 처리하기. <strong>스트리밍(streaming)</strong> — 하나 도착할 때마다 그 자리에서 처리하기. 이름은 낯설어도 우리는 일상에서 둘 다 이미 쓰고 있습니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 하루 한 번 정산 vs 계산대 영수증</strong><br>
+        <strong>배치</strong>는 가게 문을 닫고 하는 <strong>마감 정산</strong>입니다. 하루치 영수증을 전부 모아 놓고 한 번에 계산해요. 오늘 매출을 오늘 낮에는 알 수 없지만, 밤 11시에 나오는 그 숫자는 <strong>빠짐없이 정확합니다.</strong> 계산이 틀렸으면 영수증 뭉치를 그대로 두고 <strong>다시 세면 그만</strong>이고요.<br>
+        <strong>스트리밍</strong>은 <strong>계산대에서 물건을 찍을 때마다</strong> 합계가 올라가는 화면입니다. 지금 이 순간의 숫자를 즉시 보여 주죠. 대신 손님이 물건을 도로 갖다 놓거나, <strong>아까 찍었어야 할 상품이 뒤늦게 나오면</strong> 이미 보여 준 숫자를 고쳐야 합니다.<br>
+        어느 쪽이 옳은 게 아닙니다. <strong>"언제 알아야 하는가"</strong>가 정해 주는 문제예요.
+      </div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">🗓️ 배치 (Batch)</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          <strong>지연</strong> — 큽니다. 몇 분에서 몇 시간, 보통은 하루 한 번. 결과를 보려면 다음 실행을 기다려야 합니다.<br><br>
+          <strong>정확도</strong> — 높습니다. <strong>전체 데이터를 다 모아 놓고</strong> 계산하니 늦게 도착한 기록도 포함되고, 결과가 이상하면 <strong>같은 입력으로 다시 돌리면</strong> 됩니다.<br><br>
+          <strong>복잡도</strong> — 낮습니다. 시작과 끝이 분명한 작업이라 실패하면 재실행이 답이에요.<br><br>
+          <strong>예</strong> — 월간 매출 리포트, 일일 정산, 추천 모델 재학습
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#065f46;border-bottom:1px solid #a7f3d0">⚡ 스트리밍 (Streaming)</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          <strong>지연</strong> — 작습니다. 밀리초에서 몇 초. 데이터가 도착하는 즉시 결과가 갱신됩니다.<br><br>
+          <strong>정확도</strong> — 다루기 까다롭습니다. <strong>아직 안 온 데이터를 기다릴지</strong> 지금 있는 것으로 답할지를 매번 정해야 하고, 순서가 뒤바뀌어 도착하기도 합니다.<br><br>
+          <strong>복잡도</strong> — 높습니다. 멈추지 않고 도는 작업이라 <strong>중간 상태를 계속 들고</strong> 있어야 하고, 장애 복구도 어렵습니다.<br><br>
+          <strong>예</strong> — 실시간 이상 거래 탐지, 실시간 대시보드, 급상승 검색어
+        </div>
+      </div>
+    </div>
+
+    <p>고르는 기준은 결국 이 질문 하나로 좁혀집니다 — <strong>"1시간 늦게 알아도 괜찮은가?"</strong> 월간 매출은 1시간 늦어도 아무 일이 없습니다. 반면 카드 도용은 <strong>결제가 승인되기 전에</strong> 잡아야 의미가 있죠. 그래서 이상 거래 탐지는 값비싼 복잡도를 감수하고 스트리밍으로 갑니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>"실시간"이 공짜라면 아무도 배치를 안 쓰겠죠</strong><br>
+        초보자가 가장 자주 하는 선택이 <strong>"이왕이면 전부 실시간으로"</strong>입니다. 그런데 스트리밍은 <strong>멈추면 안 되는 작업</strong>이라 운영 난이도가 완전히 다릅니다. 배치 작업은 실패하면 아침에 다시 돌리면 되지만, 스트리밍은 <strong>30분 멈춘 사이 쌓인 데이터</strong>를 따라잡으면서 동시에 새로 들어오는 것도 처리해야 해요.<br>
+        그래서 실무의 기본값은 <strong>"기본은 배치, 정말 즉시 알아야 하는 것만 스트리밍"</strong>입니다. <a href="08-storage.html#sharding">샤딩이 마지막 카드</a>였던 것과 같은 이유예요.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이름만 알아 두기 — 람다 아키텍처(Lambda Architecture)</strong><br>
+        "빠른 답과 정확한 답을 둘 다 갖고 싶다"는 욕심에서 나온 구조입니다. 같은 데이터를 <strong>두 갈래로 흘려보내요.</strong> 스트리밍 쪽이 먼저 <strong>대략적인 최신 값</strong>을 내놓고, 배치 쪽이 나중에 <strong>정확한 값을 계산해 덮어씁니다.</strong> 사용자는 항상 둘을 합친 결과를 봅니다.<br>
+        대가는 <strong>같은 계산 로직을 두 벌 만들어 두 곳에서 관리해야</strong> 한다는 것이고, 그게 싫어서 스트리밍 한 갈래로 통일하자는 <strong>카파 아키텍처(Kappa Architecture)</strong>도 나왔습니다. 지금은 <strong>이런 이름이 있다</strong> 정도만 알면 충분해요.<br>
+        참고로 AWS의 Lambda 서비스와는 <strong>아무 관계가 없습니다.</strong> 이름만 같아요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── MapReduce ── -->
+  <section class="section" id="mapreduce">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🧮</div>
+      <h2>MapReduce 감 잡기</h2>
+    </div>
+
+    <p>배치로 처리하기로 했다고 합시다. 그런데 <strong>데이터가 100대에 흩어져 있는데 어떻게 하나의 답을 만들까요?</strong> 이 질문에 대한 가장 유명한 답이 <strong>MapReduce</strong>입니다. 구글이 2004년 논문으로 공개했고, 그걸 오픈소스로 구현한 것이 <strong>Hadoop</strong>이에요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 전국 인구를 세는 방법</strong><br>
+        대한민국 인구를 세어야 합니다. 공무원 한 명이 <strong>전국을 돌며 세는</strong> 방법은 논외죠. 실제로는 이렇게 합니다.<br>
+        <strong>① 각 동에서 센다</strong> — 동사무소 직원이 자기 동네 사람만 셉니다. 5,000명. 옆 동네는 신경 쓰지 않아요. 이게 <strong>map</strong>입니다.<br>
+        <strong>② 시·도별로 종이를 모은다</strong> — 서울 동네들의 종이는 서울시로, 부산 동네들의 종이는 부산시로 갑니다. 이게 <strong>shuffle</strong>이에요.<br>
+        <strong>③ 시·도에서 합산한다</strong> — 서울시는 받은 숫자를 더해 940만을 냅니다. 이게 <strong>reduce</strong>입니다.<br>
+        핵심은 ①입니다. <strong>동사무소끼리는 서로 대화할 필요가 전혀 없어요.</strong> 그래서 동네가 3,500개든 35,000개든 <strong>사람만 늘리면 시간은 그대로</strong>입니다.
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>Map — 각자 맡은 조각만 본다</strong><br>데이터가 있는 서버마다 <strong>같은 함수</strong>를 돌립니다. 각 조각을 읽어 <strong><code>(키, 값)</code> 쌍</strong>으로 뱉어 내는 게 전부예요. 다른 서버가 뭘 보고 있는지는 알 필요도 없고, 알 수도 없습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>Shuffle — 같은 키끼리 한곳으로 모은다</strong><br>흩어져 나온 쌍들을 <strong>키를 기준으로 정렬해 옮깁니다.</strong> 키 <code>사과</code>는 무조건 같은 서버로 가요. 우리가 코드를 쓰지 않아도 <strong>프레임워크가 알아서</strong> 해 주는 단계지만, <strong>네트워크로 데이터가 대량으로 오가는 구간</strong>이라 실무에서는 여기가 가장 자주 병목이 됩니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>Reduce — 모인 값을 하나로 접는다</strong><br>이제 한 서버에 <strong>같은 키의 값들이 전부 모여</strong> 있습니다. 그걸 합치거나, 세거나, 최댓값을 고릅니다. 키마다 결과 하나. 이 결과들을 이어 붙이면 <strong>전체에 대한 답</strong>이 됩니다.</div>
+      </div>
+    </div>
+
+    <h3>가장 유명한 예제 — 단어 세기</h3>
+    <p>문장 세 개가 서로 다른 서버에 흩어져 있다고 해 봅시다. 목표는 <strong>단어별 등장 횟수</strong>입니다. map 함수는 놀랄 만큼 단순해요 — <strong>단어를 만나면 그 단어에 <code>1</code>을 붙여 뱉는다.</strong> 세는 일은 하지 않습니다.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>① 입력 — 서버마다 나눠 맡은 문장</th><th>② Map 결과 — 무조건 <code>1</code>을 붙인다</th><th>③ Shuffle 후 Reduce 결과</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>사과 바나나 사과</code></td>
+            <td><code>(사과,1) (바나나,1) (사과,1)</code></td>
+            <td rowspan="3">
+              같은 키끼리 모인 뒤 더합니다.<br><br>
+              <code>사과</code> → 1+1+1+1 = <strong>4</strong><br>
+              <code>바나나</code> → 1+1+1 = <strong>3</strong><br>
+              <code>포도</code> → 1 = <strong>1</strong><br><br>
+              합계 8개 단어. 입력 문장의 단어 수(3+2+3)와 <strong>정확히 맞습니다.</strong>
+            </td>
+          </tr>
+          <tr>
+            <td><code>바나나 사과</code></td>
+            <td><code>(바나나,1) (사과,1)</code></td>
+          </tr>
+          <tr>
+            <td><code>포도 사과 바나나</code></td>
+            <td><code>(포도,1) (사과,1) (바나나,1)</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>"굳이 <code>1</code>을 붙여 뱉을 필요가 있나, 서버마다 미리 세면 되지 않나" 싶을 겁니다. 맞습니다. 실제로 그렇게 <strong>map 쪽에서 미리 부분 합산</strong>을 하는 최적화가 있고, 이름이 <strong>컴바이너(combiner)</strong>예요. 다만 <strong>MapReduce의 뼈대는 이 단순한 모양</strong>이라는 걸 먼저 잡는 게 중요합니다. map이 단순할수록 <strong>서버를 아무리 늘려도 같은 코드가 그대로 돕니다.</strong></p>
+
+    <h3>Hadoop과 Spark</h3>
+    <p>실무에서 이 이름들을 함께 만나게 됩니다. 둘 다 <strong>여러 대에 나눠 계산하는 도구</strong>이고, 결정적 차이는 <strong>단계와 단계 사이에 중간 결과를 어디에 두느냐</strong>입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">🐘 Hadoop MapReduce — 디스크</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          한 단계가 끝날 때마다 중간 결과를 <strong>디스크에 씁니다.</strong> 느리지만, 서버가 중간에 죽어도 <strong>그 단계부터 다시</strong> 하면 되니 아주 튼튼해요.<br><br>
+          여러 단계를 반복하는 계산에서는 <strong>매번 디스크를 왕복</strong>하느라 손해가 큽니다.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#065f46;border-bottom:1px solid #a7f3d0">✨ Spark — 메모리</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          중간 결과를 되도록 <strong>메모리에 들고</strong> 다음 단계로 넘깁니다. 같은 데이터를 여러 번 훑는 작업에서 <strong>훨씬 빠릅니다.</strong><br><br>
+          다만 메모리가 부족하면 결국 디스크로 흘려보내고, 그때는 이점이 줄어듭니다. <strong>"항상 빠르다"가 아니에요.</strong>
+        </div>
+      </div>
+    </div>
+
+    <p>요즘 새로 만드는 배치 파이프라인은 대체로 Spark 쪽입니다. 그래도 <strong>사고방식은 여전히 map과 reduce</strong>예요. 도구가 바뀌어도 <strong>"각자 세고, 모아서 합친다"</strong>는 뼈대는 그대로 남습니다.</p>
+  </section>
+
+  <!-- ── 메시지 큐 ── -->
+  <section class="section" id="message-queue-basics">
+    <div class="section-header">
+      <div class="section-icon icon-query">📬</div>
+      <h2>메시지 큐: 일단 받아두고 나중에 처리</h2>
+    </div>
+
+    <p>지금까지는 <strong>계산을 어떻게 나눌지</strong>를 봤습니다. 그런데 실제 시스템에서는 그 앞에 더 현실적인 문제가 있어요. <strong>들어오는 일과 처리하는 속도가 안 맞습니다.</strong> 사용자는 초당 1만 건을 밀어 넣는데 처리 서버는 초당 1천 건밖에 못 해내는 상황 말이죠. 이때 사이에 끼워 넣는 완충 장치가 <strong>메시지 큐(message queue)</strong>입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 우체통</strong><br>
+        편지를 부칠 때 우리는 <strong>집배원을 직접 만나지 않습니다.</strong> 우체통에 넣고 그냥 갈 길을 가죠. 집배원이 지금 자리에 있는지, 몇 명인지, 오늘 몸이 아픈지 <strong>알 필요가 없습니다.</strong><br>
+        집배원도 마찬가지예요. 편지가 몰리는 날이라고 해서 <strong>더 빨리 뛰지 않습니다.</strong> 자기 속도로 우체통을 비우고, 못 비운 편지는 <strong>우체통 안에서 기다립니다.</strong><br>
+        <strong>편지를 넣는 사람</strong>이 생산자, <strong>우체통</strong>이 큐, <strong>집배원</strong>이 소비자입니다. 이 구조의 마법은 단 하나예요 — <strong>양쪽이 서로를 기다리지 않아도 된다는 것.</strong>
+      </div>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-step blue">✍️ 생산자 (Producer)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">📬 큐 (Queue)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🛠️ 소비자 (Consumer)</div>
+    </div>
+
+    <p>동작은 그림 그대로입니다. <strong>생산자(producer)</strong>가 "이 일 좀 해 줘"라는 <strong>메시지(message)</strong>를 큐에 넣고 <strong>곧바로 자기 일로 돌아갑니다.</strong> 메시지는 큐에 <strong>들어온 순서대로 쌓여</strong> 기다리고, <strong>소비자(consumer)</strong>가 하나씩 꺼내 처리한 뒤 <strong>"다 했다"고 알려 주면</strong> 큐에서 지워집니다. 처리 도중 소비자가 죽으면 그 메시지는 지워지지 않고 <strong>다른 소비자에게 다시 전달됩니다.</strong></p>
+
+    <h3>왜 굳이 큐를 끼우나</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🐢</div>
+        <div class="card-title">느린 작업을 떼어낸다</div>
+        <div class="card-body">응답 시간은 <strong>가장 느린 작업에 끌려갑니다.</strong> 동영상 인코딩에 3분이 걸린다고 사용자를 3분 세워 둘 수는 없죠. 큐에 던져 두면 응답은 <strong>0.2초</strong>에 끝나고, 무거운 일은 뒤에서 따로 굴러갑니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌊</div>
+        <div class="card-title">폭주를 완충한다</div>
+        <div class="card-body">이벤트가 터져 트래픽이 열 배가 돼도, 큐가 <strong>댐처럼 물을 받아 둡니다.</strong> 소비자는 여전히 자기 속도로 처리하고 <strong>큐가 잠시 길어질 뿐</strong>이에요. 큐가 없으면 그 순간 처리 서버가 그대로 넘어집니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔌</div>
+        <div class="card-title">부품을 느슨하게 잇는다</div>
+        <div class="card-body">생산자는 소비자가 <strong>누구인지, 몇 대인지, 살아 있는지</strong> 몰라도 됩니다. 소비자를 재배포하려고 잠깐 껐다 켜도 <strong>생산자는 아무 영향을 받지 않아요.</strong> 메시지는 큐에서 기다리고 있으니까요.</div>
+      </div>
+    </div>
+
+    <h3>사진 업로드로 따라가 보기</h3>
+    <p>구체적인 장면 하나면 감이 확실히 잡힙니다. 사용자가 사진을 올리면 <strong>썸네일을 만들어야</strong> 하는데, 이 일이 몇 초씩 걸린다고 해 봅시다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>사용자가 사진을 올린다</strong><br>서버는 원본 파일을 <a href="08-storage.html#blob-storage">객체 스토리지</a>에 저장합니다. 여기까지는 빠릅니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>"이 사진 썸네일 만들어" 메시지를 큐에 넣는다</strong><br>사진 자체가 아니라 <strong>사진의 주소가 적힌 쪽지 한 장</strong>만 넣습니다. 메시지는 작을수록 좋아요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>서버는 곧바로 "업로드 완료"를 응답한다</strong><br><span style="color:#065f46">사용자 체감 0.2초.</span> 썸네일이 아직 없다는 사실은 사용자에게 전혀 보이지 않습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>워커가 큐에서 꺼내 썸네일을 만든다</strong><br>이 <strong>소비자 서버(워커)</strong>는 웹 서버와 완전히 별개입니다. 밀리면 <strong>워커만 몇 대 더 띄우면</strong> 되고, <a href="04-server-and-client.html#stateless">상태를 들고 있지 않아</a> 늘리고 줄이기가 쉽습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">5</div>
+        <div class="timeline-content"><strong>완료 후 DB에 썸네일 주소를 적고 메시지를 지운다</strong><br>다음에 사용자가 앨범을 열면 썸네일이 보입니다. 만약 4번에서 워커가 죽었다면 <strong>메시지가 지워지지 않았으므로</strong> 다른 워커가 같은 일을 다시 맡습니다.</div>
+      </div>
+    </div>
+
+    <p>제품 이름도 몇 개만 알아 두면 됩니다. <strong>Kafka</strong>는 대량의 이벤트 흐름을 다루는 데 특화돼 있고, <strong>RabbitMQ</strong>는 작업 분배에 오래 쓰여 온 전통적인 선택, <strong>Amazon SQS</strong>는 직접 운영하지 않고 빌려 쓰는 관리형 서비스입니다. 지금은 <strong>셋 다 "우체통"</strong>이라고만 알아도 충분해요.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비동기의 대가 — 세 가지는 꼭 기억하세요</strong><br>
+        <strong>① "끝났다"를 알릴 방법이 따로 필요합니다.</strong> 응답을 이미 보내 버렸으니, 완료 시점을 알리려면 <a href="05-http-websocket-api.html#realtime">05차시의 폴링이나 WebSocket</a> 같은 장치를 따로 붙여야 해요.<br>
+        <strong>② 같은 메시지가 두 번 올 수 있습니다.</strong> 대부분의 큐는 <strong>"적어도 한 번(at-least-once)"</strong> 전달을 보장합니다. 잃어버리지 않는 대신 중복은 허용한다는 뜻이라, 소비자는 <strong>두 번 처리해도 결과가 같도록</strong>(멱등, idempotent) 만들어야 합니다. 썸네일을 두 번 만드는 건 괜찮지만, <strong>포인트를 두 번 적립하면 사고</strong>죠.<br>
+        <strong>③ 큐 길이를 반드시 지켜보세요.</strong> 소비자가 생산자보다 느린 상태가 계속되면 큐는 <strong>조용히 계속 길어집니다.</strong> 에러는 하나도 안 나는데 처리가 30분씩 밀리는, 알아채기 가장 늦은 종류의 장애예요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>여기까지가 큐의 기본입니다</strong><br>
+        지금 그린 우체통은 <strong>한 대짜리</strong>였습니다. 그런데 이 우체통이 죽으면 어떻게 되죠? 쌓여 있던 메시지는요? 초당 100만 건이 들어오면 우체통 하나로 감당이 될까요?<br>
+        <strong>이 큐를 여러 대로 만드는 것</strong>이 코스의 마지막 사례입니다. <a href="14-message-queue.html">14차시 · Distributed Message Queue</a>에서 이 절의 그림을 그대로 가져가 확장해요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 데이터 레이크와 웨어하우스 ── -->
+  <section class="section" id="lake-warehouse">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🏞️</div>
+      <h2>데이터 레이크와 웨어하우스</h2>
+    </div>
+
+    <p>마지막으로, 이렇게 모은 데이터를 <strong>어디에 두고 분석하느냐</strong>입니다. 여기서 자주 헷갈리는 두 단어가 나와요 — <strong>데이터 레이크(Data Lake)</strong>와 <strong>데이터 웨어하우스(Data Warehouse)</strong>. 이름만 보면 둘 다 "데이터 창고" 같지만, 하는 일이 다릅니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 원재료 창고 vs 정리된 진열대</strong><br>
+        <strong>원재료 창고</strong>에는 배달 온 것을 <strong>포장 그대로</strong> 쌓아 둡니다. 흙 묻은 감자 자루, 통째로 온 생선, 라벨도 안 뗀 상자. 뭘 만들지 아직 안 정했으니 <strong>일단 버리지 않고 다 넣어 두는</strong> 거죠. 싸고 넓지만, 필요한 걸 찾으려면 <strong>직접 뒤지고 손질해야</strong> 합니다.<br>
+        <strong>진열대</strong>는 다릅니다. 손질하고 소분해서 <strong>가격표까지 붙여</strong> 정해진 자리에 놓여 있어요. 누구나 와서 바로 집어 갈 수 있습니다. 대신 <strong>진열할 만한 것만</strong> 올라가고, 그렇게 만드는 데 품이 듭니다.<br>
+        창고가 <strong>레이크</strong>, 진열대가 <strong>웨어하우스</strong>입니다. 실무에서는 대개 <strong>둘 다 두고</strong>, 창고에서 꺼낸 걸 손질해 진열대에 올립니다.
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead><tr><th></th><th>🏞️ 데이터 레이크</th><th>🏛️ 데이터 웨어하우스</th></tr></thead>
+        <tbody>
+          <tr><td><strong>형식</strong></td><td><strong>원본 그대로.</strong> 로그·이미지·JSON·CSV가 뒤섞여도 됩니다. 구조는 <strong>읽을 때</strong> 정합니다.</td><td><strong>정제된 표.</strong> 열과 타입을 <strong>넣기 전에</strong> 정해서, 들어오는 것은 그 틀을 지킵니다.</td></tr>
+          <tr><td><strong>용도</strong></td><td>일단 <strong>버리지 않고 보관.</strong> 나중에 무슨 질문이 생길지 모르니 원본을 남깁니다. 머신러닝 학습 데이터의 출발점.</td><td><strong>정해진 질문에 빠르게 답하기.</strong> 매출 집계, 지표 대시보드처럼 반복되는 분석에 최적화돼 있습니다.</td></tr>
+          <tr><td><strong>사용자</strong></td><td>데이터 엔지니어 · 데이터 과학자 — <strong>직접 뒤질 줄 아는</strong> 사람들</td><td>분석가 · 기획자 · 경영진 — <strong>바로 꺼내 보고 싶은</strong> 사람들</td></tr>
+          <tr><td><strong>실제 제품</strong></td><td>Amazon S3 · HDFS 위에 쌓는 경우가 대부분</td><td>BigQuery · Redshift · Snowflake</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>왜 서비스 DB에서 그냥 분석하면 안 되나</h3>
+    <p>"회원 표가 이미 DB에 있는데, 거기서 집계 쿼리 한 번 돌리면 되지 않나요?" 당연한 의문이고, 답은 <strong>"작을 때는 그렇게 해도 됩니다"</strong>입니다. 문제는 규모가 커지면 <strong>두 종류의 작업이 성격이 정반대</strong>라는 데서 터집니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">🛎️ OLTP — 서비스 DB</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          <strong>온라인 트랜잭션 처리(OLTP, Online Transaction Processing)</strong><br><br>
+          "42번 회원 정보를 줘", "주문 한 건을 넣어라" 같은 <strong>작고 짧은 요청이 아주 많이</strong> 들어옵니다. 한 건에 몇 밀리초. 건드리는 행은 <strong>한 줌</strong>이에요.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#065f46;border-bottom:1px solid #a7f3d0">📈 OLAP — 분석 DB</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          <strong>온라인 분석 처리(OLAP, Online Analytical Processing)</strong><br><br>
+          "지난 3년 매출을 지역별·월별로 묶어 줘" 같은 <strong>크고 무거운 요청이 가끔</strong> 들어옵니다. 한 건에 몇 초에서 몇 분. 건드리는 행은 <strong>수억 개</strong>예요.
+        </div>
+      </div>
+    </div>
+
+    <p>이 둘을 <strong>한 대에서 같이 돌리면</strong> 무슨 일이 벌어질까요. 분석 쿼리 하나가 <a href="08-storage.html#index">인덱스로도 피할 수 없는 전체 스캔</a>을 하며 디스크와 메모리를 독차지하는 동안, <strong>평소 3밀리초면 끝나던 로그인이 2초씩 걸립니다.</strong> 분석가가 무심코 실행한 쿼리 하나가 <strong>서비스 전체를 느리게 만드는</strong> 거죠.</p>
+
+    <p>그래서 분리합니다. 서비스 DB의 데이터를 <strong>주기적으로 복사해</strong> 레이크나 웨어하우스로 옮기고, 분석은 <strong>거기서만</strong> 합니다. 이 옮기는 과정을 <strong>ETL</strong>(추출·변환·적재, Extract-Transform-Load)이라고 불러요. 대개 <a href="#batch-vs-stream">배치</a>로 하루 한 번 돕니다. 분석 데이터가 몇 시간 낡아도 <strong>아무 문제가 없기 때문</strong>이죠 — 이 차시 두 번째 절의 판단 기준이 여기서 그대로 쓰입니다.</p>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>부품은 여기까지입니다</strong><br>
+        02차시부터 여기까지, 우리는 시스템을 이루는 <strong>부품을 하나씩</strong> 뜯어봤습니다. <a href="03-networking-basics.html#dns">데이터가 오가는 길</a>, <a href="05-http-websocket-api.html#http-basics">주고받는 약속</a>, <a href="06-caching-and-cdn.html#why-cache">가까이 두어 아끼는 법</a>, <a href="07-proxy-and-load-balancer.html#what-lb">나눠 받는 법</a>, <a href="08-storage.html#rdb-vs-nosql">쌓아 두는 법</a>, 그리고 이번 차시의 <strong>많아진 데이터를 처리하는 법</strong>까지.<br><br>
+        하지만 부품을 다 안다고 시스템을 설계할 수 있는 건 아닙니다. 실제 면접이나 실무에서는 <strong>"URL 단축 서비스를 설계해 보세요"</strong> 같은 <strong>막막한 한 문장</strong>이 주어지죠. 무엇부터 물어야 하고, 어느 순서로 그려야 할까요.<br>
+        다음 차시부터는 <strong>부품을 조립하는 절차</strong>를 배웁니다. <a href="10-design-process.html">10차시 · 문제 해결 프로세스</a>로 갑니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="08-storage.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">08 · 스토리지</span></a>
+    <a class="part-pager-link next" href="10-design-process.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">10 · 문제 해결 프로세스</span></a>
+  </div>
+
+  <div class="doc-footer">
+    System Design 101 · 09차시 · 빅 데이터 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

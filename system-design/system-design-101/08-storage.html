@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>08차시 · 스토리지 — 시스템 디자인 101</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 101</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 시스템 디자인 첫걸음</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-item" href="index.html">01 · 오리엔테이션</a>
+    <a class="nav-item" href="02-system-design-overview.html">02 · 시스템 디자인 개요</a>
+    <a class="nav-item" href="03-networking-basics.html">03 · 네트워킹 기초</a>
+    <a class="nav-item" href="04-server-and-client.html">04 · 서버와 클라이언트</a>
+    <a class="nav-item" href="05-http-websocket-api.html">05 · HTTP, WebSocket, API</a>
+    <a class="nav-item" href="06-caching-and-cdn.html">06 · 캐싱과 CDN</a>
+    <a class="nav-item" href="07-proxy-and-load-balancer.html">07 · 프록시와 로드 밸런서</a>
+    <div class="nav-section-title" style="margin-top:8px">08 · 스토리지</div>
+    <a class="nav-item" href="#rdb-vs-nosql">🗄️ 관계형 DB vs NoSQL</a>
+    <a class="nav-item" href="#index">🔖 인덱스: 책 뒤 색인</a>
+    <a class="nav-item" href="#replication">📋 복제</a>
+    <a class="nav-item" href="#sharding">🍕 샤딩</a>
+    <a class="nav-item" href="#cap">⚖️ CAP: 셋 중 둘</a>
+    <a class="nav-item" href="#blob-storage">🖼️ 파일은 DB에 넣지 않는다</a>
+    <a class="nav-item" href="09-big-data.html" style="margin-top:8px">09 · 빅 데이터</a>
+    <a class="nav-item" href="10-design-process.html">10 · 문제 해결 프로세스</a>
+    <a class="nav-item" href="11-key-value-store.html">11 · Key-Value Store</a>
+    <a class="nav-item" href="12-rate-limiter.html">12 · Rate Limiter</a>
+    <a class="nav-item" href="13-url-shortener.html">13 · URL Shortener</a>
+    <a class="nav-item" href="14-message-queue.html">14 · Distributed Message Queue</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="07-proxy-and-load-balancer.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">07 · 프록시와 로드 밸런서</span></a>
+    <a class="part-pager-link next" href="09-big-data.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">09 · 빅 데이터</span></a>
+  </div>
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 08차시</div>
+    <h1>스토리지</h1>
+    <p>여기까지는 요청이 서버에 닿기까지의 이야기였습니다. 이제 서버 뒤편, 데이터가 실제로 쌓이는 곳으로 들어갑니다. 어떤 종류의 데이터베이스를 고를지, 찾는 속도를 어떻게 끌어올릴지, 한 대로 감당이 안 될 때 데이터를 어떻게 복사하고 어떻게 쪼갤지, 그리고 그렇게 여러 대로 나눈 순간 반드시 마주치는 선택이 무엇인지를 배웁니다. 서버는 언제든 새로 띄우면 되지만 데이터는 잃으면 끝이라, 이 차시의 결정들은 유난히 되돌리기 어렵습니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">RDB</span>
+      <span class="hero-chip">NoSQL</span>
+      <span class="hero-chip">Index</span>
+      <span class="hero-chip">Replication</span>
+      <span class="hero-chip">Sharding</span>
+      <span class="hero-chip">CAP</span>
+    </div>
+  </div>
+
+  <!-- ── 관계형 DB vs NoSQL ── -->
+  <section class="section" id="rdb-vs-nosql">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🗄️</div>
+      <h2>관계형 DB vs NoSQL</h2>
+    </div>
+
+    <p><a href="07-proxy-and-load-balancer.html#spof">07차시</a>에서 서버를 여러 대로 늘리고 로드 밸런서까지 이중화했습니다. 그런데 그 서버들이 전부 바라보는 <strong>데이터베이스는 여전히 한 대</strong>입니다. 앞단을 아무리 튼튼하게 만들어도, 데이터가 사는 곳이 무너지면 서비스는 그냥 끝나요. 그래서 이 차시가 필요합니다.</p>
+
+    <p>첫 갈림길은 <strong>"어떤 종류의 데이터베이스를 쓸 것인가"</strong>입니다. 세상의 데이터베이스는 크게 두 갈래로 나뉩니다 — <strong>관계형 데이터베이스(RDB, Relational Database)</strong>와 <strong>NoSQL</strong>. 이름은 거창하지만 차이는 결국 <strong>"데이터의 모양을 미리 정해 두느냐"</strong> 한 가지에서 출발합니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 엑셀 표 vs 서류 봉투</strong><br>
+        <strong>엑셀 표</strong>는 맨 윗줄에 열 이름을 먼저 정합니다. 이름·이메일·가입일. 그 뒤로는 모든 행이 그 틀을 지켜야 하고, 이메일 칸에 날짜를 넣으면 혼납니다. 대신 "가입일이 3월인 사람"을 뽑거나 <strong>주문 표와 회원 표를 회원번호로 이어 붙이는</strong> 일이 아주 쉬워요.<br>
+        <strong>서류 봉투</strong>는 그냥 종이를 넣습니다. 어떤 봉투엔 전화번호가 있고 어떤 봉투엔 없어도 아무도 뭐라 하지 않죠. 넣기는 한없이 편하지만, "전화번호 있는 봉투만 골라 줘"라고 하면 <strong>봉투를 전부 열어 봐야</strong> 합니다.<br>
+        RDB가 앞이고 NoSQL이 뒤입니다. 어느 쪽이 좋다가 아니라, <strong>편함을 앞에서 볼지 뒤에서 볼지</strong>의 차이예요.
+      </div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">🗂️ 관계형 DB (RDB)</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          데이터를 <strong>표(테이블)</strong>에 담습니다. 열 구성(스키마)을 미리 정하고, 표와 표를 <strong>조인(join)</strong>으로 이어 붙여 질문에 답합니다. 질의 언어는 <code>SQL</code>.<br><br>
+          <strong>강점</strong> — 관계 표현, 복잡한 조회, 그리고 <strong>트랜잭션</strong>(여러 변경을 전부 성공 또는 전부 취소로 묶는 것).<br>
+          <strong>약점</strong> — 스키마를 바꾸려면 품이 들고, <strong>서버를 늘려 쓰기를 나눠 받기</strong>가 어렵습니다.<br><br>
+          MySQL · PostgreSQL · Oracle · SQL Server
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#065f46;border-bottom:1px solid #a7f3d0">📦 NoSQL</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          "SQL만 쓰는 건 아니다(Not Only SQL)"라는 뜻으로, <strong>표가 아닌 방식</strong>으로 담는 저장소들을 한데 묶어 부르는 말입니다. 하나의 제품이 아니라 <strong>여러 종류의 총칭</strong>이에요.<br><br>
+          <strong>강점</strong> — 스키마가 자유롭고, 애초에 <strong>여러 대로 나눠 쓰도록</strong> 설계돼 대량 쓰기에 강합니다.<br>
+          <strong>약점</strong> — 조인이 없거나 빈약해 <strong>같은 데이터를 여러 곳에 중복 저장</strong>하게 되고, 트랜잭션 보장이 RDB만큼 강하지 않은 경우가 많습니다.<br><br>
+          Redis · MongoDB · Cassandra · DynamoDB
+        </div>
+      </div>
+    </div>
+
+    <h3>NoSQL은 한 종류가 아닙니다 — 네 갈래</h3>
+    <p>"NoSQL을 쓴다"는 말은 사실 아무 정보도 주지 않습니다. Redis와 Neo4j는 둘 다 NoSQL이지만 하는 일이 완전히 달라요. 실무에서 만나는 건 대체로 이 네 갈래입니다.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🔑</div>
+        <div class="card-title">키-값(Key-Value)</div>
+        <div class="card-body"><code>키 → 값</code>이 전부입니다. 키를 알면 즉시 꺼내고, 모르면 아무것도 못 합니다. 단순한 만큼 <strong>가장 빠르고 가장 잘 흩어집니다.</strong> 캐시·세션 저장소의 주인공.<br><strong>Redis · DynamoDB</strong></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <div class="card-title">문서(Document)</div>
+        <div class="card-body">값 자리에 <strong>JSON 같은 문서</strong>를 통째로 넣습니다. 문서마다 필드가 달라도 되고, 안쪽 필드로 검색도 됩니다. 형태가 자주 바뀌는 데이터에 잘 맞아요.<br><strong>MongoDB · Couchbase</strong></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧱</div>
+        <div class="card-title">와이드 컬럼(Wide-Column)</div>
+        <div class="card-body">행마다 열 구성이 다를 수 있는 거대한 표. <strong>초당 쏟아지는 쓰기를 여러 대가 나눠 받는 데</strong> 특화돼 있습니다. 로그·센서 값·메시지 기록 같은 것들.<br><strong>Cassandra · HBase</strong></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕸️</div>
+        <div class="card-title">그래프(Graph)</div>
+        <div class="card-body">데이터를 점과 <strong>선(관계)</strong>으로 저장합니다. "친구의 친구의 친구"처럼 <strong>관계를 몇 단계씩 타고 들어가는</strong> 질문이 본업이에요. 추천·소셜 그래프·이상거래 탐지.<br><strong>Neo4j</strong></div>
+      </div>
+    </div>
+
+    <h3>그래서 뭘 고르나</h3>
+    <p>면접에서도 실무에서도 이 질문이 나옵니다. 답은 "요즘 뜨는 거"가 아니라 <strong>"이 데이터가 어떻게 생겼고 어떻게 읽히는가"</strong>에서 나와요.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>이런 상황이면</th><th>이쪽</th><th>왜</th></tr></thead>
+        <tbody>
+          <tr><td>데이터끼리 <strong>관계가 많고 조인이 잦다</strong><br>(회원 ↔ 주문 ↔ 상품)</td><td><strong>RDB</strong></td><td>표를 이어 붙이는 게 RDB의 본업입니다. NoSQL에서 이걸 하려면 애플리케이션이 직접 여러 번 조회해 짜맞춰야 해요.</td></tr>
+          <tr><td><strong>스키마가 자주 바뀐다</strong><br>(상품마다 속성이 제각각)</td><td><strong>NoSQL (문서)</strong></td><td>열을 미리 정하지 않아도 됩니다. 새 필드가 필요하면 그냥 그 문서에만 넣으면 돼요.</td></tr>
+          <tr><td><strong>초당 쓰기가 폭증</strong>하고 계속 늘어난다<br>(로그·이벤트·채팅)</td><td><strong>NoSQL (와이드 컬럼)</strong></td><td>서버를 늘려 쓰기를 나눠 받도록 처음부터 설계된 쪽입니다. RDB는 쓰기를 나누기가 훨씬 까다로워요.</td></tr>
+          <tr><td><strong>트랜잭션이 엄격</strong>해야 한다<br>(잔액 이체·재고 차감·결제)</td><td><strong>RDB</strong></td><td>"돈이 빠져나갔는데 입금이 안 됨" 같은 중간 상태가 없어야 합니다. 이걸 기본으로 보장하는 게 RDB예요.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>모르겠으면 RDB로 시작하세요</strong><br>
+        초보자용 요령이 아니라 실무의 기본값입니다. 대부분의 서비스는 <strong>평생 한 대의 PostgreSQL로 충분</strong>하고, 나중에 특정 데이터만 떼어 NoSQL로 옮기는 건 얼마든지 가능해요.<br>
+        반대 방향은 훨씬 아픕니다. NoSQL로 시작했다가 "회원과 주문을 이어서 봐야 한다"는 요구가 생기면, 조인이 없는 곳에서 조인을 <strong>손으로 구현</strong>하게 되거든요. <strong>덜 유연한 선택이 나중에 더 많은 선택지를 남깁니다.</strong>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 인덱스 ── -->
+  <section class="section" id="index">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🔖</div>
+      <h2>인덱스: 책 뒤 색인</h2>
+    </div>
+
+    <p>데이터베이스를 골랐습니다. 그런데 회원이 1,000만 명이 되자 로그인이 3초씩 걸리기 시작합니다. 서버도 멀쩡하고 네트워크도 멀쩡한데 말이죠. 범인은 대개 <strong>인덱스(index)</strong>가 없는 조회입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 두꺼운 책에서 단어 하나 찾기</strong><br>
+        800쪽짜리 책에서 "트랜잭션"이 나오는 곳을 찾아야 합니다. 방법은 둘이죠.<br>
+        <strong>1쪽부터 넘기며 눈으로 훑기.</strong> 반드시 찾긴 합니다. 다만 한나절이 걸려요.<br>
+        <strong>책 뒤 색인을 펴기.</strong> 색인은 단어가 <strong>가나다순으로 정렬</strong>돼 있어서 몇 초 만에 "트랜잭션 … 412쪽"을 찾고, 곧장 412쪽을 폅니다.<br>
+        앞이 <strong>풀 스캔(full scan)</strong>이고 뒤가 <strong>인덱스</strong>입니다. 색인이 책 내용을 바꾸지 않듯, 인덱스도 데이터를 바꾸지 않아요. <strong>찾아가는 길만</strong> 따로 만들어 둔 겁니다.
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>인덱스가 없는 상태</strong><br><code>users</code> 표에 1,000만 행이 있습니다. 저장된 순서는 대체로 <strong>넣은 순서</strong>일 뿐, 이메일 기준으로 정리돼 있지 않아요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong><code>WHERE email = 'a@b.com'</code> — 느립니다</strong><br>DB는 이메일이 어디 있는지 알 방법이 없어서 <strong>1행부터 끝까지 전부 읽어 봅니다.</strong> 운이 좋아도 평균 500만 행. 이게 풀 스캔이고, 데이터가 늘어난 만큼 <strong>정직하게 같이 느려집니다.</strong></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong><code>email</code> 열에 인덱스를 만든다</strong><br>DB가 <strong>이메일만 뽑아 정렬해 둔 별도의 자료구조</strong>를 만듭니다(대부분 B-트리). 색인 페이지처럼 "이 이메일 → 원본 몇 번째 행" 이 적혀 있어요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>같은 조회를 다시 — 밀리초</strong><br>정렬돼 있으니 <strong>범위를 반씩 좁혀 가며</strong> 몇 단계 만에 도착합니다. 1,000만 행이 2,000만 행이 돼도 단계는 거의 안 늘어요. <span style="color:#065f46">3초가 1밀리초 아래로 내려갑니다.</span></div>
+      </div>
+    </div>
+
+    <h3>공짜가 아닙니다 — 인덱스의 대가</h3>
+    <p>여기까지만 보면 모든 열에 인덱스를 걸고 싶어집니다. 실제로 많은 초보 개발자가 그렇게 하고, 그러고 나서 <strong>쓰기가 느려졌다</strong>며 다시 옵니다. 대가는 둘이에요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">✍️</div>
+        <div class="card-title">쓰기가 느려진다</div>
+        <div class="card-body">행을 하나 넣거나 고칠 때마다 <strong>인덱스도 같이 고쳐야</strong> 합니다. 정렬 상태를 유지해야 하니까요. 인덱스가 다섯 개면 다섯 군데를 더 고칩니다. <strong>읽기를 위해 쓰기를 파는 거래</strong>예요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💾</div>
+        <div class="card-title">공간을 차지한다</div>
+        <div class="card-body">인덱스는 <strong>실제로 디스크에 저장되는 또 하나의 자료구조</strong>입니다. 책 뒤 색인이 종이를 잡아먹듯, 인덱스를 잔뜩 만들면 데이터 자체보다 인덱스가 더 클 수도 있어요.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>아무 열에나 붙이지 마세요</strong><br>
+        기준은 하나입니다 — <strong>"이 열이 조회 조건(<code>WHERE</code>·정렬·조인)에 실제로 자주 쓰이는가."</strong> 쓰이지 않는 인덱스는 쓰기만 느리게 하는 순손해입니다.<br>
+        특히 <strong>값의 종류가 몇 개 안 되는 열</strong>(성별, 상태값 3종 같은)은 인덱스를 만들어도 효과가 거의 없어요. 색인에서 "남" 항목을 찾았더니 <strong>500만 쪽이 적혀 있는</strong> 셈이라, 결국 대부분을 읽게 되거든요.<br>
+        참고로 기본 키(primary key)에는 <strong>인덱스가 이미 자동으로</strong> 붙어 있습니다. 그래서 <code>id</code>로 찾는 조회는 처음부터 빨랐던 거예요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 복제 ── -->
+  <section class="section" id="replication">
+    <div class="section-header">
+      <div class="section-icon icon-entity">📋</div>
+      <h2>복제: 같은 데이터를 여러 대에</h2>
+    </div>
+
+    <p>인덱스로 조회 하나하나를 빠르게 만들었습니다. 그런데 이번엔 <strong>조회 자체가 너무 많이</strong> 들어옵니다. DB 한 대가 초당 수만 건을 감당하지 못해 헐떡이고, 더 무서운 건 <strong>그 한 대가 죽으면 서비스 전체가 죽는다</strong>는 사실이죠. <a href="07-proxy-and-load-balancer.html#spof">07차시의 단일 장애점</a>이 이번엔 DB에서 반복되는 겁니다.</p>
+
+    <p>첫 번째 처방이 <strong>복제(replication)</strong>입니다. <strong>똑같은 데이터를 여러 대에 복사해 두는 것.</strong> 가장 널리 쓰는 구성은 <strong>리더-팔로워(leader-follower)</strong> 방식이고, 오래된 문서에서는 <strong>주-종(master-slave)</strong>이나 primary-replica라는 이름으로도 만납니다. 셋 다 같은 뜻이에요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 원본 장부는 하나, 사본은 여럿</strong><br>
+        회계 장부에 <strong>연필을 댈 수 있는 사람은 팀장 한 명</strong>입니다(리더). 팀장이 뭔가 적을 때마다 그 내용이 팀원들의 <strong>사본 장부에도 그대로 옮겨 적힙니다</strong>(팔로워).<br>
+        "지난달 매출 얼마였죠?" 같은 <strong>질문은 아무 팀원에게나</strong> 해도 됩니다. 사본에도 다 있으니까요. 덕분에 팀장은 적는 일에만 집중할 수 있죠.<br>
+        규칙은 딱 하나입니다 — <strong>쓰기는 반드시 한 곳으로, 읽기는 아무 데서나.</strong> 만약 팀원들이 각자 자기 사본에 적기 시작하면 장부는 그날로 엉망이 됩니다.
+      </div>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-step blue">✍️ 모든 쓰기</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">👑 리더 (Leader)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">📄 팔로워 1 · 2 · 3</div>
+      <div class="flow-arrow">←</div>
+      <div class="flow-step blue">👀 읽기 요청</div>
+    </div>
+
+    <p>가운데 화살표가 <strong>복제</strong>입니다. 리더는 자신에게 들어온 변경 내역을 팔로워들에게 계속 흘려보내고, 팔로워들은 그걸 순서대로 자기 데이터에 적용해 리더와 같은 상태를 유지해요. 애플리케이션은 <strong>쓰기 요청은 리더로, 읽기 요청은 팔로워로</strong> 보내도록 만들면 됩니다.</p>
+
+    <h3>복제를 하는 세 가지 이유</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <div class="card-title">읽기를 나눠 받는다</div>
+        <div class="card-body">대부분의 서비스는 <strong>읽기가 쓰기보다 압도적으로 많습니다.</strong> 팔로워를 세 대 두면 읽기 처리량이 얼추 네 배가 되죠. <a href="02-system-design-overview.html#scaling">수평 확장</a>을 DB에 적용하는 가장 쉬운 방법입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">장애에 대비한다</div>
+        <div class="card-body">한 대가 죽어도 <strong>같은 데이터를 가진 다른 대가 남아</strong> 있습니다. 디스크가 통째로 날아가도 데이터를 잃지 않고, 팔로워를 새 리더로 세워 서비스를 이어갈 수 있어요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌏</div>
+        <div class="card-title">가까운 곳에서 읽는다</div>
+        <div class="card-body">서울 사용자는 서울 팔로워에서, 유럽 사용자는 유럽 팔로워에서 읽습니다. <a href="06-caching-and-cdn.html#cdn">CDN이 정적 파일에 하는 일</a>을 <strong>데이터베이스가 데이터에 하는</strong> 셈입니다.</div>
+      </div>
+    </div>
+
+    <h3>복제 지연 — 방금 쓴 글이 안 보인다</h3>
+    <p>복제는 순간이동이 아닙니다. 리더에 쓴 내용이 팔로워에 도착하기까지는 <strong>시간이 걸려요.</strong> 보통 몇 밀리초지만, 쓰기가 몰리거나 네트워크가 나빠지면 몇 초까지 벌어집니다. 이 틈을 <strong>복제 지연(replication lag)</strong>이라고 하고, 사용자에게는 이렇게 보입니다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>사용자가 댓글을 씁니다</strong><br>쓰기니까 <strong>리더</strong>로 갑니다. 리더에는 확실히 저장됐고, 화면에도 "등록 완료"가 떴어요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>곧바로 새로고침을 합니다</strong><br>읽기니까 <strong>팔로워</strong>로 갑니다. 그런데 하필 복제가 아직 도착하지 않은 팔로워였습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>자기가 쓴 댓글이 안 보입니다</strong><br><span style="color:#b91c1c">"글이 날아갔어요"</span> — 문의가 들어옵니다. 그런데 서버 로그에는 <strong>에러가 하나도 없습니다.</strong> 저장은 정말로 성공했으니까요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>1초 뒤 새로고침하면 보입니다</strong><br>복제가 도착했거든요. 데이터를 잃은 게 아니라 <strong>잠깐 다른 시점을 본 것</strong>뿐입니다. 재현이 잘 안 돼서 더 골치 아픈 종류의 버그예요.</div>
+      </div>
+    </div>
+
+    <p>흔한 해법은 단순합니다 — <strong>방금 쓴 사용자에게만 잠깐 리더에서 읽게 하는 것.</strong> "내 글은 항상 최신으로 보인다"는 이 성질을 <strong>read-your-own-writes(자기가 쓴 것 읽기)</strong>라고 부릅니다. 남이 쓴 글이 1초 늦게 보이는 건 아무도 눈치채지 못하지만, <strong>내 글이 안 보이는 건 모두가 눈치채니까요.</strong></p>
+
+    <h3>동기 복제 vs 비동기 복제</h3>
+    <p>복제 지연이 얼마나 벌어질지는 <strong>리더가 언제 "저장 완료"라고 답하느냐</strong>에 달렸습니다. 여기서 갈립니다.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th></th><th>동기 복제(synchronous)</th><th>비동기 복제(asynchronous)</th></tr></thead>
+        <tbody>
+          <tr><td><strong>"완료"라고 답하는 시점</strong></td><td>팔로워가 <strong>받았다고 확인한 뒤</strong></td><td>리더가 <strong>자기한테 쓰자마자</strong></td></tr>
+          <tr><td><strong>쓰기 속도</strong></td><td>느림 — 팔로워를 기다립니다</td><td>빠름 — 아무도 안 기다립니다</td></tr>
+          <tr><td><strong>리더가 갑자기 죽으면</strong></td><td>팔로워에 이미 있으니 <strong>유실 없음</strong></td><td>아직 못 보낸 쓰기가 <strong>사라집니다</strong></td></tr>
+          <tr><td><strong>팔로워가 느려지거나 죽으면</strong></td><td><strong>쓰기 전체가 멈출 수</strong> 있습니다</td><td>리더는 아무 영향 없음</td></tr>
+          <tr><td><strong>복제 지연</strong></td><td>거의 없음</td><td>있음 (보통 밀리초~초)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>표를 관통하는 축은 <a href="06-caching-and-cdn.html#read-strategies">06차시의 쓰기 전략</a>과 똑같습니다 — <strong>안전한가 vs 빠른가.</strong> 그래서 실무에서는 절충안을 많이 씁니다. <strong>팔로워 한 대만 동기로 두고 나머지는 비동기로</strong> 두는 방식(반동기, semi-synchronous)이죠. 최소 두 대에는 확실히 남으니 유실 위험이 크게 줄고, 팔로워 한 대가 느려져도 나머지가 쓰기를 붙잡지 않습니다.</p>
+
+    <h3>리더가 죽으면 — 장애 조치(failover)</h3>
+    <p>리더가 멈추면 <strong>모든 쓰기가 중단됩니다.</strong> 읽기는 팔로워들이 버텨 주지만, 가입도 주문도 댓글도 안 되죠. 이때 <strong>팔로워 하나를 새 리더로 승격</strong>시키는 과정이 <strong>장애 조치(failover)</strong>입니다. 순서는 세 단계 — <a href="07-proxy-and-load-balancer.html#health">헬스 체크</a>로 리더가 죽었다고 판단하고, <strong>가장 최신 상태인 팔로워</strong>를 골라 새 리더로 세우고, 나머지 팔로워와 애플리케이션이 그 새 리더를 바라보게 바꿉니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>장애 조치는 생각보다 위험한 순간입니다</strong><br>
+        <strong>유실</strong> — 비동기 복제였다면, 옛 리더에만 있고 아무 팔로워에도 못 간 쓰기는 <strong>그대로 사라집니다.</strong> 결제가 그런 쓰기였다면 큰일이죠.<br>
+        <strong>리더가 둘</strong> — 죽은 줄 알았던 옛 리더가 되살아나 자기가 아직 리더인 줄 알고 쓰기를 받으면, 리더가 두 개가 되면서 데이터가 갈라집니다. 이걸 <strong>스플릿 브레인(split brain)</strong>이라고 해요.<br>
+        <strong>애초에 판단이 어렵다</strong> — <strong>정말 죽은 것</strong>과 <strong>네트워크만 잠깐 끊긴 것</strong>은 밖에서 구분할 방법이 없습니다. 성급히 승격하면 리더가 둘이 되고, 너무 기다리면 서비스가 멈춰요.<br>
+        이 마지막 딜레마가 다음다음 절 <a href="#cap">CAP</a>의 정체입니다. 기억해 두세요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 샤딩 ── -->
+  <section class="section" id="sharding">
+    <div class="section-header">
+      <div class="section-icon icon-query">🍕</div>
+      <h2>샤딩: 데이터를 여러 대에 쪼개기</h2>
+    </div>
+
+    <p>복제로 읽기는 해결됐습니다. 그런데 복제는 <strong>쓰기 문제를 전혀 풀지 못합니다.</strong> 모든 쓰기는 여전히 리더 한 대로 몰리고, 게다가 팔로워는 <strong>리더와 똑같은 데이터를 통째로</strong> 갖고 있어야 하니 <strong>용량 문제도 그대로</strong>예요. 데이터가 10TB면 열 대를 둬도 여전히 각자 10TB입니다.</p>
+
+    <p>그래서 다른 방향의 처방이 필요합니다. <strong>샤딩(sharding)</strong> — 데이터를 <strong>나눠서 각 서버가 일부만</strong> 맡는 것. 나뉜 조각 하나하나를 <strong>샤드(shard)</strong>라고 부르고, 이건 <a href="02-system-design-overview.html#scaling">수평 확장</a>을 데이터에 직접 적용하는 방법입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 큰 피자 한 판을 조각내 나눠 들기</strong><br>
+        지름 1미터짜리 피자를 <strong>혼자 들면</strong> 팔이 부러집니다. 여덟 조각으로 잘라 여덟 명이 <strong>한 조각씩</strong> 들면 각자 8분의 1만 감당하면 되죠. 사람을 더 부르면 조각을 더 잘게 나눌 수도 있고요.<br>
+        대신 규칙이 필요합니다 — <strong>어떤 토핑이 어느 조각에 있는지</strong> 아무도 모르면, 페퍼로니를 찾을 때마다 여덟 명 전부에게 물어봐야 하니까요. 이 "무엇이 어느 조각에 있는지 정하는 규칙"이 <strong>샤드 키(shard key)</strong>입니다.<br>
+        <strong>복제와의 차이</strong>도 여기서 분명해집니다. 복제는 <strong>같은 피자를 여러 판 굽는 것</strong>(한 판이 타도 괜찮음), 샤딩은 <strong>한 판을 조각내 나눠 드는 것</strong>(혼자 못 들 만큼 커졌을 때). 목적이 다르니 <strong>보통은 둘 다 씁니다</strong> — 각 샤드를 다시 리더-팔로워로 복제하는 게 실무의 표준 구성이에요.
+      </div>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-step blue">🙍 user_id = 7</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🧭 샤드 키로 계산</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🗄️ 샤드 3번만 조회</div>
+    </div>
+
+    <h3>샤드 키 고르기 — 세 가지 방식</h3>
+    <p>샤딩 설계의 90%는 <strong>"무엇을 기준으로 나눌 것인가"</strong>입니다. 한 번 정하면 바꾸기가 지독하게 어려워서, 여기서 잘못 고르면 몇 년을 고생해요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🔢</div>
+        <div class="card-title">해시 기반 (hash)</div>
+        <div class="card-body"><code>user_id</code>를 해시 함수에 넣고 <strong>샤드 개수로 나눈 나머지</strong>로 정합니다. <code>hash(id) % 4</code>처럼요.<br><strong>장점</strong> — 데이터가 아주 <strong>고르게 흩어집니다.</strong><br><strong>단점</strong> — 값이 뒤섞이므로 <strong>"3월 가입자 전부"</strong> 같은 범위 조회는 모든 샤드를 다 뒤져야 합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📏</div>
+        <div class="card-title">범위 기반 (range)</div>
+        <div class="card-body">값의 <strong>구간</strong>으로 나눕니다. <code>id 1~100만</code>은 1번 샤드, <code>100만~200만</code>은 2번 샤드.<br><strong>장점</strong> — 범위 조회가 <strong>샤드 하나로</strong> 끝납니다.<br><strong>단점</strong> — <strong>쏠리기 쉽습니다.</strong> 날짜로 나누면 <strong>새 데이터가 전부 마지막 샤드</strong>로 몰려, 그 한 대만 불타고 나머지는 놉니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌍</div>
+        <div class="card-title">지역 기반 (geo)</div>
+        <div class="card-body">사용자의 <strong>지역</strong>으로 나눕니다. 한국 사용자는 서울 샤드, 유럽 사용자는 프랑크푸르트 샤드.<br><strong>장점</strong> — 가까운 곳에서 읽고 쓰니 빠르고, <strong>"데이터를 국외로 내보내지 말라"</strong>는 규제에도 맞습니다.<br><strong>단점</strong> — 지역별 사용자 수가 <strong>애초에 균등하지 않습니다.</strong></div>
+      </div>
+    </div>
+
+    <p>고르는 기준은 결국 두 가지의 줄다리기예요 — <strong>얼마나 고르게 퍼지는가</strong>와 <strong>자주 하는 조회가 샤드 하나로 끝나는가.</strong> 해시는 앞을 잘하고 범위는 뒤를 잘합니다. 그리고 이 둘을 동시에 만족시키는 마법은 없습니다.</p>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>샤딩의 세 가지 함정 — 이래서 마지막 수단입니다</strong><br>
+        <strong>1. 핫스팟(hot spot)</strong> — 팔로워 5,000만 명짜리 계정 하나가 어느 샤드에 있다고 해 봅시다. 그 샤드만 트래픽으로 불타고 나머지는 한가합니다. <strong>고르게 나눴다고 트래픽까지 고르게 나뉘는 건 아니에요.</strong> 유명인 계정은 따로 빼거나, 샤드 키에 다른 값을 섞어 잘게 흩는 식으로 대응합니다.<br>
+        <strong>2. 샤드를 넘나드는 조회가 어렵다</strong> — <strong>조인이 사실상 불가능</strong>해집니다. 서로 다른 서버에 있는 표는 이어 붙일 수 없으니 애플리케이션이 각 샤드에서 따로 읽어 직접 합쳐야 해요. <strong>트랜잭션도 마찬가지</strong>입니다. 두 샤드에 걸친 이체를 원자적으로 처리하려면 훨씬 복잡한 장치가 필요합니다.<br>
+        <strong>3. 샤드를 추가하면 대이동이 일어난다</strong> — <code>% 4</code>로 나누다가 서버를 늘려 <code>% 5</code>로 바꾸는 순간, <strong>거의 모든 데이터의 소속이 한꺼번에 바뀝니다.</strong> 서비스를 열어 둔 채 이 이사를 하는 건 악몽이에요. <strong>이 문제를 우아하게 푸는 방법이 안정 해시(consistent hashing)</strong>이고, <a href="11-key-value-store.html#consistent-hashing">11차시 · Key-Value Store</a>에서 제대로 다룹니다.<br>
+        그래서 순서가 중요합니다 — <strong>인덱스 → 캐시 → 복제 → 그래도 안 되면 샤딩.</strong> 샤딩은 첫 카드가 아니라 마지막 카드입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CAP ── -->
+  <section class="section" id="cap">
+    <div class="section-header">
+      <div class="section-icon icon-tx">⚖️</div>
+      <h2>CAP: 셋 중 둘</h2>
+    </div>
+
+    <p>복제를 하든 샤딩을 하든, 데이터가 <strong>두 대 이상에 나뉘어 사는 순간</strong> 피할 수 없는 문제가 하나 생깁니다. <strong>서버들 사이의 연결이 끊기면 어떻게 할 것인가.</strong> <a href="#replication">앞 절 마지막</a>에서 미뤄 둔 그 딜레마죠. 이걸 정리한 것이 <strong>CAP 정리(CAP theorem)</strong>입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 두 지점 가게의 전화선이 끊겼을 때</strong><br>
+        본점과 지점이 재고를 <strong>전화로 계속 맞춰 가며</strong> 장사합니다. 남은 물건이 1개면 한쪽에서 팔았을 때 다른 쪽에 바로 알려야 하죠. 그런데 오늘, <strong>전화선이 끊겼습니다.</strong> 선택은 둘뿐입니다.<br>
+        <strong>① 문을 닫는다</strong> — "본점과 확인이 안 되니 지금은 판매를 중단합니다." 재고가 틀릴 일은 없지만 <strong>손님을 돌려보냅니다.</strong><br>
+        <strong>② 일단 판다</strong> — "각자 장부에 적고 나중에 맞추자." 손님은 다 받지만, <strong>같은 물건이 두 번 팔릴 수</strong> 있습니다.<br>
+        <strong>①이 CP, ②가 AP입니다.</strong> 전화선이 끊긴 상황 자체는 아무도 못 막으니, 남는 건 <strong>둘 중 무엇을 포기할지</strong>뿐이에요.
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">C · 일관성(Consistency)</div>
+        <div class="card-body"><strong>어느 서버에 물어봐도 같은 최신 값</strong>이 나옵니다. 방금 쓴 값을 읽으면 반드시 그 값이 나와야 해요. 위 비유의 <strong>"재고가 절대 틀리지 않는다"</strong>입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💚</div>
+        <div class="card-title">A · 가용성(Availability)</div>
+        <div class="card-body"><strong>살아 있는 서버는 반드시 답을 돌려줍니다.</strong> "지금은 확신이 없어 답 못 합니다"가 없어요. 위 비유의 <strong>"손님을 돌려보내지 않는다"</strong>입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✂️</div>
+        <div class="card-title">P · 분단 내성(Partition tolerance)</div>
+        <div class="card-body">서버들 사이 <strong>통신이 끊겨도 시스템이 계속 동작</strong>합니다. 위 비유의 <strong>"전화선이 끊겨도 가게는 굴러간다"</strong>. 이게 CAP의 핵심 축이에요.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>P는 포기할 수 있는 게 아닙니다 — 그래서 진짜 선택은 CP냐 AP냐</strong><br>
+        "셋 중 둘을 고르라"는 말 때문에 <strong>CA를 고르면 되지 않나</strong> 싶어집니다. 하지만 CA는 <strong>"네트워크가 절대 끊기지 않는다"</strong>는 가정 위에서만 성립해요. 케이블은 끊어지고 스위치는 고장 나고 데이터센터는 정전됩니다. 현실에서 <strong>분단은 선택 사항이 아니라 언젠가 반드시 일어나는 사건</strong>입니다.<br>
+        그래서 분산 시스템은 <strong>P를 이미 가진 채로 시작</strong>하고, 실제 질문은 이거 하나로 좁혀집니다 — <strong>"분단이 일어난 그 순간, 일관성을 지킬까(CP) 가용성을 지킬까(AP)?"</strong>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead><tr><th>이런 데이터라면</th><th>선택</th><th>끊겼을 때 어떻게 행동하나</th></tr></thead>
+        <tbody>
+          <tr><td><strong>은행 잔고 · 이체</strong></td><td><strong>CP</strong></td><td>확신이 없으면 <strong>차라리 거절</strong>합니다. "일시적 오류입니다"가 <strong>잔고가 두 번 빠져나가는 것</strong>보다 백 배 낫거든요.</td></tr>
+          <tr><td><strong>재고 · 좌석 예약</strong></td><td><strong>CP</strong></td><td>마지막 하나를 두 사람에게 팔면 반드시 사고가 납니다. 확인될 때까지 <strong>잠급니다.</strong></td></tr>
+          <tr><td><strong>SNS 좋아요 수</strong></td><td><strong>AP</strong></td><td>일단 각자 세고 나중에 맞춥니다. 좋아요가 잠깐 <strong>1,024개로 보였다 1,027개</strong>가 돼도 아무도 다치지 않아요.</td></tr>
+          <tr><td><strong>타임라인 · 게시글 목록</strong></td><td><strong>AP</strong></td><td>새 글이 몇 초 늦게 뜨는 것보다 <strong>화면이 아예 안 뜨는 것</strong>이 훨씬 나쁜 경험입니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>제품에도 이런 성향이 있습니다. Cassandra나 DynamoDB는 기본적으로 <strong>AP 쪽</strong>에 기울어 있고, HBase나 etcd·ZooKeeper 같은 것들은 <strong>CP 쪽</strong>입니다. 다만 요즘 제품은 대부분 <strong>설정으로 조절</strong>할 수 있어서, "이 DB는 CP다"라고 딱 잘라 외우기보다 <strong>"이 데이터는 어느 쪽이어야 하는가"</strong>를 먼저 정하는 게 맞습니다.</p>
+
+    <h3>최종적 일관성 — AP를 고른 뒤의 이야기</h3>
+    <p>AP를 골랐다고 <strong>영영 값이 어긋난 채로 사는 건</strong> 아닙니다. 연결이 회복되면 서버들은 서로의 변경을 주고받아 결국 같은 상태로 수렴해요. <strong>"지금 당장은 다를 수 있지만, 더 이상 쓰기가 없다면 언젠가는 모두 같아진다."</strong> 이 성질을 <strong>최종적 일관성(eventual consistency)</strong>이라고 합니다.</p>
+
+    <p>사실 이건 이미 만난 개념입니다. <a href="#replication">복제 지연</a>에서 <strong>방금 쓴 댓글이 1초 뒤에는 보였던 것</strong> — 그게 바로 최종적 일관성이에요. 인터넷의 상당 부분이 이 위에서 돌아갑니다. <a href="03-networking-basics.html#dns">DNS</a>도 그렇고요. 중요한 건 <strong>"언젠가"가 얼마나 짧은지</strong>, 그리고 <strong>그 사이의 어긋남을 사용자가 견딜 수 있는지</strong>입니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>CAP은 평상시 이야기가 아닙니다</strong><br>
+        가장 흔한 오해가 <strong>"우리는 AP를 골랐으니 일관성을 포기했다"</strong>는 식의 해석입니다. CAP이 말하는 선택은 <strong>오직 분단이 일어난 그 순간에만</strong> 발동해요. 네트워크가 멀쩡한 평상시에는 AP 시스템도 <strong>얼마든지 강한 일관성을 제공할 수</strong> 있습니다.<br>
+        그리고 평상시에 실제로 마주치는 저울질은 따로 있습니다 — <strong>일관성 vs 응답 속도.</strong> 모든 복제본의 확인을 받고 답하면 정확하지만 느리고, 한 대만 보고 답하면 빠르지만 살짝 낡은 값일 수 있죠. 이 평상시의 저울질까지 함께 설명하는 확장판을 <strong>PACELC</strong>라고 부릅니다. 이름만 알아 두면 충분해요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 파일은 DB에 넣지 않는다 ── -->
+  <section class="section" id="blob-storage">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🖼️</div>
+      <h2>파일은 DB에 넣지 않는다</h2>
+    </div>
+
+    <p>마지막으로 아주 실용적인 규칙 하나. 프로필 사진, 첨부 파일, 동영상 같은 것들은 <strong>데이터베이스에 넣지 않습니다.</strong> 넣을 수는 있어요. 대부분의 DB에 그런 타입이 있으니까요. 다만 <strong>거의 항상 나쁜 선택</strong>입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 서류함에 이삿짐을 넣지 않는 이유</strong><br>
+        사무실 <strong>서류함</strong>은 얇은 종이를 <strong>빠르게 찾으려고</strong> 만든 물건입니다. 여기에 냉장고와 소파를 밀어 넣으면 어떻게 될까요. 서랍은 곧 꽉 차고, 종이 한 장 찾으려 서랍을 여는 일조차 힘들어집니다.<br>
+        <strong>큰 짐은 창고</strong>에 넣고, 서류함에는 <strong>"3번 창고 B구역"이라고 적은 쪽지</strong>만 남기면 됩니다. 서류함은 다시 가벼워지고, 창고는 원래 짐을 쌓으라고 만든 곳이라 훨씬 싸고 넓어요.<br>
+        서류함이 <strong>데이터베이스</strong>, 창고가 <strong>객체 스토리지</strong>, 쪽지가 <strong>URL</strong>입니다.
+      </div>
+    </div>
+
+    <p>실제로 벌어지는 일도 비유 그대로입니다. 사진 몇 백만 장이 들어가면 DB 용량이 수 TB로 부풀고, <strong>백업과 복원이 몇 시간짜리 작업</strong>이 됩니다. <a href="#replication">복제</a>는 그 몇 TB를 팔로워마다 통째로 다시 복사해야 하고, DB의 비싼 메모리는 <strong>영영 다시 안 볼 동영상 조각</strong>으로 채워져요. 정작 필요한 <strong>인덱스와 자주 읽는 행</strong>이 밀려납니다. 게다가 DB 저장 공간은 파일 저장소보다 <strong>훨씬 비쌉니다.</strong></p>
+
+    <p>그래서 파일은 <strong>객체 스토리지(Object Storage)</strong>에 둡니다. 파일 하나하나에 <strong>고유한 키를 붙여 보관하고 URL로 꺼내 쓰는</strong>, 사실상 무한히 늘어나는 창고예요. Amazon S3가 대표적이고, Google Cloud Storage나 Azure Blob Storage도 같은 물건입니다. DB에는 <strong>그 URL 문자열 하나</strong>만 저장하면 끝나요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">📤 사용자 업로드</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🪣 객체 스토리지 (S3)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🗄️ DB엔 URL만 저장</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🌍 CDN으로 배포</div>
+    </div>
+
+    <p>마지막 칸이 중요합니다. 객체 스토리지에 올린 파일은 <strong>주소만 있으면 누구나 받아 갈 수 있는 정적 파일</strong>이라, <a href="06-caching-and-cdn.html#cdn">06차시의 CDN</a>이 가장 좋아하는 먹잇감이에요. 앞에 CDN을 한 겹 씌우면 전 세계 어디서든 가까운 곳에서 사진이 내려갑니다. <strong>"파일을 DB에서 꺼낸다"</strong>와 <strong>"파일이 CDN에서 내려온다"</strong>는 사용자 체감이 완전히 달라요.</p>
+
+    <p>덧붙여, 업로드 자체도 <strong>우리 서버를 거치지 않게</strong> 만들 수 있습니다. 서버는 <strong>"이 주소로 5분 안에 올리세요"라는 임시 허가증</strong>만 발급하고(프리사인드 URL, presigned URL), 실제 파일은 브라우저가 객체 스토리지로 직접 보냅니다. 100MB짜리 영상이 우리 서버의 대역폭과 메모리를 지나가지 않으니, <a href="04-server-and-client.html#stateless">서버는 계속 가볍게</a> 남을 수 있어요.</p>
+
+    <h3>정리 — 무엇을 어디에 두나</h3>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>이런 데이터는</th><th>여기에</th><th>왜</th></tr></thead>
+        <tbody>
+          <tr><td>회원 정보, 주문, 댓글 <strong>본문</strong></td><td><strong>데이터베이스</strong></td><td>조건으로 찾고, 이어 붙이고, 트랜잭션으로 묶어야 하니까</td></tr>
+          <tr><td>프로필 사진, 첨부 파일, 동영상</td><td><strong>객체 스토리지 + CDN</strong></td><td>크고, 안 바뀌고, 조회 조건이 <strong>주소 하나</strong>뿐이니까</td></tr>
+          <tr><td>세션, 인기 목록, 계산 결과</td><td><strong>캐시(Redis)</strong></td><td>자주 읽히고, <a href="06-caching-and-cdn.html#why-cache">잃어도 다시 만들 수</a> 있으니까</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 차시 정리</strong><br>
+        데이터가 사는 곳을 골랐고(<a href="#rdb-vs-nosql">RDB vs NoSQL</a>), 찾는 길을 냈고(<a href="#index">인덱스</a>), 한 대로 부족해지자 <strong>같은 것을 여러 벌 두고</strong>(<a href="#replication">복제</a>) <strong>나눠서 각자 일부를 맡겼습니다</strong>(<a href="#sharding">샤딩</a>). 그렇게 여러 대가 된 순간 <a href="#cap">CAP</a>이라는 피할 수 없는 선택을 만났고요.<br><br>
+        여기까지가 데이터를 <strong>"어디에 어떻게 두느냐"</strong>의 이야기였습니다. 다음 차시는 그 데이터가 <strong>너무 많아서</strong> 생기는 문제입니다 — 쌓인 데이터를 몰아서 처리할지 흐르는 대로 처리할지, 그 사이를 무엇이 이어 주는지. <a href="09-big-data.html">09차시 · 빅 데이터</a>로 갑니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="07-proxy-and-load-balancer.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">07 · 프록시와 로드 밸런서</span></a>
+    <a class="part-pager-link next" href="09-big-data.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">09 · 빅 데이터</span></a>
+  </div>
+
+  <div class="doc-footer">
+    System Design 101 · 08차시 · 스토리지 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

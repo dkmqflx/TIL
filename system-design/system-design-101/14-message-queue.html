@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>14차시 · Distributed Message Queue — 시스템 디자인 101</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">SYSTEM</span>
+      <span class="logo-text">시스템 디자인 101</span>
+    </a>
+    <div class="logo-sub">왕초보를 위한 시스템 디자인 첫걸음</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-item" href="index.html">01 · 오리엔테이션</a>
+    <a class="nav-item" href="02-system-design-overview.html">02 · 시스템 디자인 개요</a>
+    <a class="nav-item" href="03-networking-basics.html">03 · 네트워킹 기초</a>
+    <a class="nav-item" href="04-server-and-client.html">04 · 서버와 클라이언트</a>
+    <a class="nav-item" href="05-http-websocket-api.html">05 · HTTP, WebSocket, API</a>
+    <a class="nav-item" href="06-caching-and-cdn.html">06 · 캐싱과 CDN</a>
+    <a class="nav-item" href="07-proxy-and-load-balancer.html">07 · 프록시와 로드 밸런서</a>
+    <a class="nav-item" href="08-storage.html">08 · 스토리지</a>
+    <a class="nav-item" href="09-big-data.html">09 · 빅 데이터</a>
+    <a class="nav-item" href="10-design-process.html">10 · 문제 해결 프로세스</a>
+    <a class="nav-item" href="11-key-value-store.html">11 · Key-Value Store</a>
+    <a class="nav-item" href="12-rate-limiter.html">12 · Rate Limiter</a>
+    <a class="nav-item" href="13-url-shortener.html">13 · URL Shortener</a>
+    <div class="nav-section-title" style="margin-top:8px">14 · Distributed Message Queue</div>
+    <a class="nav-item" href="#requirements">📋 1단계 · 요구사항</a>
+    <a class="nav-item" href="#estimation">🧮 봉투 뒷면 계산</a>
+    <a class="nav-item" href="#high-level">🗺️ 2단계 · 개략 설계</a>
+    <a class="nav-item" href="#topic-partition">🗂️ 토픽과 파티션</a>
+    <a class="nav-item" href="#delivery-guarantee">📦 전달 보장 3종</a>
+    <a class="nav-item" href="#consumer-group">👥 소비자 그룹</a>
+    <a class="nav-item" href="#storage-replication">💾 저장과 복제</a>
+    <a class="nav-item" href="#wrap-up">✅ 코스 마무리</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="13-url-shortener.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">13 · URL Shortener</span></a>
+    <a class="part-pager-link next" href="index.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">전체 목차로</span></a>
+  </div>
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 14차시</div>
+    <h1>Distributed Message Queue 설계</h1>
+    <p>마지막 사례는 부품 하나가 아니라 부품과 부품 사이를 만드는 문제입니다. 09차시에서 우체통 한 대로 그렸던 메시지 큐(message queue)를, 이번에는 여러 대의 브로커(broker)로 늘려 하루 10억 건을 받아 내고 일주일 동안 잃어버리지 않게 만듭니다. 토픽과 파티션(partition)으로 일을 나누는 방법, 메시지를 몇 번 전달할지 고르는 세 가지 약속, 소비자 여러 대가 서로 겹치지 않게 나눠 읽는 방법, 그리고 브로커가 한 대 죽어도 메시지가 남아 있게 하는 복제까지 차례로 풉니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">브로커</span>
+      <span class="hero-chip">토픽 · 파티션</span>
+      <span class="hero-chip">오프셋</span>
+      <span class="hero-chip">전달 보장</span>
+      <span class="hero-chip">소비자 그룹</span>
+      <span class="hero-chip">복제 · ISR</span>
+    </div>
+  </div>
+
+  <!-- ── 1단계 · 요구사항 ── -->
+  <section class="section" id="requirements">
+    <div class="section-header">
+      <div class="section-icon icon-concept">📋</div>
+      <h2>1단계 · 문제 이해와 요구사항</h2>
+    </div>
+
+    <p>면접관이 말합니다. <strong>"분산 메시지 큐를 설계해 보세요."</strong> 우리는 이미 큐가 무엇인지 압니다 — <a href="09-big-data.html#message-queue-basics">09차시의 우체통</a>에서 <strong>생산자가 메시지를 넣고, 소비자가 자기 속도로 꺼내 쓰는</strong> 구조를 봤죠. 다만 그때 그린 우체통은 <strong>한 대짜리</strong>였습니다. 그 한 대가 죽으면 쌓여 있던 메시지가 통째로 사라지고, 초당 수만 건이 몰리면 그대로 넘어가요. 이번 차시는 그 우체통을 <strong>여러 대로 늘리는 문제</strong>입니다. 그리고 늘리는 순간, 한 대일 때는 공짜였던 것들이 <strong>전부 결정 사항으로 바뀝니다.</strong> 늘 그랬듯 첫 일은 그리기가 아니라 좁히기예요 — <a href="10-design-process.html#four-steps">10차시의 4단계 절차</a> 그대로입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 우체통에서 우체국 본점으로</strong><br>
+        동네 우체통은 구조가 단순합니다. <strong>구멍 하나, 집배원 한 명.</strong> 편지는 넣은 순서대로 쌓이고 집배원이 순서대로 꺼내 가죠.<br>
+        하루 10억 통을 다루는 <strong>우체국 본점</strong>은 다릅니다. 접수 창구가 <strong>수십 개</strong>고, 우편물은 종류별로 <strong>다른 선반</strong>에 놓이고, 선반 하나도 <strong>여러 상자로 나뉘어</strong> 있습니다. 집배원도 한 명이 아니라 <strong>한 팀</strong>이고, 서로 <strong>어느 상자를 맡을지 나눠</strong> 가져요.<br>
+        나눈 대가로 하나를 잃습니다. <strong>본점 전체를 관통하는 "들어온 순서"는 더 이상 존재하지 않아요.</strong> 오전 9시에 접수된 소포가 오전 10시에 접수된 등기보다 늦게 나갈 수 있습니다.
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>09차시의 그림을 두 군데만 정확하게 고칩니다</strong><br>
+        09차시는 큐를 처음 만나는 자리였으니 <strong>일부러 단순하게</strong> 그렸습니다. 이제 두 줄을 정밀하게 다듬습니다.<br>
+        <strong>① "들어온 순서대로"는 상자 하나 안에서만 참입니다.</strong> 큐를 여러 대로 나누는 순간 <strong>전체를 관통하는 순서는 사라져요.</strong> 무엇이 "상자"인지는 <a href="#topic-partition">토픽과 파티션</a>에서 정합니다.<br>
+        <strong>② "처리했다고 알리면 큐에서 지워진다"도 한 가지 방식일 뿐입니다.</strong> 지금 널리 쓰는 <strong>로그(log) 기반 브로커</strong>는 다 읽은 메시지를 지우지 않고 <strong>정해 둔 기간 동안 그대로 남겨</strong> 둡니다. 덕분에 같은 메시지를 <strong>다른 팀이 나중에 또 읽을 수 있어요.</strong> 이 이야기는 <a href="#storage-replication">저장과 복제</a>에서 이어집니다.
+      </div>
+    </div>
+
+    <h3>기능 요구사항</h3>
+    <p>기능은 넷입니다. 앞의 둘은 09차시 그대로고, <strong>뒤의 둘이 이 차시에서 새로 생긴 것</strong>이에요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">✍️</div>
+        <div class="card-title">생산자가 메시지를 보낸다</div>
+        <div class="card-body"><strong>생산자(producer)</strong>가 메시지를 하나 던지면 큐가 받아 둡니다. 생산자는 <strong>소비자가 몇 명인지, 살아 있는지 몰라도</strong> 됩니다. 대신 "확실히 받았다"는 답을 <strong>어디까지 기다릴지</strong>는 골라야 해요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛠️</div>
+        <div class="card-title">소비자가 메시지를 받는다</div>
+        <div class="card-body"><strong>소비자(consumer)</strong>가 자기 속도로 꺼내 처리합니다. 소비자를 <strong>여러 대로 늘리면 처리량도 같이 늘어야</strong> 하고, 그러면서도 <strong>같은 메시지를 둘이 동시에 붙잡지는 않아야</strong> 합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔢</div>
+        <div class="card-title">순서를 보장한다 — 같은 상자 안에서</div>
+        <div class="card-body">"주문 생성 → 결제 → 배송"이 <strong>뒤바뀌면 사고</strong>죠. 다만 전체 순서가 아니라 <strong>같은 파티션에 들어간 메시지끼리만</strong> 보장합니다. 같은 주문의 메시지를 <strong>같은 파티션으로 보내는 일</strong>이 그래서 중요해져요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📼</div>
+        <div class="card-title">한 번 쓴 메시지를 다시 읽는다</div>
+        <div class="card-body">읽었다고 바로 지우지 않고 <strong>정해진 기간 보관</strong>합니다. 소비자에 버그가 있었다면 <strong>어제 것부터 다시 돌릴 수</strong> 있고, 새 팀이 들어와 <strong>처음부터 읽을 수도</strong> 있어요.</div>
+      </div>
+    </div>
+
+    <h3>비기능 요구사항</h3>
+    <p>이 시스템의 성격은 아래 넷이 정합니다. 특히 <strong>셋째와 넷째가 서로를 잡아당깁니다.</strong></p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🌊</div>
+        <div class="card-title">대용량 · 수평 확장</div>
+        <div class="card-body">하루 <strong>10억 건</strong>을 받고, 모자라면 <strong>브로커를 더 붙여</strong> 늘립니다. <a href="02-system-design-overview.html#scaling">02차시의 수평 확장</a>이 그대로 요구사항이 돼요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧱</div>
+        <div class="card-title">지속성 — 꺼져도 잃지 않는다</div>
+        <div class="card-body">브로커가 <strong>전원이 나가도</strong> 받아 둔 메시지는 남아 있어야 합니다. 즉 메모리에만 두면 안 되고 <strong>디스크에 적어야</strong> 해요. 이 한 줄이 <a href="#storage-replication">저장 설계</a> 전체를 정합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">낮은 지연</div>
+        <div class="card-body">생산자는 메시지를 던지고 <strong>곧바로 자기 일로 돌아가야</strong> 합니다. 여기서 수십 ms를 쓰면 큐를 끼운 보람이 없어요. <strong>디스크에 적으면서도 빨라야</strong> 한다는 게 이 문제의 묘미입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎚️</div>
+        <div class="card-title">전달 보장을 고를 수 있다</div>
+        <div class="card-body">지표 수집은 <strong>몇 개 잃어도</strong> 괜찮고 결제는 <strong>절대 안</strong> 됩니다. 그러니 하나로 못 박지 말고 <strong>주제마다 고르게</strong> 열어 둬야 해요. <a href="#delivery-guarantee">세 가지 선택지</a>가 뒤에 나옵니다.</div>
+      </div>
+    </div>
+
+    <h3>면접관에게 물어볼 질문</h3>
+    <p>위 요구사항은 아래 질문의 답을 받아 적은 것입니다. 이번엔 <strong>첫 질문 하나가 설계 전체의 모양</strong>을 바꿉니다.</p>
+
+    <ul class="checklist">
+      <li><span><strong>메시지를 읽고 나면 지워도 되나요?</strong> — 지워도 된다면 <strong>작업 분배용 큐</strong>입니다. 남겨야 한다면 <strong>로그 기반 큐</strong>이고, 그러면 <strong>보존 기간과 저장 용량</strong>이 곧바로 설계 항목이 돼요. 이 답 하나로 저장 구조가 갈립니다.</span></li>
+      <li><span><strong>순서가 어디까지 중요한가요?</strong> — "전부 순서대로"를 요구하면 <strong>병렬 처리를 포기</strong>해야 합니다. 대개는 <strong>"같은 사용자 · 같은 주문 안에서만"</strong>이면 충분한데, 그 <strong>"같은 무엇"</strong>이 곧 <a href="#topic-partition">파티션 키</a>가 됩니다.</span></li>
+      <li><span><strong>메시지가 하나 없어져도 되나요, 두 번 와도 되나요?</strong> — 둘 중 하나는 반드시 골라야 합니다. <strong>둘 다 싫다</strong>는 답이 가장 비싼 선택이에요. <a href="#delivery-guarantee">전달 보장</a>에서 값을 매깁니다.</span></li>
+      <li><span><strong>하루 몇 건이고, 메시지 하나가 얼마나 큰가요?</strong> — 이 둘을 곱하면 <strong>하루 저장량</strong>이 나옵니다. 여기에 보존 기간을 곱한 값이 <strong>디스크 견적</strong>이에요. 바로 다음 절에서 굴립니다.</span></li>
+      <li><span><strong>소비자는 몇 팀인가요?</strong> — 한 팀만 읽는지, <strong>알림 팀·분석 팀이 같은 메시지를 각자</strong> 읽는지에 따라 <a href="#consumer-group">소비자 그룹</a>을 몇 개 둘지가 정해집니다.</span></li>
+    </ul>
+  </section>
+
+  <!-- ── 봉투 뒷면 계산 ── -->
+  <section class="section" id="estimation">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🧮</div>
+      <h2>봉투 뒷면 계산</h2>
+    </div>
+
+    <p>공식과 외워 둘 숫자는 <a href="10-design-process.html#estimation">10차시 · 봉투 뒷면 계산</a>에 있으니 여기서는 <strong>이 문제의 숫자만</strong> 굴립니다. 이번 계산이 답해야 할 질문은 둘이에요 — <strong>디스크가 얼마나 필요한가</strong>, 그리고 <strong>초당 이 양을 디스크에 적는 게 가능한 일인가.</strong></p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 창고를 짓기 전에 하루 물량부터 센다</strong><br>
+        우체국 본점을 새로 지을 때 <strong>창고 평수를 먼저 정하는 사람은 없습니다.</strong> 하루에 소포가 몇 개 들어오는지 세고, 며칠 동안 보관하기로 했는지를 곱해서, 그 결과에 맞는 창고를 짓죠.<br>
+        컨베이어 벨트 속도도 마찬가지예요. <strong>초당 몇 개가 들어오는지</strong>를 알아야 벨트를 몇 줄 깔지 정합니다.<br>
+        아래 계산이 딱 그 두 가지입니다 — <strong>창고 크기(디스크)</strong>와 <strong>벨트 속도(초당 처리량)</strong>. 둘 다 곱셈 몇 번이면 나옵니다.
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>가정을 소리 내어 말한다</strong><br>하루 <strong>10억 건</strong>의 메시지가 들어오고, 메시지 하나는 평균 <strong>1KB</strong>, 보존 기간은 <strong>7일</strong>로 잡겠습니다. 이 세 줄을 먼저 확인받고 시작해요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>초당 얼마나 들어오는지 구한다</strong><br><code>10억 ÷ 86,400초 ≈ 11,600건</code><br><code>11,600 × 1KB ≈ 11.6MB/초</code><br>건수는 <a href="13-url-shortener.html#estimation">13차시의 읽기 QPS</a>와 비슷한 크기라 놀랄 숫자가 아닙니다. 진짜 봐야 할 값은 아래 줄이에요 — <strong>초당 11.6MB를 디스크에 적어야</strong> 한다는 뜻이거든요.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>저장량을 구한다</strong><br><code>10억 × 1KB = 1TB</code> (하루)<br><code>1TB × 7일 = 7TB</code> (보존 기간 전체)<br>항상 손에 들고 있어야 할 데이터가 <strong>7TB</strong>입니다. 서버 한 대에 안 들어갈 크기는 아니지만, <strong>한 대에 몰아 두면 그 한 대가 곧 단일 장애점</strong>이 되죠 — <a href="07-proxy-and-load-balancer.html#spof">07차시의 SPOF</a>입니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>결론을 두 줄로 적는다</strong><br>첫째, <strong>7TB를 여러 대에 나눠 담아야</strong> 한다 — 그 나누는 단위가 <a href="#topic-partition">파티션</a>입니다. 둘째, <span style="color:#065f46"><strong>초당 11.6MB는 디스크에 순서대로만 쓴다면 충분히 감당됩니다.</strong></span> 왜 "순서대로"가 조건인지는 <a href="#storage-replication">일곱째 절</a>에서 풀어요.</div>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead><tr><th>항목</th><th>계산식</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td>초당 메시지 수</td><td><code>10억 ÷ 86,400</code></td><td>약 <strong>11,600건</strong></td></tr>
+          <tr><td>초당 데이터양</td><td><code>11,600 × 1KB</code></td><td>약 <strong>11.6MB</strong></td></tr>
+          <tr><td>하루 저장량</td><td><code>10억 × 1KB</code></td><td><strong>1TB</strong></td></tr>
+          <tr><td>7일치 저장량</td><td><code>1TB × 7</code></td><td><strong>7TB</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── 2단계 · 개략 설계 ── -->
+  <section class="section" id="high-level">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🗺️</div>
+      <h2>2단계 · 개략 설계</h2>
+    </div>
+
+    <p>이제 박스를 그립니다. 큰 그림은 09차시와 똑같아요 — <strong>생산자 → 큐 → 소비자.</strong> 달라지는 건 가운데 상자가 <strong>한 대가 아니라 여러 대</strong>라는 것뿐입니다. 그런데 그 "뿐"에서 <strong>네 개의 새 낱말</strong>이 나옵니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">✍️ 생산자</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🏤 브로커 1 · 2 · 3</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🛠️ 소비자</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 본점 평면도를 그려 본다</strong><br>
+        본점 안으로 들어가 봅시다. 건물은 <strong>여러 동(棟)</strong>으로 나뉘어 있고 각 동이 <strong>브로커</strong>입니다.<br>
+        동 안에는 <strong>선반</strong>이 종류별로 서 있어요. "주문", "결제", "로그" 같은 <strong>우편물 종류</strong>가 곧 <strong>토픽</strong>입니다.<br>
+        선반 하나는 다시 <strong>여러 상자</strong>로 나뉩니다. 이 상자가 <strong>파티션</strong>이고, 상자 안 편지에는 <strong>1번, 2번, 3번…</strong> 번호표가 붙어요. 이 번호표가 <strong>오프셋</strong>입니다.<br>
+        마지막으로 본점 사무실 벽에는 <strong>"어느 상자가 어느 동에 있는지" 적힌 현황판</strong>이 걸려 있습니다. 이게 곧 <strong>메타데이터</strong>예요. 아래 네 카드가 이 평면도 그대로입니다.
+      </div>
+    </div>
+
+    <h3>새로 나오는 낱말 넷</h3>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🏤</div>
+        <div class="card-title">브로커(broker)</div>
+        <div class="card-body">메시지를 <strong>실제로 받아서 디스크에 적어 두는 서버 한 대</strong>입니다. 여러 대가 모여 <strong>클러스터</strong>를 이루고, 늘리고 싶으면 <strong>여기에 한 대를 더 붙여요.</strong></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗄️</div>
+        <div class="card-title">토픽(topic)</div>
+        <div class="card-body">메시지의 <strong>주제 이름</strong>입니다. <code>orders</code>, <code>payments</code>처럼요. 생산자는 <strong>"어느 토픽에" 보낼지</strong>, 소비자는 <strong>"어느 토픽을" 읽을지</strong>만 말하면 됩니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">파티션(partition)</div>
+        <div class="card-body">토픽 하나를 <strong>여러 조각으로 쪼갠 단위</strong>입니다. 조각들이 <strong>서로 다른 브로커에 흩어져</strong> 있어서 용량도 처리량도 늘어나요. <strong>순서가 지켜지는 범위</strong>이기도 합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔖</div>
+        <div class="card-title">오프셋(offset)</div>
+        <div class="card-body">파티션 안에서 <strong>메시지에 붙는 일련번호</strong>입니다. 0, 1, 2… 순서로 <strong>계속 커지기만</strong> 해요. 소비자는 <strong>"몇 번까지 읽었는지"</strong>만 기억하면 됩니다.</div>
+      </div>
+    </div>
+
+    <h3>API</h3>
+    <p><a href="10-design-process.html#four-steps">2단계에서는 이름과 입출력만</a> 적으면 충분합니다. 이 시스템은 <strong>동사 셋</strong>이면 끝나요.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>API</th><th>입력</th><th>출력</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>produce(topic, key, value)</code></td>
+            <td>토픽 이름 · 파티션 키 · 내용</td>
+            <td>파티션 번호 + 오프셋</td>
+            <td>메시지를 보냅니다. <strong>키가 파티션을 정하고</strong>, 응답으로 <strong>"몇 번 상자 몇 번 자리에 넣었다"</strong>를 돌려받아요.</td>
+          </tr>
+          <tr>
+            <td><code>consume(topic, partition, offset)</code></td>
+            <td>토픽 · 파티션 · 시작 오프셋</td>
+            <td>메시지 묶음</td>
+            <td>지정한 자리부터 <strong>여러 건을 한 번에</strong> 가져옵니다. 한 건씩이 아니라 <strong>묶음으로</strong> 가져오는 게 성능의 핵심이에요.</td>
+          </tr>
+          <tr>
+            <td><code>commit(group, partition, offset)</code></td>
+            <td>그룹 이름 · 파티션 · 오프셋</td>
+            <td><code>200</code></td>
+            <td><strong>"여기까지 처리했다"</strong>를 기록합니다. 이 한 줄을 <strong>언제 부르느냐</strong>가 <a href="#delivery-guarantee">전달 보장</a>을 통째로 결정합니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>누가 무엇을 어디에 두었는지는 어떻게 아나</h3>
+    <p>브로커가 여러 대면 곧바로 질문이 하나 생깁니다. 생산자가 <code>orders</code> 토픽의 3번 파티션에 보내려면 <strong>그 파티션이 어느 브로커에 있는지</strong>를 알아야 하죠. 이 정보를 들고 있는 것이 <strong>메타데이터(metadata)</strong>이고, 그것을 관리하는 역할을 <strong>코디네이터(coordinator)</strong>라고 부릅니다. 하는 일은 세 가지예요 — <strong>어느 브로커가 어느 파티션을 맡는지</strong> 적어 두고, <strong>브로커가 죽었는지 살았는지</strong> 지켜보고, 죽었으면 <strong>대신할 브로커를 정해</strong> 알려 줍니다. 생산자와 소비자는 시작할 때 이 현황판을 한 번 받아 두고, 바뀔 때만 갱신받아요. 이 역할을 맡는 별도 시스템으로 <strong>ZooKeeper</strong>가 오래 쓰였고 요즘은 브로커들이 직접 나눠 맡는 방식도 흔합니다 — <strong>이름 정도만 알아 두면 충분합니다.</strong> 중요한 건 <strong>"현황판이 어딘가에 하나 있어야 한다"</strong>는 사실이에요.</p>
+  </section>
+
+  <!-- ── 토픽과 파티션 ── -->
+  <section class="section" id="topic-partition">
+    <div class="section-header">
+      <div class="section-icon icon-query">🗂️</div>
+      <h2>토픽과 파티션: 어떻게 나눌 것인가</h2>
+    </div>
+
+    <p>3단계 상세 설계의 첫 주제입니다. 앞에서 <strong>7TB를 나눠 담아야 한다</strong>고 결론 냈으니, 이제 <strong>무엇을 기준으로 나눌지</strong>를 정합니다. 나누는 방식이 곧 <strong>순서가 어디까지 지켜지는지</strong>를 정하기 때문에, 이 절은 용량 이야기이면서 동시에 순서 이야기예요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 선반 하나를 여러 상자로 나눈다</strong><br>
+        본점의 <strong>"등기" 선반</strong>에 하루 10억 통이 쌓인다고 해 봅시다. 선반이 하나면 <strong>넣는 사람도 한 명씩 줄을 서야</strong> 하고 <strong>꺼내는 사람도 한 명뿐</strong>이에요. 아무리 사람을 늘려도 <strong>선반이 병목</strong>입니다.<br>
+        그래서 등기 선반을 <strong>상자 네 개로 나눕니다.</strong> 이제 접수원 네 명이 <strong>동시에</strong> 넣을 수 있고 집배원 네 명이 <strong>동시에</strong> 꺼낼 수 있어요. 상자를 <strong>다른 동에 놓으면</strong> 창고 용량도 네 배가 됩니다.<br>
+        잃는 것도 분명합니다. <strong>상자 하나 안에서는 번호표 순서가 완벽하지만, 상자끼리는 순서가 없어요.</strong> 1번 상자의 100번 편지와 2번 상자의 100번 편지 중 <strong>어느 쪽이 먼저 접수됐는지 아무도 모릅니다.</strong><br>
+        <strong>선반이 토픽, 상자가 파티션</strong>입니다.
+      </div>
+    </div>
+
+    <h3>어느 상자에 넣을지는 키가 정한다</h3>
+    <p>그럼 메시지를 <strong>어느 파티션에 넣을지</strong>는 누가 정할까요? 생산자가 메시지와 함께 보내는 <strong>키(key)</strong>가 정합니다. 규칙은 한 줄이에요.</p>
+
+    <p style="text-align:center;font-size:15px;margin:20px 0"><code><strong>파티션 번호 = 해시(키) mod 파티션 개수</strong></code></p>
+
+    <p>이 모양이 낯익다면 맞습니다. <a href="08-storage.html#sharding">08차시의 샤딩</a>에서 <strong>어느 서버에 저장할지</strong>를 정하던 바로 그 계산이에요. <strong>파티션은 토픽에 적용한 샤딩</strong>입니다. 그래서 따라오는 성질도 똑같아요 — <strong>같은 키는 언제나 같은 파티션으로 갑니다.</strong></p>
+
+    <p>바로 여기서 <strong>순서 보장이 나옵니다.</strong> 주문 번호를 키로 쓰면 <code>주문 12번</code>의 "생성 → 결제 → 배송" 메시지가 <strong>전부 같은 상자</strong>에 들어가고, 상자 안에서는 번호표 순서가 완벽하니 <strong>이 세 건의 순서는 확실히 지켜집니다.</strong> 반면 <code>주문 12번</code>과 <code>주문 99번</code> 사이의 순서는 <strong>보장하지 않고, 보장할 필요도 없어요.</strong> 서로 아무 상관없는 주문이니까요. <strong>"무엇을 키로 쓸 것인가"가 곧 "무엇의 순서를 지킬 것인가"</strong>입니다. 키를 아예 안 주면 메시지는 파티션들에 <strong>골고루 흩어집니다</strong> — 순서가 필요 없는 로그 같은 데이터에 적합해요.</p>
+
+    <h3>메시지 한 건이 지나가는 길</h3>
+    <p>키로 파티션이 정해지고 나면 나머지는 단순합니다. 네 걸음이면 끝나요.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>생산자가 파티션을 고른다</strong><br>키를 해시해서 <code>해시(키) mod 4</code>를 계산합니다. 결과가 <code>2</code>라면 <strong>2번 파티션</strong>이고, 현황판을 보고 <strong>그 파티션을 가진 브로커</strong>에 직접 보냅니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>브로커가 파티션 맨 끝에 붙인다</strong><br>중간에 끼워 넣는 일은 <strong>절대 없습니다.</strong> 언제나 <strong>맨 끝에 이어 붙이고</strong> 새 오프셋을 하나 부여해요. 마지막이 <code>1046</code>이었다면 이 메시지는 <code>1047</code>입니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>소비자가 오프셋 순서로 읽는다</strong><br>"1040번부터 주세요"라고 요청하면 브로커가 <strong>1040, 1041, 1042…를 묶어서</strong> 돌려줍니다. 브로커는 <strong>보관하고 건네줄 뿐</strong>, 누가 어디까지 읽었는지를 <strong>스스로 판단하지 않아요.</strong></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>소비자가 오프셋을 커밋한다</strong><br>처리를 끝내면 <strong>"1047번까지 했다"</strong>고 기록합니다. 소비자가 죽었다 살아나면 <strong>이 기록의 다음 번호부터</strong> 이어서 읽어요. <strong>소비자가 기억할 것은 이 숫자 하나뿐</strong>입니다.</div>
+      </div>
+    </div>
+
+    <p>4번이 이 구조의 우아한 지점입니다. 소비자의 진행 상태가 <strong>숫자 하나</strong>로 표현되니, 소비자가 죽어도 <strong>그 숫자만 있으면 완벽하게 복구</strong>돼요. 게다가 그 숫자를 <strong>일부러 뒤로 돌리면</strong> 어제 것부터 다시 읽을 수 있습니다. <a href="#requirements">요구사항의 "반복 소비"</a>가 특별한 기능이 아니라 <strong>오프셋을 되감는 것뿐</strong>인 이유예요.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>함정 — 파티션 개수는 나중에 바꾸기 어렵습니다</strong><br>
+        규칙을 다시 보세요. <code>해시(키) mod 파티션 개수</code>. 파티션을 4개에서 8개로 늘리면 <strong>나누는 수가 바뀌므로 계산 결과가 통째로 달라집니다.</strong> 어제까지 2번 상자로 가던 주문이 오늘부터 6번 상자로 가요. <span style="color:#b91c1c">같은 주문의 메시지가 두 상자에 나뉘어 순서가 깨집니다.</span><br>
+        나눗셈의 나머지가 이렇게 흔들리는 문제를 다루는 기법이 <a href="11-key-value-store.html#consistent-hashing">11차시의 안정 해시</a>였죠. 다만 메시지 큐는 보통 <strong>더 단순한 길</strong>을 택합니다 — <strong>처음부터 넉넉하게 잡아 두고 함부로 바꾸지 않기.</strong> 파티션은 <strong>줄이는 것도 사실상 불가능</strong>하니, <strong>지금 필요한 수보다 넉넉히</strong> 시작하세요.<br>
+        그렇다고 무작정 많이 만들 수도 없습니다. 파티션 하나마다 <strong>파일과 연결과 복제가 딸려 오거든요.</strong> <a href="#consumer-group">소비자 그룹</a>에서 보겠지만 <strong>소비자 대수의 상한</strong>이 파티션 개수라는 점까지 감안해서 정합니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 전달 보장 3종 ── -->
+  <section class="section" id="delivery-guarantee">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">📦</div>
+      <h2>전달 보장 3종: 몇 번 전달할 것인가</h2>
+    </div>
+
+    <p>이제 이 차시에서 <strong>가장 자주 물어보는 주제</strong>입니다. 질문은 단순해요 — <strong>메시지 하나가 정확히 몇 번 처리되는가?</strong> 답이 "한 번"이면 좋겠지만, 네트워크가 끼어 있는 한 <strong>그 답은 공짜로 얻어지지 않습니다.</strong></p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 등기 우편의 수령 확인서</strong><br>
+        집배원이 등기를 배달하고 <strong>수령 확인서에 서명을 받아</strong> 우체국으로 돌아옵니다. 그런데 <strong>돌아오는 길에 확인서를 잃어버렸어요.</strong><br>
+        우체국 입장에서는 <strong>배달이 됐는지 안 됐는지 알 수 없습니다.</strong> 그리고 선택은 둘뿐이에요. <strong>"됐겠거니 하고 넘어간다"</strong> — 정말 안 됐다면 그 편지는 영영 사라집니다. 아니면 <strong>"확실히 하려고 한 번 더 보낸다"</strong> — 이미 받은 사람에게 <strong>같은 편지가 두 번</strong> 갑니다.<br>
+        <strong>"잃어버릴 수 있음"과 "두 번 갈 수 있음" 중 하나는 반드시 골라야 합니다.</strong> 확인서가 사라지는 일 자체를 막을 방법은 없으니까요. 아래 세 가지는 이 선택에 붙인 이름입니다.
+      </div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead><tr><th>보장</th><th>어떻게 동작하나</th><th>대가</th><th>어디에 쓰나</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>at-most-once</strong><br>(최대 한 번)</td>
+            <td>보내고 <strong>잊습니다.</strong> 답을 기다리지 않고, 소비자도 <strong>처리하기 전에 먼저 커밋</strong>해요.</td>
+            <td><span style="color:#b91c1c">유실 가능</span> · 중복 없음</td>
+            <td>접속 로그, 클릭 지표처럼 <strong>몇 건 없어져도 통계가 흔들리지 않는</strong> 데이터.</td>
+          </tr>
+          <tr>
+            <td><strong>at-least-once</strong><br>(적어도 한 번)</td>
+            <td>답이 올 때까지 <strong>다시 보냅니다.</strong> 소비자도 <strong>처리를 끝낸 뒤에</strong> 커밋해요.</td>
+            <td>유실 없음 · <span style="color:#b91c1c">중복 가능</span></td>
+            <td><strong>가장 흔한 기본값.</strong> 알림 발송, 썸네일 생성처럼 두 번 해도 큰일 안 나는 일.</td>
+          </tr>
+          <tr>
+            <td><strong>exactly-once</strong><br>(정확히 한 번)</td>
+            <td>생산자 재전송에 <strong>일련번호</strong>를 붙여 중복을 걸러 내고, 처리와 커밋을 <strong>한 묶음</strong>으로 처리합니다.</td>
+            <td>유실도 중복도 없음 · <span style="color:#b91c1c">느리고 복잡함</span></td>
+            <td>결제, 정산처럼 <strong>한 번 더 처리되면 사고</strong>인 일.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>중복은 왜 생기나</h3>
+    <p>at-least-once에서 중복이 생기는 장면을 한 번 따라가 봅시다. <strong>메시지가 안 갔을 때가 아니라, 갔는데 답이 안 왔을 때</strong>가 문제입니다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>메시지는 잘 갔는데 답이 오는 길에 사라진다</strong><br>브로커에 정상적으로 도착해 <strong>디스크에도 적혔고</strong>, 브로커는 <strong>분명히 답을 보냈습니다.</strong> 그런데 그 응답이 <strong>네트워크에서 유실</strong>됐어요. 비유의 <strong>잃어버린 수령 확인서</strong>가 정확히 이 지점입니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>생산자는 실패로 판단하고 다시 보낸다</strong><br>생산자가 아는 것은 <strong>"답이 안 왔다"</strong>뿐입니다. <strong>안 갔는지, 갔는데 답만 안 왔는지 구분할 방법이 없어요.</strong> 유실이 싫다면 <strong>다시 보내는 것 말고 방법이 없습니다.</strong></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>같은 메시지가 두 건 쌓인다</strong><br>브로커에는 <strong>내용이 같고 오프셋만 다른</strong> 메시지가 둘 생깁니다. 소비자는 이걸 <strong>서로 다른 두 건으로</strong> 받아요. <span style="color:#b91c1c">결제였다면 두 번 결제됩니다.</span></div>
+      </div>
+    </div>
+
+    <p>소비자 쪽에도 같은 구멍이 있습니다. <strong>처리는 끝냈는데 커밋 직전에 죽으면</strong>, 다시 살아난 소비자는 커밋되지 않은 그 메시지를 <strong>처음부터 다시 처리</strong>합니다. 순서를 바꿔 <strong>커밋을 먼저 하면</strong> 이번엔 반대로 <strong>처리 못 한 메시지를 영영 건너뛰어요.</strong> 이것이 각각 at-least-once와 at-most-once의 정체입니다 — <strong>거창한 설정이 아니라 커밋을 처리 뒤에 하느냐 앞에 하느냐의 차이</strong>예요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>실무의 답 — exactly-once를 사는 대신 소비자를 멱등하게 만듭니다</strong><br>
+        exactly-once는 <strong>불가능하지는 않지만 비쌉니다.</strong> 생산자 재전송을 걸러 내고 처리와 커밋을 한 묶음으로 묶느라 <strong>처리량이 떨어지고 부품이 늘어나요.</strong> 게다가 큐 바깥으로 나가는 일 — <strong>외부 결제사 호출이나 메일 발송</strong> 같은 것 — 까지 되돌려 주지는 못합니다.<br>
+        그래서 실무의 표준 답은 이겁니다. <strong>at-least-once를 쓰고, 소비자를 멱등(idempotent)하게 만든다.</strong> 멱등은 <a href="05-http-websocket-api.html#methods-status">05차시에서 본</a> 그 성질이에요 — <strong>몇 번 실행해도 결과가 같은 것.</strong><br>
+        만드는 방법도 단순합니다. 메시지마다 <strong>고유 ID</strong>를 붙이고, 소비자는 <strong>이미 처리한 ID인지 먼저 확인</strong>한 뒤 처리해요. 또는 <strong>"포인트를 100 더한다" 대신 "포인트를 500으로 정한다"</strong>처럼 <strong>여러 번 해도 같은 결과가 나오는 연산</strong>으로 바꿉니다. <strong>중복을 막는 대신, 중복이 와도 안전하게 만드는 것</strong>이 훨씬 쌉니다.
+      </div>
+    </div>
+
+    <h3>브로커가 밀어 줄까, 소비자가 가지러 갈까</h3>
+    <p>전달 방식에도 갈림길이 하나 있습니다. 메시지가 준비됐을 때 <strong>브로커가 소비자에게 밀어 넣을지</strong>, 소비자가 <strong>때가 되면 가지러 올지</strong>예요.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">📤 푸시(push) — 브로커가 민다</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          메시지가 도착하는 <strong>즉시</strong> 소비자에게 보냅니다.<br><br>
+          <strong>좋은 점</strong> — <strong>지연이 가장 낮습니다.</strong> 소비자가 물어보러 오기를 기다릴 필요가 없으니까요.<br><br>
+          <strong>나쁜 점</strong> — 소비자가 <strong>감당 못 할 속도로 밀어붙일 수</strong> 있습니다. 초당 1천 건밖에 못 하는 소비자에게 1만 건을 밀면 <strong>소비자가 넘어가요.</strong> 막으려면 브로커가 소비자마다 <strong>속도를 따로 살펴야</strong> 합니다.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--green-soft);color:#065f46;border-bottom:1px solid #a7f3d0">📥 풀(pull) — 소비자가 가져간다</div>
+        <div style="padding:16px;font-size:13px;color:#374151">
+          소비자가 <strong>"1040번부터 주세요"</strong>라고 요청해 가져옵니다.<br><br>
+          <strong>좋은 점</strong> — <strong>속도를 소비자가 쥡니다.</strong> 바쁘면 천천히 가져가면 그만이라 넘어갈 일이 없어요. <strong>여러 건을 한 번에</strong> 묶어 오기 쉽고, <strong>오프셋을 되감아 다시 읽기</strong>도 자연스럽습니다.<br><br>
+          <strong>나쁜 점</strong> — 메시지가 없을 때도 <strong>계속 물어보게</strong> 됩니다. 그래서 보통 <strong>"생길 때까지 잠깐 기다렸다 답하기"</strong>로 헛걸음을 줄여요.
+        </div>
+      </div>
+    </div>
+
+    <p>기본값은 <strong>풀</strong>입니다. 이유는 <strong>소비자가 속도를 쥔다</strong>는 한 줄이 나머지를 전부 끌고 오기 때문이에요 — 밀린 소비자가 <strong>스스로 천천히 따라잡을 수</strong> 있고, 앞 절에서 본 <strong>되감아 다시 읽기</strong>가 특별한 기능 없이 그냥 되고, <a href="#consumer-group">소비자를 늘리고 줄이는 일</a>도 브로커가 아무것도 몰라도 됩니다. 헛걸음 문제는 <strong>기다렸다 답하기</strong>로 간단히 덮을 수 있고요.</p>
+  </section>
+
+  <!-- ── 소비자 그룹 ── -->
+  <section class="section" id="consumer-group">
+    <div class="section-header">
+      <div class="section-icon icon-compare">👥</div>
+      <h2>소비자 그룹: 여러 대가 나눠 읽기</h2>
+    </div>
+
+    <p>파티션으로 <strong>넣는 쪽</strong>을 병렬로 만들었으니, 이제 <strong>꺼내는 쪽</strong> 차례입니다. 소비자 한 대가 초당 1만 건을 못 따라간다면 <strong>여러 대를 띄우면</strong> 되겠죠. 그런데 아무 규칙 없이 띄우면 <strong>모두가 같은 메시지를 각자 처리해</strong> 알림이 세 번 갑니다. 이 조율을 맡는 것이 <strong>소비자 그룹(consumer group)</strong>이에요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 한 팀 집배원들이 상자를 나눠 맡는다</strong><br>
+        아침에 집배원 팀이 모여 <strong>"오늘 1번 상자는 내가, 2번 상자는 네가"</strong> 하고 나눕니다. 한 상자는 <strong>팀 안에서 반드시 한 명만</strong> 맡아요. 그래야 같은 편지를 <strong>둘이 배달하는 일이 없습니다.</strong><br>
+        상자가 4개인데 팀원이 5명이면 어떻게 될까요? <strong>한 명은 오늘 놀아야 합니다.</strong> 상자를 반씩 나눠 맡을 수는 없으니까요. <strong>팀 인원의 상한은 상자 개수</strong>입니다.<br>
+        그리고 결정적인 부분 — <strong>팀은 하나가 아닙니다.</strong> 배달 팀과 <strong>통계 팀</strong>이 따로 있어서, 통계 팀은 <strong>같은 상자를 처음부터 다시</strong> 훑어 볼 수 있어요. <strong>팀끼리는 서로 방해하지 않습니다.</strong> 각자 자기 진도표를 따로 들고 있거든요.
+      </div>
+    </div>
+
+    <h3>규칙은 한 줄이다</h3>
+    <p><strong>하나의 파티션은, 하나의 그룹 안에서 한 소비자만 읽는다.</strong> 이 한 줄에서 나머지가 전부 따라 나옵니다. 파티션이 4개인 토픽에 소비자를 늘려 가며 어떻게 되는지 보세요.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>그룹 안 소비자 수</th><th>배정</th><th>결과</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1대</strong></td><td>A가 <code>P0 P1 P2 P3</code> 전부</td><td>병렬이 전혀 없습니다. 소비자 한 대가 <strong>네 상자를 혼자</strong> 감당해요.</td></tr>
+          <tr><td><strong>2대</strong></td><td>A가 <code>P0 P1</code> · B가 <code>P2 P3</code></td><td><strong>2개씩</strong> 나눠 맡습니다. 처리량이 정확히 <strong>두 배</strong>가 돼요.</td></tr>
+          <tr><td><strong>4대</strong></td><td>A · B · C · D가 <strong>하나씩</strong></td><td><span style="color:#065f46">최대 병렬입니다.</span> 이 토픽에서 낼 수 있는 <strong>가장 빠른 구성</strong>이에요.</td></tr>
+          <tr><td><strong>5대</strong></td><td>넷이 하나씩 · <strong>한 대는 배정 없음</strong></td><td><span style="color:#b91c1c">한 대가 놉니다.</span> 파티션이 4개뿐이라 <strong>더 나눠 줄 것이 없어요.</strong> 처리량은 4대일 때와 같습니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>마지막 줄이 <a href="#topic-partition">앞 절의 함정</a>과 이어집니다. <strong>파티션 개수가 소비자 대수의 상한</strong>이에요. 나중에 트래픽이 열 배로 늘어 소비자를 20대로 늘리고 싶어도, <strong>파티션이 4개면 16대는 놀고 있습니다.</strong> 그래서 파티션 개수를 정할 때는 지금 필요한 처리량이 아니라 <strong>몇 배까지 늘릴 셈인지</strong>를 보고 잡아야 해요.</p>
+
+    <h3>소비자가 들어오고 나갈 때 — 재조정</h3>
+    <p>소비자를 한 대 더 띄우거나, 한 대가 죽거나, 배포 때문에 잠깐 껐다 켜면 <strong>상자 배정을 다시 짜야</strong> 합니다. 이 과정을 <strong>재조정(rebalance)</strong>이라고 해요. 코디네이터가 <strong>지금 살아 있는 소비자 목록</strong>을 확인하고 파티션을 새로 나눠 준 뒤, 각 소비자는 <strong>새로 맡은 파티션의 마지막 커밋 오프셋부터</strong> 이어서 읽습니다. 진행 상태가 <strong>숫자 하나</strong>였기에 인수인계가 이렇게 간단한 거예요. 다만 재조정이 도는 <strong>그 짧은 순간에는 처리가 멈춥니다.</strong> 그래서 소비자를 <strong>자주 껐다 켜는 것은 생각보다 비싸고</strong>, 응답이 잠깐 늦은 소비자를 성급하게 죽은 것으로 판정하면 <strong>필요 없는 재조정이 반복되며 처리량이 뚝 떨어집니다.</strong></p>
+
+    <h3>그룹이 여럿이면 같은 메시지를 각자 읽는다</h3>
+    <p>여기가 이 구조에서 <strong>가장 실용적인 부분</strong>입니다. <code>orders</code> 토픽 하나를 <strong>알림 그룹</strong>과 <strong>분석 그룹</strong>이 각각 읽는다고 해 봅시다. 두 그룹은 <strong>진도표를 따로</strong> 들고 있으므로 <strong>서로에게 아무 영향을 주지 않아요.</strong> 알림 그룹이 실시간으로 따라가는 동안 분석 그룹은 <strong>한 시간에 한 번 몰아서</strong> 읽어도 되고, 새 팀이 들어와 <strong>7일 전부터 처음부터</strong> 훑어도 다른 팀은 아무것도 모릅니다. <strong>생산자는 여전히 한 번만 보냈을 뿐인데</strong> 소비하는 팀은 얼마든지 늘어날 수 있어요. <a href="09-big-data.html#batch-vs-stream">09차시의 스트리밍과 배치</a>가 <strong>같은 토픽 위에 나란히 올라갈 수 있는</strong> 이유가 이것입니다.</p>
+  </section>
+
+  <!-- ── 저장과 복제 ── -->
+  <section class="section" id="storage-replication">
+    <div class="section-header">
+      <div class="section-icon icon-page">💾</div>
+      <h2>저장과 복제: 잃어버리지 않기</h2>
+    </div>
+
+    <p>마지막 상세 설계입니다. <a href="#estimation">계산</a>에서 남겨 둔 숙제가 둘 있었죠 — <strong>초당 11.6MB를 디스크에 적는 게 가능한가</strong>, 그리고 <strong>7TB를 들고 있는 브로커가 죽으면 어떻게 되는가.</strong> 차례로 답합니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 장부에 끼워 넣기 vs 이어 적기</strong><br>
+        창구 직원이 접수 기록을 장부에 적습니다. 만약 <strong>"이 편지는 3월 12일자 뒤에 끼워 넣어야 해"</strong>라면 매번 <strong>해당 쪽을 찾아 펼치고, 자리를 만들고, 뒷장을 밀어야</strong> 합니다. 한 건 적는 데 한참 걸려요.<br>
+        그런데 <strong>"무조건 맨 뒷장에 이어 적기"</strong>라면? 장부는 <strong>이미 마지막 쪽이 펼쳐져</strong> 있습니다. 펜을 대고 <strong>쓰기만</strong> 하면 끝이에요. 같은 펜, 같은 종이인데 <strong>속도가 완전히 다릅니다.</strong><br>
+        디스크도 똑같습니다. 느린 건 <strong>기록하는 행위</strong>가 아니라 <strong>기록할 자리를 찾아가는 일</strong>이거든요. 그래서 메시지 큐는 <strong>오직 이어 적기만</strong> 합니다.
+      </div>
+    </div>
+
+    <h3>왜 디스크에 쓰는데도 빠른가</h3>
+    <p><a href="06-caching-and-cdn.html#why-cache">06차시의 지연 시간 표</a>에서 하드디스크가 <strong>약 10ms</strong>로 메모리보다 <strong>10만 배쯤 느리다</strong>고 했습니다. 그 숫자만 보면 "디스크에 적으면서 낮은 지연"은 모순처럼 들려요. 그런데 그 10ms의 대부분은 <strong>원하는 자리를 찾아가는 시간</strong>이고, 데이터를 흘려보내는 속도 자체는 그렇게 느리지 않습니다. 메시지 큐는 <a href="#topic-partition">앞에서 본 것처럼</a> <strong>파티션 파일 맨 끝에 이어 붙이기만</strong> 해요. 수정도, 중간 삽입도, 삭제도 없으니 <strong>자리를 찾아갈 일이 아예 없습니다.</strong> 여기에 <strong>여러 건을 모아 한 번에 쓰는</strong> 방식까지 더하면 <strong>초당 11.6MB는 디스크 한 대에게 여유로운 숫자</strong>가 됩니다. 읽는 쪽도 마찬가지예요 — 소비자는 <strong>오프셋 순서대로 앞에서 뒤로만</strong> 읽으니 이것도 순차 접근입니다. <strong>"이어 적고 순서대로 읽는다"는 규칙 하나가 지속성과 속도를 동시에 가져옵니다.</strong></p>
+
+    <h3>파일은 어떻게 관리되나</h3>
+    <p>파티션 하나가 파일 하나로 무한히 커지면 곤란하니 <strong>일정 크기마다 끊어</strong> 관리합니다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>세그먼트(segment) 파일에 이어 쓰고, 차면 새 조각을 연다</strong><br>파티션은 <strong>여러 개의 파일 조각</strong>이고 새 메시지는 <strong>가장 최근 조각의 끝</strong>에 붙습니다. 1GB가 찼거나 하루가 지나면 그 조각을 <strong>닫고 새 조각을 열어요.</strong> 닫힌 조각은 <strong>더 이상 변하지 않아</strong> 백업도 복제도 다루기 쉽습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>보존 기간이 지난 조각을 통째로 지운다</strong><br>7일이 지난 조각은 <strong>파일 단위로 삭제</strong>합니다. 메시지를 한 건씩 골라 지우는 게 아니라 <strong>조각 하나를 통째로</strong> 버려요. <strong>지우는 일까지 순차 작업</strong>인 셈입니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>지우는 기준은 "누가 읽었는가"가 아니다</strong><br>여기가 09차시 그림과 갈리는 지점입니다. 소비자가 다 읽었어도 <strong>보존 기간이 남았으면 남아 있고</strong>, 아무도 안 읽었어도 <strong>기간이 지나면 사라집니다.</strong> 그래서 <strong>보존 기간을 소비자가 밀릴 수 있는 최대 시간보다 넉넉히</strong> 잡아야 해요.</div>
+      </div>
+    </div>
+
+    <h3>브로커가 죽어도 메시지가 남으려면</h3>
+    <p>이제 둘째 숙제입니다. 파티션이 <strong>브로커 한 대에만</strong> 있다면 그 브로커가 죽는 순간 <strong>그 파티션의 메시지 전부를 잃습니다.</strong> 답은 <a href="08-storage.html#replication">08차시의 복제</a> 그대로예요 — <strong>같은 파티션을 여러 브로커에 복사해 둡니다.</strong> 구조도 08차시와 같습니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">✍️ 생산자</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">👑 리더 (브로커 1)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">📄 팔로워 (브로커 2 · 3)</div>
+    </div>
+
+    <p>파티션 하나마다 <strong>리더(leader)</strong>가 한 대 정해지고, 생산자와 소비자는 <strong>오직 리더하고만</strong> 이야기합니다. <strong>팔로워(follower)</strong>들은 리더를 계속 따라 읽으며 <strong>같은 내용을 자기 디스크에 베껴 둬요.</strong> 이 중에서 <strong>리더를 충분히 따라잡은 복제본</strong>들을 <strong>ISR(In-Sync Replicas)</strong>이라고 부릅니다. 한참 뒤처진 팔로워는 <strong>ISR에서 빠지고</strong>, 다시 따라잡으면 돌아와요. <strong>ISR은 "지금 믿을 만한 복사본 명단"</strong>입니다. 복제본을 <strong>3벌</strong> 두기로 하면 저장 견적도 함께 늘어납니다 — <code>7TB × 3 = 21TB</code>.</p>
+
+    <h3>생산자는 어디까지 기다릴 것인가 — acks</h3>
+    <p>여기서 <strong>지연과 안전</strong>이 정면으로 부딪힙니다. 생산자가 <strong>"보냈다"고 안심하는 시점</strong>을 언제로 할지 고르는 설정이 <code>acks</code>예요.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th><code>acks</code></th><th>언제 "성공"이라 답하나</th><th>유실 위험</th><th>속도</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>0</strong></td>
+            <td>보내자마자. <strong>브로커 응답을 아예 기다리지 않습니다.</strong></td>
+            <td><span style="color:#b91c1c">큼</span> — 도착조차 확인 안 함</td>
+            <td>가장 빠름</td>
+          </tr>
+          <tr>
+            <td><strong>1</strong></td>
+            <td><strong>리더가 자기 로그에 적으면</strong> 곧바로 성공.</td>
+            <td>중간 — <strong>팔로워가 베끼기 전에 리더가 죽으면</strong> 그 구간이 사라짐</td>
+            <td>중간</td>
+          </tr>
+          <tr>
+            <td><strong>all</strong></td>
+            <td><strong>ISR 전부가 베껴 갈 때까지</strong> 기다립니다.</td>
+            <td><span style="color:#065f46">가장 작음</span> — 리더가 죽어도 남아 있음</td>
+            <td>가장 느림</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>고르는 법은 <a href="#requirements">요구사항</a>이 정합니다. 지표·로그는 <strong>0이나 1</strong>이면 충분하고, 결제나 주문은 <strong>망설임 없이 all</strong>이에요. 한 클러스터 안에서도 <strong>토픽마다 다르게</strong> 정할 수 있다는 점이 중요합니다. <a href="#requirements">"전달 보장을 고를 수 있어야 한다"</a>는 비기능 요구사항이 <strong>이 설정 하나로 구현되는</strong> 셈이에요.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>리더가 죽으면 — 승격은 ISR 안에서만</strong><br>
+        리더 브로커가 죽으면 코디네이터가 <strong>ISR 명단에서 한 대를 골라 새 리더로 승격</strong>시킵니다. 생산자와 소비자는 현황판을 다시 받아 <strong>새 리더에게 말을 걸어요.</strong> 잠깐 멈추긴 하지만 <strong>메시지는 남습니다.</strong><br>
+        ISR 안에서만 고르는 이유는 <strong>뒤처진 복제본을 리더로 세우면 그 차이만큼이 통째로 사라지기</strong> 때문입니다. 그런데 <strong>ISR이 텅 비어 버리는</strong> 상황도 있어요. 이때 선택은 둘뿐입니다 — <strong>리더가 살아날 때까지 그 파티션을 멈춰 두거나</strong>(가용성 포기), <strong>뒤처진 복제본이라도 세워 서비스를 계속하거나</strong>(일부 유실 감수). <a href="08-storage.html#cap">08차시의 CAP</a>가 말하던 <strong>일관성과 가용성 사이의 선택</strong>이 여기서 설정 항목 하나로 실물이 되어 나타납니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 코스 마무리 ── -->
+  <section class="section" id="wrap-up">
+    <div class="section-header">
+      <div class="section-icon icon-tx">✅</div>
+      <h2>4단계 · 마무리와 트레이드오프</h2>
+    </div>
+
+    <p>마지막 5분입니다. 이번에도 <strong>왜 그걸 골랐고 무엇을 포기했는지</strong>를 정리해요. 이 문제는 특히 <strong>"포기한 것"이 선명합니다</strong> — 전역 순서를 버려 병렬을 얻었고, 중복 없음을 버려 유실 없음을 얻었죠. 그 맞바꿈을 <strong>스스로 먼저 말하는 것</strong>이 이 단계의 전부입니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 본점 운영 규칙을 소리 내어 읽어 본다</strong><br>
+        본점을 다 지은 국장이 마지막으로 하는 일은 <strong>운영 규칙을 처음부터 소리 내어 읽으며 "이러면 어떡하지"를 스스로 묻는 것</strong>입니다.<br>
+        <strong>"상자를 나눴는데 전체 순서를 꼭 지켜 달라는 손님이 오면?"</strong> · <strong>"내일 배달해 달라는 편지는 어디에 두지?"</strong> · <strong>"주소가 틀려서 열 번을 시도해도 배달이 안 되는 편지는?"</strong> · <strong>"같은 사람 앞으로 온 옛날 편지는 계속 쌓아 둬야 하나?"</strong><br>
+        지어 놓은 것 자체는 설명하면 됩니다. 다른 건 <strong>자기 설계의 빈틈을 자기가 먼저 짚을 수 있는가</strong>예요. 아래 표와 질문 목록이 그 되읽기입니다.
+      </div>
+    </div>
+
+    <h3>무엇을 왜 골랐나</h3>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>선택</th><th>어떤 요구사항 때문에</th><th>대신 무엇을 포기했나</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><a href="#topic-partition"><strong>토픽을 파티션으로 쪼갬</strong></a></td>
+            <td><strong>대용량 · 수평 확장</strong> — 7TB를 여러 브로커에 나눠 담고 넣기·꺼내기를 <strong>동시에</strong> 할 수 있습니다.</td>
+            <td><strong>전역 순서</strong>를 잃습니다. 순서는 <strong>같은 키가 모인 파티션 안에서만</strong> 지켜져요.</td>
+          </tr>
+          <tr>
+            <td><a href="#topic-partition"><strong>키 해시로 파티션 결정</strong></a></td>
+            <td><strong>순서 보장</strong> — 같은 주문의 메시지가 <strong>언제나 같은 상자</strong>로 갑니다.</td>
+            <td><strong>파티션 개수를 나중에 바꾸기 어렵습니다.</strong> 인기 키가 한쪽에 몰리면 <strong>그 상자만 붐비고요.</strong></td>
+          </tr>
+          <tr>
+            <td><a href="#delivery-guarantee"><strong>at-least-once + 멱등 소비자</strong></a></td>
+            <td><strong>유실 없음</strong> — 답이 안 오면 다시 보내니 메시지가 사라지지 않습니다.</td>
+            <td><strong>중복</strong>이 옵니다. 그래서 <strong>소비자를 멱등하게 만드는 숙제</strong>가 따라와요. 정말 못 견디면 <strong>exactly-once</strong>를 사되 <strong>속도와 복잡도</strong>를 냅니다.</td>
+          </tr>
+          <tr>
+            <td><a href="#delivery-guarantee"><strong>풀 방식</strong></a></td>
+            <td><strong>소비자 보호 + 되감기</strong> — 속도를 소비자가 쥐고, 오프셋을 되돌려 <strong>다시 읽을 수</strong> 있습니다.</td>
+            <td>메시지가 없을 때 <strong>헛걸음</strong>이 생깁니다. <strong>기다렸다 답하기</strong>로 덮어요.</td>
+          </tr>
+          <tr>
+            <td><a href="#storage-replication"><strong>이어 쓰기 + 기간 보존</strong></a></td>
+            <td><strong>지속성 + 낮은 지연 + 반복 소비</strong> — 디스크에 적으면서도 빠르고, <strong>다 읽은 메시지도 남습니다.</strong></td>
+            <td><strong>디스크가 계속 쌓입니다.</strong> 7일이면 <strong>7TB</strong>, 3벌 복제면 <strong>21TB</strong>예요. 보존 기간이 곧 비용입니다.</td>
+          </tr>
+          <tr>
+            <td><a href="#storage-replication"><strong>복제 3벌 + <code>acks=all</code></strong></a></td>
+            <td><strong>브로커가 죽어도 안 잃음</strong> — ISR 전부가 베낀 뒤에 성공이라 답합니다.</td>
+            <td><strong>쓰기가 느려집니다.</strong> 가장 느린 복제본을 기다리니까요. 중요하지 않은 토픽은 <code>acks=1</code>로 낮춥니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>더 물어보면 좋은 확장 질문</h3>
+    <p>시간이 남았거나 면접관이 더 파고 싶어 할 때 꺼낼 카드들입니다.</p>
+
+    <ul class="checklist">
+      <li><span><strong>메시지 순서를 전역으로 보장하려면?</strong> — 방법은 하나뿐입니다. <strong>파티션을 하나만 두는 것.</strong> 그러면 순서는 완벽하지만 <strong>병렬이 사라져</strong> 이 차시에서 얻은 걸 전부 반납해요. 그래서 실무의 답은 <strong>"전역 순서가 정말 필요한지 되묻기"</strong>입니다. 대개는 <strong>주문 단위·사용자 단위</strong>면 충분하고, 그건 <a href="#topic-partition">키만 잘 고르면</a> 이미 되고 있어요.</span></li>
+      <li><span><strong>"10분 뒤에 처리해 줘" 같은 지연 메시지는?</strong> — 파티션은 <strong>맨 끝에 이어 붙이기만</strong> 하므로 중간에 끼워 넣어 순서를 미룰 수 없습니다. 그래서 보통 <strong>따로 처리해요</strong> — <strong>지연 시간대별로 토픽을 따로</strong> 두고 시간이 되면 원래 토픽으로 옮기거나, <strong>예약 시각을 담은 별도 저장소</strong>를 두고 때가 되면 큐에 넣습니다. <strong>큐 자체를 고치지 않고 옆에 부품을 붙이는</strong> 쪽이 정답입니다.</span></li>
+      <li><span><strong>몇 번을 시도해도 처리에 실패하는 메시지는?</strong> — 그대로 두면 <strong>그 메시지 하나 때문에 파티션 전체가 멈춥니다.</strong> 뒤에 줄 선 메시지가 영영 처리되지 않아요. 그래서 <strong>N번 실패하면 옆으로 치웁니다</strong> — 이 보관용 토픽이 <strong>죽은 편지 큐(dead letter queue)</strong>입니다. 사람이 나중에 들여다보고 <strong>고쳐서 다시 넣거나 버려요.</strong> <strong>실패한 한 건이 나머지를 볼모로 잡지 않게</strong> 하는 장치입니다.</span></li>
+      <li><span><strong>같은 키의 옛 메시지를 계속 쌓아 둬야 하나?</strong> — <strong>"사용자 42의 현재 주소"</strong>처럼 <strong>최신 값만 의미 있는</strong> 데이터라면 옛 값은 짐입니다. 이때 <strong>기간이 아니라 키 기준으로 정리</strong>하는 방식이 <strong>로그 압축(log compaction)</strong>이에요 — <strong>키마다 마지막 메시지 하나만 남기고</strong> 나머지를 버립니다. 그러면 이 토픽을 처음부터 읽는 것만으로 <strong>전체 현재 상태를 복원</strong>할 수 있어요. 참고로 <strong>메시지 압축(compression)</strong>은 다른 이야기로, <strong>묶음 단위로 압축해 전송량과 디스크를 줄이는</strong> 별개의 설정입니다.</span></li>
+    </ul>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>🎓 코스 마무리 — 여기까지 왔습니다</strong><br>
+        02차시에서 <a href="02-system-design-overview.html#goals">좋은 시스템이 무엇인지</a>를 정하고, 03~09차시에서 <strong>부품</strong>을 하나씩 손에 쥐었습니다 — <a href="03-networking-basics.html#dns">DNS와 TCP</a>, <a href="04-server-and-client.html#stateless">무상태 서버</a>, <a href="05-http-websocket-api.html#methods-status">HTTP와 API</a>, <a href="06-caching-and-cdn.html#why-cache">캐시와 CDN</a>, <a href="07-proxy-and-load-balancer.html#reverse">프록시와 로드 밸런서</a>, <a href="08-storage.html#sharding">복제와 샤딩</a>, <a href="09-big-data.html#message-queue-basics">배치와 스트리밍</a>. 10차시에서는 그 부품들을 <strong>어떤 순서로 꺼내 쓸지</strong>, 즉 <a href="10-design-process.html#four-steps">4단계 절차</a>와 <a href="10-design-process.html#estimation">봉투 뒷면 계산</a>을 배웠고요. 그리고 11~14차시에서 그 절차를 <strong>네 번 똑같이 반복</strong>했습니다 — <a href="11-key-value-store.html">저장을 나누는 문제</a>, <a href="12-rate-limiter.html">막는 문제</a>, <a href="13-url-shortener.html">만드는 문제</a>, 그리고 <strong>부품과 부품 사이를 잇는 문제</strong>. 네 번 모두 <strong>요구사항 → 계산 → 개략 설계 → 상세 설계와 트레이드오프</strong>라는 같은 걸음이었어요. 그게 이 코스가 남기려 한 전부입니다. 외운 부품 목록이 아니라 <strong>모르는 문제 앞에서 첫 걸음을 뗄 수 있는 순서</strong> 말이죠.<br><br>
+        <strong>다음 할 일: 자기 서비스 하나 골라 4단계로 그려보기.</strong> 지금 만들고 있는 서비스여도 좋고 매일 쓰는 앱이어도 좋습니다. 종이 한 장에 <strong>요구사항을 적고, 숫자를 어림하고, 박스를 그리고, 무엇을 포기했는지 한 줄 적어</strong> 보세요. 막히는 자리가 곧 <strong>다시 읽어야 할 차시</strong>입니다.
+      </div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="13-url-shortener.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">13 · URL Shortener</span></a>
+    <a class="part-pager-link next" href="index.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">전체 목차로</span></a>
+  </div>
+
+  <div class="doc-footer">
+    System Design 101 · 14차시 · Distributed Message Queue · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

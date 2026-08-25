@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>트위치 시스템 디자인 — 300만 명 동시 시청은 어떻게 버틸까</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="#top">
+      <span class="logo-badge">PRACTICE</span>
+      <span class="logo-text">시스템 디자인 실전</span>
+    </a>
+    <div class="logo-sub">03 · 트위치 — 라이브 스트리밍 설계</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">문제 정의</div>
+    <a class="nav-item" href="#intro">📺 트위치는 무슨 문제를 풀까?</a>
+    <a class="nav-item" href="#pipeline">🗺️ 라이브 스트리밍 전체 지도</a>
+    <a class="nav-item" href="#big-picture">🧭 큰 그림 한 장</a>
+
+    <div class="nav-section-title" style="margin-top:8px">인제스트 — 영상 받기</div>
+    <a class="nav-item" href="#ingest-single">📡 데이터센터가 하나였을 때</a>
+    <a class="nav-item" href="#ingest-static">⚠️ 데이터센터가 늘면서 생긴 문제</a>
+    <a class="nav-item" href="#intelligest">🧠 해결: 인텔리제스트</a>
+
+    <div class="nav-section-title" style="margin-top:8px">트랜스코드 — 영상 가공</div>
+    <a class="nav-item" href="#transcode">🎞️ RTMP → HLS</a>
+    <a class="nav-item" href="#adaptive">📶 시청자 쪽에서 벌어지는 일</a>
+
+    <div class="nav-section-title" style="margin-top:8px">엣지 — 영상 뿌리기</div>
+    <a class="nav-item" href="#edge">🌍 엣지(CDN) 캐싱</a>
+    <a class="nav-item" href="#summary">📌 한눈에 정리</a>
+
+    <div class="nav-section-title" style="margin-top:8px">다른 실전 사례</div>
+    <a class="nav-item" href="01-twitter-twitch-kakaotalk.html">📚 01 · 트위터 · 트위치 · 카카오톡</a>
+    <a class="nav-item" href="02-kakaotalk-chat.html">📚 02 · 카카오톡 채팅 앱</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 실전 사례편 03</div>
+    <h1>트위치 시스템 디자인 — 300만 명 동시 시청은 어떻게 버틸까</h1>
+    <p>롤드컵 결승전을 <strong>310만 명이 동시에</strong> 봤습니다. 영상은 글보다 수천 배 무거운데, 데이터센터는 어떻게 안 터졌을까요? 스트리머의 카메라에서 시청자의 화면까지, 영상이 지나가는 길을 <strong>한 칸씩 따라가며</strong> 인제스트 · HLS · CDN 캐싱이 왜 그렇게 생겼는지 알아봅니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">트위치</span>
+      <span class="hero-chip">라이브 스트리밍</span>
+      <span class="hero-chip">POP</span>
+      <span class="hero-chip">Ingest</span>
+      <span class="hero-chip">Intelligest</span>
+      <span class="hero-chip">RTMP</span>
+      <span class="hero-chip">HLS</span>
+      <span class="hero-chip">Adaptive Streaming</span>
+      <span class="hero-chip">CDN</span>
+      <span class="hero-chip">Cache</span>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>이 자료를 읽는 법</strong>: 이번 사례는 <strong>영상이 흘러가는 순서</strong> 그대로 읽으면 됩니다. 스트리머 → 접수처 → 편집실 → 송신탑 → 시청자. 각 칸마다 <strong>"여기서 뭐가 문제였고, 어떻게 풀었나"</strong>를 하나씩 보면, 마지막에 "300만 명"이라는 숫자가 어떻게 감당되는지 자연스럽게 이해됩니다.
+  </div>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 문제 정의                                     -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── 트위치는 무슨 문제를 풀까? ── -->
+  <section class="section" id="intro">
+    <div class="section-header">
+      <div class="section-icon icon-concept">📺</div>
+      <h2>트위치는 무슨 문제를 풀까?</h2>
+    </div>
+    <p class="source-link">🎬 원본 강의: 코맹탈출 — 트위치 시스템 디자인 편 <em>(링크 추가 예정)</em></p>
+
+    <p>2022년 롤드컵(LoL 월드 챔피언십) 결승전 때 무려 <strong>310만 명</strong>이 <strong>동시에</strong> 트위치로 경기를 봤다고 합니다. 이런 큰 이벤트가 아닌 평소에도 <strong>약 1만 명의 스트리머가 동시에 방송</strong>을 하고 있어요(조금 옛날 자료라 지금은 더 많을 겁니다).</p>
+
+    <p>앞서 본 트위터·카카오톡이 <strong>글</strong>을 다뤘다면, 트위치는 <strong>실시간 영상</strong>을 다룹니다. 영상은 글보다 훨씬 무겁고, "실시간"이라 미리 만들어 둘 수도 없어요. 그래서 문제의 결이 완전히 다릅니다.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">👀</div>
+        <div class="card-title">310만 명 동시 시청</div>
+        <div class="card-body">한 경기를 310만 명이 <strong>같은 시각에</strong> 봅니다. 이 사람들이 전부 데이터센터에 몰리면 어떻게 될까요?</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎥</div>
+        <div class="card-title">1만 명 동시 방송</div>
+        <div class="card-body">보는 쪽만 많은 게 아니라 <strong>보내는 쪽</strong>도 많습니다. 1만 개의 영상 줄기가 끊임없이 들어와요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📶</div>
+        <div class="card-title">시청자마다 인터넷이 다르다</div>
+        <div class="card-body">누구는 기가 인터넷, 누구는 지하철 LTE. <strong>같은 영상을 다른 화질로</strong> 줄 수 있어야 합니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 글은 엽서, 영상은 이삿짐</strong><br>
+        트윗이나 카톡 한 줄은 엽서 한 장입니다. 수백만 장이라도 트럭 한 대면 되죠. 영상은 매초 쏟아지는 <strong>이삿짐</strong>이에요. 같은 이삿짐을 310만 집에 배달해야 한다면, 트럭을 늘리는 것만으로는 안 되고 <strong>배달 경로 자체</strong>를 다시 짜야 합니다. 오늘 볼 게 바로 그 경로입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 라이브 스트리밍 전체 지도 ── -->
+  <section class="section" id="pipeline">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🗺️</div>
+      <h2>라이브 스트리밍 전체 지도</h2>
+    </div>
+
+    <p>스케일 얘기를 하기 전에, 라이브 스트리밍이 <strong>애초에 어떻게 굴러가는지</strong>부터 봅시다. 스트리머의 영상은 시청자에게 가기까지 네 단계를 거칩니다. 지금은 단어를 눈에 익히기만 해도 충분해요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step red">🎥 스트리머</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">📡 인제스트<br>(영상 받기)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🎞️ 트랜스코드<br>(형식 변환)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">📦 레플리케이션<br>(복제)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🌍 엣지 / CDN<br>(뿌리기)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step blue">👤 시청자</div>
+    </div>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>단계</th><th>하는 일</th><th>비유</th></tr></thead>
+        <tbody>
+          <tr><td><strong>📡 인제스트 (Ingest)</strong></td><td>스트리머의 영상을 트위치 데이터센터로 <strong>받아들이는</strong> 과정</td><td>방송국 <strong>접수처</strong></td></tr>
+          <tr><td><strong>🎞️ 트랜스코드 (Transcode)</strong></td><td>받은 영상의 <strong>형식을 바꾸는</strong> 과정 (어떤 형식으로 바꾸는지는 뒤에서)</td><td><strong>편집실</strong></td></tr>
+          <tr><td><strong>📦 레플리케이션 (Replication)</strong></td><td>안정성을 위해 영상을 <strong>여러 벌 복사</strong>해 두는 과정</td><td><strong>백업 창고</strong></td></tr>
+          <tr><td><strong>🌍 엣지 / CDN (Edge)</strong></td><td>시청자 <strong>가까이에서</strong> 영상을 뿌려주는 과정</td><td>동네 <strong>송신탑</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — TV 방송국</strong><br>
+        카메라(스트리머)가 찍은 영상이 → 방송국 접수처(인제스트)로 들어오고 → 편집실(트랜스코드)에서 여러 화질로 손질되고 → 백업(레플리케이션)을 떠 두고 → 전국 송신탑(엣지)을 통해 → 각 집 TV(시청자)로 나갑니다. 오늘은 이 중 <strong>인제스트 · 트랜스코드 · 엣지</strong> 세 칸을 집중해서 뜯어봅니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 큰 그림 한 장 ── -->
+  <section class="section" id="big-picture">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🧭</div>
+      <h2>큰 그림 한 장 — 등장인물 소개</h2>
+    </div>
+
+    <p>네 단계를 실제 장비 이름으로 다시 그리면 이렇게 됩니다. 새 단어가 몇 개 나오는데, 하나씩 소개할게요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step red">🎥 스트리머</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🏪 POP<br><span style="font-size:12px">(가까운 소형 접수처)</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🏢 오리진<br><span style="font-size:12px">(데이터센터)</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🎞️ 트랜스코더<br><span style="font-size:12px">RTMP → HLS</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">💾 스토리지</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🌍 엣지</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step blue">👤 시청자</div>
+    </div>
+
+    <div class="card-grid" style="margin-top:16px">
+      <div class="card">
+        <div class="card-icon">🏪</div>
+        <div class="card-title">POP (Point of Presence)</div>
+        <div class="card-body">세계 곳곳에 퍼져 있는 <strong>조그만 데이터센터</strong>. 스트리머는 거대한 본진이 아니라 <strong>자기 근처의 POP</strong>에 연결합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛣️</div>
+        <div class="card-title">백본 (Backbone)</div>
+        <div class="card-body">POP과 데이터센터를 잇는 <strong>트위치 내부의 척추 네트워크</strong>. 스트리머는 POP하고만 얘기하고, POP이 백본으로 본진에 전달합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏢</div>
+        <div class="card-title">오리진 (Origin)</div>
+        <div class="card-body">영상이 최종적으로 도착하고 가공·저장되는 <strong>진짜 데이터센터</strong>. "원본이 있는 곳"이라는 뜻입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📼</div>
+        <div class="card-title">RTMP</div>
+        <div class="card-body">스트리머 → 데이터센터로 영상을 <strong>계속 밀어 넣는</strong> 형식. <strong>한 가지 화질의 영상 한 줄기</strong>라고만 이해하면 됩니다.</div>
+      </div>
+    </div>
+
+    <p>흐름을 말로 풀면 이렇습니다. 스트리머가 <strong>RTMP</strong> 형식으로 영상을 가까운 <strong>POP</strong>에 보내고, POP은 백본을 타고 <strong>오리진</strong>으로 전달합니다. 오리진의 <strong>트랜스코더</strong>가 RTMP를 <strong>HLS</strong>라는 형식으로 바꿔 <strong>스토리지</strong>에 저장하고, 시청자는 오리진에 직접 오는 게 아니라 <strong>엣지(CDN)</strong>를 통해 HLS 영상을 받아 재생합니다.</p>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        여기서 벌써 설계의 핵심 아이디어 하나가 보입니다. <strong>스트리머도, 시청자도 데이터센터에 직접 붙지 않는다.</strong> 들어올 땐 POP, 나갈 땐 엣지 — 양쪽 다 <strong>"가까운 중간 지점"</strong>을 거칩니다. 왜 그래야 하는지는 인제스트와 엣지 섹션에서 각각 드러납니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 인제스트                                      -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── 데이터센터가 하나였을 때 ── -->
+  <section class="section" id="ingest-single">
+    <div class="section-header">
+      <div class="section-icon icon-query">📡</div>
+      <h2>인제스트 ① — 데이터센터가 하나였을 때</h2>
+    </div>
+
+    <p>트위치가 처음 시작했을 때는 <strong>데이터센터가 하나</strong>뿐이었습니다. 그때의 인제스트는 아주 단순했어요. 스트리머 주변에 POP이 여러 개 있고, 데이터센터는 하나니까 <strong>모든 POP이 그 하나와 얘기</strong>하면 됩니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step red">🎥🎥🎥 스트리머들</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🏪 POP A</div>
+      <div class="flow-step">🏪 POP B</div>
+      <div class="flow-step">🏪 POP C</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🏢 데이터센터<br><span style="font-size:12px">(유일)</span></div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        고민할 게 없습니다. POP에게 <strong>"너는 무조건 얘랑만 얘기해"</strong>라고 정해두면 끝. 문제는 서비스가 커지면서 시작됩니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 데이터센터가 늘면서 생긴 문제 ── -->
+  <section class="section" id="ingest-static">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>인제스트 ② — 데이터센터가 늘면서 생긴 문제</h2>
+    </div>
+
+    <p>유저가 많아지고 스케일이 커지면서 데이터센터가 <strong>여러 개</strong>가 됐습니다(실제론 더 많지만 여기선 두 개로 봅니다). 그러자 새로운 질문이 생겨요. <strong>각 POP은 어느 데이터센터와 얘기해야 하지?</strong></p>
+
+    <p>트위치 블로그에 따르면, 처음엔 <strong>HAProxy</strong>라는 오픈소스 도구를 써서 이걸 <strong>정적으로(static)</strong> 정해뒀다고 합니다. "POP A는 항상 데이터센터 1로", "POP B·C는 항상 데이터센터 2로" — 이렇게 <strong>고정 배선</strong>을 해 둔 거예요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step">🏪 POP A</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🏢 데이터센터 1</div>
+      <div class="flow-arrow" style="opacity:0.25">·</div>
+      <div class="flow-step">🏪 POP B · C</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🏢 데이터센터 2</div>
+    </div>
+
+    <p style="margin-top:16px">일단 동작은 합니다. 하지만 데이터센터가 많아질수록 두 가지 문제가 커집니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">문제 ① 시간대에 따라 한쪽만 바쁘다</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          사람들이 트위치를 쓰는 시간은 <strong>그 나라의 시각</strong>에 달려 있죠. 한국이 깨어 있는 낮에는 미국·아프리카는 자고 있습니다.<br><br>
+          그러면 한국 근처 POP이 붙은 <strong>데이터센터 1만 로드가 폭주</strong>하고, <strong>데이터센터 2는 놀고</strong> 있어요. 몇 시간 뒤엔 정반대가 되고요.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header bad">문제 ② 데이터센터가 죽으면 우회를 못 한다</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          "POP A는 무조건 데이터센터 1"로 고정돼 있으니, <strong>데이터센터 1이 다운되면</strong> POP A에 붙은 스트리머들은 <strong>방송을 못 합니다.</strong><br><br>
+          데이터센터 2는 멀쩡히 살아 있는데도요. 옆에 빈 창구가 있는데 줄을 못 옮기는 꼴이에요.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>문제 ①이 왜 스케일에 나쁜가?</strong> 데이터센터를 여러 개 두는 이유는 <strong>로드를 나눠 가져서 하나하나의 크기를 줄이려는</strong> 겁니다. 그런데 시간대별로 한쪽만 폭주하면, <strong>모든 데이터센터를 "폭주 시간 기준"으로 크게</strong> 지어야 해요. 하루 대부분은 그 용량이 놀고 있는데도요. 돈은 돈대로 쓰고 효과는 못 보는 상황입니다.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 고정 배정된 은행 창구</strong><br>
+        손님마다 "당신은 1번 창구만"이라고 정해두면, 1번 창구 앞에 줄이 길어도 2번 창구가 비어 있어도 못 옮깁니다. 1번 창구 직원이 자리를 비우면 그 손님들은 그냥 기다려야 하고요. 필요한 건 <strong>"지금 어느 창구가 비었는지 보고 안내해 주는 사람"</strong>입니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 인텔리제스트 ── -->
+  <section class="section" id="intelligest">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🧠</div>
+      <h2>인제스트 ③ — 해결: 인텔리제스트(Intelligest)</h2>
+    </div>
+
+    <p>그래서 트위치는 HAProxy 대신 <strong>인텔리제스트</strong>라는 것을 직접 만들었습니다. 이름은 트위치 내부에서 붙인 거라 중요하지 않아요. 중요한 건 <strong>어떻게 문제를 풀었는가</strong>입니다. 인텔리제스트는 네 개의 부품으로 이루어져 있습니다.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">🏪</div>
+        <div class="card-title">인텔리제스트 미디어 프록시</div>
+        <div class="card-body">POP 안에서 <strong>HAProxy를 대체</strong>하는 부품. 스트리머가 연결하면 이 친구가 받습니다. 다만 혼자 정하지 않고 <strong>물어보고</strong> 연결해요.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🧭</div>
+        <div class="card-title">인텔리제스트 라우팅 서비스</div>
+        <div class="card-body">"이 스트리머를 <strong>어느 데이터센터로</strong> 보낼까?"를 <strong>결정</strong>하는 두뇌. 아래 둘에게서 받은 정보로 판단합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">카파시터 (Capacitor)</div>
+        <div class="card-body">각 데이터센터의 <strong>CPU 사용률</strong>을 항상 모니터링합니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌐</div>
+        <div class="card-title">더 웰 (The Well)</div>
+        <div class="card-body">각 데이터센터의 <strong>네트워크 상태</strong>를 항상 모니터링합니다. 영상은 네트워크를 특히 많이 쓰니까요.</div>
+      </div>
+    </div>
+
+    <h3>새 스트리머가 들어올 때의 흐름</h3>
+    <div class="flow-row">
+      <div class="flow-step red">① 스트리머가<br>POP에 연결</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">② 미디어 프록시가<br>라우팅 서비스에 질문<br><span style="font-size:12px">"얘 어디로 보내?"</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">③ 라우팅 서비스가<br>카파시터·더 웰 확인<br><span style="font-size:12px">CPU · 네트워크 여유</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">④ "지금은<br>데이터센터 2로"</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">⑤ 프록시가<br>그쪽으로 연결</div>
+    </div>
+
+    <p style="margin-top:16px">다음 스트리머가 또 들어오면 <strong>또 물어봅니다.</strong> "지금은 어디가 제일 좋아?" — 그 사이 데이터센터 2가 바빠졌다면 라우팅 서비스는 "이번엔 1로"라고 답하겠죠. 이렇게 하면 <strong>모든 POP이 모든 데이터센터와 얘기할 수 있게</strong> 되고, 앞의 두 문제가 한꺼번에 풀립니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header good">문제 ① 해결 — 로드가 고르게 퍼진다</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          한국 낮에 한국 POP으로 스트리머가 몰려도, 라우팅 서비스가 <strong>놀고 있는 데이터센터로 나눠 보냅니다.</strong> 데이터센터 하나하나를 "폭주 기준"으로 크게 지을 필요가 없어져요.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">문제 ② 해결 — 죽은 데이터센터를 피해 간다</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          데이터센터 1이 다운되면 카파시터·더 웰이 그걸 감지하고, 라우팅 서비스는 <strong>살아 있는 2로만</strong> 안내합니다. 스트리머는 아무것도 모른 채 방송을 계속해요.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 은행의 번호표 안내원</strong><br>
+        고정 창구 배정 대신, 입구에 <strong>안내원(라우팅 서비스)</strong>이 서 있습니다. 안내원은 창구마다 <strong>줄 길이(카파시터)</strong>와 <strong>직원 상태(더 웰)</strong>를 보는 모니터를 들고, 손님이 올 때마다 "지금은 3번 창구로 가세요" 하고 보냅니다. 그림은 복잡해 보여도 하는 일은 이게 전부예요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>정리하면</strong> — 인제스트란 스트리머의 RTMP 영상을 POP이 받아서 <strong>"지금 가장 여유 있는" 데이터센터</strong>로 흘려보내는 과정입니다. 정적 배선(HAProxy)에서 <strong>실시간 상태 기반 라우팅(인텔리제스트)</strong>으로 바꾼 게 핵심이고, 이 아이디어는 <a href="../system-design-101/07-proxy-and-load-balancer.html">로드 밸런서</a>가 하는 일과 본질적으로 같습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 트랜스코드                                    -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── RTMP → HLS ── -->
+  <section class="section" id="transcode">
+    <div class="section-header">
+      <div class="section-icon icon-update">🎞️</div>
+      <h2>트랜스코드 — RTMP를 HLS로 바꾸기</h2>
+    </div>
+
+    <p>영상이 데이터센터에 도착했습니다. 이제 <strong>트랜스코드</strong>가 RTMP로 들어온 영상을 <strong>HLS</strong>라는 형식으로 바꿉니다. HLS는 <strong>HTTP Live Streaming</strong>의 줄임말인데, 특징이 두 가지예요.</p>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">📶</div>
+        <div class="card-title">1. 인터넷 상태에 따라 화질을 바꾼다</div>
+        <div class="card-body">유튜브 볼 때 처음엔 흐릿하다가 점점 선명해지는 경험, 있으시죠? 그게 <strong>어댑티브 스트리밍</strong>입니다. 느리면 저화질, 좋아지면 고화질로 <strong>재생 중에</strong> 바꿔줍니다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🌐</div>
+        <div class="card-title">2. 그냥 HTTP를 쓴다</div>
+        <div class="card-body">새로운 프로토콜이 필요 없습니다. 웹페이지 받듯이 <strong>HTTP로 파일을 다운로드</strong>하는 것뿐이에요. 이 점이 뒤에서 <strong>캐싱</strong>을 가능하게 하는 열쇠가 됩니다.</div>
+      </div>
+    </div>
+
+    <h3>HLS는 영상을 이렇게 '미리 잘라서' 준비합니다</h3>
+    <p>RTMP는 스트리머가 지금 찍고 있는 <strong>한 가지 화질의 영상 한 줄기</strong>입니다. 트랜스코더는 이 한 줄기를 받아서 (1) <strong>여러 화질</strong>로 만들고, (2) 각 화질을 <strong>2초 단위 조각</strong>으로 잘게 자릅니다. 이 조각들을 <strong>비디오 청크(video chunk)</strong>라고 불러요. 영상이 계속 들어오니 이 작업도 <strong>계속</strong> 됩니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>화질 \ 구간</th><th>0~2초</th><th>2~4초</th><th>4~6초</th><th>…</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1080p</strong></td><td><code>1080/0.ts</code></td><td><code>1080/1.ts</code></td><td><code>1080/2.ts</code></td><td>…</td></tr>
+          <tr><td><strong>720p</strong></td><td><code>720/0.ts</code></td><td><code>720/1.ts</code></td><td><code>720/2.ts</code></td><td>…</td></tr>
+          <tr><td><strong>360p</strong></td><td><code>360/0.ts</code></td><td><code>360/1.ts</code></td><td><code>360/2.ts</code></td><td>…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>그리고 파일을 하나 더 만듭니다. <strong>플레이리스트</strong>예요. "1080p의 0~2초는 이 파일에, 2~4초는 저 파일에, 360p의 0~2초는 여기에…" — 즉 <strong>어떤 조각이 어디에 있는지 적어둔 목차</strong>입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">📋 플레이리스트 (.m3u8)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          <strong>목차</strong>. 화질별·구간별 조각 파일이 <strong>어디에 있는지</strong>만 적혀 있습니다. 시청자가 <strong>가장 먼저</strong> 받는 파일이에요.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">🎬 비디오 청크 (.ts)</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          <strong>실제 영상 조각</strong>. 화질별 × 2초 단위로 잘려 있습니다. 시청자는 목차를 보고 <strong>필요한 조각만 골라서</strong> 받아요. (확장자 이름은 몰라도 됩니다.)
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 책을 낱장으로 뜯어 여러 판형으로</strong><br>
+        긴 두루마리(RTMP) 한 통이 들어오면, 편집실이 이걸 <strong>큰 글씨판·보통판·작은 글씨판(화질)</strong> 세 벌로 만들고, 각각을 <strong>2쪽씩(2초) 낱장</strong>으로 뜯어 번호를 붙여 둡니다. 그리고 <strong>목차(플레이리스트)</strong>에 "큰 글씨판 1~2쪽은 여기" 하고 적어두죠. 독자는 목차만 보고 <strong>원하는 판형의 원하는 쪽</strong>만 가져가면 됩니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 시청자 쪽에서 벌어지는 일 ── -->
+  <section class="section" id="adaptive">
+    <div class="section-header">
+      <div class="section-icon icon-query">📶</div>
+      <h2>시청자 쪽에서 벌어지는 일 — 화질이 바뀌는 원리</h2>
+    </div>
+
+    <p>이제 시청자가 방송에 들어옵니다. 시청자의 <strong>비디오 플레이어</strong>가 하는 일을 순서대로 따라가 볼게요.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">① 플레이리스트<br>먼저 다운로드</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">② 지금 내 인터넷<br>상태 확인<br><span style="font-size:12px">"별로네…"</span></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">③ 360p 0~2초<br>조각 다운로드</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">④ 재생 시작<br><span style="font-size:12px">(저화질로 일단 시작)</span></div>
+    </div>
+
+    <p style="margin-top:16px">플레이어는 첫 조각을 <strong>재생하는 동안</strong> 다음 조각을 미리 받습니다. 그런데 2초짜리 조각을 재생하는 데 걸리는 시간보다 다운로드가 훨씬 빨리 끝났다면? "인터넷이 생각보다 괜찮네" 하고 <strong>다음 조각은 더 높은 화질</strong>을 고릅니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step green">④ 360p 0~2초<br>재생 중…</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⑤ "여유 있다"<br>→ 720p 2~4초 선택</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⑥ 다운로드 빠름<br>→ 1080p 4~6초 선택</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">화질이 점점<br>좋아짐 ✨</div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        반대도 마찬가지입니다. 지하철에 들어가서 인터넷이 느려지면 플레이어가 <strong>다음 조각은 360p</strong>로 내려 잡죠. 그래서 영상이 <strong>끊기는 대신 흐릿해지는</strong> 겁니다. 유튜브에서 봤던 "2초쯤 저화질이다가 확 선명해지는" 현상은 바로 <strong>조각 단위로 화질을 갈아타는</strong> 이 원리 때문이에요. 이 결정은 전부 <strong>시청자의 플레이어</strong>가 합니다. 서버는 조각을 준비해 둘 뿐이에요.
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 뷔페에서 접시 고르기</strong><br>
+        음식(조각)은 작은 접시·보통 접시·큰 접시(화질)로 미리 담겨 있습니다. 손님(플레이어)은 배 상태(인터넷)를 보고 <strong>매번 접시 크기를 고릅니다.</strong> 주방(서버)은 손님 한 명 한 명에게 맞춰 요리하지 않고, <strong>세 가지 접시를 계속 채워 둘 뿐</strong>이에요. 이 "미리 만들어 둔다"는 성질이 다음 섹션의 캐싱으로 이어집니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- 엣지                                          -->
+  <!-- ══════════════════════════════════════════ -->
+
+  <!-- ── 엣지(CDN) 캐싱 ── -->
+  <section class="section" id="edge">
+    <div class="section-header">
+      <div class="section-icon icon-repo">🌍</div>
+      <h2>엣지(CDN) — 300만 명 동시 시청을 버티는 법</h2>
+    </div>
+
+    <p>이제 진짜 큰 문제입니다. <strong>300만 명이 동시에</strong> 이 조각 파일들을 받으려고 하면, 데이터센터(오리진) 하나로는 절대 감당할 수 없어요. 여기서 앞에서 만든 <strong>HLS 구조가 빛을 발합니다.</strong></p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>HLS가 캐싱하기 쉬운 이유</strong> — 비디오 청크는 <strong>한 번 만들어지면 절대 바뀌지 않습니다.</strong> "1080p의 4~6초 조각"은 누가 언제 받아도 똑같은 파일이에요. 그리고 그냥 <strong>HTTP로 받는 파일</strong>이죠. 바뀌지 않는 파일을 HTTP로 받는다 → 웹페이지 이미지처럼 <strong>중간에 복사본을 두고 나눠줄 수 있다</strong>는 뜻입니다. 그 중간 지점이 <strong>엣지(CDN)</strong>입니다.
+      </div>
+    </div>
+
+    <h3>첫 시청자 — 엣지에 없으니 오리진까지 간다</h3>
+    <div class="flow-row">
+      <div class="flow-step blue">👤 시청자 1<br>"플레이리스트 줘"</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step red">🌍 엣지<br>"나 없는데…"</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🏢 오리진<br>"여기"</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">🌍 엣지<br>받아서 <strong>저장(캐시)</strong></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">👤 시청자 1<br>전달</div>
+    </div>
+
+    <h3>다음 시청자 — 엣지가 바로 준다</h3>
+    <div class="flow-row">
+      <div class="flow-step blue">👤 시청자 2<br>"나도 플레이리스트"</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🌍 엣지<br>"이미 있어, 자!"</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">👤 시청자 2<br><strong>즉시</strong> 전달</div>
+      <div class="flow-arrow" style="opacity:0.25">·</div>
+      <div class="flow-step" style="opacity:0.4">🏢 오리진<br>(안 감)</div>
+    </div>
+
+    <p style="margin-top:16px">시청자 두 명을 서비스했는데 <strong>오리진과의 대화는 한 번</strong>뿐이었죠. 비디오 청크도 똑같습니다. 시청자 1이 "1080p 4~6초 조각 줘" 하면 엣지가 오리진에서 받아와 캐시해 두고, 시청자 2가 같은 조각을 달라고 하면 <strong>오리진까지 갈 필요 없이</strong> 엣지가 바로 줍니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header bad">엣지가 없다면</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          300만 명이 <strong>전부 오리진</strong>에 조각을 달라고 합니다. 2초마다요. 오리진은 같은 파일을 300만 번 보내다 쓰러집니다.
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">엣지가 있으면</div>
+        <div style="padding:14px 16px;font-size:13.5px;color:#374151;line-height:1.85">
+          <strong>동네 엣지가 한 번</strong> 받아오면 그 동네 시청자 전부에게 나눠줍니다. 오리진은 <strong>엣지 개수만큼만</strong> 응답하면 돼요. 300만 명이 와도 오리진 트래픽은 크게 줄어듭니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 동네 편의점</strong><br>
+        300만 명이 생수를 사러 전부 <strong>공장(오리진)</strong>에 가면 공장 앞이 마비되죠. 대신 <strong>동네 편의점(엣지)</strong>이 공장에서 한 번 떼어 와서 동네 사람들에게 팝니다. 공장은 편의점 수만큼만 상대하면 되고, 사람들은 가까운 곳에서 빨리 삽니다. 생수는 <strong>누가 사도 똑같은 물건</strong>이라 이게 가능한 거고, HLS 청크가 바로 그 "똑같은 물건"입니다.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>여기서 전체 설계가 맞물립니다.</strong> 트랜스코드가 영상을 <strong>바뀌지 않는 조각</strong>으로 잘라 두었기 때문에 → 엣지가 <strong>캐시</strong>할 수 있고 → 그래서 <strong>300만 명</strong>이 와도 오리진이 버팁니다. HLS를 쓰는 이유는 화질 조절만이 아니라 <strong>캐싱을 가능하게 하려고</strong>이기도 한 거예요. CDN·캐시의 일반 원리는 <a href="../system-design-101/06-caching-and-cdn.html">시스템 디자인 101 · 캐싱과 CDN</a>에서 더 볼 수 있습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 한눈에 정리 ── -->
+  <section class="section" id="summary">
+    <div class="section-header">
+      <div class="section-icon icon-entity">📌</div>
+      <h2>한눈에 정리 — 트위치에서 배운 것</h2>
+    </div>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">📡</div>
+        <div class="card-title">인제스트 &amp; POP</div>
+        <div class="card-body">스트리머는 가까운 <strong>POP</strong>에 붙고, POP이 백본으로 데이터센터에 전달. 데이터센터가 늘자 <strong>고정 배선</strong>이 문제가 됐다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🧠</div>
+        <div class="card-title">인텔리제스트</div>
+        <div class="card-body">CPU(카파시터)·네트워크(더 웰) 상태를 보고 <strong>스트리머마다 가장 여유 있는 데이터센터</strong>로 라우팅. 시간대 쏠림과 장애 우회를 한 번에 해결.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🎞️</div>
+        <div class="card-title">트랜스코드 &amp; HLS</div>
+        <div class="card-body">RTMP 한 줄기를 <strong>여러 화질 × 2초 청크</strong> + <strong>플레이리스트</strong>로. 플레이어가 조각마다 화질을 골라 <strong>끊김 대신 화질 변화</strong>.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🌍</div>
+        <div class="card-title">엣지(CDN) 캐싱</div>
+        <div class="card-body">청크는 <strong>불변 + HTTP</strong>라 캐시하기 쉽다. 동네 엣지가 한 번 받아 모두에게 → <strong>300만 명</strong>이 와도 오리진은 버틴다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 사례의 큰 흐름:</strong> ① 영상을 받는 입구에서 데이터센터가 늘자 <strong>쏠림과 장애</strong> 문제가 생겼고 → ② 실시간 상태를 보는 <strong>인텔리제스트</strong>로 풀었다 → ③ 영상을 <strong>여러 화질의 불변 조각(HLS)</strong>으로 가공해 두니 → ④ 시청자마다 <strong>화질을 맞출 수 있고</strong> → ⑤ 동시에 <strong>엣지에서 캐시</strong>할 수 있어 300만 명을 감당했다. 트위터(<a href="01-twitter-twitch-kakaotalk.html#twitter-summary">01</a>)가 "읽기를 미리 준비"했다면, 트위치는 "영상 조각을 미리 준비"한 셈이에요. 서비스는 달라도 <strong>미리 만들어 두고 캐시한다</strong>는 발상은 같습니다.
+      </div>
+    </div>
+
+    <h3>스스로 생각해 보기</h3>
+    <p>영상에서 짧게 지나갔거나 다루지 않은 부분입니다. 오늘 배운 부품으로 어떻게 풀 수 있을지 떠올려 보세요.</p>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title">레플리케이션은 왜 필요할까?</div>
+        <div class="card-body">지도에 있었지만 설명은 건너뛴 단계입니다. 트랜스코드된 조각을 <strong>한 데이터센터에만</strong> 두면 무슨 일이 생길까요? 인제스트 ②의 "데이터센터가 죽으면" 문제와 연결해 보세요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏱️</div>
+        <div class="card-title">조각을 2초로 자르면 생기는 지연</div>
+        <div class="card-body">조각이 완성돼야 받을 수 있으니, 시청자는 최소 <strong>몇 초 늦게</strong> 봅니다. 조각을 0.5초로 줄이면 뭐가 좋아지고 뭐가 나빠질까요?</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💬</div>
+        <div class="card-title">트위치 채팅은?</div>
+        <div class="card-body">영상은 HTTP + 캐시로 뿌리지만, 채팅은 <strong>실시간 양방향</strong>이라 성격이 다릅니다. <a href="02-kakaotalk-chat.html#websocket">02 · 웹소켓</a>에서 배운 부품이 여기에 어떻게 들어갈까요?</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    시스템 디자인 실전 03 · 트위치 — 라이브 스트리밍 설계<br>
+    원본 강의: 코맹탈출 — 트위치 시스템 디자인 편 <em>(링크 추가 예정)</em>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

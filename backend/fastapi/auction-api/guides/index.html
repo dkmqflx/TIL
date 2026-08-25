@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>실시간 경매 API — 10단계 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  .step-meta { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 8px; line-height: 1.7; }
+  .step-meta b { color: var(--primary-dark); font-weight: 600; }
+  .card.pending { opacity: 0.75; }
+  .card .card-title a { color: inherit; text-decoration: none; }
+  .card .card-title a:hover { color: var(--primary-dark); }
+  .rules { counter-reset: rule; list-style: none; padding: 0; margin: 12px 0; }
+  .rules li { counter-increment: rule; display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 14px; color: #374151; }
+  .rules li::before { content: counter(rule); width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .rules li:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · self-study 10주의 실무 적용</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-week active"><span class="wk-no">◆</span> 로드맵</div>
+    <div class="nav-week-group">
+      <a class="nav-item" href="#intro">📖 이 프로젝트는</a>
+      <a class="nav-item" href="#prereq">🧰 사전 준비</a>
+      <a class="nav-item" href="#steps">🗂️ 10단계</a>
+      <a class="nav-item" href="#domain">🏷️ 도메인 요약</a>
+      <a class="nav-item" href="#progress">✅ 진행 체크</a>
+    </div>
+    <a class="nav-week" href="01-skeleton.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-models-alembic.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-tests-auth.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-auction-crud.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-list-pagination.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-bids-concurrency.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-realtime-ws.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-closer-worker.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-payment-webhook.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-deploy.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="hero">
+    <div class="hero-tag">◆ self-study 10주 → 실무형 프로젝트</div>
+    <h1>실시간 경매 API — 10단계 캡스톤</h1>
+    <p>self-study에서 배운 것을 <strong>실제 서비스 모양으로 옮기는</strong> 프로젝트입니다. 단계마다 가이드 한 편을 따라 하면 기능이 하나씩 동작하고, 10단계가 끝나면 회원가입 → 경매 등록 → 실시간 입찰 → 자동 마감 → 결제까지 흐르는 백엔드가 완성됩니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">FastAPI</span>
+      <span class="hero-chip">SQLAlchemy 2.0 async</span>
+      <span class="hero-chip">PostgreSQL</span>
+      <span class="hero-chip">Redis</span>
+      <span class="hero-chip">JWT</span>
+      <span class="hero-chip">WebSocket</span>
+      <span class="hero-chip">pytest</span>
+      <span class="hero-chip">Docker / CI</span>
+    </div>
+  </div>
+
+  <!-- ───────────── 소개 ───────────── -->
+  <section class="section" id="intro">
+    <div class="section-header">
+      <div class="section-icon icon-concept">📖</div>
+      <h2>이 프로젝트는</h2>
+    </div>
+    <p>왜 하필 경매냐면, 실무 백엔드에서 매일 마주치는 어려운 문제들이 <strong>억지로 끼워 넣은 게 아니라 도메인상 당연히</strong> 나오기 때문입니다. 두 명이 0.1초 차이로 입찰하면 누가 이기는지(동시성), 입찰 현황이 모든 접속자에게 바로 보여야 하고(실시간), 마감 시각이 되면 누가 낙찰자인지 자동으로 정해져야 하며(시간 기반 처리), 결제는 외부 PG가 웹훅으로 알려 줍니다(외부 연동). 이슈 트래커나 블로그로는 이런 문제를 진짜로 겪어 보기 어렵습니다.</p>
+
+    <p>각 단계는 두 가지를 합니다. 하나는 self-study의 특정 주차 내용을 <strong>실무 코드 모양</strong>으로 옮기는 것이고, 다른 하나는 커리큘럼에 없었지만 실무에선 필수인 요소를 <strong>하나씩 보태는</strong> 것입니다. 예를 들어 2단계는 Week 5·7의 SQLAlchemy를 옮기면서 "처음부터 마이그레이션"을 보태고, 6단계는 Week 4·5의 락 개념을 옮기면서 "동시 50건 테스트"를 보탭니다.</p>
+
+    <div class="tip-box"><strong>진행 방법.</strong> 가이드는 왼쪽 사이드바 순서대로 읽습니다. 각 가이드에는 파일별 전체 코드, 실행 명령, 그리고 <strong>기대 출력</strong>이 적혀 있습니다. 마지막의 "완료 기준 체크리스트"가 전부 체크되면 커밋하고 다음 단계로 넘어가세요. 설계 전체가 궁금하면 <a href="../planning/2026-08-25-auction-api-design.md">설계 문서</a>를 보세요.</div>
+  </section>
+
+  <!-- ───────────── 사전 준비 ───────────── -->
+  <section class="section" id="prereq">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🧰</div>
+      <h2>사전 준비</h2>
+    </div>
+    <p>시작 전에 네 가지만 확인하면 됩니다. 아래 명령이 전부 에러 없이 돌아가야 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv --version                 # uv 패키지 관리자
+docker ps                    # Docker Desktop 실행 중
+uv python list | grep 3.13   # Python 3.13 설치됨 (없으면 uv python install 3.13)
+lsof -i :5435 -i :6380       # 아무것도 안 나와야 함 (포트 비어 있음)</code></pre>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>포트가 5432가 아닌 이유.</strong> 이 머신에서는 다른 프로젝트 컨테이너가 5432·5434를 쓰고 있어서, 이 프로젝트는 Postgres <b>5435</b>, Redis <b>6380</b>, 앱 <b>8000</b>, 모의 결제 서버 <b>8001</b>을 씁니다. 모든 가이드와 설정 파일이 이 번호를 기준으로 합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────── 10단계 ───────────── -->
+  <section class="section" id="steps">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🗂️</div>
+      <h2>10단계</h2>
+    </div>
+    <p>순서에 의미가 있습니다. 1~3단계가 기반(뼈대·모델·테스트·인증), 4~5단계가 경매의 기본 기능, 6~8단계가 이 프로젝트의 심장(동시성·실시간·마감), 9~10단계가 외부 연동과 배포입니다.</p>
+
+    <div class="flow-row">
+      <span class="flow-step blue">1~3 기반</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">4~5 경매 기본</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step highlight">6~8 동시성·실시간·마감</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step green">9~10 연동·배포</span>
+    </div>
+
+    <div class="card-grid">
+      <div class="card highlight">
+        <div class="card-icon">🏗️</div>
+        <div class="card-title"><a href="01-skeleton.html">01 · 뼈대와 설정</a></div>
+        <div class="card-body">uv·ruff·Settings·compose·lifespan·<code>/health</code></div>
+        <div class="step-meta">W1, W3·03, W6·02/03<br><b>+ 환경별 설정 분리</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗃️</div>
+        <div class="card-title"><a href="02-models-alembic.html">02 · 모델링 + Alembic</a></div>
+        <div class="card-body">User/Auction/Bid/Payment, 제약·인덱스, async Alembic</div>
+        <div class="step-meta">W5, W7·01, W10·02<br><b>+ 처음부터 마이그레이션</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔐</div>
+        <div class="card-title"><a href="03-tests-auth.html">03 · 테스트 인프라 + 인증</a></div>
+        <div class="card-body">롤백 세션·AsyncClient·팩토리, JWT access/refresh(Redis)</div>
+        <div class="step-meta">W6·03, W8·01/02, W10·01<br><b>+ refresh 회전·폐기</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📦</div>
+        <div class="card-title"><a href="04-auction-crud.html">04 · 경매 CRUD</a></div>
+        <div class="card-body">소유권·상태 머신·도메인 예외·표준 에러</div>
+        <div class="step-meta">W2, W3, W6·01<br><b>+ TDD</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📄</div>
+        <div class="card-title"><a href="05-list-pagination.html">05 · 목록·페이지네이션</a></div>
+        <div class="card-body">커서 keyset·필터·정렬·N+1</div>
+        <div class="step-meta">W3·02, W5·03<br><b>+ 쿼리 카운트 테스트</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title"><a href="06-bids-concurrency.html">06 · 입찰과 동시성</a></div>
+        <div class="card-body">SELECT FOR UPDATE·동시 50건·rate limit</div>
+        <div class="step-meta">W4, W5·03<br><b>+ 비관적 vs 낙관적 락</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📡</div>
+        <div class="card-title"><a href="07-realtime-ws.html">07 · 실시간</a></div>
+        <div class="card-body">WebSocket + Redis Pub/Sub 멀티워커</div>
+        <div class="step-meta">W9·01/02<br><b>+ 인증된 소켓</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⏰</div>
+        <div class="card-title"><a href="08-closer-worker.html">08 · 마감 워커</a></div>
+        <div class="card-body">활성화·마감·낙찰·Payment, SKIP LOCKED</div>
+        <div class="step-meta">W4·01, W5·03<br><b>+ 멱등 배치</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💳</div>
+        <div class="card-title"><a href="09-payment-webhook.html">09 · 결제 웹훅</a></div>
+        <div class="card-body">모의 PG, httpx, HMAC 서명, 멱등키</div>
+        <div class="step-meta">W7·02, W8·03<br><b>+ 웹훅 서명·멱등성</b></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚀</div>
+        <div class="card-title"><a href="10-deploy.html">10 · 성능·관측성·배포</a></div>
+        <div class="card-body">캐시·locust·JSON 로깅·Dockerfile·CI</div>
+        <div class="step-meta">W4, W7·03, W9·03, W10·03<br><b>+ e2e 시나리오</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── 도메인 요약 ───────────── -->
+  <section class="section" id="domain">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🏷️</div>
+      <h2>도메인 요약</h2>
+    </div>
+    <p>엔티티는 네 개뿐입니다. <strong>User</strong>는 판매자이면서 입찰자입니다. <strong>Auction</strong>은 물건 하나의 경매로 시작가·현재가·최소 입찰 단위·시작/마감 시각·상태(<code>scheduled → active → ended | cancelled</code>)·낙찰자를 가집니다. <strong>Bid</strong>는 "누가 어느 경매에 얼마를"이고, <strong>Payment</strong>는 낙찰 후 생기는 결제 건(<code>pending → paid | expired</code>)입니다.</p>
+
+    <p>규칙은 여섯 개이고, 이게 곧 6~9단계의 테스트 케이스가 됩니다.</p>
+    <ol class="rules">
+      <li>본인이 올린 경매에는 입찰할 수 없다.</li>
+      <li><code>active</code> 상태에서만 입찰할 수 있다.</li>
+      <li>입찰액은 현재가 + 최소 입찰 단위 이상이어야 한다 (첫 입찰은 시작가 이상).</li>
+      <li>마감 30초 이내에 입찰이 들어오면 마감을 30초 연장한다 (스나이핑 방지).</li>
+      <li>마감 시 최고 입찰자가 낙찰자가 되고, 24시간짜리 결제 건이 생긴다. 입찰이 없으면 유찰.</li>
+      <li>결제 기한 안에 결제하지 않으면 결제 건은 만료된다 (차순위 승계는 하지 않는다).</li>
+    </ol>
+  </section>
+
+  <!-- ───────────── 진행 체크 ───────────── -->
+  <section class="section" id="progress">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>진행 체크</h2>
+    </div>
+    <p>단계를 끝내고 커밋할 때마다 여기 체크 표시를 바꿔 두면 다음에 어디서 이어갈지 바로 보입니다. (이 페이지는 저장 기능이 없으니 파일을 직접 고치세요 — <code>☐</code>를 <code>☑</code>로.)</p>
+    <ul class="checklist">
+      <li>01 · 뼈대와 설정 — <code>/health</code>가 <code>{"status":"ok","db":true,"redis":true}</code></li>
+      <li>02 · 모델링 + Alembic — <code>alembic upgrade head</code>, <code>alembic check</code> 무변경</li>
+      <li>03 · 테스트 인프라 + 인증 — <code>tests/test_auth.py</code> 통과</li>
+      <li>04 · 경매 CRUD — <code>tests/test_auctions.py</code> 통과</li>
+      <li>05 · 목록·페이지네이션 — <code>tests/test_auction_list.py</code> 통과 (쿼리 ≤ 2)</li>
+      <li>06 · 입찰과 동시성 — <code>tests/test_bids.py</code> 통과 (동시 50건 정합)</li>
+      <li>07 · 실시간 — <code>tests/test_ws.py</code> 통과, 두 워커 간 전달</li>
+      <li>08 · 마감 워커 — <code>tests/test_closer.py</code> 통과</li>
+      <li>09 · 결제 웹훅 — <code>tests/test_payments.py</code> 통과</li>
+      <li>10 · 성능·관측성·배포 — prod compose로 e2e 시나리오 통과</li>
+    </ul>
+  </section>
+
+  <section class="section" id="after">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🚀</div>
+      <h2>완주 후 — 다음 갈 길</h2>
+    </div>
+    <p>10단계까지 끝냈다면 "동작하는 백엔드를 운영 모양으로 만드는 한 바퀴" 를 돌아 본 것입니다. 다음은 같은 코드에 실무 부품을 하나씩 갈아 끼우는 연습입니다. <strong>진짜 PG</strong>(토스·포트원) — <code>pg_client</code> 의 URL·본문·서명 규칙만 그 문서대로 바꾸고 <code>Idempotency-Key</code> 를 붙여 보세요. <strong>작업 큐</strong>(arq·Celery) — 8단계 워커의 폴링 루프를 "마감 시각에 예약된 잡" 으로 바꿔 보세요. <strong>OpenTelemetry</strong> — 10단계의 request-id 를 trace-id 로 승격시켜 SQL·httpx 스팬까지 한 화면에서 보세요. <strong>Kubernetes</strong> — compose 의 다섯 서비스를 Deployment 로 옮기고 liveness/readiness 를 나눠 보세요. 그리고 <code>README.md</code> 의 회고 세 줄을 채우는 것이 진짜 마지막입니다.</p>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="../../self-study/index.html"><span class="part-pager-dir">← self-study</span><span class="part-pager-title">10주 커리큘럼으로</span></a>
+    <a class="part-pager-link next" href="01-skeleton.html"><span class="part-pager-dir">시작 →</span><span class="part-pager-title">1단계 · 뼈대와 설정</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 로드맵 · <a href="../planning/2026-08-25-auction-api-design.md">설계 문서</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

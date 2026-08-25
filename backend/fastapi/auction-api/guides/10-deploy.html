@@ -1,0 +1,2298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10단계 — 성능·관측성·배포: 운영 모양으로 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/markdown.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · self-study 10주의 실무 적용</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+    <a class="nav-week" href="01-skeleton.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-models-alembic.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-tests-auth.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-auction-crud.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-list-pagination.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-bids-concurrency.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-realtime-ws.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-closer-worker.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-payment-webhook.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <div class="nav-week active"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</div>
+    <div class="nav-week-group">
+      <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+      <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+      <a class="nav-item" href="#analogy">🏭 비유 — 공장과 매장</a>
+      <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      <a class="nav-item" href="#impl">🔧 구현 — 파일별</a>
+      <a class="nav-item" href="#run">▶️ 실행·확인</a>
+      <a class="nav-item" href="#done">✅ 완료 기준</a>
+      <a class="nav-item" href="#pitfalls">⚠️ 함정 &amp; 실무 팁</a>
+      <a class="nav-item" href="#refs">🔗 self-study 정본</a>
+      <a class="nav-item" href="#self-check">❓ 셀프 체크</a>
+    </div>
+
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <h1>10단계 — 성능·관측성·배포: 운영 모양으로</h1>
+    <p class="lesson-subtitle">기능은 9단계로 끝났습니다. 마지막 단계는 <strong>새 기능을 더하지 않습니다</strong>. 지금까지 만든 API·워커·모의 PG 를 "내 노트북에서 도는 것" 에서 "남이 운영할 수 있는 것" 으로 바꿉니다: 자주 읽는 목록에 <strong>캐시</strong>를 붙이고, 모든 로그를 <strong>JSON 한 줄 + request-id</strong> 로 통일하고, 브라우저가 부를 수 있게 <strong>CORS</strong> 를 열고, <strong>부하 테스트</strong>로 숨은 블로킹 호출을 잡아내고, <strong>Dockerfile·compose</strong> 로 다섯 프로세스를 한 번에 띄우고, <strong>GitHub Actions</strong> 가 매 푸시마다 테스트를 돌리게 합니다.</p>
+  </div>
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code> 가 <code>97 passed</code> 를 찍고, 같은 목록을 두 번 부르면 두 번째는 DB 를 안 건드리며(<code>17.8ms → 2.2ms</code>), 모든 응답에 <code>X-Request-ID</code> 가 붙고 로그가 <code>{"ts": …, "request_id": …, "duration_ms": …}</code> 한 줄로 나오며, locust 가 "일부러 넣은 50ms 동기 호출" 을 <code>44 → 146 req/s</code>, <code>p50 790ms → 5ms</code> 라는 숫자로 드러내고, <code>docker compose -f docker-compose.prod.yml up -d --build</code> 한 줄로 다섯 컨테이너가 떠서 가입 → 경매 → 입찰 → 자동 마감 → 결제 → 웹훅까지 컨테이너 안에서 전부 돕니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>"버전 키" 캐시가 왜 <code>DEL</code>·<code>SCAN</code> 없이 무효화되는지 설명하고, 어디서 버전을 올려야 하는지 고를 수 있다</li>
+    <li>request-id 가 contextvar 를 타고 <em>같은 요청의 모든 로그</em>(우리 코드·httpx·SQL 경고)에 자동으로 붙는 원리를 안다</li>
+    <li>부하 테스트 숫자(RPS·p50·p95)만 보고 "이벤트 루프를 막는 동기 호출이 있다" 를 의심할 수 있다</li>
+    <li>멀티스테이지 Dockerfile 이 왜 두 <code>FROM</code> 인지, 비루트 사용자와 exec-form <code>CMD</code> 가 왜 중요한지 안다</li>
+    <li>compose 안에서는 <code>localhost</code> 가 아니라 서비스 이름이 호스트명이라는 것, 마이그레이션은 한 컨테이너만 돌려야 한다는 것을 안다</li>
+    <li>GitHub Actions 서비스 컨테이너로 Postgres·Redis 를 띄워 우리 테스트 전체를 CI 에서 돌릴 수 있다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>9단계까지의 서비스는 <strong>내 노트북 전용</strong>이었습니다. 터미널 세 개에 uvicorn·워커·모의 PG 를 따로 띄우고, 로그는 사람 눈으로 읽는 한 줄짜리 텍스트였고, 목록은 부를 때마다 DB 를 갔습니다. 이번 단계가 끝나면 (1) <code>GET /auctions</code> 는 5초 동안 Redis 에서 답하고 경매가 바뀌는 순간 자동으로 새로 읽으며, (2) 모든 로그가 <code>request_id</code> 를 품은 JSON 한 줄이라 "이 요청이 왜 느렸지?" 를 한 값으로 좇을 수 있고, (3) locust 가 50명 동시 접속을 흉내 내 병목을 숫자로 보여 주며, (4) <code>docker compose -f docker-compose.prod.yml up -d --build</code> 한 줄로 다섯 컨테이너(app·worker·mock_pg·db·redis)가 뜨고, (5) GitHub 에 푸시할 때마다 Actions 가 ruff → 마이그레이션 → 테스트 97개를 돌립니다.</p>
+    <p><strong>전제.</strong> 9단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>87 passed</code>, 컨테이너 두 개 <code>(healthy)</code>, Docker Desktop 실행 중, 8000·8001 포트 비어 있음. 새로 설치하는 패키지는 <code>locust</code>(개발용) 하나입니다. 마이그레이션은 없습니다. 작업 위치는 <code>til/backend/fastapi/auction-api/</code>.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 새 파일 10개(<code>core/cache.py</code>, <code>core/logging.py</code>, 테스트 2개, <code>loadtest/locustfile.py</code>, <code>Dockerfile</code>, <code>.dockerignore</code>, <code>docker-compose.prod.yml</code>, <code>.github/workflows/ci.yml</code>, <code>README.md</code>), 손보는 파일 10개(설정 4개 값, <code>alembic/env.py</code> 한 줄, 서비스 4개에 "버전 올리기" 한 줄씩, <code>services/auth.py</code> 의 bcrypt 를 스레드로, 라우터, <code>main.py</code>, 워커, <code>conftest.py</code>). 기능(엔드포인트·모델·규칙)은 하나도 안 바뀝니다 — 그래서 9단계까지의 87개 테스트가 그대로 통과해야 합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>실무에서 "기능이 된다" 와 "운영할 수 있다" 사이에는 네 가지 질문이 있습니다. <strong>빠른가</strong> — 인기 경매 목록은 초당 수백 번 읽히는데 매번 DB 를 가야 하나? <strong>보이는가</strong> — 새벽에 "결제가 안 돼요" 라는 문의가 오면, 그 사용자의 그 요청이 어느 워커에서 어떤 SQL 을 몇 ms 돌렸는지 찾을 수 있나? <strong>버티는가</strong> — 50명이 동시에 누르면 어디가 먼저 무너지나? 그걸 배포 <em>전에</em> 알 수 있나? <strong>옮길 수 있는가</strong> — 내 노트북의 uv·파이썬 버전·환경변수 없이도 다른 컴퓨터(동료, 서버, CI)에서 똑같이 뜨나? 이 넷에 답하는 도구가 각각 캐시, 구조화 로그, 부하 테스트, 컨테이너입니다.</p>
+    <p>이 중 초보자가 가장 자주 놓치는 것이 <strong>로그</strong>입니다. <code>print()</code> 와 텍스트 로그는 혼자 개발할 땐 충분하지만, 컨테이너 다섯 개가 같은 화면에 섞여 찍히기 시작하면 "이 줄이 어느 요청의 것인지" 를 알 수 없습니다. 그래서 운영 로그는 (1) 기계가 읽는 JSON, (2) 요청마다 고유한 <code>request_id</code>, (3) 응답 코드와 소요 시간이 기본입니다. 프론트가 에러 화면에 <code>X-Request-ID</code> 를 찍어 두면 사용자가 그 값을 알려 주는 순간 서버 로그에서 한 줄로 찾습니다 — 택배 송장번호와 같습니다.</p>
+    <p><strong>부하 테스트</strong>는 4주차·02 에서 배운 "async 안의 동기 호출은 서버 전체를 멈춘다" 를 <em>숫자</em>로 보는 시간입니다. 코드 리뷰로는 놓치는 <code>requests.get()</code> 하나, 동기 이미지 변환 하나가 p95 를 1초로 만듭니다. 오늘은 일부러 50ms 짜리 <code>time.sleep</code> 을 넣고 켜고 끄며 재 봅니다 — 그리고 그 과정에서 우리 코드에 <em>진짜로</em> 숨어 있던 200ms 짜리 블로킹 호출(bcrypt)도 찾아냅니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>순서에 대해.</strong> 실무에선 Dockerfile 과 CI 가 1단계에 있는 경우도 많습니다(처음부터 컨테이너로 개발). 이 커리큘럼이 10단계에 둔 이유는 "컨테이너에 넣을 것이 다 갖춰진 뒤" 가 가장 배우기 쉽기 때문입니다 — 다섯 프로세스의 역할과 환경변수를 전부 아는 지금이라야 compose 파일의 한 줄 한 줄이 왜 있는지 보입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏭</div>
+      <h2>비유 — 공장과 매장, 송장번호, FAQ 종이</h2>
+    </div>
+    <p><strong>캐시 = 카운터 앞에 붙여 둔 FAQ 답변.</strong> 손님 100명이 같은 질문("지금 열린 경매 뭐 있어요?")을 하면 매번 창고(DB)에 다녀오는 대신 답을 종이에 적어 카운터에 붙여 둡니다. 종이엔 <em>판 번호</em>(<code>v7</code>)가 적혀 있고, 경매가 하나라도 바뀌면 벽의 판 번호판을 <code>v8</code> 로 넘깁니다. 그러면 <code>v7</code> 종이는 아무도 안 보고(찾아서 떼어낼 필요도 없이) 5초 뒤 바람에 날아갑니다(TTL). 새 손님에겐 <code>v8</code> 종이를 새로 적어 붙입니다. "어떤 종이를 떼야 하지?" 를 고민하지 않아도 되는 게 버전 키의 요점입니다.</p>
+    <p><strong>request-id = 택배 송장번호.</strong> 물건 하나가 접수 → 허브 → 배송기사 → 문 앞까지 가는 동안 여러 사람 손을 거치지만, 송장번호 하나로 전 구간을 좇습니다. 우리 요청도 미들웨어 → 라우터 → 서비스 → SQL → httpx(PG 호출) 를 거치는데, 맨 앞에서 번호를 붙여 두면(contextvar) 그 뒤 어디서 찍힌 로그든 같은 번호가 따라붙습니다. 프론트가 번호를 미리 붙여 보내면(<code>X-Request-ID</code> 헤더) 브라우저 콘솔과 서버 로그가 같은 번호를 공유합니다.</p>
+    <p><strong>멀티스테이지 Dockerfile = 공장과 매장.</strong> 공장(빌더 스테이지)에는 uv, 컴파일러, 캐시 같은 큰 장비가 있고 거기서 제품(<code>.venv</code>)을 만듭니다. 매장(런타임 스테이지)엔 제품과 진열대(파이썬)만 옮겨 놓습니다 — 장비는 안 가져갑니다. 그래서 최종 이미지가 작고, 공격 표면도 작고, 매장 직원은 관리자(root)가 아니라 일반 직원(<code>app</code> 사용자)입니다.</p>
+    <p><strong>부하 테스트 = 개점 전 리허설.</strong> 손님 50명을 한 번에 들여보내 보면 카운터가 하나인지, 직원이 화장실 갈 때 줄 전체가 멈추는지(동기 호출!) 개점 전에 보입니다. locust 는 그 50명을 연기하는 배우들입니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>첫 그림은 <strong>캐시의 한 요청</strong>입니다. <code>GET /auctions?status=active</code> 가 오면 서비스는 먼저 Redis 에서 <code>auction:list:version</code>(정수, 없으면 0)을 읽고, 정렬된 파라미터와 합쳐 키를 만듭니다: <code>auction:list:v3:limit=20,sort=ending_soon,status=active</code>. 있으면 그 JSON 을 그대로 돌려주고(DB 0번), 없으면 5단계 그대로 DB 를 읽어 <code>AuctionPage</code> 를 만든 뒤 <code>SET … EX 5</code> 로 붙여 둡니다. 경매가 바뀌는 여섯 지점(생성·수정·취소·입찰·활성화·마감) 은 커밋 <em>뒤에</em> <code>INCR auction:list:version</code> 한 번만 합니다 — 다음 요청은 <code>v4</code> 키를 찾으니 <code>v3</code> 은 자연히 미스이고, TTL 이 치웁니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 300" role="img" aria-label="GET /auctions → GET auction:list:version → 키 조립 → Redis GET → HIT 면 JSON 반환 / MISS 면 DB 조회 → SET EX 5 → 반환. 경매 변경 지점 6곳은 커밋 뒤 INCR version">
+        <defs><marker id="ah10" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="300" fill="#f8fafc" rx="12"/>
+        <text x="16" y="24" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">GET /auctions?status=active — services/auction.list_auctions</text>
+        <rect x="16" y="40" width="200" height="54" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="116" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">① 버전 읽기</text><text x="116" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">GET auction:list:version → 3</text>
+        <rect x="236" y="40" width="240" height="54" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="356" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">② 키 조립 (파라미터 이름순)</text><text x="356" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">auction:list:v3:limit=20,sort=ending_soon,status=active</text>
+        <rect x="496" y="40" width="248" height="54" rx="8" fill="#fef3c7" stroke="#f59e0b"/><text x="620" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#92400e">③ Redis GET 키</text><text x="620" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#92400e">있다(HIT) / 없다(MISS)</text>
+        <line x1="216" y1="67" x2="234" y2="67" stroke="#64748b" marker-end="url(#ah10)"/><line x1="476" y1="67" x2="494" y2="67" stroke="#64748b" marker-end="url(#ah10)"/>
+        <rect x="416" y="120" width="160" height="60" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="496" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#14532d">HIT → JSON 그대로 반환</text><text x="496" y="160" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#14532d">DB 0번 · 2ms</text>
+        <rect x="596" y="120" width="148" height="60" rx="8" fill="#fee2e2" stroke="#ef4444"/><text x="670" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#7f1d1d">MISS → 5단계 쿼리</text><text x="670" y="160" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#7f1d1d">SET 키 JSON EX 5 → 반환</text>
+        <line x1="580" y1="94" x2="520" y2="118" stroke="#22c55e" marker-end="url(#ah10)"/><line x1="660" y1="94" x2="670" y2="118" stroke="#ef4444" marker-end="url(#ah10)"/>
+        <rect x="16" y="120" width="380" height="60" rx="8" fill="#fff" stroke="#6366f1"/><text x="26" y="140" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">무효화 = 버전 올리기 (커밋 뒤 한 줄)</text><text x="26" y="158" font-family="JetBrains Mono, monospace" font-size="9" fill="#334155">create · update · cancel · place_bid · activate_due · close_due</text><text x="26" y="172" font-family="JetBrains Mono, monospace" font-size="9" fill="#334155">→ INCR auction:list:version  (3 → 4)  → 다음 요청은 v4 키를 찾는다</text>
+        <text x="380" y="214" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">v3 키들은 아무도 다시 안 찾는다 → 찾아서 지울 필요 없음(SCAN 없음) → TTL 5초가 치운다</text>
+        <text x="380" y="236" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">파라미터가 다르면 키가 다르다: 커서 2쪽·newest 정렬·필터 조합 각각 따로 캐시 · 로그인 사용자에 따라 달라지는 응답은 이 키로 캐시하면 안 된다</text>
+        <text x="380" y="270" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">테스트: query_counter.selects == 0 (두 번째 호출) · 입찰 뒤 current_version == 1 · 키 3개 (limit=2 / 커서 / newest)</text>
+      </svg>
+    </div>
+    <p>둘째 그림은 <strong>운영 모양</strong>입니다. 다섯 컨테이너가 <code>auction-prod</code> 라는 하나의 네트워크 안에 있고, 그 안에서는 <code>db</code>·<code>redis</code>·<code>app</code>·<code>mock_pg</code> 라는 <em>서비스 이름</em>이 곧 호스트명입니다(<code>localhost</code> 는 각 컨테이너 자기 자신입니다!). 밖(호스트)에는 8000(app)과 8001(mock_pg)만 엽니다 — DB 와 Redis 는 열지 않습니다. <code>app</code> 만 시작할 때 <code>alembic upgrade head</code> 를 먼저 돌리고(<code>sh -c "… &amp;&amp; exec uvicorn …"</code>), <code>worker</code> 는 <code>app</code> 이 healthy 가 된 <em>뒤에</em> 뜹니다(마이그레이션이 끝났다는 뜻). 세 파이썬 컨테이너는 <strong>같은 이미지</strong>(<code>auction-api:local</code>)에 명령만 다릅니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 250" role="img" aria-label="auction-prod 네트워크: app(8000 노출, alembic 후 uvicorn) · worker(app healthy 뒤) · mock_pg(8001 노출) · db(미노출) · redis(미노출). 같은 이미지 3개. 호스트는 8000·8001 만 본다">
+        <rect x="0" y="0" width="760" height="250" fill="#f8fafc" rx="12"/>
+        <rect x="12" y="34" width="736" height="180" rx="10" fill="#fff" stroke="#94a3b8" stroke-dasharray="6 4"/><text x="24" y="52" font-family="Inter, sans-serif" font-size="11" font-weight="700" fill="#475569">docker network: auction-prod_default  (서비스 이름 = 호스트명)</text>
+        <rect x="28" y="66" width="200" height="70" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="128" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">app  (auction-api:local)</text><text x="128" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">alembic upgrade head &amp;&amp;</text><text x="128" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">exec uvicorn … :8000  (healthcheck)</text>
+        <rect x="248" y="66" width="200" height="70" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="348" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">worker  (같은 이미지)</text><text x="348" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">python -m app.workers.closer</text><text x="348" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">depends_on app: healthy · SIGTERM 10s</text>
+        <rect x="468" y="66" width="200" height="70" rx="8" fill="#fef3c7" stroke="#f59e0b"/><text x="568" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#92400e">mock_pg  (같은 이미지)</text><text x="568" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#92400e">uvicorn mock_pg.main:app :8001</text><text x="568" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#92400e">→ 웹훅: http://app:8000/webhooks/…</text>
+        <rect x="128" y="156" width="200" height="44" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="228" y="174" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">db  postgres:16 · 5432</text><text x="228" y="190" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#14532d">ports 없음 · volume prod-pgdata</text>
+        <rect x="368" y="156" width="200" height="44" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="468" y="174" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">redis  7-alpine · 6379</text><text x="468" y="190" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#14532d">ports 없음 · 세션·캐시·Pub/Sub</text>
+        <text x="128" y="234" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#1e3a8a">호스트 :8000 → app</text><text x="568" y="234" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#92400e">호스트 :8001 → mock_pg</text><text x="348" y="234" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#64748b">DB·Redis 는 밖에서 안 보인다</text>
+      </svg>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>세 프로세스가 같은 이미지인 이유.</strong> 코드·의존성이 같으니 이미지를 하나만 빌드하고 <code>command</code> 만 바꿉니다. 이미지가 셋이면 빌드 시간도 셋, 버전이 엇갈릴 위험도 셋입니다. 진짜 운영에서는 <code>mock_pg</code> 가 빠지고 그 자리에 진짜 PG 의 URL 이 <code>PG_BASE_URL</code> 로 들어갑니다 — 코드는 안 바뀌고 환경변수만 바뀝니다(1단계의 Settings 가 여기서 빛을 봅니다).</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 5. 구현 ───────────────────────── -->
+  <section class="section" id="impl">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔧</div>
+      <h2>구현 — 파일을 하나씩 만든다</h2>
+    </div>
+    <p>순서는 늘 같습니다 — <strong>테스트 먼저(RED)</strong>, 통과시킬 코드(GREEN). 다만 이번 단계는 테스트로 잴 수 있는 것(캐시·로그·CORS)과 <em>실행해 봐야 아는 것</em>(부하 테스트·컨테이너·CI)이 반반입니다. 앞의 절반은 pytest 로, 뒤의 절반은 실행·확인 절에서 실제 출력으로 검증합니다.</p>
+    <h3>0. 패키지 하나 — locust</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv add --dev locust
+# Resolved 100 packages … + locust==2.46.4 …
+uv run locust --version
+# locust 2.46.4 from …/.venv/lib/python3.13/site-packages/locust (Python 3.13.3)</code></pre>
+    </div>
+    <h3>1. tests/test_cache.py · tests/test_observability.py — 열 개</h3>
+    <p>캐시 4개: 같은 목록을 두 번 부르면 두 번째는 <code>query_counter.selects == 0</code>(5단계에서 N+1 을 잴 때 만든 그 fixture), 입찰 뒤엔 <code>current_version == 1</code> 이 되고 다음 호출은 DB 를 다시 간다, 경매를 API 로 만들면 빈 결과 캐시가 무효화된다, 파라미터가 다르면 키가 다르다(3개). 관측성 6개: <code>X-Request-ID</code> 를 안 주면 UUID 로 만들어 돌려주고 주면 그대로 돌려준다, access 로그 한 줄이 JSON 이고 <code>request_id·method·path·status·duration_ms</code> 를 품는다(<code>caplog</code> 로 레코드를 잡아 우리 <code>JsonFormatter</code> 로 찍어 본다), 임계값 0 으로 설치하면 <code>pg_sleep</code> 이 "slow query" 로 남는다, CORS preflight 가 허용 출처엔 200 + 헤더, 모르는 출처엔 400.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_cache.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""GET /auctions 캐시 — '버전 키' 방식.
+
+두 번째 호출은 DB 를 건드리지 않고(SELECT 0), 경매가 바뀌면(생성·입찰) 버전이 올라
+새 키로 다시 읽는다. 키마다 TTL 이 있어 무효화를 놓쳐도 몇 초 뒤엔 스스로 사라진다.
+"""
+
+from datetime import UTC, datetime, timedelta
+
+from httpx2 import AsyncClient
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import cache
+from app.core.config import get_settings
+from app.schemas.auction import AuctionListParams
+from tests.conftest import QueryCounter
+from tests.factories import create_auction, create_user, login_headers
+
+
+async def _seed(db: AsyncSession, n: int = 3) -&gt; None:
+    seller = await create_user(db, email="seller@example.com", nickname="판매자")
+    for i in range(n):
+        await create_auction(db, seller, title=f"경매 {i}")
+
+
+async def test_second_call_is_served_from_cache(
+    client: AsyncClient, db_session: AsyncSession, redis: Redis, query_counter: QueryCounter
+):
+    await _seed(db_session)
+    first = await client.get("/auctions", params={"status": "active"})
+    assert first.status_code == 200, first.text
+    assert len(first.json()["items"]) == 3
+
+    query_counter.reset()
+    second = await client.get("/auctions", params={"status": "active"})
+
+    assert second.json() == first.json()
+    assert query_counter.selects == 0  # DB 에 한 문장도 안 갔다
+    keys = await redis.keys("auction:list:v0:*")
+    assert len(keys) == 1
+    assert 0 &lt; await redis.ttl(keys[0]) &lt;= get_settings().list_cache_ttl_seconds
+
+
+async def test_bid_bumps_version_and_invalidates(
+    client: AsyncClient, db_session: AsyncSession, redis: Redis, query_counter: QueryCounter
+):
+    await _seed(db_session, n=1)
+    await create_user(db_session, email="bidder@example.com", nickname="입찰자")
+    before = (await client.get("/auctions")).json()
+    assert before["items"][0]["current_price"] == 10_000
+    assert await cache.current_version(redis) == 0
+
+    headers = await login_headers(client, "bidder@example.com")
+    res = await client.post(
+        f"/auctions/{before['items'][0]['id']}/bids", json={"amount": 10_000}, headers=headers
+    )
+    assert res.status_code == 201, res.text
+    assert await cache.current_version(redis) == 1  # 입찰이 버전을 올렸다
+
+    query_counter.reset()
+    after = (await client.get("/auctions")).json()
+    assert query_counter.selects &gt;= 1  # 새 버전 키 → 미스 → DB
+    assert after["items"][0]["bid_count"] == 1
+
+
+async def test_create_auction_bumps_version(
+    client: AsyncClient, db_session: AsyncSession, redis: Redis
+):
+    await create_user(db_session, email="seller@example.com", nickname="판매자")
+    headers = await login_headers(client, "seller@example.com")
+    assert (await client.get("/auctions")).json()["items"] == []  # 빈 결과도 캐시된다
+
+    ends_at = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+    res = await client.post(
+        "/auctions",
+        json={"title": "새 경매", "category": "hobby", "starting_price": 5_000, "ends_at": ends_at},
+        headers=headers,
+    )
+    assert res.status_code == 201, res.text
+    assert await cache.current_version(redis) == 1
+
+    listed = (await client.get("/auctions")).json()
+    assert [a["title"] for a in listed["items"]] == ["새 경매"]  # 빈 캐시가 아니라 새 결과
+
+
+async def test_each_query_has_its_own_key(
+    client: AsyncClient, db_session: AsyncSession, redis: Redis
+):
+    await _seed(db_session, n=3)
+    page1 = (await client.get("/auctions", params={"limit": 2})).json()
+    await client.get("/auctions", params={"limit": 2, "cursor": page1["next_cursor"]})
+    await client.get("/auctions", params={"sort": "newest"})
+
+    keys = sorted(await redis.keys("auction:list:v0:*"))
+    assert len(keys) == 3  # 페이지·정렬이 다르면 키도 다르다
+    assert cache.list_cache_key(AuctionListParams(limit=2), version=0) in keys</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_observability.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""request-id · JSON 로그 · 느린 쿼리 경고 · CORS."""
+
+import json
+import logging
+import uuid
+
+from httpx2 import AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.db import engine
+from app.core.logging import JsonFormatter, install_slow_query_logging
+
+PREFLIGHT = {"Access-Control-Request-Method": "GET"}
+
+
+async def test_request_id_is_generated_when_missing(client: AsyncClient):
+    res = await client.get("/health")
+    uuid.UUID(res.headers["x-request-id"])  # UUID 형식이면 통과
+
+
+async def test_request_id_is_echoed_when_given(client: AsyncClient):
+    res = await client.get("/health", headers={"X-Request-ID": "req-abc-123"})
+    assert res.headers["x-request-id"] == "req-abc-123"
+
+
+async def test_access_log_is_json_with_request_id(client: AsyncClient, caplog):
+    with caplog.at_level(logging.INFO, logger="app.access"):
+        await client.get("/health", headers={"X-Request-ID": "req-log-1"})
+
+    record = next(r for r in caplog.records if r.name == "app.access")
+    line = json.loads(JsonFormatter().format(record))
+    assert line["request_id"] == "req-log-1"
+    assert (line["method"], line["path"], line["status"]) == ("GET", "/health", 200)
+    assert isinstance(line["duration_ms"], int | float)
+    assert line["level"] == "INFO"
+
+
+async def test_slow_query_is_logged(db_session: AsyncSession, caplog):
+    remove = install_slow_query_logging(engine, threshold_ms=0)  # 모든 쿼리를 '느린' 것으로
+    try:
+        with caplog.at_level(logging.WARNING, logger="app.db"):
+            await db_session.execute(text("SELECT pg_sleep(0.01)"))
+    finally:
+        remove()
+
+    # 임계값 0 이면 SAVEPOINT 같은 문장도 전부 찍힌다 → pg_sleep 이 든 것만 고른다
+    record = next(r for r in caplog.records if r.name == "app.db" and "pg_sleep" in r.statement)
+    line = json.loads(JsonFormatter().format(record))
+    assert line["msg"] == "slow query"
+    assert "pg_sleep" in line["statement"]
+    assert line["duration_ms"] &gt;= 10
+
+
+async def test_cors_preflight_allows_configured_origin(client: AsyncClient):
+    res = await client.options(
+        "/auctions", headers={"Origin": "http://localhost:3000", **PREFLIGHT}
+    )
+    assert res.status_code == 200, res.text
+    assert res.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert res.headers.get("access-control-allow-credentials") == "true"
+
+
+async def test_cors_rejects_unknown_origin(client: AsyncClient):
+    res = await client.options("/auctions", headers={"Origin": "http://evil.example", **PREFLIGHT})
+    assert res.status_code == 400
+    assert "access-control-allow-origin" not in res.headers</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>conftest 한 줄.</strong> CORS 미들웨어는 앱을 만들 때 허용 출처를 읽으므로, 테스트는 앱을 import 하기 <em>전에</em> <code>CORS_ORIGINS</code> 환경변수를 넣어야 합니다 — 3단계에서 테스트 DB 주소를 바꿔치기한 바로 그 자리입니다.</div>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) tests/conftest.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""테스트 공통 fixture.
+
+핵심 아이디어 세 가지
+1) 앱을 import 하기 *전에* 환경변수를 바꿔치기해서 앱 전체가 테스트 DB/Redis 를 보게 한다.
+   (환경변수는 .env 보다 우선한다 — 1단계에서 확인한 규칙)
+2) 테스트 DB 는 세션 시작 때 한 번만 만들고 마이그레이션한다.
+3) 테스트마다 트랜잭션을 열고, 끝나면 롤백한다 → 연습장에 쓰고 찢어 버리기.
+"""
+
+import asyncio
+import os
+from collections.abc import AsyncIterator, Iterator
+
+from app.core.config import Settings  # 클래스만 가져온다 (get_settings() 는 아직 호출하지 않는다)
+
+_dev = Settings()  # .env 의 값을 읽어 테스트용 주소를 파생한다
+os.environ["APP_ENV"] = "test"
+os.environ["DATABASE_URL"] = _dev.database_url.rsplit("/", 1)[0] + "/auction_test"
+os.environ["REDIS_URL"] = _dev.redis_url.rsplit("/", 1)[0] + "/15"
+os.environ["CORS_ORIGINS"] = "http://localhost:3000"  # 10단계 CORS 테스트용 허용 출처
+
+# ── 여기부터는 환경변수가 바뀐 뒤라, 앱 모듈이 테스트 DB/Redis 주소로 초기화된다 ──
+import pytest  # noqa: E402
+from alembic import command  # noqa: E402
+from alembic.config import Config  # noqa: E402
+from httpx2 import ASGITransport, AsyncClient  # noqa: E402
+from redis.asyncio import Redis  # noqa: E402
+from sqlalchemy import event, text  # noqa: E402
+from sqlalchemy.engine import make_url  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+
+from app.core.config import get_settings  # noqa: E402
+from app.core.db import engine, get_db  # noqa: E402
+from app.core.redis import redis_client  # noqa: E402
+from app.main import app  # noqa: E402
+
+
+async def _ensure_database_exists(database_url: str) -&gt; None:
+    """auction_test DB 가 없으면 만든다. CREATE DATABASE 는 트랜잭션 밖에서만 되므로 AUTOCOMMIT."""
+    url = make_url(database_url)
+    admin = create_async_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
+    async with admin.connect() as conn:
+        exists = await conn.scalar(
+            text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": url.database}
+        )
+        if not exists:
+            await conn.execute(text(f'CREATE DATABASE "{url.database}"'))
+    await admin.dispose()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def prepare_test_database() -&gt; None:
+    """세션당 한 번: 테스트 DB 생성 + alembic upgrade head."""
+    asyncio.run(_ensure_database_exists(get_settings().database_url))
+    command.upgrade(Config("alembic.ini"), "head")
+
+
+@pytest.fixture
+async def db_session() -&gt; AsyncIterator[AsyncSession]:
+    """테스트 하나 = 트랜잭션 하나. 서비스가 commit() 해도 SAVEPOINT 만 풀리고, 끝나면 전부 롤백."""
+    async with engine.connect() as conn:
+        await conn.begin()
+        factory = async_sessionmaker(
+            bind=conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+        )
+        async with factory() as session:
+            yield session
+        await conn.rollback()
+
+
+@pytest.fixture
+async def redis() -&gt; AsyncIterator[Redis]:
+    """Redis 는 트랜잭션이 없으니 테스트 시작마다 15번 DB 를 통째로 비운다."""
+    await redis_client.flushdb()
+    yield redis_client
+
+
+@pytest.fixture
+async def client(db_session: AsyncSession, redis: Redis) -&gt; AsyncIterator[AsyncClient]:
+    """앱을 실제 포트에 띄우지 않고 ASGI 로 직접 호출하는 HTTP 클라이언트."""
+
+    async def _override_get_db() -&gt; AsyncIterator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+    app.dependency_overrides.clear()
+
+
+class QueryCounter:
+    """실행된 SQL 문장을 모아 두는 작은 상자. N+1 을 '숫자'로 증명할 때 쓴다."""
+
+    def __init__(self) -&gt; None:
+        self.statements: list[str] = []
+
+    def record(self, statement: str) -&gt; None:
+        self.statements.append(statement)
+
+    def reset(self) -&gt; None:
+        self.statements.clear()
+
+    @property
+    def selects(self) -&gt; int:
+        return sum(1 for s in self.statements if s.lstrip().upper().startswith("SELECT"))
+
+
+@pytest.fixture
+def query_counter() -&gt; Iterator[QueryCounter]:
+    """엔진이 커서에 SQL 을 보내기 직전(before_cursor_execute)마다 문장을 기록한다.
+    async 엔진도 속은 동기 엔진(engine.sync_engine)이라 거기에 이벤트를 건다."""
+    counter = QueryCounter()
+
+    def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001
+        counter.record(statement)
+
+    event.listen(engine.sync_engine, "before_cursor_execute", _before_cursor_execute)
+    yield counter
+    event.remove(engine.sync_engine, "before_cursor_execute", _before_cursor_execute)</code></pre>
+    </div>
+    <h3>2. RED — 모듈 두 개가 없다</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q tests/test_cache.py tests/test_observability.py
+# ImportError while importing test module '…/tests/test_cache.py'.
+# E   ImportError: cannot import name 'cache' from 'app.core'
+# ImportError while importing test module '…/tests/test_observability.py'.
+# E   ModuleNotFoundError: No module named 'app.core.logging'
+# 2 errors in 0.08s</code></pre>
+    </div>
+    <h3>3. app/core/config.py — 설정 네 개 (수정)</h3>
+    <p>캐시 TTL, 느린 쿼리 임계값, CORS 허용 출처, 부하 데모 스위치. <code>cors_origins</code> 가 조금 특별합니다: 환경변수는 문자열 하나로 오는데 우리는 리스트를 원합니다. pydantic-settings 는 리스트 타입을 보면 값을 <em>JSON 으로</em> 해석하려 들어서 <code>http://localhost:3000</code> 같은 문자열에서 터집니다. <code>NoDecode</code> 로 "해석하지 말고 그대로 줘" 라고 한 뒤 <code>field_validator(mode="before")</code> 에서 콤마로 자릅니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/core/config.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from functools import lru_cache
+from typing import Annotated, Literal
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    app_env: Literal["dev", "test", "prod"] = "dev"
+    database_url: str = "postgresql+asyncpg://auction:auction_pw@localhost:5435/auction"
+    redis_url: str = "redis://localhost:6380/0"
+    debug: bool = False
+
+    # 인증 — 프로덕션에서는 반드시 환경변수/시크릿 매니저로 주입한다
+    jwt_secret: str = "dev-only-change-me-in-prod-please-use-32-bytes-or-more"
+    access_token_minutes: int = 15
+    refresh_token_days: int = 7
+
+    # 입찰 (6단계) — 시간·횟수 규칙은 설정으로 빼 둔다. 테스트에서 줄이고, 운영에서 조정한다
+    snipe_window_seconds: int = 30  # 마감까지 이 초 이내에 입찰이 오면
+    snipe_extend_seconds: int = 30  # 마감을 이만큼 늦춘다 (스나이핑 방지)
+    bid_rate_limit_per_second: int = 5  # 한 사용자가 1초에 보낼 수 있는 입찰 수
+
+    # 마감 워커 (8단계) — 루프 주기·한 틱에 집는 건수·낙찰 후 결제 기한
+    closer_interval_seconds: float = 1.0  # 워커가 시계를 보는 주기 (테스트에선 0.05 로 줄인다)
+    closer_batch_size: int = 100  # 한 틱에 처리할 최대 건수 (한 틱이 너무 길어지지 않게)
+    payment_deadline_hours: int = 24  # 낙찰 뒤 이 시간 안에 결제하지 않으면 expired
+
+    # 결제 연동 (9단계) — PG 주소, 웹훅 서명 비밀키(PG 와 공유), 바깥 호출 타임아웃·재시도,
+    # 그리고 PG 가 웹훅을 보낼 우리 쪽 공개 주소
+    pg_base_url: str = "http://localhost:8001"  # 모의 PG. 진짜라면 https://api.pg.example
+    pg_webhook_secret: str = "dev-only-pg-webhook-secret-change-me-32-bytes-min"
+    pg_timeout_seconds: float = 3.0  # PG 응답을 이보다 오래 기다리지 않는다
+    pg_retries: int = 2  # 타임아웃·5xx 면 이만큼 더 시도 (총 3회)
+    public_base_url: str = "http://localhost:8000"  # callback_url 의 앞부분
+
+    # 운영 모양 (10단계) — 캐시·로그·CORS·부하 데모
+    list_cache_ttl_seconds: int = 5  # GET /auctions 응답을 Redis 에 붙여 두는 시간(초)
+    slow_query_ms: int = 200  # 이보다 오래 걸린 SQL 은 WARNING 으로 남긴다
+    # CORS_ORIGINS=http://localhost:3000,https://app.example  (콤마로 나열. 비어 있으면 CORS 끔)
+    cors_origins: Annotated[list[str], NoDecode] = []
+    # 부하 데모용: GET /auctions/{id} 에 일부러 넣은 블로킹 호출을 켠다
+    demo_blocking_sleep: bool = False
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def split_origins(cls, value: object) -&gt; object:
+        """환경변수는 문자열 하나로 온다 → 콤마로 잘라 리스트로.
+        NoDecode 가 없으면 pydantic-settings 가 먼저 JSON 으로 해석하려다 실패한다."""
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+
+@lru_cache
+def get_settings() -&gt; Settings:
+    return Settings()</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run python -c "from app.core.config import get_settings as g; s=g(); print(s.list_cache_ttl_seconds, s.slow_query_ms, s.cors_origins, s.demo_blocking_sleep)"
+# 5 200 [] False
+CORS_ORIGINS=http://localhost:3000,https://app.example uv run python -c "from app.core.config import get_settings as g; print(g().cors_origins)"
+# ['http://localhost:3000', 'https://app.example']</code></pre>
+    </div>
+    <h3>4. app/core/cache.py — 버전 키 캐시</h3>
+    <p>함수 다섯 개, 전부 몇 줄입니다. 핵심은 <code>list_cache_key</code> 가 파라미터를 <strong>이름순으로 정렬</strong>하고 <code>None</code> 을 빼는 것 — <code>?limit=20&amp;sort=newest</code> 와 <code>?sort=newest&amp;limit=20</code> 은 같은 질문이니 같은 키여야 합니다. 그리고 <code>bump_version</code> 은 <code>INCR</code> 하나 — 원자적이라 워커 여러 개가 동시에 불러도 안전합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/core/cache.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""GET /auctions 캐시 — '버전 키' 방식.
+
+무효화를 "키 지우기" 가 아니라 "버전 올리기" 로 한다. 키에 버전이 박혀 있어서
+    auction:list:v7:limit=20,sort=ending_soon
+경매가 하나라도 바뀌면 INCR 한 번으로 이전 버전의 키가 전부 자연스럽게 버려진다 —
+어떤 키가 있는지 찾아다니며(SCAN) 지울 필요가 없다. 옛 키는 TTL 이 알아서 치운다.
+"""
+
+import json
+from typing import Any
+
+from redis.asyncio import Redis
+
+from app.schemas.auction import AuctionListParams
+
+VERSION_KEY = "auction:list:version"
+KEY_PREFIX = "auction:list"
+
+
+async def current_version(redis: Redis) -&gt; int:
+    value = await redis.get(VERSION_KEY)
+    return int(value) if value else 0
+
+
+async def bump_version(redis: Redis) -&gt; int:
+    """목록에 보이는 무언가가 바뀌었다 — 생성·수정·취소·입찰·활성화·마감 뒤에 부른다."""
+    return await redis.incr(VERSION_KEY)
+
+
+def list_cache_key(params: AuctionListParams, version: int) -&gt; str:
+    """같은 질문이면 같은 키. 필드를 이름순으로 정렬하고 None 은 뺀다 —
+    ?limit=20&amp;sort=newest 와 ?sort=newest&amp;limit=20 이 같은 키가 되게."""
+    fields = params.model_dump(mode="json", exclude_none=True)
+    query = ",".join(f"{k}={fields[k]}" for k in sorted(fields))
+    return f"{KEY_PREFIX}:v{version}:{query}"
+
+
+async def get_json(redis: Redis, key: str) -&gt; Any | None:
+    raw = await redis.get(key)
+    return json.loads(raw) if raw else None
+
+
+async def set_json(redis: Redis, key: str, value: Any, ttl_seconds: int) -&gt; None:
+    await redis.set(key, json.dumps(value, ensure_ascii=False), ex=ttl_seconds)</code></pre>
+    </div>
+    <h3>5. 서비스 네 파일 — 캐시 읽기 한 곳, 버전 올리기 여섯 곳 (수정)</h3>
+    <p><code>list_auctions</code> 가 바뀝니다: 이제 <code>redis</code> 를 받고, <code>AuctionPage</code>(직렬화된 응답) 를 돌려줍니다 — 5단계에선 라우터가 <code>AuctionPage</code> 를 조립했는데, 캐시에 넣을 것이 바로 그 직렬화 결과이므로 조립을 서비스로 옮깁니다. 나머지는 각 변경 지점의 <code>commit()</code> <em>뒤에</em> <code>await cache.bump_version(redis)</code> 한 줄씩입니다: 생성·수정·취소(여기), 입찰(<code>bid.py</code>), 마감(<code>closer.py</code>), 활성화(워커의 <code>tick</code> — <code>activate_due</code> 는 redis 를 모르므로 부른 쪽에서). 결제(<code>payment.py</code>)는 <em>안 올립니다</em> — 목록에 보이는 필드(status·current_price·bid_count)가 안 바뀌니까요. "목록에 보이는 게 바뀌는 곳" 이 기준입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/services/auction.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""경매 규칙. HTTP 를 모른다 — 도메인 예외(AppError 계열) 만 던진다.
+
+상태 머신 (한 곳에서만 바꾼다)
+    scheduled ──(시작 시각 도달, 8단계 워커)──▶ active ──(마감, 8단계)──▶ ended
+        └────────────(판매자 취소, 입찰 0건)────────┴──▶ cancelled
+"""
+
+import uuid
+from datetime import UTC, datetime
+
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import cache
+from app.core.config import get_settings
+from app.core.exceptions import (
+    AuctionClosedError,
+    AuctionHasBidsError,
+    AuctionNotFoundError,
+    InvalidPeriodError,
+    NotAuctionSellerError,
+)
+from app.core.pagination import decode_cursor, encode_cursor
+from app.models import Auction, AuctionStatus, User
+from app.repositories import auction as auction_repo
+from app.schemas.auction import AuctionCreate, AuctionListParams, AuctionPage, AuctionUpdate
+
+OPEN_STATUSES = {AuctionStatus.SCHEDULED, AuctionStatus.ACTIVE}
+
+
+def _now() -&gt; datetime:
+    return datetime.now(UTC)
+
+
+async def create(db: AsyncSession, redis: Redis, seller: User, data: AuctionCreate) -&gt; Auction:
+    now = _now()
+    starts_at = data.starts_at or now
+    auction = Auction(
+        seller_id=seller.id,
+        title=data.title,
+        description=data.description,
+        category=data.category,
+        starting_price=data.starting_price,
+        current_price=data.starting_price,  # 입찰 전 현재가 = 시작가
+        min_increment=data.min_increment,
+        starts_at=starts_at,
+        ends_at=data.ends_at,
+        status=AuctionStatus.ACTIVE if starts_at &lt;= now else AuctionStatus.SCHEDULED,
+    )
+    await auction_repo.add(db, auction)
+    await db.commit()
+    await db.refresh(auction)  # DB 가 채운 created_at / updated_at 을 읽어 온다
+    await cache.bump_version(redis)  # 목록이 달라졌다 — 캐시 버전을 올린다 (커밋 뒤에)
+    return auction
+
+
+async def list_auctions(db: AsyncSession, redis: Redis, params: AuctionListParams) -&gt; AuctionPage:
+    """한 페이지 + 다음 커서. 캐시 → (미스면) 커서 해석 · 쿼리 · 직렬화 · 캐시 저장.
+
+    캐시 키에 '현재 버전' 이 박힌다. 경매가 바뀔 때마다 bump_version() 이 버전을 올리므로
+    옛 키는 다시는 조회되지 않고 TTL 로 사라진다. 같은 버전·같은 파라미터면 DB 를 안 건드린다.
+    """
+    version = await cache.current_version(redis)
+    key = cache.list_cache_key(params, version)
+    cached = await cache.get_json(redis, key)
+    if cached is not None:
+        return AuctionPage.model_validate(cached)
+
+    after = decode_cursor(params.cursor, params.sort) if params.cursor else None
+    rows = await auction_repo.list_page(
+        db,
+        status=params.status,
+        category=params.category,
+        min_price=params.min_price,
+        max_price=params.max_price,
+        sort=params.sort,
+        limit=params.limit,
+        after=after,
+    )
+    items = rows[: params.limit]
+    next_cursor = None
+    if len(rows) &gt; params.limit:  # limit+1 번째가 있다 = 다음 페이지가 있다
+        last = items[-1]
+        sort_key = last.ends_at if params.sort == "ending_soon" else last.created_at
+        next_cursor = encode_cursor(params.sort, sort_key, last.id)
+
+    page = AuctionPage(items=items, next_cursor=next_cursor)
+    ttl = get_settings().list_cache_ttl_seconds
+    await cache.set_json(redis, key, page.model_dump(mode="json"), ttl)
+    return page
+
+
+async def get(db: AsyncSession, auction_id: uuid.UUID) -&gt; Auction:
+    auction = await auction_repo.get(db, auction_id)
+    if auction is None:
+        raise AuctionNotFoundError()
+    return auction
+
+
+def _ensure_seller(auction: Auction, user: User) -&gt; None:
+    if auction.seller_id != user.id:
+        raise NotAuctionSellerError()
+
+
+def _ensure_open_and_unbid(auction: Auction) -&gt; None:
+    """수정·취소 공통 규칙: 아직 열려 있고(scheduled/active), 입찰이 하나도 없어야 한다."""
+    if auction.status not in OPEN_STATUSES:
+        raise AuctionClosedError()
+    if auction.bid_count &gt; 0:
+        raise AuctionHasBidsError()
+
+
+async def update(
+    db: AsyncSession, redis: Redis, user: User, auction_id: uuid.UUID, data: AuctionUpdate
+) -&gt; Auction:
+    auction = await get(db, auction_id)
+    _ensure_seller(auction, user)
+    _ensure_open_and_unbid(auction)
+
+    changes = data.model_dump(exclude_unset=True)  # 요청에 실제로 담긴 필드만
+    if "ends_at" in changes and changes["ends_at"] &lt;= auction.starts_at:
+        raise InvalidPeriodError()
+    for field, value in changes.items():
+        setattr(auction, field, value)
+    auction.version += 1  # 6단계 낙관적 락의 재료 — 바뀔 때마다 1 증가
+
+    await db.commit()
+    await db.refresh(auction)
+    await cache.bump_version(redis)
+    return auction
+
+
+async def cancel(db: AsyncSession, redis: Redis, user: User, auction_id: uuid.UUID) -&gt; Auction:
+    auction = await get(db, auction_id)
+    _ensure_seller(auction, user)
+    _ensure_open_and_unbid(auction)
+
+    auction.status = AuctionStatus.CANCELLED
+    auction.version += 1
+    await db.commit()
+    await db.refresh(auction)
+    await cache.bump_version(redis)
+    return auction</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/services/bid.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""입찰 규칙. HTTP 를 모른다 — 도메인 예외만 던진다.
+
+핵심은 순서다: (rate limit) → **경매 행 잠금** → 규칙 검사 → 갱신 → 커밋.
+잠금부터 커밋까지가 한 트랜잭션이라, 그 사이에 다른 입찰은 줄을 서서 기다린다.
+그래서 '현재가 + 최소 단위' 를 계산할 때 본 값이 커밋하는 순간까지 그대로다.
+"""
+
+import uuid
+from datetime import UTC, datetime, timedelta
+
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import cache, events
+from app.core.config import get_settings
+from app.core.exceptions import (
+    AuctionNotActiveError,
+    AuctionNotFoundError,
+    BidRateLimitedError,
+    BidTooLowError,
+    OwnAuctionBidError,
+)
+from app.models import Auction, AuctionStatus, Bid, User
+from app.repositories import auction as auction_repo
+from app.repositories import bid as bid_repo
+
+
+def _now() -&gt; datetime:
+    """시계를 함수로 빼 두면 테스트에서 멈추거나 돌릴 수 있다."""
+    return datetime.now(UTC)
+
+
+async def _check_rate_limit(redis: Redis, user_id: uuid.UUID, now: datetime) -&gt; None:
+    """사용자별 '이번 1초' 카운터. INCR 는 원자적이라 동시에 들어와도 정확히 센다."""
+    key = f"bid:rl:{user_id}:{int(now.timestamp())}"
+    count = await redis.incr(key)
+    if count == 1:
+        await redis.expire(key, 2)  # 1초짜리 키가 영원히 남지 않도록
+    if count &gt; get_settings().bid_rate_limit_per_second:
+        raise BidRateLimitedError()
+
+
+def minimum_bid(auction: Auction) -&gt; int:
+    """첫 입찰은 시작가 이상, 그 다음부터는 현재가 + 최소 단위 이상."""
+    if auction.bid_count == 0:
+        return auction.starting_price
+    return auction.current_price + auction.min_increment
+
+
+async def place_bid(
+    db: AsyncSession, redis: Redis, bidder: User, auction_id: uuid.UUID, amount: int
+) -&gt; tuple[Bid, Auction]:
+    settings = get_settings()
+    now = _now()
+
+    await _check_rate_limit(redis, bidder.id, now)  # 락을 잡기 *전에* — 스팸이 락을 쥐고 있지 않게
+
+    auction = await auction_repo.get_for_update(db, auction_id)  # ← 여기서부터 줄을 선다
+    if auction is None:
+        raise AuctionNotFoundError()
+    if auction.status != AuctionStatus.ACTIVE or now &gt;= auction.ends_at:
+        raise AuctionNotActiveError()
+    if auction.seller_id == bidder.id:
+        raise OwnAuctionBidError()
+    minimum = minimum_bid(auction)
+    if amount &lt; minimum:
+        raise BidTooLowError(
+            f"최소 입찰액은 {minimum:,}원입니다 (현재가 {auction.current_price:,}원)"
+        )
+
+    # 규칙 4 — 마감 직전 입찰이면 마감을 늦춘다 (스나이핑 방지)
+    extended = False
+    if auction.ends_at - now &lt; timedelta(seconds=settings.snipe_window_seconds):
+        auction.ends_at = auction.ends_at + timedelta(seconds=settings.snipe_extend_seconds)
+        extended = True
+
+    auction.current_price = amount
+    auction.bid_count += 1
+    auction.version += 1
+    bid = Bid(auction_id=auction.id, bidder_id=bidder.id, amount=amount)
+    await bid_repo.add(db, bid)
+
+    await db.commit()  # ← 여기서 락이 풀리고, 줄 서 있던 다음 입찰이 '바뀐 현재가' 를 본다
+    await db.refresh(bid)
+    await db.refresh(auction)
+    await cache.bump_version(redis)  # 목록의 current_price·bid_count 가 바뀌었다
+
+    # 커밋 *뒤에* 방송한다. 커밋 전에 방송하면 구독자가 "아직 DB 에 없는 입찰" 을 보게 되고,
+    # 커밋이 실패하면 없던 일이 방송된 채로 남는다.
+    await events.publish(
+        redis,
+        events.AuctionEvent(
+            type="bid_placed",
+            auction_id=auction.id,
+            payload={
+                "amount": bid.amount,
+                "bidder_id": bid.bidder_id,
+                "current_price": auction.current_price,
+                "bid_count": auction.bid_count,
+                "ends_at": auction.ends_at,
+                "version": auction.version,
+                "extended": extended,
+            },
+        ),
+    )
+    return bid, auction
+
+
+async def list_bids(db: AsyncSession, auction_id: uuid.UUID) -&gt; list[Bid]:
+    if await auction_repo.get(db, auction_id) is None:
+        raise AuctionNotFoundError()
+    return await bid_repo.list_by_auction(db, auction_id)</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/services/closer.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""시간이 흐르면 저절로 일어나야 하는 일 세 가지. HTTP 도, 루프도, 시그널도 모른다.
+
+  activate_due   : 시작 시각이 지난 scheduled 경매 → active
+  close_due      : 마감 시각이 지난 active 경매 → ended (+ 낙찰자, Payment, auction_closed 이벤트)
+  expire_payments: 결제 기한이 지난 pending 결제 → expired
+
+세 함수 모두 `now` 를 인자로 받는다. 워커는 진짜 시계를 넣고, 테스트는 원하는 시각을 넣는다.
+누가 부르든(워커 1개든 2개든) 결과가 같아야 한다 — 그게 이 파일의 유일한 어려움이다.
+"""
+
+import logging
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from redis.asyncio import Redis
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import cache, events
+from app.core.config import get_settings
+from app.models import Auction, AuctionStatus, Payment, PaymentStatus
+from app.repositories import auction as auction_repo
+from app.repositories import bid as bid_repo
+from app.repositories import payment as payment_repo
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ClosedResult:
+    auction_id: uuid.UUID
+    winner_id: uuid.UUID | None  # None = 유찰 (입찰 0건)
+    final_price: int | None
+    bid_count: int
+    payment_id: uuid.UUID | None
+
+
+async def activate_due(db: AsyncSession, now: datetime, *, limit: int | None = None) -&gt; int:
+    """UPDATE 한 문장. UPDATE 는 스스로 행을 잠그므로 워커가 둘이어도 안전하다 —
+    둘째 워커는 첫째의 커밋을 기다렸다가 다시 조건을 보고(이미 active) 0 행을 바꾼다."""
+    limit = limit or get_settings().closer_batch_size
+    ids = await auction_repo.list_due_scheduled_ids(db, now, limit=limit)
+    if not ids:
+        return 0
+    stmt = (
+        update(Auction)
+        .where(Auction.id.in_(ids), Auction.status == AuctionStatus.SCHEDULED)  # 조건을 한 번 더
+        .values(status=AuctionStatus.ACTIVE, version=Auction.version + 1)
+        .returning(Auction.id)
+    )
+    activated = list((await db.scalars(stmt)).all())
+    await db.commit()
+    if activated:
+        logger.info("activated %d auction(s): %s", len(activated), [str(i)[:8] for i in activated])
+    return len(activated)
+
+
+async def close_due(
+    db: AsyncSession, redis: Redis, now: datetime, *, limit: int | None = None
+) -&gt; list[ClosedResult]:
+    """후보 목록은 락 없이 값싸게 뽑고, 실제 처리는 **한 건씩** 잠그고 커밋한다.
+
+    왜 한 건씩인가: 100건을 한 트랜잭션에 묶으면 (1) 100번째에서 실패하면 99건이 같이 롤백되고,
+    (2) 그동안 100개 행이 잠겨 입찰 요청들이 줄을 선다. 한 건씩이면 실패도 잠금도 한 건뿐이다.
+    왜 skip_locked 인가: 다른 워커가 이미 잡은 행이면 기다릴 이유가 없다 — 그쪽이 끝낼 것이다.
+    왜 재검사인가: 후보를 뽑은 뒤 잠그기까지 사이에 누가 이미 닫았을 수 있다(그 워커가 커밋해서
+    락을 풀면 우리는 status=ended 인 행을 잠그게 된다). 잠근 *뒤에* 본 값만 믿는다.
+    """
+    settings = get_settings()
+    limit = limit or settings.closer_batch_size
+    results: list[ClosedResult] = []
+
+    for auction_id in await auction_repo.list_due_active_ids(db, now, limit=limit):
+        auction = await auction_repo.get_for_update(db, auction_id, skip_locked=True)
+        if auction is None:  # 다른 워커가 잠갔거나(skip) 사라졌다 → 내 몫이 아니다
+            continue
+        if auction.status != AuctionStatus.ACTIVE or auction.ends_at &gt; now:  # 잠근 뒤 재검사
+            await db.rollback()  # 잠금만 풀고 다음
+            continue
+
+        top = await bid_repo.top_bid(db, auction.id)
+        auction.status = AuctionStatus.ENDED
+        auction.winner_id = top.bidder_id if top else None
+        auction.version += 1
+
+        payment: Payment | None = None
+        if top is not None:
+            payment = await payment_repo.add(
+                db,
+                Payment(
+                    auction_id=auction.id,
+                    payer_id=top.bidder_id,
+                    amount=auction.current_price,
+                    status=PaymentStatus.PENDING,
+                    expires_at=now + timedelta(hours=settings.payment_deadline_hours),
+                ),
+            )
+        await db.commit()  # ← 여기서 이 경매의 락이 풀린다. 아래는 커밋된 사실만 방송한다
+        await cache.bump_version(redis)  # 목록의 status 가 ended 로 바뀌었다
+
+        result = ClosedResult(
+            auction_id=auction.id,
+            winner_id=auction.winner_id,
+            final_price=auction.current_price if top else None,
+            bid_count=auction.bid_count,
+            payment_id=payment.id if payment else None,
+        )
+        await events.publish(
+            redis,
+            events.AuctionEvent(
+                type="auction_closed",
+                auction_id=auction.id,
+                payload={
+                    "winner_id": result.winner_id,
+                    "final_price": result.final_price,
+                    "bid_count": result.bid_count,
+                    "payment_id": result.payment_id,
+                    "payment_expires_at": payment.expires_at if payment else None,
+                    "version": auction.version,
+                },
+            ),
+        )
+        if top is not None:
+            # 진짜라면 여기서 메일/푸시 큐에 넣는다. 이 프로젝트에서는 로그 한 줄이 '알림' 이다.
+            logger.info(
+                "[notify] user=%s 낙찰! auction=%s %s원 — %s 까지 결제해 주세요",
+                str(top.bidder_id)[:8],
+                str(auction.id)[:8],
+                f"{auction.current_price:,}",
+                payment.expires_at.isoformat(timespec="minutes") if payment else "",
+            )
+        else:
+            logger.info("[notify] auction=%s 유찰 (입찰 0건)", str(auction.id)[:8])
+        results.append(result)
+    return results
+
+
+async def expire_payments(db: AsyncSession, now: datetime) -&gt; int:
+    """기한 지난 pending → expired. activate_due 와 같은 'UPDATE 한 문장' 패턴."""
+    stmt = (
+        update(Payment)
+        .where(Payment.status == PaymentStatus.PENDING, Payment.expires_at &lt;= now)
+        .values(status=PaymentStatus.EXPIRED)
+        .returning(Payment.id)
+    )
+    expired = list((await db.scalars(stmt)).all())
+    await db.commit()
+    if expired:
+        logger.info("expired %d payment(s): %s", len(expired), [str(i)[:8] for i in expired])
+    return len(expired)</code></pre>
+    </div>
+    <p>워커는 두 가지가 바뀝니다. 활성화 뒤 버전 올리기, 그리고 <code>logging.basicConfig</code> 대신 API 와 같은 <code>setup_logging()</code> — 한 수집기에서 두 프로세스의 로그가 같은 모양으로 보여야 합니다(실행·확인의 워커 로그가 JSON 인 이유).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/workers/closer.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""마감 워커 — API 서버와 **별개의 프로세스**.  실행:  uv run python -m app.workers.closer
+
+하는 일은 단순하다: interval 초마다 시계를 보고 services/closer 의 세 함수를 차례로 부른다.
+규칙은 전부 서비스에 있고, 이 파일은 "언제 부르나 · 어떻게 멈추나 · 무엇을 남기나" 만 안다.
+
+왜 API 안의 BackgroundTasks 나 asyncio.create_task 가 아닌가:
+  - 요청이 없어도 돌아야 한다 (새벽 3시에 마감되는 경매도 제때 닫혀야 한다)
+  - uvicorn --workers 4 면 태스크도 4개가 되고, 서버를 재시작하면 사라진다
+  - 별도 프로세스면 API 와 독립적으로 죽이고 살리고 늘릴 수 있다 (10단계 compose 의 `worker` 서비스)
+"""
+
+import asyncio
+import logging
+import signal
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+
+from redis.asyncio import Redis
+
+from app.core import cache
+from app.core.config import get_settings
+from app.core.db import SessionLocal, engine
+from app.core.logging import install_slow_query_logging, setup_logging
+from app.services import closer
+from app.services.closer import ClosedResult
+
+logger = logging.getLogger("worker.closer")
+
+
+@dataclass
+class TickResult:
+    activated: int = 0
+    closed: list[ClosedResult] = field(default_factory=list)
+    expired: int = 0
+
+    @property
+    def empty(self) -&gt; bool:
+        return self.activated == 0 and not self.closed and self.expired == 0
+
+
+async def tick(redis: Redis, now: datetime | None = None) -&gt; TickResult:
+    """한 번의 '시계 보기'. 함수마다 세션을 새로 여는 이유: 하나가 실패해도 다른 둘은 독립적으로
+    커밋되고, 세션(커넥션)을 틱 사이에 쥐고 있지 않기 위해서다."""
+    now = now or datetime.now(UTC)
+    result = TickResult()
+    async with SessionLocal() as db:
+        result.activated = await closer.activate_due(db, now)
+    if result.activated:
+        await cache.bump_version(redis)  # scheduled → active: 목록의 status 가 바뀌었다
+    async with SessionLocal() as db:
+        result.closed = await closer.close_due(db, redis, now)
+    async with SessionLocal() as db:
+        result.expired = await closer.expire_payments(db, now)
+    return result
+
+
+async def run(stop: asyncio.Event, redis: Redis, interval: float) -&gt; None:
+    """stop 이 set 될 때까지 interval 마다 tick. 한 틱이 실패해도 루프는 죽지 않는다(로그만)."""
+    logger.info("closer started (interval=%ss)", interval)
+    while not stop.is_set():
+        try:
+            result = await tick(redis)
+            if not result.empty:
+                logger.info(
+                    "tick: activated=%d closed=%d expired=%d",
+                    result.activated,
+                    len(result.closed),
+                    result.expired,
+                )
+        except Exception:  # noqa: BLE001 — 워커는 한 틱의 실패로 죽으면 안 된다
+            logger.exception("tick failed")
+        try:
+            # sleep 하면 종료 신호를 interval 만큼 늦게 받는다. stop.wait() 를 기다리면 즉시 깬다.
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+        except TimeoutError:
+            pass
+    logger.info("closer stopped")
+
+
+async def main() -&gt; None:
+    settings = get_settings()
+    setup_logging()  # API 와 같은 JSON 로그 — 한 수집기에서 두 프로세스를 같은 모양으로 본다
+    install_slow_query_logging(engine, settings.slow_query_ms)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)  # 워커 전용 클라이언트
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):  # Ctrl-C, docker stop → 조용히 마무리
+        loop.add_signal_handler(sig, stop.set)
+    try:
+        await run(stop, redis, settings.closer_interval_seconds)
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())</code></pre>
+    </div>
+    <h3>6. app/routers/auctions.py — Redis 주입과 부하 데모 스위치 (수정)</h3>
+    <p>목록·생성·수정·취소가 <code>RedisClient</code> 를 받아 서비스에 넘깁니다. 그리고 <code>read_auction</code> 에 이번 단계의 <em>일부러 심은 함정</em>이 들어갑니다: <code>demo_blocking_sleep</code> 가 켜져 있으면 <code>time.sleep(0.05)</code>. 실무의 <code>requests.get()</code>, 동기 DB 드라이버, PIL 이미지 변환이 정확히 이 자리에 이렇게 들어옵니다. 기본값은 꺼짐이고, 실행·확인에서 켜고 끄며 부하 테스트로 잡아냅니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/routers/auctions.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import time
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, Query, status
+
+from app.core.config import get_settings
+from app.core.deps import CurrentUser, DbSession, RedisClient
+from app.schemas.auction import (
+    AuctionCreate,
+    AuctionListParams,
+    AuctionPage,
+    AuctionRead,
+    AuctionUpdate,
+)
+from app.services import auction as auction_service
+
+router = APIRouter(prefix="/auctions", tags=["auctions"])
+
+
+@router.post("", response_model=AuctionRead, status_code=status.HTTP_201_CREATED)
+async def create_auction(
+    data: AuctionCreate, user: CurrentUser, db: DbSession, redis: RedisClient
+) -&gt; AuctionRead:
+    return await auction_service.create(db, redis, user, data)
+
+
+@router.get("", response_model=AuctionPage)
+async def list_auctions(
+    params: Annotated[AuctionListParams, Query()], db: DbSession, redis: RedisClient
+) -&gt; AuctionPage:
+    """?status=active&amp;sort=ending_soon&amp;limit=20&amp;cursor=... — 로그인 없이 누구나. 5초 캐시."""
+    return await auction_service.list_auctions(db, redis, params)
+
+
+@router.get("/{auction_id}", response_model=AuctionRead)
+async def read_auction(auction_id: uuid.UUID, db: DbSession) -&gt; AuctionRead:
+    if get_settings().demo_blocking_sleep:
+        # 10단계 부하 데모: "누군가 무심코 넣은 동기 호출" — 이 50ms 동안 프로세스 전체가 멈춘다.
+        # 실제 코드에선 requests.get(), 동기 DB 드라이버, 이미지 변환 같은 것이 이 자리에 온다.
+        time.sleep(0.05)
+    return await auction_service.get(db, auction_id)  # 로그인 없이 누구나
+
+
+@router.patch("/{auction_id}", response_model=AuctionRead)
+async def update_auction(
+    auction_id: uuid.UUID,
+    data: AuctionUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    redis: RedisClient,
+) -&gt; AuctionRead:
+    return await auction_service.update(db, redis, user, auction_id, data)
+
+
+@router.post("/{auction_id}/cancel", response_model=AuctionRead)
+async def cancel_auction(
+    auction_id: uuid.UUID, user: CurrentUser, db: DbSession, redis: RedisClient
+) -&gt; AuctionRead:
+    return await auction_service.cancel(db, redis, user, auction_id)</code></pre>
+    </div>
+    <h3>7. app/core/logging.py — JSON 로그 · request-id · 느린 쿼리</h3>
+    <p>세 부분입니다. <strong>JsonFormatter</strong> 는 <code>LogRecord</code> 를 JSON 한 줄로 — 기본 속성 외에 <code>extra={…}</code> 로 들어온 우리 필드(method·status·duration_ms·statement)를 전부 싣고, <code>request_id</code> 는 레코드에 있으면 그것, 없으면 contextvar 에서 꺼냅니다. <strong>request_id_middleware</strong> 는 헤더가 있으면 재사용·없으면 발급하고, contextvar 에 넣고(<code>set</code>), 끝나면 되돌리고(<code>reset</code>), 응답 헤더로 돌려주고, access 로그 한 줄을 남깁니다 — uvicorn 의 access 로그는 끕니다(같은 내용을 request_id 없이 두 번 찍을 이유가 없습니다). <strong>install_slow_query_logging</strong> 은 5단계 query_counter 와 같은 SQLAlchemy 커서 이벤트로 SQL 하나의 소요 시간을 재서 임계값을 넘으면 WARNING 을 남깁니다 — 되돌리는 함수를 돌려줘서 테스트가 임계값 0 짜리를 잠깐 달았다 뗄 수 있습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/core/logging.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""JSON 로그 · request-id · 느린 쿼리 경고.
+
+로그 한 줄 = JSON 한 개. 사람이 아니라 수집기(Loki·CloudWatch·Datadog)가 읽는다고 생각하고 쓴다.
+request_id 는 contextvar 에 둔다 — 같은 요청을 처리하는 동안 어디서 찍힌 로그든 자동으로 따라붙는다.
+"""
+
+import contextvars
+import json
+import logging
+import sys
+import time
+import uuid
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+
+from fastapi import Request, Response
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+REQUEST_ID_HEADER = "X-Request-ID"
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+
+# LogRecord 가 원래 갖고 있는 속성들 — 이 밖의 것은 extra={} 로 들어온 우리 필드다
+_STANDARD = set(logging.LogRecord("x", 0, "", 0, "", (), None).__dict__) | {
+    "message",
+    "asctime",
+    "taskName",
+}
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -&gt; str:
+        line: dict[str, object] = {
+            "ts": datetime.fromtimestamp(record.created, UTC).isoformat(timespec="milliseconds"),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+            "request_id": getattr(record, "request_id", None) or request_id_var.get(),
+        }
+        for key, value in record.__dict__.items():
+            if key not in _STANDARD and key != "request_id":
+                line[key] = value
+        if record.exc_info:
+            line["exc"] = self.formatException(record.exc_info)
+        return json.dumps(line, ensure_ascii=False, default=str)
+
+
+def setup_logging(level: str = "INFO") -&gt; None:
+    """루트 로거 하나에 JSON 핸들러 하나. uvicorn 의 로그도 여기로 흘려보내고,
+    uvicorn 의 access 로그는 끈다 — 우리 미들웨어가 request_id 와 소요 시간을 붙여 대신 남긴다."""
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(level)
+    for name in ("uvicorn", "uvicorn.error"):
+        uv = logging.getLogger(name)
+        uv.handlers = []
+        uv.propagate = True
+    access = logging.getLogger("uvicorn.access")
+    access.handlers = []
+    access.propagate = False
+
+
+access_logger = logging.getLogger("app.access")
+db_logger = logging.getLogger("app.db")
+
+
+async def request_id_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -&gt; Response:
+    """들어온 X-Request-ID 가 있으면 그대로(게이트웨이·프론트가 붙인 것), 없으면 발급.
+    응답 헤더로 돌려주고, 요청 한 줄을 JSON 으로 남긴다."""
+    request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+    token = request_id_var.set(request_id)
+    started = time.perf_counter()
+    status = 500  # 처리 중 예외로 끝나면 500 으로 기록된다
+    try:
+        response = await call_next(request)
+        status = response.status_code
+    finally:
+        access_logger.info(
+            "request",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status": status,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            },
+        )
+        request_id_var.reset(token)
+    response.headers[REQUEST_ID_HEADER] = request_id
+    return response
+
+
+def install_slow_query_logging(engine: AsyncEngine, threshold_ms: int) -&gt; Callable[[], None]:
+    """커서 실행 전후 이벤트로 SQL 하나의 소요 시간을 재고, 임계값을 넘으면 WARNING.
+    async 엔진도 속은 동기 엔진(engine.sync_engine)이라 거기에 건다. 되돌리는 함수를 돌려준다."""
+    sync_engine = engine.sync_engine
+    stack_key = f"slow_query_started:{id(sync_engine)}:{threshold_ms}"
+
+    def before(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001
+        conn.info.setdefault(stack_key, []).append(time.perf_counter())
+
+    def after(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001
+        started = conn.info.get(stack_key)
+        if not started:
+            return
+        elapsed_ms = (time.perf_counter() - started.pop()) * 1000
+        if elapsed_ms &gt;= threshold_ms:
+            db_logger.warning(
+                "slow query",
+                extra={
+                    "duration_ms": round(elapsed_ms, 1),
+                    "statement": " ".join(statement.split())[:300],
+                },
+            )
+
+    event.listen(sync_engine, "before_cursor_execute", before)
+    event.listen(sync_engine, "after_cursor_execute", after)
+
+    def remove() -&gt; None:
+        event.remove(sync_engine, "before_cursor_execute", before)
+        event.remove(sync_engine, "after_cursor_execute", after)
+
+    return remove</code></pre>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>contextvar 가 왜 필요한가.</strong> 요청 하나는 미들웨어 → 라우터 → 서비스 → SQL → httpx 를 거치는데, <code>request_id</code> 를 함수 인자로 다 끌고 다닐 순 없습니다. <code>ContextVar</code> 는 "지금 이 코루틴(과 거기서 파생된 태스크·스레드)만의 전역 변수" 입니다. 미들웨어가 한 번 <code>set</code> 하면 그 요청을 처리하는 동안 어디서 <code>get</code> 해도 같은 값이고, 동시에 처리 중인 <em>다른</em> 요청은 자기 값을 봅니다. 실행·확인에서 <code>httpx</code> 라이브러리의 자체 로그에까지 우리 request_id 가 붙는 걸 보게 됩니다 — 우리가 httpx 에 아무것도 안 넘겼는데도요.</div>
+    </div>
+    <h3>8. app/main.py — 로깅 · 느린 쿼리 · CORS · 미들웨어 (수정)</h3>
+    <p><code>create_app</code> 맨 앞에서 <code>setup_logging()</code> 과 <code>install_slow_query_logging()</code>. CORS 는 허용 출처가 <em>있을 때만</em> 답니다(빈 리스트면 브라우저 교차 출처 요청은 전부 막힌 상태 — 안전한 기본값). 미들웨어는 <strong>나중에 add 한 것이 바깥</strong>입니다. CORS 를 먼저(안쪽), request-id 를 나중에(바깥) 두면 preflight 응답과 거절(400)에도 <code>X-Request-ID</code> 와 access 로그가 붙습니다. CORS 자체는 7주차·03 에서 다뤘으므로 여기서 다시 설명하지 않습니다(정본 링크).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/main.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import asyncio
+import pathlib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.core.config import get_settings
+from app.core.db import engine
+from app.core.exceptions import register_exception_handlers
+from app.core.http import http_client
+from app.core.logging import (
+    REQUEST_ID_HEADER,
+    install_slow_query_logging,
+    request_id_middleware,
+    setup_logging,
+)
+from app.core.redis import redis_client
+from app.routers import auctions, auth, bids, health, payments, users, webhooks
+from app.ws import router as ws_router
+from app.ws.bridge import run_bridge
+from app.ws.manager import manager
+
+STATIC_DIR = pathlib.Path(__file__).resolve().parent.parent / "static"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -&gt; AsyncIterator[None]:
+    # 프로세스(워커)마다 Redis 구독 루프 하나 — 이 워커에 붙은 소켓들에게 이벤트를 중계한다
+    bridge = asyncio.create_task(run_bridge(redis_client, manager))
+    yield
+    bridge.cancel()
+    try:
+        await bridge
+    except asyncio.CancelledError:
+        pass
+    await http_client.aclose()  # 열려 있던 PG 커넥션 정리
+    await redis_client.aclose()
+    await engine.dispose()
+
+
+def create_app() -&gt; FastAPI:
+    settings = get_settings()
+    setup_logging()  # 루트 로거 = JSON 한 줄. uvicorn 로그도 같은 모양으로
+    install_slow_query_logging(engine, settings.slow_query_ms)
+    app = FastAPI(title="Auction API", debug=settings.debug, lifespan=lifespan)
+    register_exception_handlers(app)
+
+    # 미들웨어는 나중에 add 한 것이 바깥이다. CORS 를 먼저(안쪽), request-id 를 나중에(바깥) 둬서
+    # preflight 응답까지 request-id 와 access 로그가 붙게 한다.
+    if settings.cors_origins:  # 비어 있으면 CORS 를 끈다 — 브라우저 교차 출처 요청이 전부 막힌다
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_credentials=True,  # 출처를 명시했을 때만 안전하다 ("*" 와는 같이 못 쓴다)
+            allow_methods=["*"],
+            allow_headers=["*"],
+            expose_headers=[REQUEST_ID_HEADER],  # 브라우저 JS 가 X-Request-ID 를 읽을 수 있게
+        )
+    app.middleware("http")(request_id_middleware)
+    app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(users.router)
+    app.include_router(auctions.router)
+    app.include_router(bids.router)
+    app.include_router(payments.router)
+    app.include_router(webhooks.router)
+    app.include_router(ws_router.router)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    return app
+
+
+app = create_app()</code></pre>
+    </div>
+    <h3>9. alembic/env.py — 한 단어 (수정)</h3>
+    <p>이게 없으면 관측성 테스트 두 개가 이유도 모른 채 실패합니다. Alembic 의 <code>env.py</code> 는 <code>fileConfig(alembic.ini)</code> 로 로깅을 설정하는데, 그 함수의 기본값 <code>disable_existing_loggers=True</code> 는 <em>그 시점에 이미 만들어진 모든 로거를 꺼 버립니다</em>. 테스트는 앱을 import 한 뒤(<code>app.access</code>·<code>app.db</code> 로거가 이미 생김) 세션 시작 fixture 에서 <code>alembic upgrade head</code> 를 같은 프로세스로 돌리므로, 우리 로거가 전부 <code>disabled</code> 가 됩니다. 운영에서는 마이그레이션이 별도 프로세스라 문제없지만, 같은 프로세스에서 돌리는 순간 터지는 종류의 함정입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) alembic/env.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import asyncio
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from app.core.config import get_settings
+from app.models import Base
+
+# Alembic Config 객체 — alembic.ini 의 값에 접근한다
+config = context.config
+
+# alembic.ini 의 sqlalchemy.url 대신 앱의 Settings(.env) 에서 접속 주소를 가져온다.
+# → 앱과 마이그레이션이 같은 DB 를 보게 되고, 비밀번호가 ini 에 박히지 않는다.
+config.set_main_option("sqlalchemy.url", get_settings().database_url)
+
+if config.config_file_name is not None:
+    # disable_existing_loggers=False: 기본값(True)은 이 시점에 이미 만들어진 로거(app.access 등)를
+    # 전부 꺼 버린다. 테스트처럼 같은 프로세스에서 마이그레이션을 돌리면 앱 로그가 사라진다(10단계).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
+
+# autogenerate 가 "현재 모델" 로 삼는 메타데이터
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -&gt; None:
+    """DB 연결 없이 SQL 만 출력하는 모드 (alembic upgrade head --sql)."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection) -&gt; None:
+    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -&gt; None:
+    """asyncpg 엔진으로 연결한 뒤, 동기 API 인 Alembic 을 run_sync 로 감싸 실행한다."""
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
+
+
+def run_migrations_online() -&gt; None:
+    asyncio.run(run_async_migrations())
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()</code></pre>
+    </div>
+    <h3>10. app/services/auth.py — 부하 테스트가 찾아낸 진짜 병목 (수정)</h3>
+    <p>이 수정은 원래 계획에 없었습니다. 실행·확인의 부하 테스트를 처음 돌렸을 때 로그인·회원가입이 유독 느렸고, 재 보니 <code>hash_password</code> 가 <strong>202ms</strong>, <code>verify_password</code> 가 <strong>197ms</strong> 였습니다. bcrypt 는 <em>일부러</em> 느린 알고리즘입니다(무차별 대입을 막으려고) — 그 자체는 정상입니다. 문제는 3단계에서 이 동기 함수를 <code>async def</code> 서비스 안에서 그냥 불렀다는 것: 그 200ms 동안 이벤트 루프가 멈춰 <em>다른 모든 요청</em>이 기다립니다. 4주차·02 의 블로킹 함정 그대로입니다. 고치는 법은 한 줄 — <code>await asyncio.to_thread(hash_password, …)</code> 로 스레드에 보냅니다. 3단계 테스트는 전부 그대로 통과합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/services/auth.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""인증 규칙. HTTP 를 모른다 — 도메인 예외(AppError) 만 던진다."""
+
+import asyncio
+import uuid
+
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import EmailAlreadyExistsError, UnauthorizedError
+from app.core.security import (
+    TokenError,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from app.models import User
+from app.repositories import user as user_repo
+from app.schemas.auth import LoginRequest, SignupRequest, TokenPair
+
+
+def _refresh_key(jti: str) -&gt; str:
+    return f"refresh:{jti}"
+
+
+async def signup(db: AsyncSession, data: SignupRequest) -&gt; User:
+    if await user_repo.get_by_email(db, data.email) is not None:
+        raise EmailAlreadyExistsError()
+    user = await user_repo.create(
+        db,
+        email=data.email,
+        # bcrypt 는 일부러 느리다(수십~수백 ms). 동기 함수를 그냥 부르면 그 시간 동안
+        # 이벤트 루프가 멈춘다 → 스레드로 보낸다 (10단계 부하 테스트가 찾아낸 병목)
+        password_hash=await asyncio.to_thread(hash_password, data.password),
+        nickname=data.nickname,
+    )
+    await db.commit()
+    await db.refresh(user)  # DB 가 채운 created_at 을 읽어 온다
+    return user
+
+
+async def _issue_token_pair(redis: Redis, user_id: uuid.UUID) -&gt; TokenPair:
+    access = create_access_token(user_id)
+    refresh, jti, ttl = create_refresh_token(user_id)
+    await redis.set(_refresh_key(jti), str(user_id), ex=ttl)  # 살아 있는 refresh 토큰 목록
+    return TokenPair(access_token=access, refresh_token=refresh)
+
+
+async def login(db: AsyncSession, redis: Redis, data: LoginRequest) -&gt; TokenPair:
+    user = await user_repo.get_by_email(db, data.email)
+    # 이메일이 없는 경우와 비밀번호가 틀린 경우를 구분해 알려주지 않는다 (계정 존재 여부 노출 방지)
+    ok = user is not None and await asyncio.to_thread(
+        verify_password, data.password, user.password_hash
+    )
+    if not ok:
+        raise UnauthorizedError("이메일 또는 비밀번호가 올바르지 않습니다")
+    return await _issue_token_pair(redis, user.id)
+
+
+async def refresh(redis: Redis, refresh_token: str) -&gt; TokenPair:
+    try:
+        payload = decode_token(refresh_token, expected_type="refresh")
+    except TokenError as exc:
+        raise UnauthorizedError("refresh 토큰이 유효하지 않습니다") from exc
+    # DEL 은 원자적이다: 같은 토큰으로 동시에 두 번 와도 한 쪽만 1 을 받는다 → 회전(rotation)
+    deleted = await redis.delete(_refresh_key(payload["jti"]))
+    if not deleted:
+        raise UnauthorizedError("이미 사용됐거나 폐기된 refresh 토큰입니다")
+    return await _issue_token_pair(redis, uuid.UUID(payload["sub"]))
+
+
+async def logout(redis: Redis, refresh_token: str) -&gt; None:
+    try:
+        payload = decode_token(refresh_token, expected_type="refresh")
+    except TokenError:
+        return  # 이미 못 쓰는 토큰이면 할 일이 없다 — 로그아웃은 멱등
+    await redis.delete(_refresh_key(payload["jti"]))</code></pre>
+    </div>
+    <h3>11. GREEN — 10 + 87 = 97</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q tests/test_cache.py tests/test_observability.py
+# ..........                                                               [100%]
+# 10 passed in 1.66s
+uv run pytest -q
+# 97 passed in 66.75s (0:01:06)
+uv run ruff check . &amp;&amp; uv run ruff format --check .
+# All checks passed!
+# 76 files already formatted</code></pre>
+    </div>
+    <h3>12. loadtest/locustfile.py — 가상 사용자 한 명의 하루</h3>
+    <p>locust 는 "사용자 한 명이 하는 일" 을 파이썬 클래스로 씁니다. <code>on_start</code> 에서 가입·로그인을 한 번 하고, 그 뒤엔 목록 5 : 상세 3 : 입찰 1 의 비율로 반복합니다(<code>@task(5)</code>). 입찰은 대부분 규칙에 걸려 422·429 로 거절되는데, 그건 서버가 <em>일을 제대로 한</em> 것이므로 실패로 세지 않습니다(<code>catch_response</code>). 9주차·03 에서 <code>ab</code>/<code>wrk</code> 로 했던 것의 "시나리오 있는" 버전입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">loadtest/locustfile.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""부하 테스트 시나리오 — 실행:
+    uv run locust -f loadtest/locustfile.py --headless -u 50 -r 10 -t 20s \
+        --host http://localhost:8000 --only-summary
+
+가상 사용자 한 명 = 회원가입 → 로그인(한 번) → 목록 5 : 상세 3 : 입찰 1 비율로 반복.
+AUCTION_ID 환경변수가 있으면 그 경매에 입찰하고, 없으면 active 목록의 첫 경매를 쓴다.
+입찰은 422(너무 낮음)·429(rate limit)도 '정상 응답' 으로 센다 —
+서버가 규칙대로 거절한 것이지 장애가 아니다.
+"""
+
+import os
+import random
+import uuid
+
+from locust import HttpUser, between, task
+
+
+class Bidder(HttpUser):
+    wait_time = between(0.1, 0.5)  # 요청 사이 0.1~0.5초 (사람이 화면을 보는 시간)
+
+    def on_start(self) -&gt; None:
+        email = f"load-{uuid.uuid4().hex[:8]}@example.com"
+        self.client.post(
+            "/auth/signup",
+            json={"email": email, "password": "secret123", "nickname": "부하"},
+            name="/auth/signup",
+        )
+        res = self.client.post(
+            "/auth/login", json={"email": email, "password": "secret123"}, name="/auth/login"
+        )
+        self.headers = {"Authorization": f"Bearer {res.json()['access_token']}"}
+        self.auction_id = os.environ.get("AUCTION_ID")
+        if not self.auction_id:
+            res = self.client.get("/auctions", params={"status": "active"}, name="/auctions")
+            page = res.json()
+            self.auction_id = page["items"][0]["id"] if page["items"] else None
+
+    @task(5)
+    def list_auctions(self) -&gt; None:
+        self.client.get("/auctions", params={"status": "active", "limit": 20}, name="/auctions")
+
+    @task(3)
+    def read_auction(self) -&gt; None:
+        if self.auction_id:
+            self.client.get(f"/auctions/{self.auction_id}", name="/auctions/{id}")
+
+    @task(1)
+    def place_bid(self) -&gt; None:
+        if not self.auction_id:
+            return
+        # 대부분 '너무 낮음' 으로 거절된다 — 그래도 서버가 하는 일(락·규칙 검사)은 같다
+        amount = random.randint(1, 500) * 1_000
+        with self.client.post(
+            f"/auctions/{self.auction_id}/bids",
+            json={"amount": amount},
+            headers=self.headers,
+            name="/auctions/{id}/bids",
+            catch_response=True,
+        ) as res:
+            if res.status_code in (201, 422, 429):
+                res.success()
+            else:
+                res.failure(f"unexpected {res.status_code}")</code></pre>
+    </div>
+    <h3>13. Dockerfile · .dockerignore · docker-compose.prod.yml</h3>
+    <p><strong>Dockerfile</strong> 은 두 <code>FROM</code> 입니다. 빌더는 uv 공식 이미지 — 잠금 파일만 먼저 복사해 <code>uv sync --frozen --no-dev</code> 를 돌리면 코드가 바뀌어도 의존성 레이어는 캐시에서 재사용됩니다(<code>--mount=type=cache</code> 로 uv 캐시까지). 런타임은 <code>python:3.13-slim</code> 에 <code>.venv</code> 와 코드만 복사하고, <code>app</code> 사용자로 내려온 뒤 <strong>exec 형식</strong> <code>CMD</code> — PID 1 이 uvicorn 자신이라 <code>docker stop</code> 의 SIGTERM 을 직접 받습니다(셸 형식이면 <code>sh</code> 가 PID 1 이 되어 신호를 삼킵니다 — 8단계 워커의 graceful shutdown 이 여기서 무너집니다). <strong>.dockerignore</strong> 는 <code>.venv</code>(호스트용 바이너리라 컨테이너에서 못 씀), <code>.git</code>, <code>.env</code>(비밀!), 테스트를 이미지 밖에 둡니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">dockerfile</span><span class="code-filename">Dockerfile</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-dockerfile"># ── 1단계: 빌더 — uv 로 의존성을 .venv 에 설치한다 (uv 와 캐시는 여기서만 쓴다) ──
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0
+WORKDIR /app
+# 잠금 파일만 먼저 복사 → 코드가 바뀌어도 의존성 레이어는 캐시에서 재사용된다
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
+COPY . .
+
+# ── 2단계: 런타임 — 파이썬과 .venv 만 있는 가벼운 이미지. uv·빌드 캐시·git 은 없다 ──
+FROM python:3.13-slim-bookworm
+RUN useradd --create-home --uid 1000 app
+WORKDIR /app
+COPY --from=builder --chown=app:app /app /app
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+USER app
+EXPOSE 8000
+# exec 형식(JSON 배열) — PID 1 이 uvicorn 자신이라 docker stop 의 SIGTERM 을 직접 받는다
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">.dockerignore</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">.venv/
+.git/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.ruff_cache/
+tests/
+loadtest/
+uvicorn.log
+*.log</code></pre>
+    </div>
+    <p><strong>compose</strong> 는 <code>name: auction-prod</code> 로 개발용 compose(<code>auction-api-solution</code>/<code>auction-api</code> 프로젝트)와 이름을 분리합니다 — 둘 다 떠 있어도 충돌하지 않습니다. <code>x-app-env</code> 앵커 하나에 환경변수를 모아 세 파이썬 서비스가 공유합니다. 주소를 보세요: <code>db:5432</code>, <code>redis:6379</code>, <code>http://mock_pg:8001</code>, <code>http://app:8000</code> — 전부 서비스 이름입니다. <code>app</code> 의 <code>command</code> 가 <code>alembic upgrade head &amp;&amp; exec uvicorn …</code> 인 것, <code>worker</code> 가 <code>depends_on: app: condition: service_healthy</code> 인 것이 "마이그레이션은 한 번, 그 뒤에 나머지" 를 만듭니다. 비밀값은 <code>${{JWT_SECRET:-기본값}}</code> — 같은 폴더의 <code>.env</code> 에 <code>JWT_SECRET=…</code> 을 두면 compose 가 치환합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><span class="code-filename">docker-compose.prod.yml</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-yaml"># 운영 모양으로 다섯 개를 한 번에 — 실행:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml ps / logs -f app
+#   docker compose -f docker-compose.prod.yml down -v
+# 개발용 docker-compose.yml(db 5435·redis 6380 노출) 과 이름이 겹치지 않게 프로젝트명을 따로 둔다.
+name: auction-prod
+
+x-app-env: &amp;app-env
+  APP_ENV: prod
+  DEBUG: "false"
+  # 컨테이너 네트워크 안에서는 서비스 이름이 곧 호스트명이다 (localhost 가 아니다!)
+  DATABASE_URL: postgresql+asyncpg://auction:auction_pw@db:5432/auction
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-prod-change-me-please-32-bytes-minimum-secret}
+  PG_WEBHOOK_SECRET: ${PG_WEBHOOK_SECRET:-prod-pg-webhook-secret-change-me-32-bytes}
+  PG_BASE_URL: http://mock_pg:8001      # 앱 → 모의 PG
+  PUBLIC_BASE_URL: http://app:8000      # 모의 PG → 앱 (웹훅 콜백)
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+
+services:
+  app:
+    build: .
+    image: auction-api:local
+    # 마이그레이션은 app 하나만, 그것도 서버가 뜨기 전에. exec 로 uvicorn 을 PID 1 로 바꾼다.
+    command: ["sh", "-c", "alembic upgrade head &amp;&amp; exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    environment: *app-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      # slim 이미지엔 curl 이 없다 → 파이썬으로 /health 를 두드린다
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    image: auction-api:local          # 같은 이미지, 다른 명령
+    command: ["python", "-m", "app.workers.closer"]
+    environment:
+      &lt;&lt;: *app-env
+      CLOSER_INTERVAL_SECONDS: "1.0"
+    depends_on:
+      app: { condition: service_healthy }   # 마이그레이션이 끝난 뒤에
+    stop_grace_period: 10s                  # SIGTERM 뒤 10초 — 8단계의 graceful shutdown 이 이 안에 끝난다
+    restart: unless-stopped
+
+  mock_pg:
+    image: auction-api:local
+    command: ["uvicorn", "mock_pg.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      PG_WEBHOOK_SECRET: ${PG_WEBHOOK_SECRET:-prod-pg-webhook-secret-change-me-32-bytes}
+      PG_WEBHOOK_DELAY: "1.0"
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auction
+      POSTGRES_PASSWORD: auction_pw
+      POSTGRES_DB: auction
+    volumes:
+      - prod-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction -d auction"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # ports 없음 — DB 는 바깥에 열지 않는다
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  prod-pgdata:</code></pre>
+    </div>
+    <h3>14. .github/workflows/ci.yml — 푸시마다 97개</h3>
+    <p>til 레포에 넣을 때는 이 파일을 <code>til/.github/workflows/auction-api-ci.yml</code> 에 둡니다(워크플로 파일은 레포 루트의 <code>.github/</code> 에만 있어야 GitHub 이 봅니다). 레포 루트에는 파이썬 프로젝트가 없으므로 두 가지가 필수입니다: <code>on.push.paths</code> 로 "이 폴더가 바뀔 때만", <code>defaults.run.working-directory</code> 로 "이 폴더 안에서". 서비스 컨테이너로 Postgres·Redis 를 띄우되 호스트 포트를 로컬과 같은 5435·6380 에 매핑해서 <code>.env</code> 없이 기본값이 그대로 맞게 합니다. 순서는 로컬과 같습니다: ruff → <code>alembic upgrade head</code>(빈 DB 에 스키마) → <code>alembic check</code> → pytest(conftest 가 <code>auction_test</code> 를 만듭니다).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><span class="code-filename">.github/workflows/ci.yml</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-yaml"># til 레포에서는 이 파일을 til/.github/workflows/auction-api-ci.yml 에 둔다.
+# 레포 루트에는 파이썬 프로젝트가 없으므로 paths 로 "이 폴더가 바뀔 때만", working-directory 로
+# "이 폴더 안에서" 를 명시해야 한다.
+name: auction-api CI
+
+on:
+  push:
+    paths: ["backend/fastapi/auction-api/**"]
+  pull_request:
+    paths: ["backend/fastapi/auction-api/**"]
+
+defaults:
+  run:
+    working-directory: backend/fastapi/auction-api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: auction
+          POSTGRES_PASSWORD: auction_pw
+          POSTGRES_DB: auction
+        ports: ["5435:5432"]            # 로컬과 같은 포트로 매핑 → .env 없이 기본값 그대로
+        options: &gt;-
+          --health-cmd "pg_isready -U auction -d auction"
+          --health-interval 5s --health-timeout 3s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6380:6379"]
+        options: &gt;-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://auction:auction_pw@localhost:5435/auction
+      REDIS_URL: redis://localhost:6380/0
+      JWT_SECRET: ci-only-secret-that-is-at-least-32-bytes-long
+      PG_WEBHOOK_SECRET: ci-only-pg-webhook-secret-32-bytes-minimum
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/fastapi/auction-api/uv.lock
+      - run: uv python install 3.13
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run alembic upgrade head      # 서비스 컨테이너의 빈 DB 에 스키마를 만든다
+      - run: uv run alembic check             # 모델 ↔ 마이그레이션 정합성
+      - run: uv run pytest -q                 # conftest 가 auction_test 를 만들고 마이그레이션한다</code></pre>
+    </div>
+    <h3>15. README.md — 프로젝트의 얼굴</h3>
+    <p>포트폴리오로 보여 줄 때 가장 먼저 읽히는 파일입니다. 한 문단 소개, 아키텍처 그림, 실행 방법(dev/prod), 단계별 가이드 목차, 그리고 <em>직접 채울</em> 회고 세 줄. <code>auction-api/README.md</code> 로 저장하세요.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">markdown</span><span class="code-filename">README.md</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-markdown"># 실시간 경매 API
+
+FastAPI 10주 self-study 를 **실무 모양의 한 프로젝트**로 옮긴 캡스톤. 경매 등록 → 실시간 입찰 → 자동 마감 → 결제 웹훅까지,
+10단계 가이드(`guides/`)를 따라가면 단계마다 동작하는 기능이 하나씩 쌓인다.
+
+- REST + WebSocket, PostgreSQL(async SQLAlchemy 2.0 + Alembic), Redis(세션·rate limit·Pub/Sub·캐시)
+- 동시 입찰은 `SELECT … FOR UPDATE`, 마감은 별도 워커(`SKIP LOCKED`), 결제는 HMAC 서명 웹훅 + 멱등 처리
+- 테스트 100개 안팎(롤백 세션 · 실제 커밋 동시성 · 라이브 서버 WebSocket), JSON 로그 + request-id, Docker, GitHub Actions
+
+## 아키텍처
+
+```
+                 ┌──────────────┐  HTTP/WS   ┌──────────────────────────────┐
+  브라우저/클라이언트 ─┤ uvicorn :8000 ├───────────►│ FastAPI app                  │
+                 └──────────────┘            │  routers → services → repos  │
+                                             │  ws bridge (Redis SUBSCRIBE) │
+                                             └──────┬───────────┬───────────┘
+                                                    │           │
+                    ┌──────────────┐   FOR UPDATE   ▼           ▼   PUBLISH / cache / rate limit
+                    │ closer worker├──────────► PostgreSQL     Redis ◄──── 워커도 발행
+                    │ (1초 tick)   │  SKIP LOCKED  :5432        :6379
+                    └──────────────┘
+                    ┌──────────────┐  POST /pg/payments ◄── app (httpx, timeout·retry)
+                    │ mock PG :8001├─────────────────────────► app  POST /webhooks/payments (HMAC)
+                    └──────────────┘
+```
+
+## 실행
+
+개발(로컬 파이썬 + Docker 로 DB/Redis):
+
+```bash
+docker compose up -d                      # postgres 5435 · redis 6380
+cp .env.example .env
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload      # http://localhost:8000/docs
+uv run python -m app.workers.closer       # 별도 터미널: 마감 워커
+uv run uvicorn mock_pg.main:app --port 8001   # 별도 터미널: 모의 결제사
+uv run pytest -q
+```
+
+운영 모양(전부 컨테이너):
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f app worker
+docker compose -f docker-compose.prod.yml down -v
+```
+
+## 단계별 가이드
+
+| 단계 | 문서 | 얻는 것 |
+|---|---|---|
+| 01 | [뼈대와 설정](guides/01-skeleton.html) | uv · Settings · compose · lifespan · `/health` |
+| 02 | [모델링 + Alembic](guides/02-models-alembic.html) | 4개 모델 · 제약/인덱스 · async 마이그레이션 |
+| 03 | [테스트 인프라 + 인증](guides/03-tests-auth.html) | 롤백 세션 · JWT access/refresh(Redis) |
+| 04 | [경매 CRUD](guides/04-auction-crud.html) | 소유권 · 상태 머신 · 표준 에러 봉투 |
+| 05 | [목록·페이지네이션](guides/05-list-pagination.html) | 커서(keyset) · 필터 · N+1 증명 |
+| 06 | [입찰과 동시성](guides/06-bids-concurrency.html) | `FOR UPDATE` · 동시 50건 · 스나이핑 연장 · rate limit |
+| 07 | [실시간 WebSocket](guides/07-realtime-ws.html) | Redis Pub/Sub 로 멀티 워커 브로드캐스트 |
+| 08 | [마감 워커](guides/08-closer-worker.html) | `SKIP LOCKED` 멱등 배치 · 낙찰 · Payment |
+| 09 | [결제 웹훅](guides/09-payment-webhook.html) | httpx 타임아웃/재시도 · HMAC 서명 · 멱등 장부 |
+| 10 | [성능·관측성·배포](guides/10-deploy.html) | 버전 키 캐시 · JSON 로그 · locust · Docker · CI |
+
+## 학습 회고 (직접 채우세요)
+
+- 가장 어려웠던 단계와 이유:
+- 실무에서 바로 쓸 수 있을 것 같은 패턴 3가지:
+- 다음에 붙여 보고 싶은 것 (진짜 PG · arq/Celery · OpenTelemetry · k8s):</code></pre>
+    </div>
+    <h3>16. 최종 구조</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) auction-api/ 구조 — 10단계 후</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">auction-api/
+├── app/
+│   ├── core/
+│   │   ├── config.py             ← 수정: list_cache_ttl_seconds · slow_query_ms · cors_origins · demo_blocking_sleep
+│   │   ├── cache.py              ← 신규: current_version · bump_version · list_cache_key · get_json/set_json
+│   │   └── logging.py            ← 신규: JsonFormatter · setup_logging · request_id_middleware · install_slow_query_logging
+│   ├── services/
+│   │   ├── auction.py            ← 수정: list_auctions 캐시 · create/update/cancel 뒤 bump
+│   │   ├── bid.py                ← 수정: place_bid 커밋 뒤 bump
+│   │   ├── closer.py             ← 수정: close_due 커밋 뒤 bump
+│   │   └── auth.py               ← 수정: bcrypt 를 asyncio.to_thread 로
+│   ├── routers/auctions.py       ← 수정: RedisClient 주입 · demo_blocking_sleep
+│   ├── workers/closer.py         ← 수정: setup_logging · activate 뒤 bump
+│   └── main.py                   ← 수정: setup_logging · slow query · CORS · request-id 미들웨어
+├── alembic/env.py                ← 수정: fileConfig(…, disable_existing_loggers=False)
+├── tests/
+│   ├── conftest.py               ← 수정: CORS_ORIGINS
+│   ├── test_cache.py             ← 신규: 4 테스트
+│   └── test_observability.py     ← 신규: 6 테스트
+├── loadtest/locustfile.py        ← 신규
+├── Dockerfile  .dockerignore  docker-compose.prod.yml   ← 신규
+├── .github/workflows/ci.yml      ← 신규 (til 에서는 til/.github/workflows/auction-api-ci.yml 로)
+└── README.md                     ← 신규</code></pre>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 6. 실행 ───────────────────────── -->
+  <section class="section" id="run">
+    <div class="section-header">
+      <div class="section-icon icon-select">▶️</div>
+      <h2>실행·확인 — 이 출력이 나와야 한다</h2>
+    </div>
+    <p>여섯 장면입니다. ① 스위치를 켠 서버에서 캐시·request-id 를 눈으로 확인 → ② 부하 테스트 A(스위치 켬) → ③ 스위치 끄고 부하 테스트 B → ④ 개발 환경 정리 → ⑤ 컨테이너 다섯 개로 전체 흐름 → ⑥ CI 와 같은 명령을 로컬에서. 터미널 두 개를 씁니다.</p>
+    <h3>1. 서버(스위치 켬) · 캐시 · request-id</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">cd til/backend/fastapi/auction-api
+docker compose up -d                                   # 개발용 db·redis (이미 떠 있으면 그대로)
+DEMO_BLOCKING_SLEEP=true uv run uvicorn app.main:app --port 8000
+# {"ts": "2026-08-25T16:42:11.980+00:00", "level": "INFO", "logger": "uvicorn.error", "msg": "Application startup complete.", "request_id": "-"}
+# ↑ uvicorn 의 로그까지 JSON 한 줄이다. 요청이 오면 아래 같은 줄이 하나씩 찍힌다 (터미널 2 를 실행한 뒤 다시 보자):
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "4d34d18b-…", "method": "GET", "path": "/health", "status": 200, "duration_ms": 9.2}
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "trace-from-frontend-42", "method": "GET", "path": "/auctions/8ecf…", "status": 200, "duration_ms": 63.0}</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">J='Content-Type: application/json'
+curl -s -X POST localhost:8000/auth/signup -H "$J" -d '{"email":"alice@example.com","password":"secret123","nickname":"alice"}' &gt; /dev/null
+ALICE=$(curl -s -X POST localhost:8000/auth/login -H "$J" -d '{"email":"alice@example.com","password":"secret123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+ENDS=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC)+timedelta(hours=1)).isoformat())")
+A=$(curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $ALICE" -H "$J" -d "{\"title\":\"부하 테스트용 경매\",\"category\":\"etc\",\"starting_price\":1000,\"ends_at\":\"$ENDS\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
+echo "A=$A"
+# A=8ecfc158-9843-46c5-ac47-2df7be932663      (id 는 매번 다르다)
+
+echo "=== 캐시: 같은 목록 두 번"
+curl -s -o /dev/null -w "1st %{time_total}s\n" "localhost:8000/auctions?status=active"
+curl -s -o /dev/null -w "2nd %{time_total}s\n" "localhost:8000/auctions?status=active"
+# 1st 0.017772s
+# 2nd 0.002159s          ← 두 번째는 Redis 에서 (DB 0번)
+docker compose exec redis redis-cli --scan --pattern 'auction:list:*'
+# auction:list:v1:limit=20,sort=ending_soon,status=active
+# auction:list:version   ← 경매를 하나 만들었으니 버전은 이미 1
+docker compose exec redis redis-cli TTL "auction:list:v1:limit=20,sort=ending_soon,status=active"
+# 4                      ← 몇 초 뒤면 사라진다 (TTL 5)
+
+echo "=== request-id: 없으면 발급, 있으면 그대로"
+curl -s -i localhost:8000/health | grep -i x-request-id
+# x-request-id: 4d34d18b-1010-4842-ac86-c0abf4146b86
+curl -s -i -H "X-Request-ID: trace-from-frontend-42" localhost:8000/auctions/$A | grep -i x-request-id
+# x-request-id: trace-from-frontend-42
+# ↑ 터미널 1 의 로그에 같은 request_id 가 찍혀 있다. duration_ms 63.0 — 50ms 짜리 sleep 이 켜져 있어서다.</code></pre>
+    </div>
+    <h3>2. 부하 테스트 A — 50ms 동기 호출이 켜진 채</h3>
+    <p>50명이 초당 10명씩 들어와 20초. 표의 <code>req/s</code> 와 <code>50%</code>(p50)·<code>95%</code> 열만 보면 됩니다. 상세 조회(<code>/auctions/{id}</code>)에만 50ms 를 넣었는데 <em>목록·입찰·로그인까지 전부</em> 700ms 대입니다 — 한 요청의 <code>time.sleep</code> 이 같은 프로세스의 다른 요청들을 다 세워 두기 때문입니다. 터미널 1 을 보면 <code>slow query</code> 경고가 30줄 찍혀 있는데, SQL 자체가 느린 게 아니라 <em>결과를 받아 처리할 차례가 안 와서</em> 221ms 로 재진 것입니다. 블로킹은 남의 쿼리까지 느려 보이게 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">AUCTION_ID=$A uv run locust -f loadtest/locustfile.py --headless -u 50 -r 10 -t 20s --host http://localhost:8000 --only-summary
+# → 아래 표 (A: DEMO_BLOCKING_SLEEP=true). 20초 동안 50명이 869 요청 · 44.6 req/s · p50 790ms</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) locust A — DEMO_BLOCKING_SLEEP=true</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      /auctions                                                                        441     0(0.00%) |    640       2    1540    740 |   22.61        0.00
+GET      /auctions/{id}                                                                   246     0(0.00%) |    846      59    1471    960 |   12.61        0.00
+POST     /auctions/{id}/bids                                                               82     0(0.00%) |    790       3    1880    840 |    4.20        0.00
+POST     /auth/login                                                                       50     0(0.00%) |    579     222    1386    520 |    2.56        0.00
+POST     /auth/signup                                                                      50     0(0.00%) |    789     259    1326    650 |    2.56        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                       869     0(0.00%) |    717       2    1880    790 |   44.56        0.00
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      /auctions                                                                             740    910    990   1000   1100   1300   1400   1400   1500   1500   1500    441
+GET      /auctions/{id}                                                                        960   1100   1100   1100   1300   1400   1400   1500   1500   1500   1500    246
+POST     /auctions/{id}/bids                                                                   880   1000   1100   1100   1300   1800   1900   1900   1900   1900   1900     82
+POST     /auth/login                                                                           530    540    790    830   1400   1400   1400   1400   1400   1400   1400     50
+POST     /auth/signup                                                                          670   1200   1200   1300   1300   1300   1300   1300   1300   1300   1300     50
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                            790    970   1000   1100   1200   1300   1400   1500   1900   1900   1900    869</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) 터미널 1 에 찍힌 slow query 경고 (일부)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-json">{"ts": "2026-08-25T16:42:17.616+00:00", "level": "WARNING", "logger": "app.db", "msg": "slow query", "request_id": "c83f01b2-11e1-4f41-9930-ccb16552eadb", "duration_ms": 221.5, "statement": "SELECT users.id, users.email, users.password_hash, users.nickname, us
+{"ts": "2026-08-25T16:42:17.617+00:00", "level": "WARNING", "logger": "app.db", "msg": "slow query", "request_id": "4020312d-9793-4d6e-b382-7dd702541aad", "duration_ms": 221.9, "statement": "SELECT users.id, users.email, users.password_hash, users.nickname, us</code></pre>
+    </div>
+    <h3>3. 부하 테스트 B — 스위치 끔</h3>
+    <p>같은 20초에 요청 수 3.3배, p50 은 790ms → 5ms. 이것이 "async 안의 동기 호출 하나" 의 값입니다. 그런데 B 에서도 로그인·가입만 240·370ms 인 것이 보입니까? 그게 bcrypt 입니다 — 아래 한 줄로 재 보면 해시 한 번에 200ms. <code>to_thread</code> 로 스레드에 보냈기 때문에 <em>그 요청은</em> 200ms 걸려도 <em>다른 요청</em>은 5ms 로 답합니다. 보내지 않았다면 표 전체가 A 처럼 됐을 겁니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash"># 터미널 1 에서 Ctrl-C 로 끄고, 이번엔 스위치 없이
+uv run uvicorn app.main:app --port 8000</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">AUCTION_ID=$A uv run locust -f loadtest/locustfile.py --headless -u 50 -r 10 -t 20s --host http://localhost:8000 --only-summary
+# → 아래 표 (B: 기본값). 같은 20초에 2,898 요청 · 146 req/s · p50 5ms
+
+uv run python -c "
+import time
+from app.core.security import hash_password, verify_password
+t=time.perf_counter(); h=hash_password('secret123'); a=(time.perf_counter()-t)*1000
+t=time.perf_counter(); verify_password('secret123', h); b=(time.perf_counter()-t)*1000
+print(f'hash {a:.0f} ms · verify {b:.0f} ms')"
+# hash 202 ms · verify 197 ms   ← 로그인·가입이 B 에서도 240ms 대인 이유. to_thread 덕에 다른 요청은 안 기다린다</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) locust B — 기본값</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      /auctions                                                                       1506     0(0.00%) |     10       1     365      3 |   76.04        0.00
+GET      /auctions/{id}                                                                   984     0(0.00%) |     16       2     515      5 |   49.69        0.00
+POST     /auctions/{id}/bids                                                              308     0(0.00%) |     23       4     639      9 |   15.55        0.00
+POST     /auth/login                                                                       50     0(0.00%) |    245     224     273    240 |    2.52        0.00
+POST     /auth/signup                                                                      50     0(0.00%) |    359     259     469    370 |    2.52        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      2898     0(0.00%) |     23       1     639      5 |  146.33        0.00
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      /auctions                                                                               3      4      5      6     15     46     87    140    280    370    370   1506
+GET      /auctions/{id}                                                                          5      6      8      9     20     82    160    240    520    520    520    984
+POST     /auctions/{id}/bids                                                                     9     11     13     14     23     89    220    280    640    640    640    308
+POST     /auth/login                                                                           240    250    250    260    260    270    270    270    270    270    270     50
+POST     /auth/signup                                                                          370    390    400    410    430    440    470    470    470    470    470     50
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                              5      6      8     10     35    160    280    390    520    640    640   2898</code></pre>
+    </div>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>읽는 법 — 병목의 냄새.</strong> (1) 특정 엔드포인트만이 아니라 <em>모든</em> 엔드포인트의 p50 이 함께 올라간다 → 이벤트 루프가 막힌다(동기 호출). (2) 특정 엔드포인트만 느리고 나머지는 멀쩡하다 → 그 엔드포인트의 쿼리·외부 호출(로그인의 bcrypt 처럼). (3) <code>--workers 4</code> 로 늘리면 A 의 숫자가 4배 좋아지는데 그건 치료가 아니라 진통제입니다 — 프로세스마다 같은 함정을 안고 갑니다(4주차·03).</div>
+    </div>
+    <h3>4. 개발 환경 정리</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose exec db psql -U auction -d auction -c "DELETE FROM users WHERE email LIKE 'load-%' OR email = 'alice@example.com';"
+# DELETE 101
+docker compose exec redis redis-cli FLUSHDB
+# OK
+# 터미널 1 의 uvicorn 도 Ctrl-C — 8000 포트를 컨테이너에 내줘야 한다</code></pre>
+    </div>
+    <h3>5. 컨테이너 다섯 개 — 빌드 · 기동 · 전체 흐름</h3>
+    <p><code>--build</code> 가 Dockerfile 로 이미지를 만들고(337MB — uv·빌드 캐시가 없는 런타임만), compose 가 다섯을 순서대로 띄웁니다: db·redis healthy → app(마이그레이션 두 개 실행 → uvicorn) healthy → worker. 그다음은 9단계 시나리오를 <em>컨테이너를 상대로</em> 그대로 돌립니다 — 다른 점은 입찰과 checkout 에 <code>X-Request-ID</code> 를 붙여 나중에 로그에서 찾는 것뿐입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose -f docker-compose.prod.yml up -d --build
+# [+] Building … app  Built            (처음은 1~3분, 두 번째부턴 캐시)
+# ✔ Container auction-prod-db-1       Healthy
+# ✔ Container auction-prod-redis-1    Healthy
+# ✔ Container auction-prod-app-1      Healthy
+# ✔ Container auction-prod-worker-1   Started
+docker compose -f docker-compose.prod.yml ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
+# SERVICE   STATUS                    PORTS
+# app       Up 6 seconds (healthy)    0.0.0.0:8000-&gt;8000/tcp
+# db        Up 11 seconds (healthy)   5432/tcp                    ← 호스트에 안 열림
+# mock_pg   Up 11 seconds             8000/tcp, 0.0.0.0:8001-&gt;8001/tcp
+# redis     Up 11 seconds (healthy)   6379/tcp
+# worker    Up Less than a second     8000/tcp
+docker compose -f docker-compose.prod.yml logs app | grep -E "Running upgrade"
+# INFO  [alembic.runtime.migration] Running upgrade  -&gt; 8d6a60ccfea0, create users auctions bids payments
+# INFO  [alembic.runtime.migration] Running upgrade 8d6a60ccfea0 -&gt; cea32ab5e7e8, add webhook_events and payments external_id index
+docker images auction-api:local --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+# auction-api:local 337MB</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">J='Content-Type: application/json'
+for who in alice bob; do curl -s -X POST localhost:8000/auth/signup -H "$J" -d "{\"email\":\"$who@example.com\",\"password\":\"secret123\",\"nickname\":\"$who\"}" &gt; /dev/null; done
+tok() { curl -s -X POST localhost:8000/auth/login -H "$J" -d "{\"email\":\"$1@example.com\",\"password\":\"secret123\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])'; }
+ALICE=$(tok alice); BOB=$(tok bob)
+ENDS=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC)+timedelta(seconds=45)).isoformat())")
+A=$(curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $ALICE" -H "$J" -d "{\"title\":\"컨테이너 속 경매\",\"category\":\"etc\",\"starting_price\":10000,\"ends_at\":\"$ENDS\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
+echo "A=$A"
+curl -s -X POST localhost:8000/auctions/$A/bids -H "Authorization: Bearer $BOB" -H "$J" -H "X-Request-ID: e2e-bid-1" -d '{"amount":10000}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print("bid:", d["current_price"], d["bid_count"])'
+# bid: 10000 1
+echo "waiting for close..."; sleep 52
+curl -s localhost:8000/auctions/$A | python3 -c 'import sys,json; d=json.load(sys.stdin); print("auction:", d["status"], "winner", (d["winner_id"] or "")[:8])'
+# auction: ended winner d3ca1010            ← 컨테이너 속 워커가 닫았다
+PAY=$(docker compose -f docker-compose.prod.yml exec -T db psql -U auction -d auction -tA -c "SELECT id FROM payments WHERE auction_id='$A'")
+echo "PAY=$PAY"
+curl -s -X POST localhost:8000/payments/$PAY/checkout -H "Authorization: Bearer $BOB" -H "X-Request-ID: e2e-checkout-1"; echo
+# {"payment_id":"42e9d953-…","external_id":"pg_d5eb29153ae2","status":"pending"}
+sleep 3
+curl -s localhost:8000/payments/$PAY -H "Authorization: Bearer $BOB" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("payment:", d["status"], "paid_at", d["paid_at"])'
+# payment: paid paid_at 2026-08-25T16:47:50.907317Z   ← mock_pg 컨테이너가 http://app:8000 으로 웹훅을 보냈다</code></pre>
+    </div>
+    <h3>6. 로그 추적 · 정상 종료 · 정리</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose -f docker-compose.prod.yml logs app | grep -E 'e2e-bid-1|e2e-checkout-1' | sed 's/^[^{]*//' | cut -c1-230
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "e2e-bid-1", "method": "POST", "path": "/auctions/ef9a…/bids", "status": 201, "duration_ms": …}
+# {"ts": "…", "level": "INFO", "logger": "httpx", "msg": "HTTP Request: POST http://mock_pg:8001/pg/payments \"HTTP/1.1 201 Created\"", "request_id": "e2e-checkout-1"}
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "e2e-checkout-1", "method": "POST", "path": "/payments/42e9…/checkout", "status": 200, …}
+# ↑ 가운데 줄을 보자. httpx 라이브러리가 자기 로그를 찍었는데 request_id 가 우리 것이다 — contextvar 가 한 일.
+docker compose -f docker-compose.prod.yml logs worker | grep -E 'notify|closed=' | sed 's/^[^{]*//' | cut -c1-200
+# {"ts": "…", "level": "INFO", "logger": "app.services.closer", "msg": "[notify] user=d3ca1010 낙찰! auction=ef9a8973 10,000원 — … 까지 결제해 주세요", "request_id": "-"}
+# {"ts": "…", "level": "INFO", "logger": "worker.closer", "msg": "tick: activated=0 closed=1 expired=0", "request_id": "-"}
+docker compose -f docker-compose.prod.yml logs mock_pg | grep -i webhook | tail -1
+# mock_pg-1  | … mock_pg webhook paid → 200 {"received":true,"duplicate":false}
+
+echo "=== 워커를 SIGTERM 으로 (docker stop = SIGTERM 후 10초 뒤 SIGKILL)"
+docker compose -f docker-compose.prod.yml stop worker
+docker compose -f docker-compose.prod.yml logs worker | grep -E "stopped" | sed 's/^[^{]*//'
+# {"ts": "…", "level": "INFO", "logger": "worker.closer", "msg": "closer stopped", "request_id": "-"}   ← exec 형식 덕에 신호가 닿았다
+docker compose -f docker-compose.prod.yml down -v
+# ✔ Volume auction-prod_prod-pgdata  Removed
+# ✔ Network auction-prod_default     Removed</code></pre>
+    </div>
+    <h3>7. CI 파일 검증 — GitHub 에 올리기 전에 같은 명령을 로컬에서</h3>
+    <p>Actions 를 로컬에서 실행하는 도구(<code>act</code>)도 있지만, 여기선 YAML 이 유효한지와 CI 가 돌릴 <em>명령 자체</em>가 같은 환경변수로 통과하는지만 확인합니다. 그 둘이 되면 GitHub 에서도 됩니다. 파일을 <code>til/.github/workflows/auction-api-ci.yml</code> 로 옮겨 커밋·푸시하면 Actions 탭에 <code>auction-api CI</code> 가 나타납니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run python -c "import yaml; d=yaml.safe_load(open('.github/workflows/ci.yml')); print('ci.yml ok:', list(d['jobs']['test'].keys()))"
+# ci.yml ok: ['runs-on', 'services', 'env', 'steps']
+
+# CI 와 정확히 같은 환경변수·명령을 로컬에서 (서비스 컨테이너 대신 개발용 compose 의 5435·6380)
+export DATABASE_URL=postgresql+asyncpg://auction:auction_pw@localhost:5435/auction REDIS_URL=redis://localhost:6380/0
+export JWT_SECRET=ci-only-secret-that-is-at-least-32-bytes-long PG_WEBHOOK_SECRET=ci-only-pg-webhook-secret-32-bytes-minimum
+uv sync --frozen &amp;&amp; uv run ruff check . &amp;&amp; uv run ruff format --check . &amp;&amp; uv run alembic upgrade head &amp;&amp; uv run alembic check &amp;&amp; uv run pytest -q
+# Audited 72 packages in 2ms
+# All checks passed!
+# 76 files already formatted
+# INFO  [alembic.runtime.migration] Will assume transactional DDL.
+# No new upgrade operations detected.
+# 97 passed in 66.75s (0:01:06)
+unset DATABASE_URL REDIS_URL JWT_SECRET PG_WEBHOOK_SECRET</code></pre>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 7. 완료 ───────────────────────── -->
+  <section class="section" id="done">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>완료 기준 체크리스트</h2>
+    </div>
+    <ul class="checklist">
+      <li><code>uv run pytest -q</code> → <code>97 passed</code>, 경고 0 (캐시 4 · 관측성 6)</li>
+      <li><code>uv run ruff check .</code> · <code>ruff format --check .</code> 통과, <code>uv run alembic check</code> 무변경</li>
+      <li>같은 <code>GET /auctions</code> 두 번 → 두 번째가 훨씬 빠르고 <code>redis-cli --scan</code> 에 <code>auction:list:v…</code> 키가 보인다</li>
+      <li>모든 응답에 <code>X-Request-ID</code>, 보낸 값은 그대로 돌아오고, 터미널 로그가 JSON 한 줄에 같은 <code>request_id</code></li>
+      <li>locust A(스위치 켬) 와 B(끔) 의 <code>req/s</code>·<code>p50</code> 이 확연히 다르다 (기준: 3배 이상)</li>
+      <li><code>docker compose -f docker-compose.prod.yml up -d --build</code> → <code>ps</code> 에 5개, app·db·redis <code>(healthy)</code>, 호스트엔 8000·8001 만</li>
+      <li>컨테이너 상대로 가입 → 45초 경매 → 입찰 → <code>ended</code> + winner → checkout → 3초 뒤 <code>paid</code></li>
+      <li><code>logs app</code> 에서 <code>e2e-checkout-1</code> 로 grep 하면 access 로그와 httpx 로그가 같은 request_id 로 나온다</li>
+      <li><code>stop worker</code> → 로그에 <code>closer stopped</code>, <code>down -v</code> 로 깨끗이</li>
+      <li><code>ci.yml</code> 이 <code>yaml.safe_load</code> 를 통과하고, CI 와 같은 명령이 로컬에서 전부 통과</li>
+    </ul>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기서 커밋하세요 — 마지막입니다.</strong> 예: <code>git commit -m "add(be(fastapi)): auction-api 10단계 — 캐시·JSON 로그·부하 테스트·Docker·CI"</code>. <code>README.md</code> 의 회고 세 줄을 채우고, <code>ci.yml</code> 을 <code>til/.github/workflows/auction-api-ci.yml</code> 로 옮겨 푸시하면 첫 CI 가 돕니다. 로드맵(<code>index.html</code>)의 "완주 후" 에 다음 갈 길을 적어 두었습니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 8. 함정 ───────────────────────── -->
+  <section class="section" id="pitfalls">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>함정 &amp; 실무 팁</h2>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>로그인 사용자에 따라 달라지는 응답을 공용 키로 캐시하지 마세요.</strong> 오늘 캐시한 <code>GET /auctions</code> 는 누가 불러도 같은 답이라서 됐습니다. <code>GET /users/me</code> 나 "내 입찰 목록" 을 같은 방식으로 캐시하면 A 의 화면이 B 에게 갑니다 — 실제로 일어난 유명한 사고들입니다. 사용자별 응답은 키에 <code>user_id</code> 를 넣거나, 아예 캐시하지 않습니다. 규칙: <em>키를 만드는 재료에 응답을 결정하는 모든 것이 들어가야 한다.</em></div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>버전을 올리는 자리는 커밋 뒤, 그리고 '목록에 보이는 것이 바뀌는 곳' 전부.</strong> 커밋 전에 올리면 그 사이 들어온 요청이 옛 데이터를 새 버전 키로 캐시해 5초 동안 틀린 답이 남습니다. 지점을 하나 빼먹으면(예: 워커의 활성화) 그 변경만 5초 늦게 보입니다 — TTL 이 안전망인 이유이자, TTL 을 무한으로 두면 안 되는 이유입니다. 새 기능을 추가할 때 "이게 목록을 바꾸나?" 를 체크리스트에 넣으세요.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>캐시 스탬피드.</strong> 인기 키가 만료되는 순간 요청 100개가 동시에 미스를 내고 100번 DB 를 읽어 100번 SET 합니다. 오늘 규모에선 문제없지만 트래픽이 크면 (1) TTL 에 약간의 랜덤(4~6초)을 더해 만료 시각을 흩고, (2) 첫 미스만 DB 를 가고 나머지는 잠깐 기다리게 하는 락(Redis <code>SET NX</code>)을 둡니다. 6단계의 <code>FOR UPDATE</code> 와 같은 발상입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>print()</code> 는 로그가 아닙니다.</strong> 컨테이너 다섯 개의 출력이 한 화면에 섞이는 순간 request_id 없는 줄은 쓸모가 없어집니다. 오늘 만든 <code>JsonFormatter</code> 는 <code>logging.getLogger(__name__)</code> 로 찍은 <em>모든</em> 로그에 적용되고 request_id 가 자동으로 붙습니다 — 서비스 코드에서 <code>logger.info("bid placed", extra={{"amount": amount}})</code> 처럼 쓰세요. 그리고 비밀번호·토큰·카드번호는 절대 로그에 넣지 않습니다(로그는 오래 남고 많은 사람이 봅니다).</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>부하 테스트는 배포 환경과 비슷할 때만 숫자를 믿습니다.</strong> 오늘은 노트북에서 서버와 locust 를 같이 돌렸으니 절대값(146 req/s)은 의미가 없고 <em>A 와 B 의 비율</em>만 의미가 있습니다. 운영 전 측정은 스테이징에 배포하고 다른 머신에서 쏘세요. 그리고 <code>--workers</code> 를 늘려 나온 개선은 "블로킹이 없어졌다" 가 아니라 "블로킹을 4개 프로세스가 나눠 맞는다" 입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>.env</code> 는 이미지에 들어가면 안 됩니다.</strong> <code>.dockerignore</code> 에 <code>.env</code> 가 있는 이유입니다. 이미지는 레지스트리에 올라가고 복사되고 남습니다 — 한 번 들어간 비밀은 회수할 수 없습니다. 비밀은 실행 시점에 환경변수(compose <code>${{JWT_SECRET}}</code>, Actions secrets, 클라우드의 시크릿 매니저)로 넣습니다. 같은 이유로 <code>docker-compose.prod.yml</code> 의 기본값(<code>:-prod-change-me…</code>)은 로컬 확인용이지 운영값이 아닙니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>CMD 는 exec 형식, 셸이 필요하면 <code>exec</code> 로 넘기기.</strong> <code>CMD uvicorn app.main:app</code>(셸 형식)이면 PID 1 은 <code>sh</code> 이고 uvicorn 은 그 자식입니다. <code>docker stop</code> 의 SIGTERM 은 <code>sh</code> 가 받고 자식에게 안 넘깁니다 → 10초 뒤 SIGKILL → 8단계의 graceful shutdown 이 무의미해지고 처리 중이던 틱이 반쯤에서 죽습니다. compose 의 <code>app</code> 처럼 마이그레이션 뒤에 서버를 띄워야 할 땐 <code>sh -c "alembic … &amp;&amp; exec uvicorn …"</code> — <code>exec</code> 가 셸을 uvicorn 으로 <em>바꿔치기</em>해서 PID 1 이 됩니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>마이그레이션은 한 컨테이너만.</strong> app 을 <code>--scale app=3</code> 으로 늘리면 셋이 동시에 <code>alembic upgrade head</code> 를 돌립니다. Alembic 은 락을 잡지 않아 둘이 같은 DDL 을 시도하다 하나가 죽습니다. 운영에선 마이그레이션을 배포 파이프라인의 <em>별도 단계</em>(한 번 실행되는 job)로 빼고, 서버 컨테이너는 서버만 띄웁니다. 오늘 compose 는 app 이 하나라서 <code>&amp;&amp;</code> 로 묶은 것이지 정석은 아닙니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>healthcheck 가 200 이라고 '준비됨' 은 아닙니다.</strong> 우리 <code>/health</code> 는 DB·Redis 핑까지 보므로 꽤 정직한 편입니다. 실무에선 <em>liveness</em>(프로세스가 살아 있나 — 죽었으면 재시작)와 <em>readiness</em>(트래픽을 받아도 되나 — 아니면 로드밸런서에서 뺀다)를 나눕니다. 마이그레이션 중이거나 캐시 워밍 중엔 살아 있지만 준비는 안 된 상태입니다. k8s 로 가면 두 프로브를 따로 붙입니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>CI 의 DB 주소와 로컬의 DB 주소.</strong> Actions 서비스 컨테이너는 <code>localhost:호스트포트</code> 로 접근합니다(job 이 컨테이너 안이 아니라 러너 VM 에서 돌 때). 오늘은 5435·6380 으로 매핑해 로컬 기본값을 그대로 썼습니다. job 을 <code>container:</code> 안에서 돌리면 서비스 이름(<code>postgres:5432</code>)으로 바뀝니다 — compose 의 규칙과 같습니다. <code>alembic check</code> 를 CI 에 넣어 두면 "모델은 고쳤는데 마이그레이션을 안 만든" PR 이 여기서 잡힙니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 9. 정본 ───────────────────────── -->
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>self-study 정본 링크 — 개념은 여기서 복습</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이번 단계에서 쓴 것</th><th>정본</th></tr></thead>
+        <tbody>
+          <tr><td>Dockerfile · docker compose · GitHub Actions — 기본 문법과 흐름</td><td><a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#dockerfile">Week 10·03 Dockerfile</a> · <a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#docker-compose">compose</a> · <a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#github-actions">GitHub Actions</a> · <a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#deploy">배포</a></td></tr>
+          <tr><td>CORS 설정 · 미들웨어 계층 · 커스텀 미들웨어 (request-id 미들웨어의 배경)</td><td><a href="../../self-study/week07-async-db-external/03-cors-middleware.html#cors-config">Week 7·03 CORS 설정</a> · <a href="../../self-study/week07-async-db-external/03-cors-middleware.html#middleware-layer">미들웨어 계층</a> · <a href="../../self-study/week07-async-db-external/03-cors-middleware.html#custom-middleware">커스텀 미들웨어</a></td></tr>
+          <tr><td>async 안의 동기 호출이 왜 서버 전체를 세우나 (부하 테스트 A 의 원리)</td><td><a href="../../self-study/week04-async-internals/02-async-await-threadpool.html#two-paths">Week 4·02 두 갈래</a> · <a href="../../self-study/week04-async-internals/02-async-await-threadpool.html#blocking-trap">블로킹 함정</a></td></tr>
+          <tr><td>워커 프로세스 늘리기 — 왜 진통제인가</td><td><a href="../../self-study/week04-async-internals/03-multiprocess-uvicorn-starlette.html#multiprocess-workers">Week 4·03 멀티프로세스 워커</a></td></tr>
+          <tr><td>측정의 이유 · 부하 테스트 도구 · 병목 찾기</td><td><a href="../../self-study/week09-realtime-events/03-performance-test.html#why-measure">Week 9·03 왜 재나</a> · <a href="../../self-study/week09-realtime-events/03-performance-test.html#load-test-tools">도구</a> · <a href="../../self-study/week09-realtime-events/03-performance-test.html#bottlenecks">병목</a></td></tr>
+          <tr><td>Redis 를 캐시로 — 기본 명령과 TTL</td><td><a href="../../self-study/week08-auth/02-dependency-auth-redis.html#redis">Week 8·02 Redis</a></td></tr>
+          <tr><td>커넥션 풀 — 컨테이너 여러 개가 같은 DB 를 볼 때 풀 크기 계산의 배경</td><td><a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#connection-pool">Week 5·03 Connection Pool</a></td></tr>
+          <tr><td>fixture 가 잠깐 달았다 떼는 패턴 (slow query 테스트)</td><td><a href="../../self-study/week10-test-deploy/01-pytest-mocking-fixture.html#fixture">Week 10·01 Fixture</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 10. 셀프 체크 ───────────────────────── -->
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-teal">❓</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 캐시 무효화를 <code>DEL auction:list:*</code> 로 하지 않고 버전을 올리는 이유는? 그리고 이 방식의 대가는 무엇인가요?</summary>
+        <div class="qa-answer"><p>Redis 에는 패턴으로 한 번에 지우는 명령이 없습니다 — <code>KEYS</code>/<code>SCAN</code> 으로 찾아서 하나씩 지워야 하고, <code>KEYS</code> 는 키가 많으면 Redis 전체를 멈춥니다. 게다가 "어떤 파라미터 조합이 캐시돼 있는지" 를 서버가 알 수 없습니다(커서·필터·정렬의 조합은 무한합니다). 버전 키는 그 문제를 없앱니다: 변경 지점은 <code>INCR</code> 하나만 하고, 읽는 쪽이 항상 최신 버전 키를 찾으니 옛 키는 자연히 안 읽힙니다. 대가는 (1) 읽을 때마다 <code>GET version</code> 이 한 번 더 든다(Redis 왕복 두 번 — 대개 1ms 미만), (2) 옛 키가 TTL 까지 메모리에 남는다(그래서 TTL 이 짧아야 한다), (3) 경매 <em>하나</em>가 바뀌어도 <em>모든</em> 목록 캐시가 무효화된다 — 변경이 잦으면 히트율이 떨어집니다. 그때는 키에 카테고리 같은 축을 더해 버전을 축별로 나눕니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 부하 테스트 A 에서 <code>time.sleep(0.05)</code> 는 상세 조회에만 있는데 왜 목록·입찰·로그인까지 전부 700ms 대가 됐나요? <code>uvicorn --workers 4</code> 로 띄우면 해결되나요?</summary>
+        <div class="qa-answer"><p>uvicorn 워커 하나는 이벤트 루프 하나이고, 루프는 한 번에 한 코루틴만 실행합니다. <code>await</code> 에서만 다른 코루틴으로 넘어가는데 <code>time.sleep</code> 은 <code>await</code> 가 아니라 그냥 50ms 를 붙잡고 있습니다. 그 50ms 동안 목록 요청의 DB 응답이 도착해도, 입찰의 락이 풀려도, 로그인의 스레드가 끝나도 아무도 처리하지 못합니다 — 줄 전체가 섭니다. 초당 상세 조회가 12건이면 매초 600ms 가 그렇게 사라지고, 그게 모든 엔드포인트의 지연으로 번집니다(slow query 경고가 30개나 찍힌 것도 SQL 이 느린 게 아니라 결과를 받아 줄 차례가 안 와서였습니다). <code>--workers 4</code> 는 루프가 넷이 되니 약 4배 나아지지만, 각 워커가 똑같이 50ms 씩 멈추는 건 그대로입니다 — 트래픽이 4배 되면 원위치입니다. 치료는 동기 호출을 없애거나(<code>httpx</code>·asyncpg 처럼 async 라이브러리로) 스레드로 보내는 것(<code>asyncio.to_thread</code>, 오늘 bcrypt 에 한 일)입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> Dockerfile 이 <code>FROM</code> 을 두 번 쓰는 이유는? 그리고 <code>USER app</code> 과 exec 형식 <code>CMD</code> 를 빼면 각각 무슨 일이 생기나요?</summary>
+        <div class="qa-answer"><p>첫 <code>FROM</code>(빌더)에는 uv 와 빌드 캐시, 컴파일에 필요한 도구가 들어가고 거기서 <code>.venv</code> 를 만듭니다. 둘째 <code>FROM</code>(런타임)은 파이썬만 있는 slim 이미지에서 시작해 빌더의 <code>/app</code> 만 <code>COPY --from</code> 합니다. 결과: 이미지가 작고(337MB — 빌더 전체를 쓰면 2배 이상), 공격 표면이 작고(uv·컴파일러가 없음), 캐시 레이어가 잘 나뉩니다(잠금 파일이 안 바뀌면 의존성 설치를 건너뜀). <code>USER app</code> 을 빼면 프로세스가 root 로 돕니다 — 앱에 취약점이 있을 때 컨테이너 안에서 무엇이든 할 수 있고, 컨테이너 탈출 취약점과 만나면 호스트까지 갑니다. 파일을 못 쓰는 게 아니라 <em>못 쓰게 두는 것</em>이 목적입니다. exec 형식을 셸 형식으로 바꾸면 PID 1 이 <code>sh</code> 가 되어 <code>docker stop</code> 의 SIGTERM 이 uvicorn·워커에 전달되지 않고, 10초 뒤 SIGKILL 로 죽습니다 — 처리 중이던 요청이 끊기고, 8단계 워커는 틱 중간에 죽어 락만 풀립니다(데이터는 트랜잭션 덕에 안전하지만 "조용한 종료" 는 없어집니다).</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="09-payment-webhook.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">9단계 · 결제 웹훅</span></a>
+    <a class="part-pager-link next" href="index.html"><span class="part-pager-dir">완주 →</span><span class="part-pager-title">로드맵 · 완주 후 갈 길</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 10단계 · 성능·관측성·배포 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

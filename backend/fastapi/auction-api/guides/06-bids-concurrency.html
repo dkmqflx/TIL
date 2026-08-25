@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6단계 — 입찰과 동시성 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · self-study 10주의 실무 적용</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+    <a class="nav-week" href="01-skeleton.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-models-alembic.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-tests-auth.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-auction-crud.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-list-pagination.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <div class="nav-week active"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</div>
+    <div class="nav-week-group">
+      <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+      <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+      <a class="nav-item" href="#analogy">🏦 비유 — 은행 창구 번호표</a>
+      <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      <a class="nav-item" href="#impl">🔧 구현 — 파일별</a>
+      <a class="nav-item" href="#run">▶️ 실행·확인</a>
+      <a class="nav-item" href="#done">✅ 완료 기준</a>
+      <a class="nav-item" href="#pitfalls">⚠️ 함정 &amp; 실무 팁</a>
+      <a class="nav-item" href="#refs">🔗 self-study 정본</a>
+      <a class="nav-item" href="#self-check">❓ 셀프 체크</a>
+    </div>
+
+    <a class="nav-week" href="07-realtime-ws.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-closer-worker.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-payment-webhook.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-deploy.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <h1>6단계 — 입찰과 동시성</h1>
+    <p class="lesson-subtitle">이 프로젝트의 심장입니다. <code>POST /auctions/{id}/bids</code>가 네 가지 규칙(본인 금지 · active만 · 최소 금액 · 마감 직전 연장)을 지키게 만들고, <strong>50명이 같은 순간에 입찰해도</strong> 현재가와 입찰 수가 한 치도 어긋나지 않는다는 것을 <em>테스트로 증명</em>합니다. 무기는 <code>SELECT … FOR UPDATE</code> 한 줄입니다. 그리고 그 한 줄을 지우면 무엇이 깨지는지도 직접 봅니다.</p>
+  </div>
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code>가 <code>59 passed</code>를 찍고(그중 동시 입찰 테스트 2개), <code>with_for_update()</code> 한 줄을 지우고 다시 돌리면 <code>current_price 50000 != 59000</code> 같은 <em>lost update</em>가 눈앞에서 재현되며, psql 두 창으로 한쪽이 잠근 행을 다른 쪽이 <code>Lock / transactionid</code> 상태로 기다리는 것을 <code>pg_stat_activity</code>에서 확인합니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>"읽고 → 판단하고 → 쓰는" 사이에 다른 요청이 끼어들면 무엇이 깨지는지(lost update) 설명할 수 있다</li>
+    <li><code>SELECT … FOR UPDATE</code>(비관적 락)로 경매 행 하나를 잠가 입찰을 한 줄로 세운다</li>
+    <li>비관적 락과 낙관적 락(<code>version</code>)의 차이와 각각이 맞는 상황을 안다</li>
+    <li>Redis <code>INCR</code>로 사용자별 초당 입찰 횟수를 제한한다</li>
+    <li>롤백 fixture로는 동시성을 테스트할 수 없는 이유를 알고, 실제 커밋 세션 50개 + <code>asyncio.gather</code>로 증명한다</li>
+    <li>시간에 의존하는 규칙(스나이핑 연장·rate limit)을 테스트에서 시계를 멈춰 결정적으로 검증한다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>4~5단계까지의 경매는 <em>구경만</em> 할 수 있었습니다. 이번에는 돈을 겁니다. 끝나면 <code>POST /auctions/{id}/bids</code>에 <code>{"amount": 11000}</code>을 보내면 규칙에 맞을 때만 201이 오고, 응답에는 내 입찰과 함께 경매의 바뀐 <code>current_price</code>·<code>bid_count</code>·<code>ends_at</code>·<code>version</code>이 실립니다. <code>GET /auctions/{id}/bids</code>로 누구나 입찰 내역을 볼 수 있습니다.</p>
+    <p>하지만 이 단계의 진짜 산출물은 API가 아니라 <strong>테스트 두 개</strong>입니다. 50개의 코루틴이 각자 DB 커넥션을 들고 같은 경매에 동시에 입찰했을 때, (1) <code>current_price</code>가 받아들여진 입찰 중 최댓값이고 (2) <code>bid_count</code>가 <code>bids</code> 테이블 행 수와 같고 (3) 같은 금액을 50명이 동시에 넣으면 정확히 한 명만 성공하는 것을 확인합니다. 락을 빼면 이 테스트가 깨집니다 — 그걸 <em>직접 깨뜨려 보는 것</em>까지가 이번 단계입니다.</p>
+    <p><strong>전제.</strong> 5단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>42 passed</code>, 컨테이너 두 개 <code>(healthy)</code>. 새로 설치하는 패키지는 없습니다(Redis는 3단계부터 붙어 있습니다). 작업 위치는 <code>til/backend/fastapi/auction-api/</code>.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 새 파일 6개(<code>repositories/bid.py</code>, <code>schemas/bid.py</code>, <code>services/bid.py</code>, <code>routers/bids.py</code>, <code>tests/test_bids.py</code>, <code>tests/test_bids_concurrency.py</code>), 손보는 파일 5개(<code>pyproject.toml</code>에 마커, <code>core/config.py</code>에 설정 3개, <code>core/exceptions.py</code>에 429 부모와 입찰 예외 4개, <code>repositories/auction.py</code>에 <code>get_for_update</code>, <code>main.py</code>에 라우터 등록). 5단계까지의 함수는 하나도 바뀌지 않고 <em>더하기만</em> 합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>경매 서비스가 망하는 방법은 하나입니다. "내가 더 높게 불렀는데 낙찰자가 딴 사람" — 이 문의가 한 번이라도 들어오면 신뢰는 끝입니다. 그런데 그 사고는 코드가 <em>틀려서</em>가 아니라 <em>동시에 실행돼서</em> 납니다.</p>
+    <p>입찰 처리는 세 동작입니다. 현재가를 <strong>읽고</strong>, 내 금액이 충분한지 <strong>판단하고</strong>, 현재가를 내 금액으로 <strong>씁니다</strong>. 혼자 있을 땐 완벽합니다. 문제는 bob과 carol이 0.01초 차이로 들어왔을 때입니다. 둘 다 현재가 10,000을 <em>읽고</em>, bob은 11,000·carol은 12,000이 충분하다고 <em>판단하고</em>, bob이 11,000을 <em>쓴</em> 직후 carol이 12,000을 씁니다 — 여기까진 운 좋게 맞습니다. 순서가 반대면? carol이 12,000을 쓴 뒤 bob이 11,000을 덮어씁니다. 현재가 11,000, 그런데 <code>bids</code> 테이블엔 12,000이 있습니다. <code>bid_count</code>는 둘 다 0을 읽어 1을 썼으니 1입니다. 행은 2개인데. 이것이 <strong>lost update</strong>이고, 부하 테스트 없이는 개발 PC에서 절대 안 보입니다.</p>
+    <p>4단계에서 4주차 내용을 떠올리면 "async라서 한 번에 하나씩 도는 거 아닌가?" 싶을 수 있습니다. 이벤트 루프는 파이썬 코드를 한 번에 하나만 돌리지만, <code>await db.execute(...)</code>에서 멈춰 있는 동안 다른 요청의 코드가 돌아갑니다. 읽기와 쓰기 사이에 <code>await</code>가 있으면 그 사이에 누가 끼어듭니다. 게다가 10단계에서 uvicorn 워커를 여러 개 띄우면 프로세스 자체가 여럿입니다. 파이썬 쪽에서 막을 방법은 없고, <strong>DB에 부탁</strong>해야 합니다.</p>
+    <p>Postgres에게 부탁하는 문장이 <code>SELECT … FOR UPDATE</code>입니다. "이 행은 내 트랜잭션이 끝날 때까지 나만 만진다" — 같은 행을 <code>FOR UPDATE</code>로 읽으려는 다른 트랜잭션은 <em>줄을 섭니다</em>. 내가 커밋하면 다음 사람이 들어오는데, 그 사람은 <em>내가 바꾼 현재가</em>를 봅니다. 읽기·판단·쓰기가 한 덩어리가 됩니다. 이 단계는 그 한 줄을 어디에 두는지, 왜 그 자리인지, 그리고 없으면 정말 깨지는지를 다룹니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무에서 이 패턴이 나오는 곳.</strong> 재고 차감(마지막 1개를 두 명이 동시에 주문), 포인트 사용(잔액 1,000인데 900짜리 두 번), 좌석 예약, 쿠폰 발급 한도, 선착순 이벤트. 전부 "읽고 판단하고 쓰기"이고 전부 같은 답입니다. 면접에서 "동시성 처리 경험"을 물으면 이 단계 이야기를 하면 됩니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏦</div>
+      <h2>비유 — 은행 창구 번호표</h2>
+    </div>
+    <p><strong>은행 창구의 번호표.</strong> 통장 하나에 두 사람이 동시에 입금하러 왔다고 해 봅시다. 창구 직원이 둘을 <em>동시에</em> 받으면, 둘 다 "잔액 10만 원"을 보고 각자 더한 값을 적어 넣다가 한쪽 입금이 사라집니다. 그래서 은행은 번호표를 뽑게 합니다. 1번이 창구에서 통장을 만지는 동안 2번은 의자에 앉아 기다리고, 1번이 끝나면(커밋) 2번이 <em>1번이 갱신한 잔액</em>을 보고 시작합니다. <code>SELECT … FOR UPDATE</code>가 번호표이고, 트랜잭션이 "창구에 앉아 있는 시간"이며, <code>commit</code>이 자리를 비워 주는 순간입니다. 이 방식을 <strong>비관적 락</strong>이라고 부릅니다 — "분명 누가 동시에 올 거야"라고 비관하고 미리 줄을 세우니까요.</p>
+    <p><strong>낙관적 락은 반대입니다.</strong> 번호표 없이 각자 통장을 복사해 가서 계산하고, 돌려놓을 때 "내가 복사해 간 뒤로 아무도 안 건드렸지?"를 확인합니다. 통장에 적힌 <em>판(version) 번호</em>가 그때 그대로면 덮어쓰고, 바뀌었으면 처음부터 다시 합니다. 우리 <code>auctions.version</code> 컬럼이 그 판 번호입니다. 동시에 오는 사람이 드물면 이게 더 빠르지만, 경매 마감 직전처럼 <em>다들 몰려오는</em> 곳에서는 "다시 하세요"가 폭주합니다. 그래서 입찰은 비관적 락으로 갑니다.</p>
+    <p><strong>스나이핑 연장은 경매사의 룰입니다.</strong> 실제 경매장에서 "마감!" 직전에 누가 손을 들면 경매사는 곧바로 망치를 내리치지 않고 "30초 더 받겠습니다"라고 합니다. 마지막 0.1초에 입찰해서 아무도 대응 못 하게 하는 <em>스나이핑</em>을 막기 위해서입니다. 규칙 4가 그것입니다: 마감 30초 이내의 입찰은 마감을 30초 뒤로 밉니다.</p>
+    <p><strong>rate limit은 창구 앞의 경비원입니다.</strong> 한 사람이 1초에 스무 번 번호표를 뽑으면 다른 손님이 영영 창구에 못 갑니다. 그래서 경비원이 번호표 기계 <em>앞에서</em> "초당 5장까지"를 셉니다. 락(번호표)을 잡기 <em>전에</em> 거르는 게 핵심입니다 — 스팸이 락을 쥔 채 줄을 세우면 안 되니까요.</p>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>첫 그림은 <strong>두 입찰이 같은 경매 행을 두고 만나는 장면</strong>입니다. bob의 트랜잭션이 <code>FOR UPDATE</code>로 행을 잠근 순간부터 커밋까지, carol의 <code>FOR UPDATE</code>는 Postgres 안에서 멈춰 있습니다(<code>pg_stat_activity</code>에 <code>wait_event_type = Lock</code>으로 보입니다). bob이 커밋하면 carol이 깨어나는데, 이때 carol이 받는 행은 <em>bob이 갱신한 뒤의</em> 값입니다. carol의 12,000은 "현재가 11,000 + 단위 1,000 = 12,000 이상"이라 통과하고, 만약 carol이 11,500을 냈다면 <code>BID_TOO_LOW</code>로 거절됩니다. 락 없이는 둘 다 10,000을 기준으로 판단해 둘 다 통과했을 겁니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 300" role="img" aria-label="FOR UPDATE 타임라인: bob 트랜잭션이 행을 잠근 동안 carol 트랜잭션은 기다리고, 커밋 후 갱신된 값을 본다">
+        <defs><marker id="ah6" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="300" fill="#f8fafc" rx="12"/>
+        <text x="20" y="28" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">같은 경매 행(현재가 10,000)에 bob 11,000 · carol 12,000 이 거의 동시에</text>
+        <line x1="20" y1="48" x2="740" y2="48" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <text x="20" y="78" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#1d4ed8">bob</text>
+        <rect x="70" y="62" width="110" height="26" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+        <text x="125" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1e3a8a">FOR UPDATE 🔒</text>
+        <rect x="186" y="62" width="150" height="26" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+        <text x="261" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1e3a8a">규칙 검사 → 11,000 씀</text>
+        <rect x="342" y="62" width="90" height="26" rx="6" fill="#bfdbfe" stroke="#3b82f6"/>
+        <text x="387" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1e3a8a">COMMIT 🔓</text>
+        <text x="20" y="128" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#b45309">carol</text>
+        <rect x="100" y="112" width="332" height="26" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-dasharray="5 3"/>
+        <text x="266" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">FOR UPDATE … 대기 (wait_event_type = Lock)</text>
+        <rect x="438" y="112" width="120" height="26" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="498" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">행 받음: 11,000</text>
+        <rect x="564" y="112" width="110" height="26" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="619" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">12,000 ≥ 12,000 ✓</text>
+        <rect x="680" y="112" width="60" height="26" rx="6" fill="#fde68a" stroke="#f59e0b"/>
+        <text x="710" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">COMMIT</text>
+        <line x1="432" y1="92" x2="432" y2="110" stroke="#64748b" marker-end="url(#ah6)"/>
+        <text x="440" y="104" font-family="Inter, sans-serif" font-size="10" fill="#475569">락 해제 → 줄 선 트랜잭션이 깨어난다</text>
+        <line x1="20" y1="160" x2="740" y2="160" stroke="#cbd5e1"/>
+        <text x="20" y="184" font-family="Inter, sans-serif" font-size="11.5" font-weight="700" fill="#b91c1c">락이 없으면 (실험에서 실제로 난 결과)</text>
+        <text x="20" y="206" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#7f1d1d">bob:   읽음 10,000 → 판단 ✓ → 씀 current=11,000, bid_count=0+1</text>
+        <text x="20" y="224" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#7f1d1d">carol: 읽음 10,000 → 판단 ✓ → 씀 current=12,000, bid_count=0+1   ← bob 의 +1 이 사라짐</text>
+        <text x="20" y="242" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#7f1d1d">결과: bids 행 2개 · bid_count 1 · 순서가 반대였다면 current_price 11,000 (12,000 입찰이 있는데)</text>
+        <text x="20" y="272" font-family="Inter, sans-serif" font-size="10.5" fill="#475569">50명 실험: current_price 50,000 인데 받아들인 최고가는 59,000 · 같은 금액을 7명이 "성공"</text>
+      </svg>
+    </div>
+    <p>둘째 그림은 <strong>서비스 함수 안의 순서</strong>입니다. 순서가 곧 설계입니다. rate limit은 락 <em>앞</em>에(스팸이 락을 쥐지 않게), 존재·상태·본인·금액 검사는 락 <em>뒤</em>에(잠근 뒤의 값으로 판단해야 의미가 있으니), 갱신과 INSERT는 검사를 다 통과한 뒤에, 그리고 <code>commit</code>이 락을 푸는 유일한 순간입니다. 예외로 빠져나가면 세션이 닫히며 롤백되고 락도 풀립니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 150" role="img" aria-label="place_bid 순서: rate limit → FOR UPDATE → 규칙 검사 → 갱신·INSERT → commit">
+        <defs><marker id="ah6b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="150" fill="#f8fafc" rx="12"/>
+        <rect x="16" y="40" width="120" height="46" rx="8" fill="#fee2e2" stroke="#ef4444"/>
+        <text x="76" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#7f1d1d">① rate limit</text>
+        <text x="76" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7f1d1d">Redis INCR · 429</text>
+        <rect x="166" y="40" width="120" height="46" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+        <text x="226" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#1e3a8a">② 행 잠금</text>
+        <text x="226" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1e3a8a">FOR UPDATE</text>
+        <rect x="316" y="40" width="130" height="46" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="381" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#92400e">③ 규칙 1~3</text>
+        <text x="381" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#92400e">404·409·403·422</text>
+        <rect x="476" y="40" width="130" height="46" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+        <text x="541" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">④ 갱신 + INSERT</text>
+        <text x="541" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#14532d">규칙 4 연장 · version+1</text>
+        <rect x="636" y="40" width="108" height="46" rx="8" fill="#bfdbfe" stroke="#3b82f6"/>
+        <text x="690" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#1e3a8a">⑤ COMMIT</text>
+        <text x="690" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1e3a8a">락 해제 🔓</text>
+        <line x1="136" y1="63" x2="164" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <line x1="286" y1="63" x2="314" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <line x1="446" y1="63" x2="474" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <line x1="606" y1="63" x2="634" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <path d="M166,96 L744,96" stroke="#3b82f6" stroke-width="2"/>
+        <text x="455" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#1e3a8a">②~⑤ 가 한 트랜잭션 — 이 구간 동안 같은 경매의 다른 입찰은 ② 에서 멈춰 기다린다</text>
+        <text x="76" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#7f1d1d">락 밖 — 거절도 센다</text>
+        <text x="380" y="136" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#64748b">예외로 빠지면 세션이 닫히며 롤백 → 락도 풀린다 (INSERT 전이라 지울 것도 없다)</text>
+      </svg>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>왜 <code>bids</code> 테이블이 아니라 <code>auctions</code> 행을 잠그나.</strong> 지켜야 할 것은 "경매 하나의 현재가·입찰 수"라는 <em>한 행의 일관성</em>입니다. 그 행을 잠그면 그 경매에 대한 입찰은 자연히 직렬화되고, <em>다른 경매</em>의 입찰은 전혀 방해받지 않습니다. 테이블 전체를 잠그면(<code>LOCK TABLE</code>) 모든 경매가 한 줄에 서게 됩니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 5. 구현 ───────────────────────── -->
+  <section class="section" id="impl">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔧</div>
+      <h2>구현 — 파일을 하나씩 만든다</h2>
+    </div>
+    <p>순서는 5단계와 같습니다 — <strong>테스트 먼저(RED)</strong>, 그다음 통과시킬 코드(GREEN). 이번엔 테스트 파일이 두 개인데, 성격이 완전히 다릅니다. <code>test_bids.py</code>는 지금까지처럼 롤백 세션 위에서 규칙 하나에 테스트 하나씩. <code>test_bids_concurrency.py</code>는 <em>실제로 커밋</em>합니다 — 그 이유는 파일의 docstring에 적어 두었습니다.</p>
+    <h3>1. pyproject.toml — <code>commits</code> 마커 등록</h3>
+    <p>pytest는 모르는 마커를 쓰면 경고를 냅니다. 이름과 설명을 등록해 두면 <code>uv run pytest -m commits</code>로 동시성 테스트만 골라 돌릴 수 있고, 반대로 <code>-m "not commits"</code>로 뺄 수도 있습니다(CI에서 빠른 단계/느린 단계를 나눌 때 씁니다). <code>[tool.pytest.ini_options]</code> 섹션 <em>전체</em>를 아래로 바꿉니다 — 맨 아래 <code>markers</code> 세 줄이 추가됐습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">toml</span><span class="code-filename">(수정) pyproject.toml — [tool.pytest.ini_options] 섹션 교체</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"                          # async def 테스트를 마커 없이 실행
+asyncio_default_fixture_loop_scope = "session" # fixture 도 세션 전체에서 하나의 이벤트 루프
+asyncio_default_test_loop_scope = "session"    # 테스트도 같은 루프 → DB/Redis 커넥션 풀이 루프를 넘나들지 않는다
+markers = [
+    "commits: 롤백 대신 실제로 커밋하는 테스트 (끝나면 TRUNCATE 로 직접 치운다)",
+]</code></pre>
+    </div>
+    <h3>2. tests/test_bids.py — 규칙 하나에 테스트 하나</h3>
+    <p>위에서부터 규칙 3(금액), 규칙 1·2(누가·언제), 규칙 4(스나이핑), rate limit, 조회 순입니다. 두 가지를 눈여겨보세요. <code>test_past_ends_at_rejects_bids_even_if_status_still_active</code>는 "상태는 active인데 마감 시각은 지난" 경매입니다 — 8단계 워커가 닫기 전 몇 초 동안 실제로 생기는 상태라 서비스가 시각까지 봐야 합니다. 그리고 rate limit 테스트는 <code>monkeypatch</code>로 <strong>시계를 멈추고 한도를 2로 줄입니다</strong>. "빠르게 세 번 보내면 되지 않나" 싶지만, 세 요청이 초 경계(<code>…:41.999</code> → <code>…:42.000</code>)에 걸치면 카운터가 새로 시작해 가끔 실패하는 <em>flaky</em> 테스트가 됩니다. 시간에 기대는 테스트는 시간을 통제해야 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_bids.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""입찰 규칙 테스트 — 롤백 세션 위에서 규칙 하나에 테스트 하나.
+
+'여러 명이 동시에' 는 여기서 다루지 않는다 → test_bids_concurrency.py (실제 커밋 필요).
+"""
+
+import uuid
+from datetime import UTC, datetime, timedelta
+
+from httpx2 import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.models import AuctionStatus, User
+from app.services import bid as bid_service
+from tests.factories import create_auction, create_user, login_headers
+
+
+async def _people(db: AsyncSession) -&gt; tuple[User, User]:
+    seller = await create_user(db, email="seller@example.com", nickname="판매자")
+    bidder = await create_user(db, email="bidder@example.com", nickname="입찰자")
+    return seller, bidder
+
+
+async def _bid(client: AsyncClient, auction_id: uuid.UUID, amount: int, headers: dict):
+    return await client.post(
+        f"/auctions/{auction_id}/bids", json={"amount": amount}, headers=headers
+    )
+
+
+# ── 규칙 3: 금액 ──────────────────────────────────────────────────────
+
+
+async def test_first_bid_at_starting_price(client: AsyncClient, db_session: AsyncSession):
+    seller, bidder = await _people(db_session)
+    auction = await create_auction(db_session, seller)  # 시작가 10,000 · 입찰 0건
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 10_000, headers)
+
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["bid"]["amount"] == 10_000
+    assert body["bid"]["bidder_id"] == str(bidder.id)
+    assert body["current_price"] == 10_000
+    assert body["bid_count"] == 1
+    assert body["version"] == 1  # 경매 행이 바뀌었으니 +1
+
+
+async def test_first_bid_below_starting_price_is_rejected(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 9_999, headers)
+
+    assert res.status_code == 422
+    assert res.json()["code"] == "BID_TOO_LOW"
+    assert "10,000" in res.json()["message"]  # 최소 금액을 알려 준다
+
+
+async def test_next_bid_must_exceed_current_by_min_increment(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller, current_price=12_000, bid_count=1)
+    headers = await login_headers(client, "bidder@example.com")
+
+    too_low = await _bid(client, auction.id, 12_500, headers)  # 12,000 + 1,000 = 13,000 미만
+    assert too_low.status_code == 422
+    assert "13,000" in too_low.json()["message"]
+
+    ok = await _bid(client, auction.id, 13_000, headers)
+    assert ok.status_code == 201
+    assert ok.json()["current_price"] == 13_000
+    assert ok.json()["bid_count"] == 2
+
+
+async def test_amount_must_be_positive(client: AsyncClient, db_session: AsyncSession):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 0, headers)
+
+    assert res.status_code == 422
+    assert res.json()["code"] == "VALIDATION_ERROR"  # 형식 오류는 Pydantic 이 먼저 거른다
+
+
+# ── 규칙 1·2: 누가·언제 ─────────────────────────────────────────────
+
+
+async def test_seller_cannot_bid_on_own_auction(client: AsyncClient, db_session: AsyncSession):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, "seller@example.com")
+
+    res = await _bid(client, auction.id, 10_000, headers)
+
+    assert res.status_code == 403
+    assert res.json()["code"] == "CANNOT_BID_OWN_AUCTION"
+
+
+async def test_scheduled_auction_rejects_bids(client: AsyncClient, db_session: AsyncSession):
+    seller, _ = await _people(db_session)
+    now = datetime.now(UTC)
+    auction = await create_auction(
+        db_session,
+        seller,
+        status=AuctionStatus.SCHEDULED,
+        starts_at=now + timedelta(hours=1),
+        ends_at=now + timedelta(hours=2),
+    )
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 10_000, headers)
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "AUCTION_NOT_ACTIVE"
+
+
+async def test_ended_auction_rejects_bids(client: AsyncClient, db_session: AsyncSession):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller, status=AuctionStatus.ENDED)
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 10_000, headers)
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "AUCTION_NOT_ACTIVE"
+
+
+async def test_past_ends_at_rejects_bids_even_if_status_still_active(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """워커(8단계)가 아직 닫지 않았어도 마감 시각이 지났으면 입찰은 못 받는다."""
+    seller, _ = await _people(db_session)
+    auction = await create_auction(
+        db_session, seller, ends_at=datetime.now(UTC) - timedelta(seconds=30)
+    )
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 10_000, headers)
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "AUCTION_NOT_ACTIVE"
+
+
+async def test_unknown_auction_returns_404(client: AsyncClient, db_session: AsyncSession):
+    await _people(db_session)
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, uuid.uuid4(), 10_000, headers)
+
+    assert res.status_code == 404
+    assert res.json()["code"] == "AUCTION_NOT_FOUND"
+
+
+async def test_bid_requires_login(client: AsyncClient, db_session: AsyncSession):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller)
+
+    res = await client.post(f"/auctions/{auction.id}/bids", json={"amount": 10_000})
+
+    assert res.status_code == 401
+
+
+# ── 규칙 4: 스나이핑 방지 ─────────────────────────────────────────────
+
+
+async def test_bid_near_the_end_extends_ends_at(client: AsyncClient, db_session: AsyncSession):
+    seller, _ = await _people(db_session)
+    ends_at = datetime.now(UTC) + timedelta(seconds=10)  # 30초 창 안
+    auction = await create_auction(db_session, seller, ends_at=ends_at)
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 10_000, headers)
+
+    assert res.status_code == 201
+    new_ends_at = datetime.fromisoformat(res.json()["ends_at"])
+    assert new_ends_at == ends_at + timedelta(seconds=30)
+
+
+async def test_bid_far_from_the_end_does_not_extend(client: AsyncClient, db_session: AsyncSession):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller)  # 하루 뒤 마감
+    headers = await login_headers(client, "bidder@example.com")
+
+    res = await _bid(client, auction.id, 10_000, headers)
+
+    assert datetime.fromisoformat(res.json()["ends_at"]) == auction.ends_at
+
+
+# ── rate limit ────────────────────────────────────────────────────────
+
+
+async def test_too_many_bids_in_one_second_is_rate_limited(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    seller, _ = await _people(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, "bidder@example.com")
+    # 시계를 멈춰서 세 번 모두 '같은 1초' 안에 들어오게 하고, 한도를 2 로 줄인다
+    frozen = datetime.now(UTC)
+    monkeypatch.setattr(bid_service, "_now", lambda: frozen)
+    monkeypatch.setattr(get_settings(), "bid_rate_limit_per_second", 2)
+
+    codes = []
+    for amount in (10_000, 11_000, 12_000):
+        res = await _bid(client, auction.id, amount, headers)
+        codes.append(res.status_code)
+
+    assert codes == [201, 201, 429]
+    assert res.json()["code"] == "BID_RATE_LIMITED"
+
+
+# ── 조회 ──────────────────────────────────────────────────────────────
+
+
+async def test_list_bids_is_public_and_sorted_by_amount_desc(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller, _ = await _people(db_session)
+    await create_user(db_session, email="second@example.com", nickname="둘째")
+    auction = await create_auction(db_session, seller)
+    first = await login_headers(client, "bidder@example.com")
+    second = await login_headers(client, "second@example.com")
+    assert (await _bid(client, auction.id, 10_000, first)).status_code == 201
+    assert (await _bid(client, auction.id, 11_000, second)).status_code == 201
+
+    res = await client.get(f"/auctions/{auction.id}/bids")  # 토큰 없음
+
+    assert res.status_code == 200
+    assert [b["amount"] for b in res.json()] == [11_000, 10_000]
+
+
+async def test_list_bids_of_unknown_auction_returns_404(
+    client: AsyncClient, db_session: AsyncSession
+):
+    res = await client.get(f"/auctions/{uuid.uuid4()}/bids")
+    assert res.status_code == 404</code></pre>
+    </div>
+    <h3>3. tests/test_bids_concurrency.py — 진짜로 동시에</h3>
+    <p>롤백 fixture(<code>db_session</code>)는 커넥션 <em>하나</em>에 트랜잭션 <em>하나</em>입니다. 동시성은 "서로 다른 커넥션이 같은 행을 두고 경쟁"하는 이야기라 그 위에서는 재현이 안 됩니다. 그래서 이 파일은 <code>SessionLocal()</code>로 세션을 직접 열어 판매자·경매·입찰자 50명을 <strong>정말 커밋</strong>하고, 코루틴 50개가 <strong>각자 세션 하나씩</strong> 들고 <code>asyncio.gather</code>로 동시에 <code>place_bid</code>를 부릅니다. 끝나면 <code>TRUNCATE … CASCADE</code>로 직접 치웁니다. 금액은 시작가 + <code>i × 1,000</code>(i = 0…49)을 <em>섞어서</em> 배정하고(시드 42로 고정해 재현 가능), 결과는 세 가지 등식으로 확인합니다: <code>bids</code> 테이블의 금액 목록 == 서비스가 받아들였다고 돌려준 목록, <code>current_price</code> == 그중 최댓값, <code>bid_count</code> == <code>version</code> == 받아들인 건수. 두 번째 테스트는 50명이 <em>같은 금액</em>을 내는 극단적 경우로, 정확히 한 명만 성공해야 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_bids_concurrency.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""동시 입찰 테스트 — 롤백 세션이 아니라 **실제 커밋** 을 쓴다 (@pytest.mark.commits).
+
+왜 롤백 세션으로는 안 되나: 롤백 fixture 는 커넥션 하나·트랜잭션 하나다. 동시성은
+'서로 다른 커넥션이 같은 행을 두고 경쟁' 하는 상황이라, 세션(=커넥션) 을 여러 개 띄워
+정말로 커밋해야 한다. 그래서 끝나면 TRUNCATE 로 직접 치운다.
+"""
+
+import asyncio
+import random
+
+import pytest
+from redis.asyncio import Redis
+from sqlalchemy import select, text
+
+from app.core.db import SessionLocal
+from app.core.exceptions import BidTooLowError
+from app.models import Auction, Bid, User
+from app.services import bid as bid_service
+from tests.factories import create_auction, create_user
+
+pytestmark = pytest.mark.commits
+
+BIDDERS = 50
+
+
+@pytest.fixture
+async def committed_auction(redis: Redis):
+    """판매자 1 + 입찰자 50 + active 경매 1 을 진짜로 커밋해 두고, 끝나면 테이블을 비운다."""
+    async with SessionLocal() as db:
+        seller = await create_user(db, nickname="판매자")
+        auction = await create_auction(db, seller)
+        bidders = [await create_user(db, nickname=f"입찰자{i}") for i in range(BIDDERS)]
+        await db.commit()
+    yield auction, bidders
+    async with SessionLocal() as db:
+        await db.execute(text("TRUNCATE bids, payments, auctions, users CASCADE"))
+        await db.commit()
+
+
+async def _bid_in_own_session(redis: Redis, bidder: User, auction_id, amount: int) -&gt; int | None:
+    """코루틴 하나 = 세션(커넥션) 하나. 실제 요청 하나가 그렇듯이."""
+    async with SessionLocal() as db:
+        try:
+            await bid_service.place_bid(db, redis, bidder, auction_id, amount)
+            return amount
+        except BidTooLowError:
+            return None
+
+
+async def _fresh(auction_id) -&gt; tuple[Auction, list[int]]:
+    async with SessionLocal() as db:
+        auction = await db.get(Auction, auction_id)
+        assert auction is not None
+        rows = await db.scalars(select(Bid.amount).where(Bid.auction_id == auction_id))
+        return auction, sorted(rows.all())
+
+
+async def test_50_concurrent_bids_keep_price_and_count_consistent(committed_auction, redis: Redis):
+    auction, bidders = committed_auction
+    amounts = [auction.starting_price + i * auction.min_increment for i in range(BIDDERS)]
+    random.Random(42).shuffle(amounts)  # 도착 순서를 뒤섞는다 (재현 가능하게 시드 고정)
+
+    pairs = zip(bidders, amounts, strict=True)
+    results = await asyncio.gather(
+        *(_bid_in_own_session(redis, b, auction.id, a) for b, a in pairs)
+    )
+    accepted = sorted(a for a in results if a is not None)
+
+    fresh, rows = await _fresh(auction.id)
+    assert accepted, "최소 한 건은 받아들여져야 한다"
+    assert rows == accepted  # bids 테이블 = 서비스가 받아들였다고 말한 것
+    assert fresh.current_price == max(accepted)  # 현재가 = 받아들인 것 중 최댓값
+    assert fresh.bid_count == len(accepted)  # 락 없이 lost update 가 나면 여기서 깨진다
+    assert fresh.version == len(accepted)
+
+
+async def test_same_amount_from_50_bidders_accepts_exactly_one(committed_auction, redis: Redis):
+    auction, bidders = committed_auction
+
+    results = await asyncio.gather(
+        *(_bid_in_own_session(redis, b, auction.id, auction.starting_price) for b in bidders)
+    )
+
+    assert results.count(auction.starting_price) == 1
+    assert results.count(None) == BIDDERS - 1
+    fresh, rows = await _fresh(auction.id)
+    assert fresh.bid_count == 1 and len(rows) == 1
+    assert fresh.current_price == auction.starting_price</code></pre>
+    </div>
+    <h3>4. RED — 아직 아무것도 없다</h3>
+    <p>이번 RED는 라우트 404가 아니라 <code>ImportError</code>입니다. 테스트가 서비스 함수와 예외 클래스를 직접 import하니(동시성 테스트는 HTTP를 거치지 않고 서비스를 부릅니다) 수집 단계에서 멈춥니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# ImportError: cannot import name 'bid' from 'app.services' (.../app/services/__init__.py)
+# ImportError: cannot import name 'BidTooLowError' from 'app.core.exceptions' (.../app/core/exceptions.py)
+# !!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!!
+# 2 errors in 0.09s</code></pre>
+    </div>
+    <h3>5. app/core/config.py — 시간·횟수 규칙은 설정으로</h3>
+    <p>"30초"와 "초당 5회"를 코드에 박아 두면 테스트에서 줄일 수도, 운영에서 조정할 수도 없습니다. 아래 세 줄이 추가됐습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/core/config.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from functools import lru_cache
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    app_env: Literal["dev", "test", "prod"] = "dev"
+    database_url: str = "postgresql+asyncpg://auction:auction_pw@localhost:5435/auction"
+    redis_url: str = "redis://localhost:6380/0"
+    debug: bool = False
+
+    # 인증 — 프로덕션에서는 반드시 환경변수/시크릿 매니저로 주입한다
+    jwt_secret: str = "dev-only-change-me-in-prod-please-use-32-bytes-or-more"
+    access_token_minutes: int = 15
+    refresh_token_days: int = 7
+
+    # 입찰 (6단계) — 시간·횟수 규칙은 설정으로 빼 둔다. 테스트에서 줄이고, 운영에서 조정한다
+    snipe_window_seconds: int = 30  # 마감까지 이 초 이내에 입찰이 오면
+    snipe_extend_seconds: int = 30  # 마감을 이만큼 늦춘다 (스나이핑 방지)
+    bid_rate_limit_per_second: int = 5  # 한 사용자가 1초에 보낼 수 있는 입찰 수
+
+
+@lru_cache
+def get_settings() -&gt; Settings:
+    return Settings()</code></pre>
+    </div>
+    <h3>6. app/core/exceptions.py — 429 부모와 입찰 예외 4개</h3>
+    <p>4단계 계층에 status 부모를 하나 더 얹습니다: <code>TooManyRequestsError</code>(429). 그리고 입찰 예외 4개는 각자 알맞은 부모 밑에 — 상태가 안 맞으면 409(<code>InvalidStateError</code>), 자기 경매면 403, 금액이 낮으면 422(<code>UnprocessableError</code>, 형식은 맞고 <em>의미</em>가 틀린 경우), 너무 잦으면 429. 새 클래스는 <code>code</code>와 <code>message</code>만 정하면 status와 응답 껍데기는 부모가 처리합니다. <code>BidTooLowError</code>는 메시지에 <em>최소 금액</em>을 넣어 주려고 서비스에서 문자열을 만들어 넘깁니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/core/exceptions.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""도메인 예외와 표준 에러 응답.
+
+서비스 계층은 HTTP 를 모른다 — HTTPException 대신 여기 있는 AppError 계열만 던진다.
+라우터 바깥의 핸들러가 AppError 를 {"code", "message"} 형태의 JSON 으로 번역한다.
+
+계층
+    AppError (400)
+    ├── UnauthorizedError (401)
+    ├── ForbiddenError (403)      ── NotAuctionSellerError, OwnAuctionBidError
+    ├── NotFoundError (404)       ── AuctionNotFoundError
+    ├── ConflictError (409)       ── EmailAlreadyExistsError, AuctionHasBidsError
+    │   └── InvalidStateError     ── AuctionClosedError, AuctionNotActiveError
+    ├── UnprocessableError (422)  ── InvalidPeriodError, InvalidCursorError, BidTooLowError
+    └── TooManyRequestsError (429)── BidRateLimitedError
+FastAPI 가 내는 422(RequestValidationError) 와 404/405(StarletteHTTPException) 도
+같은 껍데기로 감싼다 → 클라이언트는 모든 에러를 한 가지 모양으로만 다루면 된다.
+"""
+
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+class AppError(Exception):
+    code = "APP_ERROR"
+    status_code = status.HTTP_400_BAD_REQUEST
+    message = "요청을 처리할 수 없습니다"
+
+    def __init__(self, message: str | None = None) -&gt; None:
+        if message is not None:
+            self.message = message
+        super().__init__(self.message)
+
+
+# ── 범용 (status 별 부모) ─────────────────────────────────────────────
+
+
+class UnauthorizedError(AppError):
+    code = "UNAUTHORIZED"
+    status_code = status.HTTP_401_UNAUTHORIZED
+    message = "인증이 필요합니다"
+
+
+class ForbiddenError(AppError):
+    code = "FORBIDDEN"
+    status_code = status.HTTP_403_FORBIDDEN
+    message = "권한이 없습니다"
+
+
+class NotFoundError(AppError):
+    code = "NOT_FOUND"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "찾을 수 없습니다"
+
+
+class ConflictError(AppError):
+    code = "CONFLICT"
+    status_code = status.HTTP_409_CONFLICT
+    message = "현재 상태에서는 처리할 수 없습니다"
+
+
+class InvalidStateError(ConflictError):
+    """상태 머신이 허용하지 않는 전이 (예: 끝난 경매를 취소)."""
+
+    code = "INVALID_STATE"
+
+
+class UnprocessableError(AppError):
+    """형식은 맞지만 의미가 틀린 입력 (예: 마감이 시작보다 빠름). FastAPI 의 422 와 같은 급."""
+
+    code = "UNPROCESSABLE"
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    message = "요청 값이 올바르지 않습니다"
+
+
+class TooManyRequestsError(AppError):
+    """짧은 시간에 너무 많이 호출 (rate limit). 클라이언트는 잠시 뒤 다시 시도하면 된다."""
+
+    code = "TOO_MANY_REQUESTS"
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    message = "요청이 너무 많습니다. 잠시 후 다시 시도하세요"
+
+
+# ── 인증 ─────────────────────────────────────────────────────────────
+
+
+class EmailAlreadyExistsError(ConflictError):
+    code = "EMAIL_ALREADY_EXISTS"
+    message = "이미 가입된 이메일입니다"
+
+
+# ── 경매 ─────────────────────────────────────────────────────────────
+
+
+class AuctionNotFoundError(NotFoundError):
+    code = "AUCTION_NOT_FOUND"
+    message = "경매를 찾을 수 없습니다"
+
+
+class NotAuctionSellerError(ForbiddenError):
+    code = "NOT_AUCTION_SELLER"
+    message = "경매 판매자만 할 수 있습니다"
+
+
+class AuctionHasBidsError(ConflictError):
+    code = "AUCTION_HAS_BIDS"
+    message = "이미 입찰이 있는 경매는 수정하거나 취소할 수 없습니다"
+
+
+class AuctionClosedError(InvalidStateError):
+    code = "AUCTION_CLOSED"
+    message = "이미 끝났거나 취소된 경매입니다"
+
+
+class InvalidPeriodError(UnprocessableError):
+    code = "INVALID_PERIOD"
+    message = "마감 시각은 시작 시각보다 뒤여야 합니다"
+
+
+class InvalidCursorError(UnprocessableError):
+    code = "INVALID_CURSOR"
+    message = "커서가 올바르지 않습니다. 목록을 처음부터 다시 조회하세요"
+
+
+# ── 입찰 ─────────────────────────────────────────────────────────────
+
+
+class AuctionNotActiveError(InvalidStateError):
+    code = "AUCTION_NOT_ACTIVE"
+    message = "지금은 입찰을 받지 않는 경매입니다"
+
+
+class OwnAuctionBidError(ForbiddenError):
+    code = "CANNOT_BID_OWN_AUCTION"
+    message = "자기 경매에는 입찰할 수 없습니다"
+
+
+class BidTooLowError(UnprocessableError):
+    code = "BID_TOO_LOW"
+    message = "입찰액이 너무 낮습니다"
+
+
+class BidRateLimitedError(TooManyRequestsError):
+    code = "BID_RATE_LIMITED"
+    message = "입찰이 너무 잦습니다. 잠시 후 다시 시도하세요"
+
+
+# ── 핸들러 ────────────────────────────────────────────────────────────
+
+
+async def app_error_handler(request: Request, exc: AppError) -&gt; JSONResponse:
+    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": exc.code, "message": exc.message},
+        headers=headers,
+    )
+
+
+async def validation_error_handler(request: Request, exc: RequestValidationError) -&gt; JSONResponse:
+    """Pydantic 검증 실패(422). 기본 응답은 {"detail": [...]} 인데, 우리 껍데기로 감싸고
+    필드별 상세는 "errors" 에 넣는다 — 프론트가 입력칸 옆에 메시지를 보여줄 때 쓴다.
+    (loc / msg / type 만 남긴다. 기본 목록에 딸려 오는 input·ctx 는 사용자 입력을 되돌려 주거나
+    파이썬 객체라 JSON 으로 못 만드는 경우가 있어 뺀다.)"""
+    errors = [{"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={
+            "code": "VALIDATION_ERROR",
+            "message": "요청 값이 올바르지 않습니다",
+            "errors": errors,
+        },
+    )
+
+
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -&gt; JSONResponse:
+    """라우트 없음(404)·허용되지 않은 메서드(405) 같은 프레임워크 기본 에러도 같은 껍데기로."""
+    codes = {404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED"}
+    code = codes.get(exc.status_code, f"HTTP_{exc.status_code}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": code, "message": exc.detail},
+        headers=exc.headers,
+    )
+
+
+def register_exception_handlers(app: FastAPI) -&gt; None:
+    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]</code></pre>
+    </div>
+    <h3>7. app/repositories/auction.py — <code>get_for_update</code></h3>
+    <p>이 단계의 한 줄입니다. <code>select(...).with_for_update()</code>가 SQL로는 <code>SELECT … FROM auctions WHERE id = $1 FOR UPDATE</code>. 옵션 하나 더 — <code>populate_existing=True</code>. SQLAlchemy 세션은 한 번 읽은 행을 identity map에 기억해 두고, 같은 행을 다시 SELECT해도 <em>이미 있는 파이썬 객체를 그대로</em> 돌려줍니다(속성을 덮어쓰지 않습니다). 락을 기다리는 동안 다른 트랜잭션이 현재가를 바꿨는데 내 객체는 옛 값이면, 락을 건 의미가 없습니다. <code>populate_existing</code>은 "이번 결과로 객체를 덮어써라"입니다. 지금 코드에서는 요청마다 새 세션이라 실제로 걸릴 일은 없지만, 나중에 누가 같은 세션에서 <code>get()</code>을 먼저 부르는 순간 조용히 깨지는 함정이라 처음부터 막아 둡니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/repositories/auction.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""auctions 테이블 접근. 쿼리만 있고 규칙은 없다."""
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import select, tuple_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models import Auction, AuctionCategory, AuctionStatus
+
+
+async def get(db: AsyncSession, auction_id: uuid.UUID) -&gt; Auction | None:
+    return await db.get(Auction, auction_id)
+
+
+async def get_for_update(db: AsyncSession, auction_id: uuid.UUID) -&gt; Auction | None:
+    """행 잠금(SELECT … FOR UPDATE). 이 트랜잭션이 커밋/롤백될 때까지 같은 행을 잠그려는
+    다른 트랜잭션은 줄을 선다 → '읽고 → 판단하고 → 쓰는' 사이에 아무도 끼어들지 못한다.
+
+    populate_existing: 이 세션이 같은 행을 이미 읽어 둔 적이 있어도 DB 의 최신 값으로 덮어쓴다.
+    (락을 기다리는 동안 누가 값을 바꿨을 수 있다 — 옛 값으로 판단하면 락을 건 의미가 없다.)
+    """
+    stmt = (
+        select(Auction)
+        .where(Auction.id == auction_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    return await db.scalar(stmt)
+
+
+async def add(db: AsyncSession, auction: Auction) -&gt; Auction:
+    db.add(auction)
+    await db.flush()  # INSERT → id / created_at 확보. 커밋은 서비스가 결정한다
+    return auction
+
+
+async def list_page(
+    db: AsyncSession,
+    *,
+    status: AuctionStatus | None = None,
+    category: AuctionCategory | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    sort: str = "ending_soon",
+    limit: int = 20,
+    after: tuple[datetime, uuid.UUID] | None = None,
+    load_seller: bool = True,
+) -&gt; list[Auction]:
+    """keyset 페이지 한 장. limit+1 건을 가져와 '다음 페이지가 있나' 를 알려 준다.
+    (limit 개로 잘라내는 일은 서비스가 한다.)
+
+    정렬 키는 (시각, id) 쌍이다. 시각이 같은 행이 여러 개여도 id 가 순서를 확정하므로
+    페이지 경계에서 같은 행이 두 번 나오거나 빠지는 일이 없다.
+    """
+    key = Auction.ends_at if sort == "ending_soon" else Auction.created_at
+    ascending = sort == "ending_soon"
+
+    stmt = select(Auction)
+    if status is not None:
+        stmt = stmt.where(Auction.status == status)
+    if category is not None:
+        stmt = stmt.where(Auction.category == category)
+    if min_price is not None:
+        stmt = stmt.where(Auction.current_price &gt;= min_price)
+    if max_price is not None:
+        stmt = stmt.where(Auction.current_price &lt;= max_price)
+
+    if after is not None:
+        pair = tuple_(key, Auction.id)  # SQL: (ends_at, id) &gt; ($1, $2)  ← 행 비교
+        stmt = stmt.where(pair &gt; after if ascending else pair &lt; after)
+
+    if ascending:
+        stmt = stmt.order_by(key.asc(), Auction.id.asc())
+    else:
+        stmt = stmt.order_by(key.desc(), Auction.id.desc())
+
+    if load_seller:
+        stmt = stmt.options(selectinload(Auction.seller))  # 판매자는 IN (...) 한 방으로
+
+    result = await db.scalars(stmt.limit(limit + 1))
+    return list(result.all())</code></pre>
+    </div>
+    <h3>8. app/repositories/bid.py</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/repositories/bid.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""bids 테이블 접근."""
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Bid
+
+
+async def add(db: AsyncSession, bid: Bid) -&gt; Bid:
+    db.add(bid)
+    await db.flush()  # INSERT → id / created_at 확보. 커밋은 서비스가 결정한다
+    return bid
+
+
+async def list_by_auction(db: AsyncSession, auction_id: uuid.UUID, *, limit: int = 50) -&gt; list[Bid]:
+    """높은 금액부터. 같은 금액이면 나중 것부터 (같은 금액은 규칙상 한 건뿐이지만 안전하게)."""
+    stmt = (
+        select(Bid)
+        .where(Bid.auction_id == auction_id)
+        .order_by(Bid.amount.desc(), Bid.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.scalars(stmt)
+    return list(result.all())</code></pre>
+    </div>
+    <h3>9. app/schemas/bid.py</h3>
+    <p><code>BidResult</code>가 입찰 하나만 돌려주지 않고 경매의 바뀐 숫자들을 함께 싣는 이유: 클라이언트는 입찰 직후 화면의 현재가·입찰 수·<em>마감 시각</em>을 갱신해야 하는데, 마감 직전이었다면 <code>ends_at</code>이 30초 밀렸을 수 있습니다. 그걸 알려면 <code>GET /auctions/{id}</code>를 한 번 더 부르게 하느니 응답에 실어 주는 게 낫습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/schemas/bid.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""입찰 요청/응답 모양."""
+
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class BidCreate(BaseModel):
+    amount: int = Field(gt=0, description="입찰액(원)")
+
+
+class BidRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    auction_id: uuid.UUID
+    bidder_id: uuid.UUID
+    amount: int
+    created_at: datetime
+
+
+class BidResult(BaseModel):
+    """입찰 직후 클라이언트가 화면을 갱신하는 데 필요한 것만 — 내 입찰 + 경매의 바뀐 숫자들.
+    ends_at 을 돌려주는 이유: 마감 직전 입찰이면 마감이 연장됐을 수 있다."""
+
+    bid: BidRead
+    current_price: int
+    bid_count: int
+    ends_at: datetime
+    version: int</code></pre>
+    </div>
+    <h3>10. app/services/bid.py — 규칙과 락</h3>
+    <p>위 둘째 그림 그대로입니다. 읽을 때 순서에 주목하세요. <code>_check_rate_limit</code>이 <strong>락 앞</strong>에 있고, 그 뒤 <code>get_for_update</code>부터 <code>commit</code>까지가 잠긴 구간입니다. <code>_now()</code>를 굳이 함수로 뺀 것은 테스트가 <code>monkeypatch</code>로 시계를 멈추기 위해서입니다. 규칙 2에 <code>now &gt;= auction.ends_at</code>이 있는 이유는 위 테스트 설명에 적었습니다. rate limit 키는 <code>bid:rl:{user_id}:{이번 초}</code> — <code>INCR</code>은 Redis 안에서 원자적이라 같은 초에 요청이 겹쳐 들어와도 정확히 셉니다. 첫 요청일 때(<code>count == 1</code>)만 <code>EXPIRE 2</code>를 걸어 1초짜리 키가 영원히 쌓이지 않게 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/services/bid.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""입찰 규칙. HTTP 를 모른다 — 도메인 예외만 던진다.
+
+핵심은 순서다: (rate limit) → **경매 행 잠금** → 규칙 검사 → 갱신 → 커밋.
+잠금부터 커밋까지가 한 트랜잭션이라, 그 사이에 다른 입찰은 줄을 서서 기다린다.
+그래서 '현재가 + 최소 단위' 를 계산할 때 본 값이 커밋하는 순간까지 그대로다.
+"""
+
+import uuid
+from datetime import UTC, datetime, timedelta
+
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.core.exceptions import (
+    AuctionNotActiveError,
+    AuctionNotFoundError,
+    BidRateLimitedError,
+    BidTooLowError,
+    OwnAuctionBidError,
+)
+from app.models import Auction, AuctionStatus, Bid, User
+from app.repositories import auction as auction_repo
+from app.repositories import bid as bid_repo
+
+
+def _now() -&gt; datetime:
+    """시계를 함수로 빼 두면 테스트에서 멈추거나 돌릴 수 있다."""
+    return datetime.now(UTC)
+
+
+async def _check_rate_limit(redis: Redis, user_id: uuid.UUID, now: datetime) -&gt; None:
+    """사용자별 '이번 1초' 카운터. INCR 는 원자적이라 동시에 들어와도 정확히 센다."""
+    key = f"bid:rl:{user_id}:{int(now.timestamp())}"
+    count = await redis.incr(key)
+    if count == 1:
+        await redis.expire(key, 2)  # 1초짜리 키가 영원히 남지 않도록
+    if count &gt; get_settings().bid_rate_limit_per_second:
+        raise BidRateLimitedError()
+
+
+def minimum_bid(auction: Auction) -&gt; int:
+    """첫 입찰은 시작가 이상, 그 다음부터는 현재가 + 최소 단위 이상."""
+    if auction.bid_count == 0:
+        return auction.starting_price
+    return auction.current_price + auction.min_increment
+
+
+async def place_bid(
+    db: AsyncSession, redis: Redis, bidder: User, auction_id: uuid.UUID, amount: int
+) -&gt; tuple[Bid, Auction]:
+    settings = get_settings()
+    now = _now()
+
+    await _check_rate_limit(redis, bidder.id, now)  # 락을 잡기 *전에* — 스팸이 락을 쥐고 있지 않게
+
+    auction = await auction_repo.get_for_update(db, auction_id)  # ← 여기서부터 줄을 선다
+    if auction is None:
+        raise AuctionNotFoundError()
+    if auction.status != AuctionStatus.ACTIVE or now &gt;= auction.ends_at:
+        raise AuctionNotActiveError()
+    if auction.seller_id == bidder.id:
+        raise OwnAuctionBidError()
+    minimum = minimum_bid(auction)
+    if amount &lt; minimum:
+        raise BidTooLowError(
+            f"최소 입찰액은 {minimum:,}원입니다 (현재가 {auction.current_price:,}원)"
+        )
+
+    # 규칙 4 — 마감 직전 입찰이면 마감을 늦춘다 (스나이핑 방지)
+    if auction.ends_at - now &lt; timedelta(seconds=settings.snipe_window_seconds):
+        auction.ends_at = auction.ends_at + timedelta(seconds=settings.snipe_extend_seconds)
+
+    auction.current_price = amount
+    auction.bid_count += 1
+    auction.version += 1
+    bid = Bid(auction_id=auction.id, bidder_id=bidder.id, amount=amount)
+    await bid_repo.add(db, bid)
+
+    await db.commit()  # ← 여기서 락이 풀리고, 줄 서 있던 다음 입찰이 '바뀐 현재가' 를 본다
+    await db.refresh(bid)
+    await db.refresh(auction)
+    return bid, auction
+
+
+async def list_bids(db: AsyncSession, auction_id: uuid.UUID) -&gt; list[Bid]:
+    if await auction_repo.get(db, auction_id) is None:
+        raise AuctionNotFoundError()
+    return await bid_repo.list_by_auction(db, auction_id)</code></pre>
+    </div>
+    <h3>11. app/routers/bids.py</h3>
+    <p>라우터는 여전히 얇습니다. <code>RedisClient</code> 의존성(3단계 <code>deps.py</code>)을 하나 더 받아 서비스에 넘기고, 서비스가 돌려준 <code>(bid, auction)</code>을 <code>BidResult</code>로 조립합니다. GET은 로그인 없이.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/routers/bids.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import uuid
+
+from fastapi import APIRouter, status
+
+from app.core.deps import CurrentUser, DbSession, RedisClient
+from app.schemas.bid import BidCreate, BidRead, BidResult
+from app.services import bid as bid_service
+
+router = APIRouter(prefix="/auctions/{auction_id}/bids", tags=["bids"])
+
+
+@router.post("", response_model=BidResult, status_code=status.HTTP_201_CREATED)
+async def place_bid(
+    auction_id: uuid.UUID, data: BidCreate, user: CurrentUser, db: DbSession, redis: RedisClient
+) -&gt; BidResult:
+    bid, auction = await bid_service.place_bid(db, redis, user, auction_id, data.amount)
+    return BidResult(
+        bid=bid,
+        current_price=auction.current_price,
+        bid_count=auction.bid_count,
+        ends_at=auction.ends_at,
+        version=auction.version,
+    )
+
+
+@router.get("", response_model=list[BidRead])
+async def list_bids(auction_id: uuid.UUID, db: DbSession) -&gt; list[BidRead]:
+    """입찰 내역은 로그인 없이 누구나 (높은 금액부터, 최대 50건)."""
+    return await bid_service.list_bids(db, auction_id)</code></pre>
+    </div>
+    <h3>12. app/main.py — 라우터 등록</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/main.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from app.core.config import get_settings
+from app.core.db import engine
+from app.core.exceptions import register_exception_handlers
+from app.core.redis import redis_client
+from app.routers import auctions, auth, bids, health, users
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -&gt; AsyncIterator[None]:
+    yield
+    await redis_client.aclose()
+    await engine.dispose()
+
+
+def create_app() -&gt; FastAPI:
+    settings = get_settings()
+    app = FastAPI(title="Auction API", debug=settings.debug, lifespan=lifespan)
+    register_exception_handlers(app)
+    app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(users.router)
+    app.include_router(auctions.router)
+    app.include_router(bids.router)
+    return app
+
+
+app = create_app()</code></pre>
+    </div>
+    <h3>13. GREEN</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# ...........................................................              [100%]
+# 59 passed in 44.66s
+
+uv run pytest -q -m commits          # 동시성 테스트 2개만 (마커로 고른다)
+# 2 passed, 57 deselected in 19.55s
+
+uv run ruff check . &amp;&amp; uv run ruff format --check .
+# All checks passed!
+# 49 files already formatted</code></pre>
+    </div>
+    <h3>14. 실험 — 그 한 줄을 지워 보기</h3>
+    <p>이제 가장 중요한 실험입니다. <code>app/repositories/auction.py</code>에서 <code>.with_for_update()</code> 한 줄을 지우고(주석 처리) 동시성 테스트만 돌립니다. 아래는 실제로 나온 출력입니다 — 받아들인 입찰 중 최고가는 59,000인데 <code>current_price</code>는 50,000(늦게 커밋한 낮은 입찰이 덮어씀), 같은 금액 50건 중 <strong>7건</strong>이 "성공"(7명이 모두 현재가 10,000·입찰 0건을 읽고 판단함). 두 번 돌리면 숫자는 달라지지만 매번 깨집니다. 확인했으면 <em>반드시 되돌리고</em> <code>2 passed</code>를 다시 보세요. 이 블록은 참고용이라 복사해 실행하지 않습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">(참고) 실험 출력 — 복사하지 말 것</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash"># 실험 — repositories/auction.py 에서 .with_for_update() 한 줄을 잠시 지우고
+uv run pytest -q -m commits
+# &gt;       assert fresh.current_price == max(accepted)  # 현재가 = 받아들인 것 중 최댓값
+# E       assert 50000 == 59000
+# E        +  where 50000 = &lt;app.models.auction.Auction object at 0x10a12d0f0&gt;.current_price
+# E        +  and   59000 = max([13000, 14000, 20000, 28000, 30000, 33000, ...])
+# &gt;       assert results.count(auction.starting_price) == 1
+# E       assert 7 == 1
+# FAILED tests/test_bids_concurrency.py::test_50_concurrent_bids_keep_price_and_count_consistent
+# FAILED tests/test_bids_concurrency.py::test_same_amount_from_50_bidders_accepts_exactly_one
+# 2 failed, 57 deselected in 19.59s
+# (한 줄을 되돌리면 다시 2 passed)</code></pre>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>테스트가 가끔만 실패하는 게 진짜 무서운 점입니다.</strong> 락 없는 코드도 동시 요청이 <em>안 겹치면</em> 정상 동작합니다. 개발 PC에서 혼자 클릭해서는 영원히 못 봅니다. 그래서 동시성 테스트는 50개처럼 <em>충분히 많은</em> 코루틴으로, 그리고 <em>실제 커넥션 여러 개</em>로 돌려야 합니다. 이 실험 결과를 팀에 공유하면 "락이 왜 필요해?"라는 질문이 사라집니다.</div>
+    </div>
+    <h3>15. 지금 파일 구조</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) auction-api/ 구조 — 이번 단계에서 바뀐 것</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">auction-api/
+├── app/
+│   ├── core/
+│   │   ├── config.py          (수정) 스나이핑·rate limit 설정
+│   │   └── exceptions.py      (수정) 429 부모 + 입찰 예외 4개
+│   ├── repositories/
+│   │   ├── auction.py         (수정) get_for_update
+│   │   └── bid.py             ← 새 파일
+│   ├── schemas/bid.py         ← 새 파일
+│   ├── services/bid.py        ← 새 파일 (규칙 1~4 + 락)
+│   ├── routers/bids.py        ← 새 파일
+│   └── main.py                (수정) bids 라우터 등록
+├── tests/
+│   ├── test_bids.py               ← 새 파일 (규칙별 15개, 롤백 세션)
+│   └── test_bids_concurrency.py   ← 새 파일 (동시 50건 2개, 실제 커밋)
+└── pyproject.toml             (수정) commits 마커</code></pre>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 6. 실행 ───────────────────────── -->
+  <section class="section" id="run">
+    <div class="section-header">
+      <div class="section-icon icon-select">▶️</div>
+      <h2>실행·확인 — 이 출력이 나와야 한다</h2>
+    </div>
+    <p>터미널 1에 서버를 띄우고 터미널 2에서 순서대로 실행합니다. <code>bid</code>는 상태 코드와 본문을 한 줄로 찍는 작은 셸 함수입니다. 마지막의 psql 두 세션은 "줄 서기"를 눈으로 보는 부분입니다 — 세션1이 <code>FOR UPDATE</code>로 행을 잡고 5초 자는 동안 세션2가 같은 행을 잡으려다 기다리고, 그 순간 <code>pg_stat_activity</code>를 보면 <code>Lock / transactionid</code>가 찍힙니다.</p>
+    <h3>터미널 1 — 서버</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run uvicorn app.main:app --reload
+# INFO:     Application startup complete.</code></pre>
+    </div>
+    <h3>터미널 2 — 준비: 유저 셋, 경매 A, <code>bid</code> 함수</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">J='Content-Type: application/json'
+for who in alice bob carol; do
+  curl -s -X POST localhost:8000/auth/signup -H "$J" \
+    -d "{\"email\":\"$who@example.com\",\"password\":\"secret123\",\"nickname\":\"$who\"}" &gt; /dev/null
+done
+tok() { curl -s -X POST localhost:8000/auth/login -H "$J" \
+  -d "{\"email\":\"$1@example.com\",\"password\":\"secret123\"}" \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])'; }
+ALICE=$(tok alice); BOB=$(tok bob); CAROL=$(tok carol)
+ENDS=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC)+timedelta(minutes=10)).isoformat())")
+A=$(curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $ALICE" -H "$J" \
+  -d "{\"title\":\"빈티지 필름 카메라\",\"category\":\"hobby\",\"starting_price\":10000,\"ends_at\":\"$ENDS\"}" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d["id"])')
+echo "A=$A"
+# A=82e867f3-d655-4638-9a0c-67ac2aa39352      (id 는 매번 다르다)
+bid() { curl -s -o /tmp/bid.json -w "%{http_code}" -X POST localhost:8000/auctions/$1/bids \
+  -H "Authorization: Bearer $2" -H "$J" -d "{\"amount\":$3}"; echo " $(cat /tmp/bid.json)"; }</code></pre>
+    </div>
+    <h3>규칙 1~3 — 순서대로 때려 보기</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">echo "=== bob 5,000 (시작가 미만)"; bid $A $BOB 5000
+# 422 {"code":"BID_TOO_LOW","message":"최소 입찰액은 10,000원입니다 (현재가 10,000원)"}
+echo "=== bob 10,000 (첫 입찰 = 시작가)"; bid $A $BOB 10000
+# 201 {"bid":{"id":"4b07…","auction_id":"82e8…","bidder_id":"cb64…","amount":10000,"created_at":"2026-08-25T07:34:49.480581Z"},"current_price":10000,"bid_count":1,"ends_at":"2026-08-25T07:44:49.426809Z","version":1}
+echo "=== alice 11,000 (자기 경매)"; bid $A $ALICE 11000
+# 403 {"code":"CANNOT_BID_OWN_AUCTION","message":"자기 경매에는 입찰할 수 없습니다"}
+echo "=== carol 10,500 (현재가 + 1,000 미만)"; bid $A $CAROL 10500
+# 422 {"code":"BID_TOO_LOW","message":"최소 입찰액은 11,000원입니다 (현재가 10,000원)"}
+echo "=== carol 11,000"; bid $A $CAROL 11000
+# 201 {"bid":{…,"amount":11000,…},"current_price":11000,"bid_count":2,"ends_at":"2026-08-25T07:44:49.426809Z","version":2}</code></pre>
+    </div>
+    <h3>규칙 4 — 마감 20초 전 입찰은 마감을 30초 민다</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">echo "=== 경매 B 생성 (20초 뒤 마감) → 스나이핑 연장"
+ENDS_B=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC)+timedelta(seconds=20)).isoformat())")
+B=$(curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $ALICE" -H "$J" \
+  -d "{\"title\":\"곧 끝나는 경매\",\"category\":\"etc\",\"starting_price\":1000,\"ends_at\":\"$ENDS_B\"}" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d["id"])')
+echo "before: $ENDS_B"
+curl -s -X POST localhost:8000/auctions/$B/bids -H "Authorization: Bearer $BOB" -H "$J" -d '{"amount":1000}' \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print("after: ", d["ends_at"], "| bid_count", d["bid_count"])'
+# before: 2026-08-25T07:35:09.556072+00:00
+# after:  2026-08-25T07:35:39.556072Z | bid_count 1          ← 정확히 30초 뒤로</code></pre>
+    </div>
+    <h3>rate limit — 같은 1초에 6번째부터 429</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">echo "=== carol 연속 8건 (같은 1초 안이면 6번째부터 429)"
+for i in 2 3 4 5 6 7 8 9; do
+  curl -s -o /dev/null -w "%{http_code} " -X POST localhost:8000/auctions/$A/bids \
+    -H "Authorization: Bearer $CAROL" -H "$J" -d "{\"amount\":$((i*10000))}"
+done; echo
+docker compose exec redis redis-cli --scan --pattern 'bid:rl:*'
+# 201 201 201 429 429 429 429 429
+# bid:rl:cb647d6a-…:1787643289
+# bid:rl:e3efd721-…:1787643289
+# bid:rl:10f71623-…:1787643289
+# ↑ carol 은 이미 같은 초에 2건(거절된 10,500 포함) 을 보냈으므로 3건 뒤에 막힌다.
+#   초 경계에 걸치면 201 이 더 많이 나올 수 있다. 키는 2초 뒤 저절로 사라진다.</code></pre>
+    </div>
+    <h3>입찰 내역과 경매 상태</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">echo "=== 입찰 내역 (토큰 없이)"
+curl -s localhost:8000/auctions/$A/bids | python3 -c 'import sys,json; [print(b["amount"], b["bidder_id"][:8]) for b in json.load(sys.stdin)]'
+curl -s localhost:8000/auctions/$A | python3 -c 'import sys,json; d=json.load(sys.stdin); print("current_price", d["current_price"], "bid_count", d["bid_count"], "version", d["version"])'
+# 40000 10f71623
+# 30000 10f71623
+# 20000 10f71623
+# 11000 10f71623
+# 10000 cb647d6a
+# current_price 40000 bid_count 5 version 5</code></pre>
+    </div>
+    <h3>FOR UPDATE 줄서기 — Postgres 안에서 직접 보기</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">echo "=== FOR UPDATE 줄서기 (psql 두 세션)"
+docker compose exec db psql -U auction -d auction -q -c \
+  "BEGIN; SELECT current_price FROM auctions WHERE id='$A' FOR UPDATE; SELECT pg_sleep(5); COMMIT;" &gt; /dev/null &amp; P1=$!
+sleep 1
+( S=$(date +%s); docker compose exec db psql -U auction -d auction -t -c \
+    "SELECT current_price FROM auctions WHERE id='$A' FOR UPDATE"; echo "세션2: $(( $(date +%s) - S ))초 기다림" ) &amp; P2=$!
+sleep 1
+docker compose exec db psql -U auction -d auction -c \
+  "SELECT state, wait_event_type, wait_event, left(query, 34) AS query FROM pg_stat_activity WHERE query LIKE '%FOR UPDATE' AND pid &lt;&gt; pg_backend_pid() ORDER BY backend_start"
+wait $P1 $P2
+#  state  | wait_event_type |  wait_event   |               query
+# --------+-----------------+---------------+------------------------------------
+#  active | Lock            | transactionid | SELECT current_price FROM auctions
+# (1 row)
+#
+#          40000
+#
+# 세션2: 4초 기다림        ← 세션1 이 pg_sleep(5) 로 락을 쥔 동안 세션2 는 Lock 상태로 대기</code></pre>
+    </div>
+    <h3>정리</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose exec db psql -U auction -d auction -c "DELETE FROM users WHERE email IN ('alice@example.com','bob@example.com','carol@example.com')"
+# DELETE 3        (경매·입찰은 FK CASCADE 로 함께 지워진다. rate limit 키는 2초 뒤 만료)</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Swagger에서도.</strong> <code>http://localhost:8000/docs</code>에 <code>bids</code> 태그가 생겼습니다. Authorize 후 <code>POST /auctions/{auction_id}/bids</code>에 <code>{"amount": 12000}</code>을 넣어 보세요. 429를 보고 싶으면 Execute를 빠르게 여섯 번.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 7. 완료 ───────────────────────── -->
+  <section class="section" id="done">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>완료 기준 체크리스트</h2>
+    </div>
+    <ul class="checklist">
+      <li><code>uv run pytest -q</code> → <code>59 passed</code>, 경고 0 (그중 <code>test_bids.py</code> 15개, <code>test_bids_concurrency.py</code> 2개)</li>
+      <li><code>uv run pytest -q -m commits</code> → <code>2 passed, 57 deselected</code></li>
+      <li><code>uv run ruff check .</code> → <code>All checks passed!</code>, <code>uv run ruff format --check .</code> 통과</li>
+      <li><code>.with_for_update()</code>를 지우면 동시성 테스트 2개가 <strong>실패</strong>하고, 되돌리면 다시 통과한다 (직접 봤다)</li>
+      <li>시작가 미만 · 현재가+단위 미만 → 422 <code>BID_TOO_LOW</code>(메시지에 최소 금액), 자기 경매 → 403, scheduled/ended/마감 지남 → 409 <code>AUCTION_NOT_ACTIVE</code></li>
+      <li>마감 20초 전 입찰 → <code>ends_at</code>이 정확히 30초 뒤로</li>
+      <li>연속 입찰에서 429 <code>BID_RATE_LIMITED</code>가 나오고, Redis에 <code>bid:rl:*</code> 키가 잠깐 보였다 사라진다</li>
+      <li>psql 두 세션에서 <code>pg_stat_activity</code>에 <code>Lock / transactionid</code>, 세션2가 몇 초 기다린 뒤 통과</li>
+      <li>정리 후 <code>DELETE 3</code></li>
+    </ul>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기서 커밋하세요.</strong> 예: <code>git commit -m "add(be(fastapi)): auction-api 6단계 — FOR UPDATE 입찰·스나이핑 연장·rate limit·동시성 테스트"</code>. 다음 7단계(실시간)는 이 서비스의 <code>commit</code> 직후에 "입찰 발생" 이벤트를 Redis Pub/Sub으로 쏘고, WebSocket 구독자에게 뿌립니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 8. 함정 ───────────────────────── -->
+  <section class="section" id="pitfalls">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>함정 &amp; 실무 팁</h2>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>① 잠그는 건 <code>auctions</code> 행 하나다.</strong> <code>bids</code>에 INSERT하는 것 자체는 경쟁이 아닙니다(행이 새로 생길 뿐). 경쟁은 "현재가·입찰 수라는 <em>하나의 행</em>을 읽고 쓰는 것"이고, 그 행만 잠그면 다른 경매는 전혀 방해받지 않습니다. 잠글 대상은 "내가 지키려는 불변식이 사는 행"입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>② <code>FOR UPDATE</code>는 갱신과 <em>같은 트랜잭션</em> 안에 있어야 한다.</strong> 잠그고 커밋한 뒤 다른 트랜잭션에서 UPDATE하면 락은 이미 풀린 뒤라 아무 효과가 없습니다. 우리 코드는 <code>get_for_update</code> → 검사 → 갱신 → <code>commit</code>이 한 세션·한 트랜잭션입니다. 그리고 <code>populate_existing=True</code>를 기억하세요 — 같은 세션이 그 행을 먼저 읽어 둔 적이 있으면 락을 기다렸다 받아도 <em>옛 객체</em>를 돌려주는 SQLAlchemy의 identity map 동작 때문입니다.</div>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>③ 데드락은 "두 행을 서로 반대 순서로" 잠글 때 난다.</strong> A가 경매1→경매2, B가 경매2→경매1 순으로 잠그면 서로 기다리다 Postgres가 한쪽을 죽입니다(<code>deadlock detected</code>). 우리는 트랜잭션당 <em>행 하나</em>만 잠그니 안전합니다. 나중에 "입찰자 지갑도 잠가야" 한다면 항상 같은 순서(예: 경매 → 지갑)로 잠그는 규칙을 정하세요.</div>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>④ 격리 수준은 기본(READ COMMITTED)으로 충분하다.</strong> "SERIALIZABLE로 올려야 하지 않나?" — 우리는 판단의 근거가 되는 행을 <em>잠근 뒤</em> 읽으므로, 그 값은 커밋까지 아무도 못 바꿉니다. 격리 수준을 올리면 락 없이도 충돌을 <em>감지</em>해 주지만(실패 → 재시도), 충돌이 잦은 경매에서는 재시도 폭주가 됩니다. 락으로 <em>예방</em>하는 쪽이 단순합니다.</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>비관적 락 (<code>FOR UPDATE</code>) — 이번 단계</th><th>낙관적 락 (<code>version</code> 비교)</th></tr></thead>
+        <tbody>
+          <tr><td>방식</td><td>먼저 잠그고 읽는다. 뒤에 온 트랜잭션은 줄을 선다</td><td>잠그지 않고 읽는다. 쓸 때 <code>UPDATE … WHERE version = :읽었던값</code>, 0행이면 다시</td></tr>
+          <tr><td>맞는 상황</td><td>충돌이 <em>잦다</em>(경매 마감 직전, 선착순, 재고 1개)</td><td>충돌이 <em>드물다</em>(내 프로필 수정, 관리자 두 명이 가끔 같은 글 편집)</td></tr>
+          <tr><td>비용</td><td>줄 서는 동안 커넥션을 쥔다 → 풀 크기·<code>lock_timeout</code> 신경</td><td>재시도 루프를 직접 짜야 하고, 실패한 요청은 일을 두 번 한다</td></tr>
+          <tr><td>우리 코드</td><td><code>get_for_update</code> + 한 트랜잭션</td><td><code>auctions.version</code>이 재료. 4단계부터 갱신마다 +1 해 둔 이유</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(참고) 낙관적 락으로 짰다면 — 서비스의 핵심 부분만</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python"># 잠그지 않고 읽는다
+auction = await auction_repo.get(db, auction_id)
+seen_version = auction.version
+# ... 규칙 검사 (읽은 값 기준) ...
+result = await db.execute(
+    update(Auction)
+    .where(Auction.id == auction_id, Auction.version == seen_version)  # ← 아직 그대로인가?
+    .values(current_price=amount, bid_count=Auction.bid_count + 1, version=seen_version + 1)
+)
+if result.rowcount == 0:
+    raise ConcurrentUpdateError()  # 누가 먼저 바꿨다 → 클라이언트가 다시 시도 (409)
+await bid_repo.add(db, Bid(...))
+await db.commit()</code></pre>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>⑤ rate limit 키의 함정 세 가지.</strong> (1) <em>거절된 요청도 센다</em> — 실행 예에서 carol은 422를 한 번 받았는데도 그게 카운트에 들어가 3건 뒤에 429가 났습니다. 의도한 동작입니다(스팸은 대부분 거절되는 요청이니까요). (2) <em>초 경계</em> — <code>…:41.999</code>와 <code>…:42.000</code>은 다른 키라 한도가 순간적으로 2배까지 열립니다. 정확히 하려면 슬라이딩 윈도우(Redis sorted set)나 토큰 버킷을 쓰는데, 입찰 스팸 방지 정도면 고정 창으로 충분합니다. (3) <em>서버 시계</em> — 워커가 여러 대여도 키는 Redis 하나에 모이므로 합산됩니다. 단, 서버들 시계가 어긋나면 초가 어긋납니다(NTP).</div>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>⑥ 세션 하나를 코루틴 여러 개가 나눠 쓰면 안 된다.</strong> 동시성 테스트에서 코루틴마다 <code>async with SessionLocal()</code>을 새로 여는 이유입니다. <code>AsyncSession</code>은 동시 사용이 안전하지 않고(한 커넥션에 한 번에 한 문장), 무엇보다 세션 하나 = 커넥션 하나 = 트랜잭션 하나라서 "동시"가 아예 성립하지 않습니다. 실제 서버에서는 요청마다 <code>get_db</code>가 세션을 새로 만드니 자연히 지켜집니다.</div>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>⑦ 락이 풀리는 순간은 <code>commit</code>(또는 롤백)이지 <code>flush</code>가 아니다.</strong> <code>bid_repo.add</code>의 <code>flush()</code>는 INSERT를 DB에 보내지만 트랜잭션은 계속 열려 있고 락도 그대로입니다. 그래서 서비스가 커밋을 책임집니다(3단계부터의 규칙). 예외로 빠져나가면 <code>get_db</code>의 <code>async with</code>가 세션을 닫으며 롤백 → 락 해제. 커밋 전에 오래 걸리는 일(외부 API 호출 등)을 넣으면 그동안 모든 입찰이 줄을 섭니다 — 9단계에서 외부 호출은 <em>트랜잭션 밖</em>으로 뺍니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>⑧ 시간에 기대는 코드는 시계를 주입한다.</strong> <code>_now()</code>를 함수로 빼 둔 덕에 rate limit 테스트가 <code>monkeypatch.setattr(bid_service, "_now", lambda: frozen)</code>으로 결정적이 됐습니다. 스나이핑 테스트는 실제 시계를 쓰지만 "10초 뒤 마감"이라 창(30초) 안에 넉넉히 들어갑니다. 설정값도 <code>monkeypatch.setattr(get_settings(), ...)</code>로 바꿀 수 있는 건 <code>lru_cache</code>가 같은 객체를 돌려주기 때문입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>⑨ 커밋하는 테스트는 뒷정리와 격리가 전부다.</strong> <code>TRUNCATE bids, payments, auctions, users CASCADE</code> — FK 순서를 생각하지 않아도 되게 한 문장에 전부 적고 CASCADE. 이 테스트는 <code>db_session</code>(롤백 fixture)을 받지 않습니다 — 받으면 그 트랜잭션이 커넥션 하나를 쥐고 있어 헷갈립니다. 커넥션 풀은 기본 5 + overflow 10 = 15개라 50개 코루틴 중 35개는 풀에서 순서를 기다립니다(기본 <code>pool_timeout</code> 30초 안에 끝남). 풀보다 많이 동시에 돌리는 게 오히려 현실적입니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>⑩ 마감이 지났는데 status가 active인 몇 초.</strong> 8단계 워커가 1초마다 닫지만 그 사이 입찰이 들어올 수 있습니다. 그래서 서비스는 status만 보지 않고 <code>now &gt;= ends_at</code>도 봅니다. 워커가 닫을 때도 같은 행을 <code>FOR UPDATE</code>로 잠그므로(<code>SKIP LOCKED</code> 버전), "마감 처리 중에 입찰이 끼어드는" 일은 락이 막아 줍니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 9. 정본 ───────────────────────── -->
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>self-study 정본 링크 — 개념은 여기서 복습</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이번 단계에서 쓴 것</th><th>정본</th></tr></thead>
+        <tbody>
+          <tr><td>이벤트 루프 — <code>await</code>에서 멈춘 사이 다른 요청이 끼어드는 이유</td><td><a href="../../self-study/week04-async-internals/01-sync-async-eventloop.html#event-loop">Week 4·01 Event Loop</a></td></tr>
+          <tr><td>async 라우트 안에서 동기 호출이 전체를 막는 함정 (락 안에서 오래 걸리는 일 금지)</td><td><a href="../../self-study/week04-async-internals/02-async-await-threadpool.html#two-paths">Week 4·02 두 갈래</a> · <a href="../../self-study/week04-async-internals/02-async-await-threadpool.html#blocking-trap">블로킹 함정</a></td></tr>
+          <tr><td>커넥션 풀 크기와 세션 = 커넥션 = 트랜잭션 · 바인드 변수(<code>$1</code>)</td><td><a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#connection-pool">Week 5·03 Connection Pool</a> · <a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#session">Session</a> · <a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#bind-params">bind 변수</a></td></tr>
+          <tr><td>요청마다 세션을 열고 닫는 <code>get_db</code> (예외 시 롤백 → 락 해제)</td><td><a href="../../self-study/week06-json-api-structure/02-dependency-injection-mvc.html#yield-dependency">Week 6·02 yield 의존성</a></td></tr>
+          <tr><td>Redis 를 캐시·카운터로 쓰기 (INCR · EXPIRE)</td><td><a href="../../self-study/week08-auth/02-dependency-auth-redis.html#redis">Week 8·02 Redis</a></td></tr>
+          <tr><td>부하 테스트로 병목 찾기 — 락 대기가 병목이 되는 경우</td><td><a href="../../self-study/week09-realtime-events/03-performance-test.html#bottlenecks">Week 9·03 병목</a></td></tr>
+          <tr><td>fixture 의 yield 와 뒷정리 (TRUNCATE 가 들어가는 자리)</td><td><a href="../../self-study/week10-test-deploy/01-pytest-mocking-fixture.html#fixture">Week 10·01 Fixture</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 10. 셀프 체크 ───────────────────────── -->
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-teal">❓</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 락 없이 50명이 동시에 입찰하면 <em>정확히 어떤 값</em>이 어떻게 깨지나요? 실험 출력으로 설명해 보세요.</summary>
+        <div class="qa-answer"><p>세 가지가 깨집니다. (1) <code>current_price</code>가 최고 입찰가보다 낮을 수 있다 — 실험에서 받아들인 최고가는 59,000인데 현재가는 50,000이었습니다. 둘 다 옛 현재가를 읽고 판단한 뒤 59,000이 먼저, 50,000이 나중에 커밋해 덮어쓴 것입니다. (2) <code>bid_count</code>가 <code>bids</code> 행 수보다 적다 — 여러 트랜잭션이 같은 <code>bid_count</code>를 읽고 각자 +1을 쓰니 증가분이 사라집니다(lost update). (3) 같은 금액을 여러 명이 "성공"한다 — 7명이 전부 "입찰 0건, 시작가 10,000"을 읽고 통과했습니다. 공통 원인은 "읽기와 쓰기 사이에 다른 트랜잭션의 쓰기가 끼어듦"이고, <code>FOR UPDATE</code>는 읽는 순간부터 커밋까지 그 행에 아무도 못 끼어들게 해서 셋을 한 번에 막습니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 비관적 락 대신 <code>version</code>으로 낙관적 락을 쓰면 코드가 어떻게 달라지고, 어떤 서비스에서는 그게 더 나은가요?</summary>
+        <div class="qa-answer"><p>잠그지 않고 읽은 뒤, 쓸 때 <code>UPDATE … WHERE id = :id AND version = :읽었던값</code>으로 "내가 읽은 뒤 아무도 안 바꿨나"를 조건에 넣습니다. 바뀌었으면 0행이 갱신되고, 그때 409를 돌려주거나 처음부터 재시도합니다. 줄을 서지 않으니 커넥션을 쥐고 기다리는 시간이 없고, 충돌이 <em>드문</em> 곳(프로필 수정, 문서 편집, 관리자 설정)에서는 이게 가볍습니다. 반대로 경매 마감 직전처럼 수십 명이 같은 행을 두드리는 곳에서는 한 명 빼고 전부 실패 → 재시도 → 또 한 명 빼고 실패… 로 일이 몇 배가 됩니다. 규칙: 충돌이 잦으면 비관적, 드물면 낙관적. 우리 <code>auctions.version</code>은 이미 갱신마다 +1 하고 있으니 나중에 바꾸고 싶으면 서비스만 손보면 됩니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> rate limit 검사를 락 <em>뒤</em>에 두면 무엇이 문제이고, 거절된 입찰까지 세는 게 맞나요?</summary>
+        <div class="qa-answer"><p>락 뒤에 두면 스팸 요청이 <em>먼저 행을 잠근 채</em> 429를 받고 롤백합니다. 그동안 정상 입찰은 줄을 섭니다 — 한도를 막는 코드가 오히려 다른 사람의 입찰을 늦춥니다. Redis 검사는 DB 트랜잭션과 무관하게 밀리초에 끝나니 맨 앞에 두는 게 맞습니다. 거절된 요청을 세는 것도 의도입니다: rate limit의 목적은 "성공 횟수 제한"이 아니라 "서버를 두드리는 횟수 제한"이고, 스팸은 대부분 거절되는 요청입니다. 다만 UI에서 정상 사용자가 422를 받고 곧바로 다시 시도하는 흐름이 있으니 한도(초당 5)는 그걸 감안해 넉넉히 잡습니다. 실행 예에서 carol이 422 한 번 뒤 3건 만에 429를 받은 것이 이 동작입니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="05-list-pagination.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">5단계 · 목록·페이지네이션</span></a>
+    <a class="part-pager-link next" href="07-realtime-ws.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">7단계 · 실시간 WebSocket</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 6단계 · 입찰과 동시성 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

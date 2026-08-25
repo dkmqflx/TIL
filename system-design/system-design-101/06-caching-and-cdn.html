@@ -29,6 +29,11 @@
     <a class="nav-item" href="04-server-and-client.html">04 · 서버와 클라이언트</a>
     <a class="nav-item" href="05-http-websocket-api.html">05 · HTTP, WebSocket, API</a>
     <div class="nav-section-title" style="margin-top:8px">06 · 캐싱과 CDN</div>
+    <a class="nav-item" href="#why-cache">⚡ 캐시가 왜 빠른가</a>
+    <a class="nav-item" href="#cache-layers">🪜 캐시는 여러 층에 있다</a>
+    <a class="nav-item" href="#read-strategies">📖 읽기·쓰기 전략</a>
+    <a class="nav-item" href="#ttl-eviction">⏳ TTL과 쫓아내기</a>
+    <a class="nav-item" href="#invalidation">🧹 무효화</a>
     <a class="nav-item" href="#cdn">🌍 CDN: 전 세계에 둔 분점</a>
     <a class="nav-item" href="07-proxy-and-load-balancer.html" style="margin-top:8px">07 · 프록시와 로드 밸런서</a>
     <a class="nav-item" href="08-storage.html">08 · 스토리지</a>
@@ -62,6 +67,325 @@
     </div>
   </div>
 
+  <!-- ── 캐시가 왜 빠른가 ── -->
+  <section class="section" id="why-cache">
+    <div class="section-header">
+      <div class="section-icon icon-concept">⚡</div>
+      <h2>캐시가 왜 빠른가</h2>
+    </div>
+
+    <p><a href="05-http-websocket-api.html#api-design">05차시</a> 끝에서, 대화를 아무리 잘 정리해도 <strong>매번 서버까지 갔다 오는 것 자체가 느리다</strong>고 했습니다. 게다가 서버는 도착한 뒤에도 <a href="04-server-and-client.html#request-response">데이터베이스를 뒤지는 가장 느린 단계</a>를 또 거쳐야 하죠. 그런데 인기 상품 페이지를 1초에 천 명이 본다면, 서버는 <strong>똑같은 답을 천 번 처음부터 다시 만들고</strong> 있는 셈입니다.</p>
+
+    <p><strong>캐시(cache)</strong>는 이 낭비를 없앱니다. 한 번 만든 답을 <strong>더 빠른 곳에 잠깐 복사해 두었다가</strong>, 같은 질문이 오면 그 복사본을 그대로 돌려주는 것. 원리는 이 한 줄이 전부예요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 자주 쓰는 양념은 찬장 말고 조리대 위에</strong><br>
+        소금과 후추를 매번 <strong>지하 창고</strong>까지 내려가서 가져온다면 요리는 한없이 느려집니다. 그래서 요리사는 자주 쓰는 것만 <strong>손 닿는 조리대 위</strong>에 올려 둡니다.<br>
+        조리대는 좁아서 몇 개밖에 못 올려놓고, 창고에서 양념 배합이 바뀌면 조리대 위의 것은 <strong>옛날 것</strong>이 됩니다. 캐시의 장점과 고민이 이 비유 안에 전부 들어 있어요.
+      </div>
+    </div>
+
+    <h3>"빠르다"가 대체 얼마나 빠른 걸까</h3>
+    <p>말로만 빠르다고 하면 감이 안 옵니다. 데이터를 어디서 꺼내느냐에 따라 걸리는 시간이 어떻게 달라지는지 보세요. 맨 오른쪽 칸은 <strong>메모리에서 꺼내는 시간을 1초라고 쳤을 때</strong> 나머지가 얼마나 되는지 늘려 본 것입니다.</p>
+
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>어디서 꺼내나</th><th>대략 걸리는 시간</th><th>메모리를 1초로 늘려 보면</th></tr></thead>
+        <tbody>
+          <tr><td><strong>메모리(RAM)</strong></td><td>약 100ns (나노초)</td><td>1초</td></tr>
+          <tr><td><strong>SSD</strong></td><td>약 100µs (마이크로초)</td><td>약 17분</td></tr>
+          <tr><td><strong>하드디스크</strong></td><td>약 10ms (밀리초)</td><td>약 하루</td></tr>
+          <tr><td><strong>같은 데이터센터 안 왕복</strong></td><td>약 0.5ms</td><td>약 1시간 20분</td></tr>
+          <tr><td><strong>서울 ↔ 미국 왕복</strong></td><td>약 150ms</td><td>약 17일</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>숫자는 장비마다 다르지만 <strong>자릿수의 차이</strong>는 변하지 않습니다. 메모리는 하드디스크보다 <strong>10만 배쯤</strong> 빠르고, 바다를 건너는 왕복은 그 하드디스크보다도 열 배 넘게 느려요. 그래서 캐싱이 노리는 것은 딱 두 가지입니다 — <strong>느린 저장 장치 대신 메모리에서 꺼내기</strong>, 그리고 <strong>먼 곳까지 가는 왕복 자체를 없애기</strong>. 뒤에 나올 CDN이 두 번째를 담당합니다.</p>
+
+    <h3>히트와 미스</h3>
+    <p>캐시 이야기는 이 두 단어로 굴러갑니다. 앞으로 계속 나오니 여기서 확실히 해 두죠.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">캐시 히트(cache hit)</div>
+        <div class="card-body">찾는 데이터가 캐시에 <strong>있었다</strong>. 원본까지 가지 않고 바로 답합니다. 전체 요청 중 히트가 차지하는 비율을 <strong>히트율(hit rate)</strong>이라고 하고, 이 숫자가 캐시의 성적표입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕳️</div>
+        <div class="card-title">캐시 미스(cache miss)</div>
+        <div class="card-body">캐시에 <strong>없었다</strong>. 결국 원본까지 다녀와야 하고, 캐시를 들여다본 시간까지 더해져 <strong>원래보다 살짝 더 느려요.</strong> 그래서 <strong>같은 것을 여러 번 읽는 데이터</strong>가 아니면 캐시는 오히려 손해입니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 차시 내내 따라다닐 한 가지 — 캐시는 복사본입니다</strong><br>
+        캐시에 든 것은 원본이 아니라 <strong>과거 어느 시점에 떠 온 사본</strong>입니다. 그 사이 원본이 바뀌면 캐시는 <strong>조용히 틀린 답</strong>을 계속 돌려줍니다. 에러도 안 나고 로그도 안 남아서, 사용자가 "가격이 이상해요"라고 말해 줄 때까지 아무도 모르죠.<br>
+        그래서 캐싱 설계는 사실상 <strong>"이 사본을 언제까지 믿을 것인가"</strong>를 정하는 일입니다. <a href="#ttl-eviction">TTL</a>과 <a href="#invalidation">무효화</a>가 이 차시의 진짜 주제인 이유예요.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 캐시는 여러 층에 있다 ── -->
+  <section class="section" id="cache-layers">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🪜</div>
+      <h2>캐시는 여러 층에 있다</h2>
+    </div>
+
+    <p>"캐시를 둔다"고 하면 보통 서버 옆에 두는 것 하나만 떠올리지만, 실제로는 요청이 지나가는 <strong>길목마다</strong> 캐시가 있습니다. 그리고 <strong>사용자와 가까운 층에서 걸릴수록</strong> 이득이 큽니다. 앞 층에서 걸린 요청은 뒤의 모든 층을 아예 건너뛰니까요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 물을 뜨러 가는 거리</strong><br>
+        <strong>책상 위 컵</strong>에 물이 있으면 손만 뻗으면 되고, 없으면 <strong>주방 정수기</strong>, 그것도 비었으면 <strong>1층 자판기</strong>, 최후엔 <strong>동네 마트</strong>까지 나가야 합니다. 어느 단계에서 물을 얻든 갈증은 풀리지만, <strong>몇 걸음 만에 풀렸느냐</strong>가 완전히 다르죠.
+      </div>
+    </div>
+
+    <div class="flow-row">
+      <div class="flow-step blue">🖥️ 브라우저 캐시</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🌍 CDN</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🚪 리버스 프록시 / 서버 캐시</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🧠 애플리케이션 캐시 (Redis)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🗄️ DB 캐시</div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🖥️</div>
+        <div class="card-title">브라우저 캐시</div>
+        <div class="card-body">사용자 <strong>기기 안</strong>에 저장됩니다. 여기서 걸리면 네트워크를 아예 타지 않아 가장 빠릅니다. 서버가 <code>Cache-Control</code> 헤더로 "이건 며칠 갖고 있어도 돼"라고 알려 줘요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌍</div>
+        <div class="card-title">CDN</div>
+        <div class="card-body">사용자와 <strong>지리적으로 가까운</strong> 서버에 둔 캐시. 이미지·영상·CSS·JS 같은 정적 파일이 주로 여기 삽니다. <a href="#cdn">이 차시 마지막</a>에서 자세히 봅니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚪</div>
+        <div class="card-title">리버스 프록시 / 서버 캐시</div>
+        <div class="card-body">우리 서버 바로 앞에 선 문지기가 완성된 응답을 통째로 들고 있다가 대신 답합니다. 이 문지기가 누구인지는 <a href="07-proxy-and-load-balancer.html#reverse">07차시 · 리버스 프록시</a>에서 만납니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🧠</div>
+        <div class="card-title">애플리케이션 캐시</div>
+        <div class="card-body">우리 코드가 <strong>직접 넣고 빼는</strong> 캐시. "사용자 42번 정보", "인기 상품 목록" 같은 <strong>계산 결과</strong>를 담습니다. Redis나 Memcached가 여기 쓰여요.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗄️</div>
+        <div class="card-title">DB 캐시</div>
+        <div class="card-body">데이터베이스가 <strong>스스로</strong> 자주 읽힌 데이터를 메모리에 들고 있는 것. 우리가 켜고 끄는 게 아니라 대체로 알아서 동작합니다.</div>
+      </div>
+    </div>
+
+    <h3>Redis와 Memcached — "메모리에 두는 별도 서버"</h3>
+    <p>애플리케이션 캐시를 실무에서 맡는 것이 <strong>Redis</strong>와 <strong>Memcached</strong>입니다. 이름이 낯설어도 정체는 단순해요 — <strong>데이터를 디스크가 아니라 메모리에 두는, 우리 서버 옆에 따로 띄운 저장소</strong>입니다. 디스크를 거의 건드리지 않으니 빠르고, 대신 담을 수 있는 양이 적고 값도 비싸죠. 쓰는 법도 <code>키 → 값</code>으로 넣고 꺼내는 게 거의 전부입니다.</p>
+
+    <p>여기서 한 가지 짚고 갈 게 있습니다. 이 "별도 저장소", <a href="04-server-and-client.html#stateless">04차시 · 무상태 서버</a>에서 이미 만났어요. 서버 여러 대가 로그인 세션을 공유하려고 밖으로 빼 뒀던 <strong>그 공유 저장소가 바로 Redis</strong>입니다. 캐시로 쓰느냐 세션 저장소로 쓰느냐가 다를 뿐, <strong>물건은 같습니다.</strong> 서버가 아무것도 기억하지 않게 만들면, 기억해야 할 것들은 이렇게 밖의 한 곳으로 모입니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>층이 많다는 건 사본도 많다는 뜻입니다</strong><br>
+        데이터 하나를 고쳤을 때 지워야 할 사본이 브라우저에, CDN에, 프록시에, Redis에 흩어져 있을 수 있습니다. 특히 <strong>브라우저 캐시는 우리가 지울 수 없어요</strong> — 이미 남의 노트북 안에 들어가 있으니까요. 그래서 <a href="#ttl-eviction">"며칠 갖고 있어도 된다"</a>는 말은 되돌릴 수 없습니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 읽기·쓰기 전략 ── -->
+  <section class="section" id="read-strategies">
+    <div class="section-header">
+      <div class="section-icon icon-entity">📖</div>
+      <h2>읽기·쓰기 전략</h2>
+    </div>
+
+    <p>층을 정했으면 다음 질문은 <strong>"캐시를 누가, 언제 채우고 고치느냐"</strong>입니다. 이걸 정해 둔 몇 가지 정해진 방식이 있고, 이름이 붙어 있어요. 이름은 어려워 보여도 내용은 전부 <strong>읽을 때 어떻게 하나 / 쓸 때 어떻게 하나</strong> 두 줄이면 끝납니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 조리대 위 양념통을 누가 채우나</strong><br>
+        <strong>요리사가 직접</strong> 조리대를 보고 비었으면 창고에 다녀와 채우는 집이 있고(cache-aside), <strong>보조에게 "소금"이라고만 말하면</strong> 보조가 알아서 창고에 다녀와 건네주는 집이 있습니다(read-through). 어느 쪽이든 소금은 오지만, <strong>창고를 아는 사람이 누구인가</strong>가 다르죠.
+      </div>
+    </div>
+
+    <h3>cache-aside — 가장 흔한 방식</h3>
+    <p>실무에서 압도적으로 많이 쓰는 방식입니다. <strong>애플리케이션 코드가 캐시와 DB를 둘 다 직접 상대</strong>합니다. "옆에 두고(aside) 쓴다"는 이름 그대로, 캐시는 거들 뿐이고 주도권은 우리 코드에 있어요.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>먼저 캐시에 물어본다</strong><br><code>product:42</code>라는 키가 캐시에 있는지 확인합니다. 있으면(히트) 그대로 돌려주고 <strong>여기서 끝</strong>입니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>없으면(미스) DB로 간다</strong><br>캐시가 빈손이면 원래대로 데이터베이스에서 42번 상품을 읽어 옵니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>읽어 온 것을 캐시에 넣는다</strong><br>같은 키로 캐시에 저장하면서 <strong>유효 기간(TTL)</strong>을 함께 겁니다. 다음 사람부터는 1번에서 끝나죠.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>값이 바뀌면 그 키를 지운다</strong><br>상품 가격을 수정했다면 DB에 쓴 뒤 <code>product:42</code>를 <strong>삭제</strong>합니다. 다음 조회가 미스가 나면서 새 값으로 다시 채워져요.</div>
+      </div>
+    </div>
+
+    <h3>나머지 세 가지</h3>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead><tr><th>전략</th><th>읽을 때</th><th>쓸 때</th><th>장점 / 아쉬운 점</th></tr></thead>
+        <tbody>
+          <tr><td><strong>cache-aside</strong><br>(lazy loading)</td><td>앱이 캐시를 보고, 미스면 <strong>앱이</strong> DB에서 읽어 캐시에 넣음</td><td>DB에 쓰고 <strong>캐시 키를 삭제</strong></td><td>실제로 쓰이는 것만 쌓임 · 캐시가 죽어도 버팀 / 코드가 반복되고 첫 요청은 늘 미스</td></tr>
+          <tr><td><strong>read-through</strong></td><td>앱은 <strong>캐시에만</strong> 물어보고, 미스면 <strong>캐시 계층이</strong> DB에서 읽어 채운 뒤 돌려줌</td><td>보통 write-through와 짝지어 씀</td><td>앱 코드가 단순해짐 / 그런 캐시 라이브러리·제품이 필요하고 동작이 감춰짐</td></tr>
+          <tr><td><strong>write-through</strong></td><td>read-through와 동일</td><td>캐시에 쓰고 <strong>곧바로 DB에도</strong> 씀 (둘 다 성공해야 끝)</td><td>캐시와 DB가 거의 항상 일치 / 쓰기가 느려지고, 안 읽힐 데이터까지 캐시를 차지</td></tr>
+          <tr><td><strong>write-back</strong><br>(write-behind)</td><td>read-through와 동일</td><td><strong>캐시에만</strong> 쓰고 즉시 응답, DB에는 <strong>나중에 모아서</strong> 반영</td><td>쓰기가 압도적으로 빠름 / <strong>캐시가 죽으면 아직 못 옮긴 데이터가 사라짐</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>표를 관통하는 축은 하나입니다 — <strong>얼마나 안전한가 vs 얼마나 빠른가.</strong> write-through는 안전한 대신 느리고, write-back은 빠른 대신 <strong>데이터를 잃을 수 있습니다.</strong> 그래서 write-back은 조회수 카운터처럼 <strong>몇 개쯤 날아가도 괜찮은</strong> 데이터에나 씁니다. 잔액이나 주문에는 절대 쓰지 않아요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>지금 외울 것은 cache-aside 하나뿐입니다</strong><br>
+        네 가지를 다 외우려 하지 마세요. 현업에서 만나는 캐싱 코드의 대부분은 cache-aside이고, 면접에서 "캐시를 어떻게 쓰시겠어요?"에 <strong>"캐시 확인 → 미스면 DB → 캐시에 저장, 수정할 땐 키 삭제"</strong>라고 답하면 그걸로 충분합니다.<br>
+        나머지 셋은 <strong>이름을 들었을 때 "아, 그거"</strong> 하고 알아보기만 하면 됩니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TTL과 쫓아내기 ── -->
+  <section class="section" id="ttl-eviction">
+    <div class="section-header">
+      <div class="section-icon icon-tx">⏳</div>
+      <h2>TTL과 쫓아내기(eviction)</h2>
+    </div>
+
+    <p>캐시에 넣기는 쉽습니다. 어려운 건 <strong>빼는 일</strong>이에요. 캐시가 사는 메모리는 좁아서 언젠가 반드시 꽉 차고, 넣어 둔 사본은 시간이 지나면 믿을 수 없게 됩니다. 그래서 데이터가 캐시를 떠나는 길은 두 가지입니다 — <strong>시간이 다 돼서(TTL 만료)</strong>, 그리고 <strong>자리가 없어서(축출)</strong>.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 냉장고 정리</strong><br>
+        우유를 버리는 이유는 둘 중 하나입니다. <strong>유통기한이 지나서</strong>(TTL 만료), 아니면 <strong>장을 잔뜩 봐 와서 넣을 자리가 없어서</strong>(축출). 앞의 것은 <strong>우유 사정</strong>이고, 뒤의 것은 <strong>냉장고 사정</strong>이죠.<br>
+        자리가 없을 때 무엇을 버릴지 고르는 기준이 바로 아래 세 가지입니다.
+      </div>
+    </div>
+
+    <h3>TTL — 사본에 붙이는 유통기한</h3>
+    <p><strong>TTL(Time To Live)</strong>은 캐시에 넣을 때 함께 거는 <strong>수명</strong>입니다. "이 값은 5분만 유효" 같은 식이죠. 시간이 지나면 그 키는 없는 것으로 취급되고, 다음 요청이 미스가 나면서 원본에서 새로 채워집니다. <strong>아무도 신경 쓰지 않아도 사본이 저절로 갱신되는 장치</strong>라, 가장 싸고 가장 많이 쓰이는 무효화 방법이기도 합니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>"TTL을 몇 분으로 잡을까요?" — 정답은 없습니다</strong><br>
+        이 질문에는 공식이 없어요. 대신 기준을 바꿔서 물으면 답이 나옵니다 — <strong>"이 데이터가 틀린 채로 보여도 괜찮은 시간이 얼마인가?"</strong><br>
+        공지사항이 1시간 늦게 바뀌는 건 아무도 모릅니다. 재고 수량이 1분만 틀려도 품절된 물건이 팔립니다. <strong>틀렸을 때 누가 얼마나 아픈지</strong>가 TTL을 정하고, 기술적인 계산이 정하는 게 아닙니다.
+      </div>
+    </div>
+
+    <p>딱 하나, 이 고민을 통째로 피해 가는 요령이 있습니다. <code>app.js</code> 대신 <code>app.9f2c1b.js</code>처럼 <strong>내용이 바뀌면 파일 이름도 바뀌게</strong> 만들면, 그 파일은 <strong>절대 내용이 변하지 않는 파일</strong>이 됩니다. 그러면 TTL을 1년으로(<code>Cache-Control: max-age=31536000</code>) 걸어도 안전해요 — 새 버전을 배포하면 이름이 달라져서 <strong>애초에 다른 파일</strong>이 되니까요. 브라우저 캐시나 CDN처럼 <strong>우리가 마음대로 지울 수 없는 층</strong>을 다루는 정석입니다.</p>
+
+    <h3>자리가 없을 때 누구를 내보낼까 — 축출(eviction)</h3>
+    <p>TTL이 남았는데도 메모리가 꽉 차면, 캐시는 <strong>누군가를 강제로 내보내고</strong> 새 데이터를 받습니다. 이걸 <strong>축출(eviction)</strong>이라고 하고, 고르는 기준은 대개 이 셋 중 하나예요.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🕰️</div>
+        <div class="card-title">LRU (Least Recently Used)</div>
+        <div class="card-body"><strong>가장 오랫동안 안 쓴 것</strong>부터 내보냅니다. "요즘 안 찾았으면 앞으로도 안 찾겠지"라는 상식에 가까워서, 대부분의 캐시가 이걸 <strong>기본값</strong>으로 씁니다. 고민되면 LRU입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <div class="card-title">LFU (Least Frequently Used)</div>
+        <div class="card-body"><strong>가장 적게 쓰인 것</strong>부터 내보냅니다. 꾸준한 인기 항목을 잘 지키지만, 옛날에 크게 유행했던 항목이 <strong>횟수만 믿고 계속 눌러앉는</strong> 단점이 있습니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🚶</div>
+        <div class="card-title">FIFO (First In, First Out)</div>
+        <div class="card-body"><strong>먼저 들어온 것</strong>부터 내보냅니다. 구현이 가장 단순한 대신, <strong>지금 제일 많이 읽히는 데이터라도</strong> 오래됐다는 이유로 쫓겨납니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 무효화 ── -->
+  <section class="section" id="invalidation">
+    <div class="section-header">
+      <div class="section-icon icon-error">🧹</div>
+      <h2>무효화: 캐시의 진짜 어려움</h2>
+    </div>
+
+    <p>"컴퓨터 과학에서 어려운 건 <strong>캐시 무효화</strong>와 <strong>이름 짓기</strong> 두 가지뿐"이라는 유명한 농담이 있습니다. 캐시를 넣는 코드는 열 줄이면 되는데, <strong>언제 지울지</strong>는 아무도 대신 정해 주지 않기 때문이에요.</p>
+
+    <p><strong>무효화(invalidation)</strong>는 원본이 바뀌었을 때 <strong>낡은 사본을 못 쓰게 만드는 일</strong>입니다. 방법은 크게 셋인데, 어느 것을 고르든 트레이드오프가 붙습니다.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">⏳</div>
+        <div class="card-title">TTL 만료를 기다린다</div>
+        <div class="card-body">아무것도 하지 않고 <a href="#ttl-eviction">수명이 끝나기를</a> 기다립니다. <strong>가장 쉽고</strong> 코드도 안 늘지만, TTL이 끝날 때까지는 <strong>틀린 값이 보입니다.</strong></div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗑️</div>
+        <div class="card-title">쓸 때 캐시 키를 지운다</div>
+        <div class="card-body">DB를 고친 직후 해당 키를 삭제합니다. 다음 조회가 미스가 나며 새 값이 채워지죠. <strong>실무에서 가장 많이 쓰는 방법</strong>이고 cache-aside의 짝입니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">✏️</div>
+        <div class="card-title">쓸 때 캐시를 갱신한다</div>
+        <div class="card-body">지우는 대신 <strong>새 값을 곧바로 덮어씁니다.</strong> 다음 조회가 미스 없이 히트하지만, 두 곳에 쓰는 사이 순서가 엉키면 <strong>더 낡은 값이 덮어쓸</strong> 위험이 있습니다.</div>
+      </div>
+    </div>
+
+    <h3>안 지웠을 때 실제로 벌어지는 일</h3>
+    <p>말로 들으면 사소해 보이니 시간 순서대로 따라가 보죠.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>10:00 — 손님 A가 상품을 봅니다</strong><br>캐시 미스가 나서 DB에서 <strong>10,000원</strong>을 읽어 오고, <code>product:42</code> 키에 TTL 10분으로 저장합니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>10:01 — 운영자가 가격을 올립니다</strong><br>관리자 화면에서 <strong>12,000원</strong>으로 수정. DB는 바뀌었지만 <strong>캐시는 손대지 않았습니다.</strong></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>10:02 — 손님 B가 같은 상품을 봅니다</strong><br>캐시 히트. 화면에는 <strong>10,000원</strong>이 뜹니다. 에러도 로그도 없습니다. <span style="color:#b45309">시스템은 아주 잘 돌아가는 것처럼 보입니다.</span></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>10:03 — 결제 화면</strong><br>결제는 캐시를 안 거치고 DB에서 계산하니 <strong>12,000원</strong>이 청구됩니다. <span style="color:#b91c1c">"10,000원이라고 써 있었는데요?" — 문의가 들어옵니다.</span></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">5</div>
+        <div class="timeline-content"><strong>해결 — 가격을 바꾸는 코드가 캐시도 책임진다</strong><br>DB에 저장한 <strong>바로 다음 줄</strong>에서 <code>product:42</code>를 삭제합니다. 손님 B는 미스가 나면서 12,000원을 보게 되죠. <strong>쓰는 쪽이 지운다</strong>는 이 원칙 하나가 이런 사고의 대부분을 막습니다.</div>
+      </div>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>한꺼번에 만료되면 DB가 무너집니다</strong><br>
+        인기 상품 키 하나가 만료되는 순간, 그 값을 기다리던 요청 수천 개가 <strong>동시에 미스</strong>가 나서 전부 DB로 달려갑니다. 캐시가 막아 주던 부하가 <strong>한 점에 몰리는</strong> 이 현상을 <strong>캐시 스탬피드(cache stampede)</strong> 또는 <strong>천둥 소 떼(thundering herd)</strong>라고 불러요.<br>
+        더 나쁜 경우도 있습니다. 배포 직후처럼 <strong>수많은 키를 같은 시각에 같은 TTL로</strong> 채워 넣었다면, 그 키들이 <strong>다 함께</strong> 만료되면서 DB가 통째로 쓰러집니다 — <strong>캐시 눈사태(cache avalanche)</strong>입니다.<br>
+        가장 쉬운 예방책은 <strong>TTL에 무작위 여유를 주는 것</strong>입니다. 10분으로 고정하지 말고 <strong>9~11분 사이에서 흩뿌리면</strong> 만료 시각이 갈라져 한 점에 몰리지 않아요. 여기서 더 나가면 <strong>맨 처음 미스가 난 요청 하나만 DB에 보내고 나머지는 그 결과를 기다리게</strong> 하는 잠금 방식을 씁니다.
+      </div>
+    </div>
+  </section>
+
   <!-- ── CDN ── -->
   <section class="section" id="cdn">
     <div class="section-header">
@@ -69,7 +393,7 @@
       <h2>CDN: 전 세계에 둔 분점</h2>
     </div>
 
-    <p>캐싱을 이해했다면, 실무에서 정말 많이 쓰는 <strong>CDN(Content Delivery Network, 콘텐츠 전송 네트워크)</strong>도 쉽게 이해할 수 있습니다. CDN은 <strong>"전 세계에 흩어 놓은 캐싱 서버 네트워크"</strong>예요. <a href="07-proxy-and-load-balancer.html#reverse">리버스 프록시</a> + 캐싱을 <strong>지구 규모로 확장</strong>한 것이라고 보면 됩니다.</p>
+    <p>지금까지 본 캐시가 <a href="#cache-layers">브라우저 캐시와 서버 캐시</a>라면, 그 둘 사이에 한 층이 더 있습니다 — <strong>지리적으로</strong> 사용자와 가까운 곳에 두는 캐시. 앞에서 "서울 ↔ 미국 왕복은 그 자체로 150ms"라고 했죠. 계산이 아무리 빨라도 <strong>거리에서 잃은 시간은 되찾을 수 없어서</strong>, 아예 데이터를 사용자 쪽으로 옮겨 두는 것입니다. 이것이 실무에서 정말 많이 쓰는 <strong>CDN(Content Delivery Network, 콘텐츠 전송 네트워크)</strong>, 한마디로 <strong>"전 세계에 흩어 놓은 캐싱 서버 네트워크"</strong>입니다. <a href="07-proxy-and-load-balancer.html#reverse">리버스 프록시</a> + 캐싱을 <strong>지구 규모로 확장</strong>한 것이라고 보면 됩니다.</p>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>

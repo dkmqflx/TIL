@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 4 · 데이터 설계 — 포토앱으로 배우는 시스템 디자인</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">PHOTO</span>
+      <span class="logo-text">포토앱으로 배우는 시스템 디자인</span>
+    </a>
+    <div class="logo-sub">서버 한 대에서 시작해 부품을 하나씩 추가하기</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 시스템 디자인이란?</div>
+    <a class="nav-item" href="01-what-is-system-design.html#what">🧭 시스템 디자인이 뭐예요?</a>
+    <a class="nav-item" href="01-what-is-system-design.html#one-server">🖥️ $10 서버 한 대에서 시작</a>
+    <a class="nav-item" href="01-what-is-system-design.html#three-failures">💥 세 가지 장애, 세 가지 부품</a>
+    <a class="nav-item" href="01-what-is-system-design.html#hld-lld">🔭 HLD vs LLD</a>
+    <a class="nav-item" href="01-what-is-system-design.html#requirements">📋 기능 vs 비기능 요구사항</a>
+    <a class="nav-item" href="01-what-is-system-design.html#five-questions">❓ 설계 전 5가지 질문</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 서버 키우기</div>
+    <a class="nav-item" href="02-scaling-servers.html#monolith-vs-micro">🧱 모놀리스 vs 마이크로서비스</a>
+    <a class="nav-item" href="02-scaling-servers.html#vertical-vs-horizontal">📈 수직 확장 vs 수평 확장</a>
+    <a class="nav-item" href="02-scaling-servers.html#request-journey">🚀 요청의 여정: DNS·HTTPS</a>
+    <a class="nav-item" href="02-scaling-servers.html#latency-bandwidth">⏱️ 지연 시간 vs 대역폭</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 로드 밸런서와 Stateless</div>
+    <a class="nav-item" href="03-load-balancer-stateless.html#load-balancer">⚖️ 로드 밸런서: 교통정리</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#health-check">🩺 헬스 체크와 분배 방식</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#lb-dies">🛡️ 로드 밸런서도 죽는다면?</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#logout-bug">🔓 갑자기 로그아웃되는 버그</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#stateless">🧳 Stateful vs Stateless</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#sticky-sessions">📌 스티키 세션은 왜 안 될까</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 데이터 설계</div>
+    <a class="nav-item" href="#access-patterns">🔍 접근 패턴부터 적기</a>
+    <a class="nav-item" href="#data-model">🗂️ 다섯 가지 데이터</a>
+    <a class="nav-item" href="#sql-vs-nosql">🗄️ SQL vs NoSQL</a>
+    <a class="nav-item" href="#indexing">📖 인덱스: 책 뒤의 찾아보기</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 캐시</div>
+    <a class="nav-item" href="05-caching.html#why-cache">⚡ 메시의 사진 문제</a>
+    <a class="nav-item" href="05-caching.html#hit-miss">🎯 캐시 히트와 미스</a>
+    <a class="nav-item" href="05-caching.html#what-to-cache">📦 무엇을 캐시에 넣을까</a>
+    <a class="nav-item" href="05-caching.html#ttl-invalidation">⏳ TTL vs 능동 무효화</a>
+    <a class="nav-item" href="05-caching.html#stampede">🐘 캐시 스탬피드와 LRU</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 복제와 샤딩</div>
+    <a class="nav-item" href="06-replication-sharding.html#replication">📚 복제: 데이터베이스 세 벌</a>
+    <a class="nav-item" href="06-replication-sharding.html#replication-lag">🐢 복제 지연과 일관성</a>
+    <a class="nav-item" href="06-replication-sharding.html#failover-backup">🔁 페일오버와 백업</a>
+    <a class="nav-item" href="06-replication-sharding.html#sharding">🔪 샤딩: 데이터 쪼개기</a>
+    <a class="nav-item" href="06-replication-sharding.html#shard-problems">⚠️ 핫 샤드와 일관된 해싱</a>
+    <a class="nav-item" href="06-replication-sharding.html#final-design">🗺️ 최종 설계 한 장</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="03-load-balancer-stateless.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 3 · 로드 밸런서와 Stateless</span></a>
+    <a class="part-pager-link next" href="05-caching.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 5 · 캐시</span></a>
+  </div>
+
+  <!-- ── 접근 패턴부터 적기 ── -->
+  <section class="section" id="access-patterns">
+    <div class="section-header">
+      <div class="section-icon icon-query">🔍</div>
+      <h2>접근 패턴부터 적기</h2>
+    </div>
+
+    <p>지금까지 서버를 여러 대로 늘리고, 로드 밸런서를 앞에 세우고, 서버를 stateless로 만들었습니다. 그런데 정작 <strong>사용자 데이터를 어디에 어떻게 저장하는지</strong>는 한 번도 제대로 이야기하지 않았어요. 사진, 사용자 정보, 좋아요, 댓글… 이걸 저장해야 한다는 건 알지만, <strong>어떤 모양으로</strong> 저장할지는 아직 정하지 않았습니다. 이걸 정하는 단계가 <strong>데이터 모델링(Data Modeling)</strong>입니다.</p>
+
+    <p>데이터 모델링은 세 가지를 정하는 일이에요. <strong>무엇을 저장할지</strong>, 그 정보를 <strong>어떤 조각으로 나눌지</strong>, 그리고 조각들이 <strong>서로 어떻게 연결되는지</strong>. 이후에 내리는 모든 데이터베이스 결정이 이 위에 올라가기 때문에, 시스템 디자인에서 가장 중요한 단계 중 하나입니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>흔한 실수 — "Postgres 쓸까, MongoDB 쓸까?"부터 묻기</strong><br>
+        설계를 시작하면 대부분 이 질문부터 던집니다. 하지만 이건 첫 질문이 아니에요. 첫 질문은 <strong>"사람들이 이 앱에 뭘 시킬 건가?"</strong>입니다.
+        어떤 데이터베이스를 쓸지는 그 답이 나온 뒤에야 정할 수 있어요.
+      </div>
+    </div>
+
+    <h3>접근 패턴 = 사용자가 하루에 수천 번 묻는 질문</h3>
+    <p><strong>접근 패턴(Access Pattern)</strong>은 어렵게 들리지만, 뜻은 단순합니다. <strong>사용자가 앱에 계속 던지는 질문</strong>이에요. 포토앱이라면 이런 것들이죠.</p>
+
+    <div class="timeline">
+      <div class="timeline-item"><div class="timeline-num">1</div><div class="timeline-content"><strong>이 사용자의 프로필 보여줘</strong> — 남의 프로필을 구경한다</div></div>
+      <div class="timeline-item"><div class="timeline-num">2</div><div class="timeline-content"><strong>이 사용자가 올린 사진 전부 보여줘</strong></div></div>
+      <div class="timeline-item"><div class="timeline-num">3</div><div class="timeline-content"><strong>내 홈 피드 보여줘</strong> — 내가 팔로우한 사람들의 최신 사진</div></div>
+      <div class="timeline-item"><div class="timeline-num">4</div><div class="timeline-content"><strong>사진 업로드할게</strong></div></div>
+      <div class="timeline-item"><div class="timeline-num">5</div><div class="timeline-content"><strong>이 사진에 좋아요</strong></div></div>
+      <div class="timeline-item"><div class="timeline-num">6</div><div class="timeline-content"><strong>이 사진에 댓글 달게</strong></div></div>
+      <div class="timeline-item"><div class="timeline-num">7</div><div class="timeline-content"><strong>이 사람 팔로우할게</strong></div></div>
+    </div>
+
+    <p>이 목록을 잘 보세요. <strong>이 일곱 줄이 곧 앱 전체</strong>입니다. 앱을 "질문 목록"으로 적어 놓은 거예요. 질문이 손에 있으면, 그 질문에 답하기 위한 데이터를 설계할 수 있습니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 식당 창고를 정리하는 순서</strong><br>
+        창고를 정리할 때 "선반을 철제로 살까, 나무로 살까?"부터 고민하는 사람은 없죠. 먼저 <strong>"우리 주방이 하루에 뭘 제일 자주 꺼내지?"</strong>를 봅니다.
+        양파를 하루 100번 꺼낸다면 양파는 문 바로 옆에 둬야 하고, 한 달에 한 번 쓰는 향신료는 구석이어도 괜찮아요.
+        접근 패턴을 먼저 적는 건 <strong>"뭘 자주 꺼내는지"를 먼저 파악하는 것</strong>과 같습니다. 선반 재질(=데이터베이스 종류)은 그 다음이에요.
+      </div>
+    </div>
+
+    <h3>왜 이 순서여야 할까 — "내 홈 피드"를 따라가 보기</h3>
+    <p>질문 하나만 실제로 걸어 봅시다. 앨런이 200명을 팔로우한다고 해요. 앨런의 홈 피드를 만들려면 앱은 이렇게 움직여야 합니다.</p>
+    <div class="flow-row">
+      <div class="flow-step blue">앨런이 팔로우한<br>200명 찾기</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">그 200명의<br>최근 사진 모으기</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">시간순으로 정렬해서<br>최신부터 보여주기</div>
+    </div>
+    <p>질문 하나가 <strong>팔로우 데이터</strong>도 건드리고, <strong>사진 데이터</strong>도 건드리고, <strong>정렬</strong>까지 필요로 합니다. 그리고 피드 스크롤은 사용자가 이 앱에서 <strong>가장 자주 하는 동작</strong>이죠(Part 1에서 "읽기 위주 앱"이라고 답했던 바로 그 이유예요 — <a href="01-what-is-system-design.html#five-questions">복습</a>). 즉 <strong>피드가 이 앱에서 제일 어려운 부분</strong>이라는 걸, 데이터베이스를 고르기도 전에 알게 됐어요. 만약 데이터베이스부터 골랐다면 이 사실을 한참 뒤에야 발견했을 겁니다.</p>
+
+    <p>접근 패턴은 <strong>데이터를 어떻게 배치할지</strong>도 알려줍니다. "앨런이 올린 사진 전부"라는 질문은 "사진은 <strong>올린 사람</strong>으로 찾기 쉬워야 한다"고 말해주고, "내 홈 피드"는 "사진은 <strong>시간순으로 정렬</strong>하기 쉬워야 한다"고 말해줍니다. 질문 하나하나가 데이터 배치 방법을 손가락으로 가리키고 있는 셈이에요.</p>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>한 줄 정리 — 순서를 기억하세요: 질문 → 데이터 모양 → 기술.</strong> 사용자가 뭘 물어볼지 먼저 적고, 그 질문에 답하는 데이터 모양을 정하고, 데이터베이스 종류는 <strong>맨 마지막</strong>에 고릅니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 다섯 가지 데이터 ── -->
+  <section class="section" id="data-model">
+    <div class="section-header">
+      <div class="section-icon icon-entity">🗂️</div>
+      <h2>다섯 가지 데이터</h2>
+    </div>
+
+    <p>질문 목록이 준비됐으니, 이제 그 질문에 답하기 위해 <strong>무엇을 저장할지</strong> 하나씩 정합니다. 포토앱에 필요한 데이터는 딱 다섯 가지예요.</p>
+
+    <h3>① 사용자(users) — 앨런이 가입하면</h3>
+    <p>앨런이 가입하는 순간 <strong>사용자 레코드</strong> 하나가 생깁니다. 내용은 단순해요. <strong>ID, 이름, 이메일</strong>. 여기서 ID는 그냥 번호표인데, 이 번호표가 뒤에서 아주 중요한 역할을 합니다.</p>
+
+    <h3>② 사진(photos) — 앨런이 사진을 올리면</h3>
+    <p>사진 레코드에는 <strong>사진 ID, 누가 올렸는지, 캡션, 올린 시각</strong>, 그리고 <strong>실제 이미지 파일이 어디에 있는지 가리키는 링크</strong>가 들어갑니다.</p>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>중요 — 이미지 파일 자체는 이 레코드에 들어가지 않습니다.</strong><br>
+        사진 레코드가 들고 있는 건 "파일이 저기 있어요"라고 가리키는 <strong>작은 링크</strong>뿐이에요. 실제 이미지를 왜 따로 저장하는지는 더 큰 주제라 나중 강의에서 제대로 다룹니다.
+      </div>
+    </div>
+
+    <h3>③ 좋아요(likes) — 앨런이 42번 사진에 좋아요를 누르면</h3>
+    <p>앨런의 이름이나 사진을 어딘가에 복사하지 않습니다. 대신 딱 세 가지만 담은 작은 레코드를 하나 만들어요. <strong>앨런의 사용자 ID, 사진 ID, 누른 시각</strong>. 이게 좋아요 하나의 완전한 기록입니다. "앨런이 이 사진을 이 시각에 좋아했다"는 뜻이죠. 그럼 42번 사진의 좋아요 수는 어떻게 알까요? <strong>사진 ID가 42인 좋아요 레코드를 세면</strong> 됩니다.</p>
+
+    <h3>④ 댓글(comments) — 앨런이 "멋진 사진!"이라고 남기면</h3>
+    <p>좋아요와 거의 같은데 한 가지가 더 붙습니다. <strong>앨런의 사용자 ID, 사진 ID, 댓글 내용, 남긴 시각</strong>. 패턴이 똑같죠. <strong>ID 두 개로 연결하고, 실제 내용을 하나 얹는다.</strong></p>
+
+    <h3>⑤ 팔로우(follows) — 앨런이 프리야를 팔로우하면</h3>
+    <p>팔로우는 사진과 상관없이 <strong>사용자와 사용자를 연결</strong>합니다. 레코드에는 ID 두 개만 있어요. <strong>팔로우하는 사람(앨런)의 ID</strong>와 <strong>팔로우당하는 사람(프리야)의 ID</strong>. "앨런은 누구를 팔로우하지?"라는 질문은 <strong>팔로워 ID가 앨런인 레코드를 전부 모으면</strong> 답이 나옵니다.</p>
+
+    <h3>실제 모양으로 보기</h3>
+    <p>앨런의 ID가 1, 프리야의 ID가 2라고 하고 세 가지 표를 실제 모양으로 그려볼게요.</p>
+
+    <div class="db-demo">
+      <div class="db-demo-header">photos — 사진</div>
+      <table>
+        <thead><tr><th>id</th><th>posted_by</th><th>caption</th><th>upload_time</th><th>image_url</th></tr></thead>
+        <tbody>
+          <tr><td class="pk">42</td><td class="fk">1</td><td>제주 바다</td><td>2026-08-20 09:12</td><td>s3://photos/42.jpg</td></tr>
+          <tr><td class="pk">43</td><td class="fk">2</td><td>주말 브런치</td><td>2026-08-21 11:40</td><td>s3://photos/43.jpg</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="db-demo">
+      <div class="db-demo-header">likes — 좋아요 (ID 두 개 + 시각)</div>
+      <table>
+        <thead><tr><th>user_id</th><th>photo_id</th><th>liked_at</th></tr></thead>
+        <tbody>
+          <tr><td class="fk">1</td><td class="fk">43</td><td>2026-08-21 12:05</td></tr>
+          <tr><td class="fk">2</td><td class="fk">42</td><td>2026-08-20 10:30</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="db-demo">
+      <div class="db-demo-header">follows — 팔로우 (ID 두 개)</div>
+      <table>
+        <thead><tr><th>follower_id</th><th>followee_id</th></tr></thead>
+        <tbody>
+          <tr><td class="fk">1</td><td class="fk">2</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted)">주황색은 그 표의 고유 번호(ID), 파란색은 다른 표를 가리키는 ID입니다. <code>follows</code>의 한 줄은 "1번(앨런)이 2번(프리야)을 팔로우한다"는 뜻이에요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 학번으로 연결되는 학교 기록</strong><br>
+        학교에서 "김철수가 수학 시험에서 90점"을 기록할 때, 성적표마다 김철수의 이름·주소·생년월일을 다 적지 않죠. <strong>학번</strong> 하나만 적습니다.
+        학번만 있으면 학생 명부에서 나머지를 언제든 찾을 수 있으니까요. 좋아요·댓글·팔로우가 <strong>ID 쌍</strong>만 저장하는 것도 똑같은 원리예요.
+        처음부터 모든 사용자와 사진에 ID를 붙인 이유가 바로 이겁니다 — <strong>ID가 다섯 가지 데이터를 하나로 엮어주는 실</strong>이거든요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>한 줄 정리 — 데이터 모델은 "무엇을 저장하고 어떻게 연결하는가"이지, 데이터베이스 선택이 아닙니다.</strong> 아직 Postgres도 MongoDB도 고르지 않았어요.
+        users·photos·likes·comments·follows 다섯 가지는 SQL에 넣든 NoSQL에 넣든 그대로입니다. 그 선택은 바로 다음 섹션에서 합니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SQL vs NoSQL ── -->
+  <section class="section" id="sql-vs-nosql">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗄️</div>
+      <h2>SQL vs NoSQL</h2>
+    </div>
+
+    <p>저장할 데이터가 정해졌으니, 드디어 모두가 논쟁하는 그 질문을 할 차례입니다. <strong>이 데이터를 SQL 데이터베이스에 넣을까, NoSQL 데이터베이스에 넣을까?</strong> 사실 이 질문은 더 단순한 질문 하나로 줄어들어요. <strong>우리 데이터가 구조적(structured)인가, 비구조적(unstructured)인가?</strong> 구조적이면 SQL, 비구조적이면 NoSQL입니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">🗄️ SQL — 정해진 표에 차곡차곡</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          <strong>표(table)</strong> — 스프레드시트처럼 행·열이 있고 모양이 고정됨<br>
+          <strong>관계(join)</strong> — 표와 표를 이어서 질문에 답함<br>
+          <strong>트랜잭션</strong> — 여러 작업을 한 묶음으로, 전부 되거나 전부 안 되거나<br><br>
+          예: <strong>MySQL, Postgres</strong>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--purple-soft);color:#5b21b6;border-bottom:1px solid #ddd6fe">📦 NoSQL — 모양이 달라도 OK</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          <strong>고정된 표 없음</strong> — 레코드마다 생김새가 달라도 됨<br>
+          <strong>대량·고속</strong> — 수백 대 기계에 퍼뜨려 엄청난 양을 빠르게<br>
+          <strong>관계는 약함</strong> — 조인이 주특기가 아님<br><br>
+          예: <strong>MongoDB, DynamoDB, Elasticsearch</strong>
+        </div>
+      </div>
+    </div>
+
+    <h3>SQL이 잘하는 세 가지</h3>
+    <p><strong>첫째, 구조.</strong> SQL은 데이터를 <strong>표</strong>에 넣습니다. 스프레드시트처럼 행과 열이 있고, 모양이 고정돼 있어요. 우리 사진 데이터를 보면 모든 사진이 <strong>매번 똑같은 필드</strong>를 갖습니다 — ID, 올린 사람, 캡션, 올린 시각, 이미지 링크. 그러니 <code>photos</code>라는 표 하나에 딱 들어맞죠.</p>
+
+    <p><strong>둘째, 관계.</strong> SQL은 표와 표를 <strong>이어 붙이는(join)</strong> 데 특화돼 있습니다. "앨런이 팔로우하는 사람을 찾고, 그 사람들의 사진을 보여줘"라는 질문은 <code>follows</code> 표에서 앨런이 팔로우하는 사람을 찾고, <code>photos</code> 표에서 그 사람들의 사진을 가져오면 됩니다. 표를 연결하는 것만으로 비슷한 질문 수십 개에 답할 수 있어요.</p>
+
+    <p><strong>셋째, 트랜잭션(transaction).</strong> 앨런이 사진을 지운다고 해봅시다. 사진 레코드만 지우면 끝이 아니에요. 그 사진에 달린 <strong>좋아요와 댓글도 전부</strong> 지워야 하죠. SQL은 이 세 가지 삭제를 <strong>한 묶음</strong>으로 처리합니다. <strong>전부 성공하거나, 전부 안 하거나</strong> 둘 중 하나예요. 덕분에 "사진은 지워졌는데 좋아요는 남아 있는" 반쯤 끝난 상태가 절대 생기지 않습니다. 이런 보장을 통틀어 <strong>ACID</strong>라고 부르는데, 지금은 이름만 알아두면 충분합니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 트랜잭션은 은행 이체</strong><br>
+        내 계좌에서 10만 원이 빠지고 친구 계좌에 10만 원이 들어가는 건 <strong>한 묶음</strong>이어야 합니다. 내 돈은 빠졌는데 친구한테는 안 들어간 상태로 멈추면 큰일이죠.
+        "둘 다 되거나, 둘 다 안 되거나" — 사진·좋아요·댓글을 함께 지우는 것도 똑같은 원리입니다.
+      </div>
+    </div>
+
+    <h3>NoSQL은 언제 좋을까</h3>
+    <p>NoSQL은 거의 반대 성격이에요. 고정된 표에 넣지 않고 <strong>구조를 느슨하게</strong> 풀어서, 레코드마다 모양이 달라도 됩니다. 예를 들어 "사용자가 앱에서 어디를 클릭했는지" 같은 <strong>행동 로그</strong>는 사람마다 전부 다르게 생겼죠. 이런 데이터엔 NoSQL이 딱입니다. 게다가 NoSQL은 <strong>수백 대 기계에 퍼져서</strong> "앨런의 행동 기록 줘"라는 질문에 엄청난 양을 아주 빠르게 답하도록 만들어졌어요.</p>
+
+    <h3>그래서 포토앱은?</h3>
+    <p>우리 데이터를 다시 보면, <strong>구조적</strong>입니다(모든 사진이 같은 필드). 그리고 <strong>관계로 가득</strong>합니다(사용자·사진·좋아요·팔로우가 서로 연결돼야 의미가 생김). 이 두 가지가 곧장 SQL을 가리키고 있어요. 그래서 포토앱의 핵심 데이터는 <strong>SQL, 그중에서도 Postgres</strong>를 씁니다.</p>
+
+    <p>다만 현실의 시스템은 <strong>둘 다</strong> 씁니다. 예를 들어 사용자 <strong>설정</strong> — 테마, 알림 설정, 언어 — 은 사람마다 모양이 제각각이고 자주 바뀌죠. 이건 MongoDB 같은 NoSQL에 넣는 게 잘 맞아요. 그래서 우리 앱은 데이터베이스가 두 개가 됩니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>데이터</th><th>성격</th><th>어디에</th></tr></thead>
+        <tbody>
+          <tr><td>사용자·사진·좋아요·댓글·팔로우</td><td>구조적, 관계 많음</td><td><strong>Postgres (SQL)</strong></td></tr>
+          <tr><td>사용자 설정·행동 로그</td><td>모양 제각각, 자주 바뀜</td><td><strong>MongoDB (NoSQL)</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>"두 개면 코드가 복잡해지지 않나요?" 아니에요. 그냥 <strong>if 조건 하나</strong>입니다. 피드를 만들 땐 Postgres에 묻고, 설정을 읽을 땐 MongoDB에 묻는다 — 마법 같은 건 없어요. 그리고 확신이 없다면 <strong>SQL부터 시작</strong>하세요. SQL은 사람들이 생각하는 것보다 훨씬 멀리까지 데려다 줍니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>데이터베이스도 특별한 기계가 아닙니다.</strong> Part 3에서 로드 밸런서가 그냥 프로그램이라고 했던 것처럼(<a href="03-load-balancer-stateless.html#load-balancer">복습</a>),
+        Postgres나 MongoDB도 CPU·RAM·디스크가 달린 <strong>평범한 서버 위에서 도는 프로그램</strong>일 뿐이에요. 지금 여러분 노트북에서도 돌릴 수 있습니다.
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>🎤 면접에서는 이렇게</strong><br>
+        SQL/NoSQL 선택은 거의 모든 설계 면접에 나오고, 점수는 <strong>"왜"</strong>에서 갈립니다. 접근 패턴에서 답을 끌어내세요.
+        "제 데이터는 관계형입니다. 사용자·사진·팔로우가 서로 연결돼 있고, 홈 피드를 만들려면 이걸 조인해야 하니 SQL이 맞습니다. 나중에 관계가 없는 대량 분석 이벤트가 생기면 그건 NoSQL로 보내겠습니다."
+        이 두 문장에 구조·조인·보장·"둘 다 쓴다"가 다 들어 있어요. 반대로 <strong>"NoSQL이 확장이 잘 돼서요"</strong>라고 하면 "SQL이 못 하는 게 정확히 뭐죠?"라는 질문이 돌아옵니다. 그리고 <strong>ACID</strong>는 한 줄로 기억하세요 — "트랜잭션을 전부 쓰거나, 아예 안 쓰거나."
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 인덱스 ── -->
+  <section class="section" id="indexing">
+    <div class="section-header">
+      <div class="section-icon icon-page">📖</div>
+      <h2>인덱스: 책 뒤의 찾아보기</h2>
+    </div>
+
+    <p>Postgres로 결정하고 잘 굴러가던 앱에 새 문제가 생겼습니다. 사용자가 1만 명일 땐 멀쩡했는데, <strong>100만 명 구간</strong>에 들어서니 몇몇 조회가 느려지기 시작했어요. <strong>200ms</strong>에 뜨던 홈 피드가 이제 <strong>500ms</strong>가 걸립니다. 이건 여러분이 만들 모든 시스템에서 반드시 마주칠 문제예요. 사용자가 늘면 어떤 조회는 반드시 느려집니다.</p>
+
+    <h3>왜 느려질까 — 한 줄씩 다 뒤지기</h3>
+    <p>"앨런이 올린 사진 전부"를 찾는다고 해봅시다. 데이터베이스는 <code>photos</code> 표로 가서 <strong>한 줄씩</strong> 확인합니다. "이거 앨런 거야? 아니. 이거? 아니. 이거? 아니…" 사진이 100만 장이면 100만 번을 묻는 거예요. 사용자가 늘수록 표의 줄 수는 폭발적으로 늘어나는데, 매번 전부 훑을 수는 없죠.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 책 뒤의 찾아보기(index)</strong><br>
+        두꺼운 생물학 책에서 "미토콘드리아"가 나오는 곳을 찾고 싶어요. 1쪽부터 다 읽으면 하루가 갑니다. 그런데 책 뒤 <strong>찾아보기</strong>를 펴면
+        "미토콘드리아 … 1쪽, 100쪽, 125쪽"이라고 적혀 있죠. 그 쪽으로 <strong>바로 넘기면</strong> 끝입니다. 데이터베이스 <strong>인덱스(index)</strong>가 정확히 이겁니다.
+      </div>
+    </div>
+
+    <h3>인덱스를 만들면</h3>
+    <p>인덱스는 <strong>특정 컬럼(열)</strong>에 대해 만듭니다. <code>photos</code> 표의 <code>posted_by</code>(올린 사람) 컬럼에 인덱스를 만들면, 데이터베이스는 "앨런의 사진은 <strong>822번째 줄, 15,000번째 줄, 100,000번째 줄</strong>에 있다"는 목록을 미리 갖게 돼요. 이제 앨런의 사진을 찾을 땐 그 줄로 <strong>바로 점프</strong>하고, 나머지 99만 줄은 건드리지도 않습니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">조회 요청<br><small>"앨런 사진 줘"</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">인덱스 확인<br><small>822, 15000, 100000행</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">그 줄만 읽어서 반환</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">인덱스 만들기 — SQL 한 줄</span><span class="code-lang">SQL</span></div>
+      <pre><code class="language-sql">CREATE INDEX idx_photos_posted_by ON photos (posted_by);</code></pre>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted)">인덱스는 데이터베이스 <strong>안에</strong> 함께 저장됩니다. 별도 장비가 아니에요.</p>
+
+    <h3>그럼 모든 컬럼에 인덱스를 만들면 되지 않나요?</h3>
+    <p>안 됩니다. 인덱스는 <strong>만드는 것도, 유지하는 것도 일</strong>이거든요. 새 사용자가 가입할 때마다 그 사용자를 인덱스에도 넣어야 합니다. 즉 <strong>표에 새 데이터를 쓸 때마다 인덱스도 다시 써야</strong> 해요. 인덱스가 열 개면, 쓰기 한 번에 열 번의 추가 작업이 생기는 셈입니다. 읽기는 빨라지지만 쓰기는 느려지는 거래예요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 찾아보기가 열 개인 책</strong><br>
+        책에 새 장을 하나 추가할 때마다, 찾아보기가 하나면 하나만 고치면 되지만 열 개면 열 개를 전부 고쳐야 합니다. 찾아보기는 <strong>읽는 사람</strong>에겐 축복이지만 <strong>쓰는 사람</strong>에겐 짐이에요.
+      </div>
+    </div>
+
+    <h3>포토앱은 어떤 컬럼에?</h3>
+    <p>접근 패턴이 이미 답을 알려줬습니다. "특정 사용자의 사진 전부"를 위해 <strong><code>posted_by</code></strong>, "시간순 피드"를 위해 <strong><code>upload_time</code></strong>. 이 두 개면 가장 흔한 조회가 빨라집니다.</p>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>추측으로 인덱스를 만들지 마세요. 다시 한 번, 추측으로 인덱스를 만들지 마세요.</strong><br>
+        순서는 이렇습니다. ① <strong>0개</strong>로 시작한다 → ② 실제로 <strong>느린 조회</strong>를 찾는다 → ③ 그 조회가 쓰는 컬럼에 인덱스를 만든다.
+        몇 개가 정답이라는 규칙은 없지만, 실제 표를 보면 대개 <strong>3~5개</strong> 정도예요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>한 줄 정리 — 인덱스는 "이 값이 몇 번째 줄에 있는지" 미리 적어둔 찾아보기.</strong> 읽기는 극적으로 빨라지고 쓰기는 조금 느려지므로, 느린 조회를 확인한 뒤 필요한 컬럼에만 만듭니다.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        🧪 <strong>직접 해보기</strong> — 데이터베이스에 500만 행을 넣고 느린 조회를 실행해 본 뒤, 인덱스 하나를 추가하고 같은 조회가 몇 ms로 줄어드는지 확인합니다. <a href="https://kode.wiki/4fpJtkE" target="_blank" rel="noopener">무료 랩 링크</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    포토앱으로 배우는 시스템 디자인 · Part 4 · 데이터 설계 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

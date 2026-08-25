@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 6 · 복제와 샤딩 — 포토앱으로 배우는 시스템 디자인</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">PHOTO</span>
+      <span class="logo-text">포토앱으로 배우는 시스템 디자인</span>
+    </a>
+    <div class="logo-sub">서버 한 대에서 시작해 부품을 하나씩 추가하기</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 시스템 디자인이란?</div>
+    <a class="nav-item" href="01-what-is-system-design.html#what">🧭 시스템 디자인이 뭐예요?</a>
+    <a class="nav-item" href="01-what-is-system-design.html#one-server">🖥️ $10 서버 한 대에서 시작</a>
+    <a class="nav-item" href="01-what-is-system-design.html#three-failures">💥 세 가지 장애, 세 가지 부품</a>
+    <a class="nav-item" href="01-what-is-system-design.html#hld-lld">🔭 HLD vs LLD</a>
+    <a class="nav-item" href="01-what-is-system-design.html#requirements">📋 기능 vs 비기능 요구사항</a>
+    <a class="nav-item" href="01-what-is-system-design.html#five-questions">❓ 설계 전 5가지 질문</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 서버 키우기</div>
+    <a class="nav-item" href="02-scaling-servers.html#monolith-vs-micro">🧱 모놀리스 vs 마이크로서비스</a>
+    <a class="nav-item" href="02-scaling-servers.html#vertical-vs-horizontal">📈 수직 확장 vs 수평 확장</a>
+    <a class="nav-item" href="02-scaling-servers.html#request-journey">🚀 요청의 여정: DNS·HTTPS</a>
+    <a class="nav-item" href="02-scaling-servers.html#latency-bandwidth">⏱️ 지연 시간 vs 대역폭</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 로드 밸런서와 Stateless</div>
+    <a class="nav-item" href="03-load-balancer-stateless.html#load-balancer">⚖️ 로드 밸런서: 교통정리</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#health-check">🩺 헬스 체크와 분배 방식</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#lb-dies">🛡️ 로드 밸런서도 죽는다면?</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#logout-bug">🔓 갑자기 로그아웃되는 버그</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#stateless">🧳 Stateful vs Stateless</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#sticky-sessions">📌 스티키 세션은 왜 안 될까</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 데이터 설계</div>
+    <a class="nav-item" href="04-data-modeling-db.html#access-patterns">🔍 접근 패턴부터 적기</a>
+    <a class="nav-item" href="04-data-modeling-db.html#data-model">🗂️ 다섯 가지 데이터</a>
+    <a class="nav-item" href="04-data-modeling-db.html#sql-vs-nosql">🗄️ SQL vs NoSQL</a>
+    <a class="nav-item" href="04-data-modeling-db.html#indexing">📖 인덱스: 책 뒤의 찾아보기</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 캐시</div>
+    <a class="nav-item" href="05-caching.html#why-cache">⚡ 메시의 사진 문제</a>
+    <a class="nav-item" href="05-caching.html#hit-miss">🎯 캐시 히트와 미스</a>
+    <a class="nav-item" href="05-caching.html#what-to-cache">📦 무엇을 캐시에 넣을까</a>
+    <a class="nav-item" href="05-caching.html#ttl-invalidation">⏳ TTL vs 능동 무효화</a>
+    <a class="nav-item" href="05-caching.html#stampede">🐘 캐시 스탬피드와 LRU</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 복제와 샤딩</div>
+    <a class="nav-item" href="#replication">📚 복제: 데이터베이스 세 벌</a>
+    <a class="nav-item" href="#replication-lag">🐢 복제 지연과 일관성</a>
+    <a class="nav-item" href="#failover-backup">🔁 페일오버와 백업</a>
+    <a class="nav-item" href="#sharding">🔪 샤딩: 데이터 쪼개기</a>
+    <a class="nav-item" href="#shard-problems">⚠️ 핫 샤드와 일관된 해싱</a>
+    <a class="nav-item" href="#final-design">🗺️ 최종 설계 한 장</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="05-caching.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 5 · 캐시</span></a>
+    <a class="part-pager-link next" href="index.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">목차로 (완주!)</span></a>
+  </div>
+
+  <!-- ── 복제: 데이터베이스 세 벌 ── -->
+  <section class="section" id="replication">
+    <div class="section-header">
+      <div class="section-icon icon-concept">📚</div>
+      <h2>복제: 데이터베이스 세 벌</h2>
+    </div>
+
+    <p>Part 5에서 캐시를 붙였지만, 캐시에는 <strong>인기 있는 데이터(핫 데이터)만</strong> 들어 있습니다. 대부분의 데이터는 캐시에 없고, 수많은 쿼리는 여전히 데이터베이스로 갑니다. 게다가 우리 포토앱은 <a href="01-what-is-system-design.html#five-questions">설계 전 5가지 질문</a>에서 확인했듯 <strong>읽기가 압도적으로 많은 앱</strong>이라, 데이터베이스는 계속 바쁩니다.</p>
+
+    <p>그런데 지금까지의 설계를 잘 보면, 데이터베이스는 <strong>딱 한 대</strong>입니다. 이 한 대가 죽으면 데이터 전체를 잃습니다. Part 1에서 배운 <a href="01-what-is-system-design.html#three-failures">단일 장애점</a>이 데이터베이스에 그대로 남아 있는 거예요.</p>
+
+    <h3>해결: 데이터베이스를 복사해 둔다</h3>
+    <p>답은 데이터베이스의 <strong>복제본(replica, 레플리카)</strong>을 만드는 것입니다. 원본을 <strong>프라이머리(primary)</strong>, 복사본을 <strong>레플리카</strong>라고 부릅니다. 업계에서는 보통 <strong>레플리카를 2개</strong> 두어서, 프라이머리 1개 + 레플리카 2개 = <strong>총 3벌</strong>을 유지합니다. 당연히 비용은 올라가죠. 데이터베이스가 1대에서 3대가 됐으니까요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 장부를 세 권 쓰는 가게</strong><br>
+        가게 장부가 한 권뿐이면 불이 났을 때 매출 기록이 통째로 사라집니다. 그래서 원본 장부(프라이머리) 외에 사본 장부(레플리카)를 두 권 더 만들어 다른 곳에 둡니다.
+        그리고 "기록이 궁금한 사람"은 세 권 중 아무거나 펼쳐 봐도 되게 하는 거예요.
+      </div>
+    </div>
+
+    <h3>세 벌을 샀으면 세 벌을 다 쓰자</h3>
+    <p>세 대의 데이터베이스에 똑같은 데이터가 있는데, 사용자의 질문(읽기 쿼리)을 프라이머리 한 대만 답하게 할 이유가 있을까요? 없습니다. 3대 값을 내고 있으니 <strong>읽기 쿼리를 3대에 골고루 나눠</strong> 줍니다. 그러면 프라이머리의 부담이 크게 줄어듭니다.</p>
+    <p>"그럼 어느 데이터베이스가 이번 읽기를 답하지?"라는 질문이 또 생기는데, 이건 이미 아는 문제죠. 앱 서버 앞에 뒀던 것처럼 <strong>데이터베이스 앞에도 <a href="03-load-balancer-stateless.html#load-balancer">로드 밸런서</a></strong>를 하나 두어 읽기 부하를 3대에 분배합니다.</p>
+
+    <h3>쓰기는 오직 프라이머리에만</h3>
+    <p>읽기는 세 벌에 나눴습니다. 그러면 <strong>새 데이터를 쓸 때(쓰기 쿼리)</strong>는 어디에 쓸까요? 여기가 중요합니다. <strong>쓰기는 프라이머리 한 곳에만</strong> 합니다. 아무 데나 쓰면 안 되는 이유를 숫자로 보겠습니다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content">프라이머리와 레플리카 1 모두 <strong>X = 7</strong>이라는 같은 값을 갖고 있습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content">"X를 9로 바꿔 줘"라는 요청이 와서 <strong>프라이머리</strong>에 X = 9를 씁니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content">거의 동시에 "X를 13으로 바꿔 줘"가 와서 이번엔 <strong>레플리카</strong>에 X = 13을 씁니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content">이제 프라이머리는 9, 레플리카는 13. <strong>진짜 X는 뭘까요?</strong> 아무도 모릅니다.</div>
+      </div>
+    </div>
+
+    <p>여러 곳에 쓰면 어느 값이 진짜인지 알 수 없게 됩니다. 그래서 <strong>쓰기는 한 곳(프라이머리)에만</strong> 하고, 레플리카는 프라이머리와 연결을 열어 두고 변경 내용을 <strong>스트리밍으로 받아서 따라갑니다.</strong> 한 번 더 강조할게요. <strong>읽기는 세 벌 모두에 분산하지만, 쓰기는 프라이머리에만 합니다.</strong></p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header good">📖 읽기 경로 — 세 벌 모두</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          앱 서버 → 읽기 로드 밸런서 →<br>
+          프라이머리 <em>또는</em> 레플리카 1 <em>또는</em> 레플리카 2<br><br>
+          → 세 대가 나눠 답하니 프라이머리 <strong>부담이 크게 줄어듦</strong>
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">✍️ 쓰기 경로 — 프라이머리만</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          앱 서버 → <strong>프라이머리</strong><br>
+          프라이머리 → (스트리밍) → 레플리카 1, 2<br><br>
+          → 진실은 <strong>한 곳</strong>에만 있음
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: <strong>복제 = 데이터베이스를 3벌로. 읽기는 셋이 나눠 맡고, 쓰기는 프라이머리 하나만.</strong> 레플리카는 프라이머리를 스트리밍으로 따라갑니다.</div>
+    </div>
+  </section>
+
+  <!-- ── 복제 지연과 일관성 ── -->
+  <section class="section" id="replication-lag">
+    <div class="section-header">
+      <div class="section-icon icon-tx">🐢</div>
+      <h2>복제 지연과 일관성</h2>
+    </div>
+
+    <p>"레플리카가 프라이머리를 따라간다"는 말에는 숨은 사실이 하나 있습니다. <strong>따라가는 쪽은 항상 조금 늦습니다.</strong> 프라이머리에 새 데이터가 쓰이고 그것이 레플리카에 도착하기까지 보통 몇 밀리초가 걸리는데, 이 시간차를 <strong>복제 지연(replication lag)</strong>이라고 합니다.</p>
+    <p>그 짧은 순간 동안 프라이머리와 레플리카는 서로 다른 데이터를 갖고 있습니다. "지금은 안 맞지만, 곧(결국) 맞게 된다" — 이 성질을 <strong>최종적 일관성(eventual consistency)</strong>이라고 부릅니다. 레플리카는 아직 최신 쓰기를 못 받았지만, 결국은 받게 되니까요.</p>
+
+    <h3>이 지연이 만드는 실제 버그</h3>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content">앨런이 새 사진을 올립니다. 이 쓰기는 <strong>프라이머리</strong>에 기록됩니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content">0.5초 뒤, 앨런이 자기 사진을 보려고 <strong>본인 프로필을 새로고침</strong>합니다. 이건 읽기 쿼리죠.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content">읽기는 세 벌에 분산되니, 이 요청은 <strong>레플리카 2</strong>로 갑니다. 그런데 레플리카 2에는 아직 새 사진이 도착하지 않았습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content">결과: 방금 올린 사진이 <strong>내 프로필에 안 보입니다.</strong> 아주 잠깐이지만요.</div>
+      </div>
+    </div>
+
+    <p>여기서 짚고 갈 점: <strong>데이터는 잃어버리지 않았습니다.</strong> 사진은 프라이머리에 안전하게 있었고, 레플리카가 살짝 뒤처져 있었을 뿐이에요.</p>
+
+    <h3>해결: "내 것"은 프라이머리에서 읽는다</h3>
+    <p>고치는 방법은 단순합니다. 사용자가 <strong>자기 자신의 최근 데이터</strong>를 읽을 때는 그 읽기를 <strong>프라이머리로</strong> 보냅니다. 프라이머리에는 항상 최신 데이터가 있으니 앨런은 자기 사진을 바로 봅니다. 반면 <strong>다른 사람이</strong> 앨런의 프로필을 열 때는 레플리카로 보내도 됩니다. 남이 앨런의 새 사진을 0.5초 늦게 본다고 해서 아무도 다치지 않으니까요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 신문과 속보</strong><br>
+        오늘 아침 신문(레플리카)은 어젯밤까지의 소식만 담고 있습니다. 대부분의 독자에겐 그걸로 충분하죠. 하지만 사건 당사자가 "내 기사 나왔어?"라고 물으면 신문이 아니라 편집국(프라이머리)에 직접 물어봐야 확실합니다.
+      </div>
+    </div>
+
+    <p>이렇게 "모든 읽기가 최신 데이터를 돌려준다고 보장하는 것"을 <strong>강한 일관성(strong consistency)</strong>이라고 합니다. 최종적 일관성의 반대말이죠. 강한 일관성을 얻는 가장 쉬운 방법은 프라이머리에서 읽는 것입니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>그렇다고 전부 프라이머리에서 읽으면?</strong> 프라이머리로 보내는 읽기 하나하나가 <strong>우리가 줄이려고 했던 바로 그 부하</strong>를 다시 얹습니다. 그래서 모든 것을 강한 일관성으로 만들지 않습니다.
+        포토앱 대부분은 최종적 일관성으로 충분해요. <strong>어느 부분에 어떤 일관성이 필요한지 가려내는 것</strong>이 시스템 디자인의 진짜 실력입니다.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: <strong>레플리카는 몇 ms 늦다(복제 지연). 남의 데이터는 레플리카에서(최종적 일관성), 내 최근 데이터는 프라이머리에서(강한 일관성).</strong></div>
+    </div>
+  </section>
+
+  <!-- ── 페일오버와 백업 ── -->
+  <section class="section" id="failover-backup">
+    <div class="section-header">
+      <div class="section-icon icon-error">🔁</div>
+      <h2>페일오버와 백업</h2>
+    </div>
+
+    <p>복제를 도입한 원래 이유로 돌아가 볼게요. 데이터베이스 한 대가 단일 장애점이라는 문제였죠. 그래서 묻습니다. <strong>프라이머리가 실제로 죽으면 어떻게 될까요?</strong></p>
+    <p>앱은 죽지 않습니다. 레플리카 중 하나를 <strong>새 프라이머리로 승격</strong>시키면 됩니다. 레플리카는 프라이머리와 같은 데이터를 갖고 있으니, 이제부터 그 레플리카가 쓰기를 받으면 되는 거예요. 이 "승격"을 <strong>페일오버(failover)</strong>라고 합니다.</p>
+
+    <p>정리하면 복제가 주는 이점은 두 가지입니다. 레플리카가 <strong>읽기 부담을 나눠 맡아</strong> 프라이머리가 숨을 돌리고, 프라이머리가 죽었을 때 <strong>레플리카를 승격해</strong> 앱을 살립니다.</p>
+
+    <h3>가장 위험한 오해: "복제본이 있으니 데이터는 안전하다"</h3>
+    <p>복제에 대해 초보자가 가장 많이 하는 착각이자, 가장 위험한 착각입니다. 이런 상황을 상상해 보세요.</p>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>화요일 오후, 팀원 한 명이 프라이머리에 잘못된 DELETE 쿼리를 실행해 사진 기록 100만 건을 지웠습니다.</strong><br>
+        레플리카는 어떻게 할까요? 레플리카는 프라이머리에서 일어난 일을 <strong>실수까지 포함해서 그대로</strong> 복사합니다. 몇 밀리초 뒤, 그 DELETE는 두 레플리카에도 도착하고 — 이제 <strong>세 벌 모두 텅 비어 있습니다.</strong>
+      </div>
+    </div>
+
+    <p>즉, <strong>복제는 실수로부터 데이터를 지켜주지 않습니다.</strong> 복제는 "기계가 죽는 것"에 대비하는 도구이지, "사람이 잘못 지우는 것"에 대비하는 도구가 아니에요. 그래서 진짜 <strong>백업(backup)</strong>이 따로 필요합니다. 백업은 데이터베이스의 <strong>스냅샷</strong>을 찍어 <strong>시스템 바깥에</strong> 보관하는 것입니다. 화요일에 데이터를 날렸다면 월요일 밤에 찍어 둔 백업을 복원하면 되죠.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 실시간 동기화 폴더 vs 외장하드</strong><br>
+        내 노트북 폴더를 클라우드와 실시간 동기화해 두면(복제) 노트북이 고장 나도 파일은 살아 있습니다. 하지만 내가 실수로 파일을 지우면? 동기화는 <strong>삭제까지 성실하게</strong> 따라 해서 클라우드에서도 사라집니다.
+        그래서 지난주에 외장하드에 따로 복사해 둔 것(백업)이 있어야 되돌릴 수 있어요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: <strong>프라이머리가 죽으면 레플리카를 승격(페일오버). 하지만 복제는 실수를 못 막으니 백업은 반드시 따로.</strong></div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">🧪 직접 해보기 — 프라이머리와 레플리카를 띄우고, 행을 추가한 뒤 레플리카에서 살짝 늦게 나타나는 걸 보고, 프라이머리를 꺼서 레플리카를 승격시키고, 삭제 명령까지 그대로 복사되는 것을 확인합니다. <a href="https://kode.wiki/4fpJtkE" target="_blank" rel="noopener">무료 랩 링크</a></div>
+    </div>
+  </section>
+
+  <!-- ── 샤딩: 데이터 쪼개기 ── -->
+  <section class="section" id="sharding">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🔪</div>
+      <h2>샤딩: 데이터 쪼개기</h2>
+    </div>
+
+    <p>복제로 읽기 문제와 단일 장애점 문제는 풀었습니다. 그런데 복제에는 한 가지 특징이 있어요. 프라이머리가 1TB의 데이터를 갖고 있으면 레플리카 1도 똑같은 1TB, 레플리카 2도 똑같은 1TB를 갖습니다. <strong>모두가 전체를 통째로 들고 있는</strong> 거죠.</p>
+    <p>이제 질문 하나. 사용자가 5,000만 명이 되고, 사진·댓글·좋아요가 수십억 건 쌓여서 <strong>데이터가 데이터베이스 기계 한 대에 물리적으로 안 들어가면</strong> 어떻게 할까요? 레플리카가 구해 줄 수 있을까요? 아니요. 레플리카는 프라이머리와 <strong>똑같은 데이터를 전부</strong> 들어야 하니, 한 대에 안 들어가는 데이터는 레플리카에도 안 들어갑니다.</p>
+
+    <h3>해결: 데이터를 여러 조각으로 나눈다</h3>
+    <p>결국 어느 시점에는 데이터베이스를 <strong>여러 부분으로 나눠야</strong> 합니다. 이 기법이 <strong>샤딩(sharding)</strong>입니다. 하나의 데이터베이스가 모든 것을 갖는 대신, 데이터를 여러 데이터베이스에 나누어 각각은 <strong>한 조각(샤드, shard)</strong>만 보관합니다. 샤드 하나 = 데이터베이스 기계 한 대라고 생각하면 돼요.</p>
+    <p>예를 들어 5,000만 명을 4개 샤드에 나눕니다. 어떤 사용자는 샤드 0에, 어떤 사용자는 샤드 1, 2, 3에 삽니다. <strong>어느 한 대도 전부를 갖지 않지만, 넷을 합치면 전부</strong>가 됩니다. 그리고 공간이 부족해지면? 샤드(기계)를 하나 더 붙이면 됩니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step">🗄️ 샤드 0<br><small>사용자 일부</small></div>
+      <div class="flow-step">🗄️ 샤드 1<br><small>사용자 일부</small></div>
+      <div class="flow-step">🗄️ 샤드 2<br><small>사용자 일부</small></div>
+      <div class="flow-step">🗄️ 샤드 3<br><small>사용자 일부</small></div>
+      <div class="flow-arrow">+ 필요하면 샤드 추가</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 복사 vs 분권</strong><br>
+        복제는 같은 백과사전을 세 권 사서 세 곳에 두는 것입니다(각 권이 전부를 담음). 샤딩은 백과사전을 ㄱ~ㄹ권, ㅁ~ㅅ권… 처럼 <strong>권별로 나눠</strong> 각 서가에 한 권씩 꽂는 것이에요. 한 서가에 다 안 꽂히면 이렇게 나눌 수밖에 없습니다.
+      </div>
+    </div>
+
+    <h3>그럼 앨런의 데이터는 어느 샤드에?</h3>
+    <p>데이터를 쪼개는 순간 당연한 질문이 생깁니다. 앨런이 프로필을 열면 앨런의 데이터가 <strong>어느 샤드에 있는지</strong> 어떻게 알까요? 4개를 하나씩 뒤지면? 그건 쪼갠 의미가 없죠. 우리에겐 "이 데이터는 이 샤드에 있다"를 바로 알려 주는 <strong>규칙</strong>이 필요합니다.</p>
+    <p>먼저 데이터를 나눌 <strong>기준 필드</strong>를 하나 고릅니다. 이걸 <strong>샤드 키(shard key)</strong>라고 해요. 포토앱에서는 <strong>사용자 ID</strong>가 자연스럽습니다. 모든 사용자가 고유한 ID를 가지니 이걸 기준으로 흩어 놓기 좋거든요.</p>
+    <p>다음은 나누는 규칙. 가장 단순한 규칙은 <strong>나눗셈의 나머지</strong>입니다. <strong>사용자 ID를 샤드 수로 나눈 나머지가 샤드 번호</strong>가 되는 거예요.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>사용자</th><th>ID</th><th>계산 (샤드 4개)</th><th>사는 곳</th></tr></thead>
+        <tbody>
+          <tr><td>앨런</td><td><code>10</code></td><td>10 ÷ 4 = 2 <strong>나머지 2</strong></td><td>샤드 2</td></tr>
+          <tr><td>다른 사용자</td><td><code>13</code></td><td>13 ÷ 4 = 3 <strong>나머지 1</strong></td><td>샤드 1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>이 규칙은 빠르고, 어떤 서버든 즉시 계산할 수 있습니다. 어디에도 물어볼 필요 없이 "10이면 샤드 2"가 바로 나오니까요.</p>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: <strong>데이터가 한 기계에 안 들어가면 샤딩. 샤드 키(사용자 ID)로 어느 샤드에 살지 규칙을 정한다 — 가장 단순한 규칙은 나머지.</strong></div>
+    </div>
+  </section>
+
+  <!-- ── 핫 샤드와 일관된 해싱 ── -->
+  <section class="section" id="shard-problems">
+    <div class="section-header">
+      <div class="section-icon icon-query">⚠️</div>
+      <h2>핫 샤드와 일관된 해싱</h2>
+    </div>
+
+    <p>샤딩에서는 두 가지가 잘못될 수 있고, 둘 다 알아 두어야 합니다.</p>
+
+    <h3>문제 ① 핫 샤드 — 유명인이 한 곳에 몰리면</h3>
+    <p>운이 나쁘게도 메시, 호날두, 그리고 다른 유명인 계정이 <strong>전부 샤드 2</strong>에 배정됐다고 해 봅시다. 매분 수백만 명이 이 유명인들의 프로필을 엽니다. 그러면 샤드 2만 다른 샤드보다 훨씬 많은 부하를 받게 되죠. 이걸 <strong>핫 샤드(hot shard)</strong>라고 합니다. 데이터는 골고루 나눴는데 <strong>일감은 한 곳에 쏠린</strong> 상황이에요.</p>
+    <p>해결책은 사용자를 모든 샤드에 <strong>고르게 흩뿌리는 다른 샤드 키</strong>를 고르는 것입니다. 유명인을 한 샤드에 몰아넣는 대신, 메시는 샤드 1, 호날두는 샤드 3… 처럼 흩어지게 해서 어느 샤드도 혼자 짊어지지 않게 하는 거예요.</p>
+
+    <h3>문제 ② 샤드를 추가하면 데이터가 대이동한다</h3>
+    <p>두 번째 문제는 더 심각합니다. 우리의 단순한 규칙 "샤드 수로 나눈 나머지"를 다시 떠올려 보세요. 앱이 더 커져서 <strong>5번째 샤드를 추가</strong>하면, 규칙이 "÷4"에서 "÷5"로 바뀝니다. 앨런에게 무슨 일이 생길까요?</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th></th><th>샤드 4개일 때</th><th>샤드 5개로 늘린 뒤</th></tr></thead>
+        <tbody>
+          <tr><td><strong>앨런 (ID 10)</strong></td><td>10 ÷ 4 → 나머지 2 → <strong>샤드 2</strong></td><td>10 ÷ 5 → 나머지 0 → <strong>샤드 0</strong>이어야 함</td></tr>
+          <tr><td><strong>실제 데이터 위치</strong></td><td>샤드 2</td><td>여전히 샤드 2 <span class="badge badge-n1">규칙과 불일치</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>앨런만의 문제가 아닙니다. 나누는 수가 4에서 5로 바뀌면 <strong>거의 모든 사용자 ID의 나머지가 달라집니다.</strong> 즉, 거의 모든 데이터가 다른 샤드로 <strong>물리적으로 옮겨져야</strong> 해요. 기계 한 대 더 붙였다고 수십억 장의 사진을 데이터베이스 사이에서 옮긴다니, 악몽이죠.</p>
+
+    <h3>업계의 해법: 일관된 해싱</h3>
+    <p>이 악몽을 피하기 위한 업계 표준 기법이 <strong>일관된 해싱(consistent hashing)</strong>입니다. 핵심 아이디어는 <strong>규칙이 샤드의 총 개수에 의존하지 않게</strong> 만드는 것이에요. 각 샤드가 사용자 ID의 <strong>작은 범위</strong>를 소유합니다. 5번째 샤드를 추가하면, 새 샤드는 <strong>이웃 샤드 하나의 범위 일부만</strong> 넘겨받습니다. 그래서 그 범위에 속한 소수의 사용자만 이동하고, 나머지 샤드는 전혀 영향을 받지 않습니다.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 반 배정 방식의 차이</strong><br>
+        학생을 "출석번호 ÷ 반 수의 나머지"로 반 배정하면, 반이 4개에서 5개로 늘어나는 순간 <strong>전교생이 반을 다시 옮겨야</strong> 합니다.
+        대신 "1~25번은 1반, 26~50번은 2반…"처럼 <strong>번호 구간</strong>으로 나누면, 새 반은 <strong>한 반의 뒷부분 몇 명만</strong> 데려가면 되고 나머지 반은 그대로예요. 일관된 해싱이 바로 이 두 번째 방식입니다.
+      </div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>샤딩은 최대한 늦게</strong><br>
+        샤딩은 데이터베이스가 <strong>한 기계에 도저히 안 들어갈 때</strong> 꺼내는 도구입니다. 한번 데이터를 샤드로 쪼개면, 쪼갠 데이터를 다시 합쳐서 보는 것(조인)이 <strong>가장 되돌리기 어려운 일</strong>이 됩니다.
+        다행히 MongoDB 같은 데이터베이스는 샤딩을 내장하고 있어서 직접 구현할 필요는 없습니다. 그래도 "필요해지기 전까지는 하지 않는다"가 원칙이에요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: <strong>핫 샤드는 고르게 흩뿌리는 샤드 키로, 샤드 추가 시 대이동은 일관된 해싱으로. 그리고 샤딩 자체는 최대한 늦게.</strong></div>
+    </div>
+  </section>
+
+  <!-- ── 최종 설계 한 장 ── -->
+  <section class="section" id="final-design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>최종 설계 한 장</h2>
+    </div>
+
+    <p>Part 1에서 $10짜리 서버 한 대로 시작한 포토앱이 여기까지 왔습니다. 지금 사용자가 앱을 열면 요청이 어떤 길을 지나는지, 층별로 따라가 봅시다.</p>
+
+    <h4>① 사용자에서 앱 서버까지</h4>
+    <div class="flow-row">
+      <div class="flow-step blue">📱 사용자 폰</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">📇 DNS<br><small>LB 주소 반환</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⚖️ 로드 밸런서<br><small>여러 대로 이중화</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">🖥️ stateless 앱 서버 10대<br><small>아무 서버나 아무 사용자 처리</small></div>
+    </div>
+
+    <h4>② 앱 서버에서 데이터까지</h4>
+    <div class="flow-row">
+      <div class="flow-step green">🖥️ 앱 서버</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">⚡ Redis<br><small>로그인 세션 + 핫 데이터 캐시<br>TTL / 능동 무효화</small></div>
+      <div class="flow-arrow">미스 시 →</div>
+      <div class="flow-step">⚖️ 읽기 LB</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🗄️ Postgres 프라이머리<br><small>모든 쓰기</small></div>
+      <div class="flow-step">🗄️ 레플리카 1, 2<br><small>읽기 분산</small></div>
+    </div>
+
+    <h4>③ 그 옆에 함께 있는 것들</h4>
+    <div class="flow-row">
+      <div class="flow-step">📖 인덱스<br><small>posted_by, upload_time</small></div>
+      <div class="flow-step">🍃 MongoDB<br><small>사용자 선호·행동 데이터</small></div>
+      <div class="flow-step">☁️ 객체 저장소 (S3)<br><small>실제 사진 파일</small></div>
+      <div class="flow-step">💾 백업<br><small>시스템 밖 스냅샷</small></div>
+      <div class="flow-step red">🔪 샤딩<br><small>한 대에 안 들어갈 때</small></div>
+    </div>
+
+    <h3>부품마다 "왜"가 있다</h3>
+    <p>이 표가 이 강의의 전체 복습입니다. 부품 이름이 아니라 <strong>가운데 두 칸</strong> — 왜 추가했고, 그 대가로 어떤 새 문제가 생겼는지 — 를 말할 수 있으면 됩니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>부품</th><th>어떤 장애·요구 때문에 추가됐나</th><th>그 부품이 새로 만든 문제</th><th>어디서 배웠나</th></tr></thead>
+        <tbody>
+          <tr><td><strong>서버 여러 대 (수평 확장)</strong></td><td>한 대의 CPU·RAM이 바닥남, 한 대는 단일 장애점</td><td>"어느 서버로?", 데이터를 어디에 두나</td><td><a href="02-scaling-servers.html#vertical-vs-horizontal">Part 2</a></td></tr>
+          <tr><td><strong>로드 밸런서</strong></td><td>여러 서버에 요청을 나눠야 함, 죽은 서버 피하기</td><td>LB 자체가 죽을 수 있음 → 이중화</td><td><a href="03-load-balancer-stateless.html#load-balancer">Part 3</a></td></tr>
+          <tr><td><strong>stateless 서버 + 공유 세션 저장소</strong></td><td>서버마다 세션을 갖고 있어 사용자가 로그아웃됨</td><td>세션을 담을 빠른 공유 저장소 필요</td><td><a href="03-load-balancer-stateless.html#stateless">Part 3</a></td></tr>
+          <tr><td><strong>데이터 모델 + Postgres / MongoDB</strong></td><td>접근 패턴에 맞는 데이터 모양·관계, 구조화/비구조화 데이터</td><td>코드가 어느 DB에 물을지 알아야 함</td><td><a href="04-data-modeling-db.html#sql-vs-nosql">Part 4</a></td></tr>
+          <tr><td><strong>인덱스</strong></td><td>사용자 수가 늘며 피드 200ms → 500ms로 느려짐</td><td>쓰기마다 인덱스 갱신 비용</td><td><a href="04-data-modeling-db.html#indexing">Part 4</a></td></tr>
+          <tr><td><strong>캐시 (Redis)</strong></td><td>같은 사진을 수백만 번 DB에 물어봄, 피드는 빨라야 함</td><td>두 벌의 데이터가 어긋남 → TTL·무효화·스탬피드</td><td><a href="05-caching.html#why-cache">Part 5</a></td></tr>
+          <tr><td><strong>복제 (프라이머리 + 레플리카 2)</strong></td><td>DB 한 대는 단일 장애점, 읽기 부하</td><td>복제 지연 → 일관성 선택, 실수는 못 막음 → 백업</td><td><a href="#replication">Part 6</a></td></tr>
+          <tr><td><strong>샤딩</strong></td><td>데이터가 기계 한 대에 안 들어감</td><td>핫 샤드, 샤드 추가 시 대이동 → 일관된 해싱</td><td><a href="#sharding">Part 6</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>이 강의의 진짜 교훈</strong><br>
+        시스템 디자인은 부품 이름을 외우는 게 아닙니다. 각 부품이 <strong>왜 필요한지</strong>, 그리고 <strong>무엇을 대가로 치르는지</strong>를 말할 수 있는 것입니다.
+        "읽기가 많다고 했으니 캐시를 넣습니다. 대신 데이터가 두 벌이 되니 TTL로 어긋남을 관리합니다." — 이 한 문장이 다이어그램 열 장보다 낫습니다.
+        그리고 앱이 더 자라면, 우리는 같은 방식으로 또 다른 장애를 만나고 또 다른 부품을 추가하게 될 거예요.
+      </div>
+    </div>
+  </section>
+
+  <div class="doc-footer">
+    포토앱으로 배우는 시스템 디자인 · Part 6 · 복제와 샤딩 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

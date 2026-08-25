@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Part 5 · 캐시 — 포토앱으로 배우는 시스템 디자인</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="index.html">
+      <span class="logo-badge">PHOTO</span>
+      <span class="logo-text">포토앱으로 배우는 시스템 디자인</span>
+    </a>
+    <div class="logo-sub">서버 한 대에서 시작해 부품을 하나씩 추가하기</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 시스템 디자인이란?</div>
+    <a class="nav-item" href="01-what-is-system-design.html#what">🧭 시스템 디자인이 뭐예요?</a>
+    <a class="nav-item" href="01-what-is-system-design.html#one-server">🖥️ $10 서버 한 대에서 시작</a>
+    <a class="nav-item" href="01-what-is-system-design.html#three-failures">💥 세 가지 장애, 세 가지 부품</a>
+    <a class="nav-item" href="01-what-is-system-design.html#hld-lld">🔭 HLD vs LLD</a>
+    <a class="nav-item" href="01-what-is-system-design.html#requirements">📋 기능 vs 비기능 요구사항</a>
+    <a class="nav-item" href="01-what-is-system-design.html#five-questions">❓ 설계 전 5가지 질문</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 서버 키우기</div>
+    <a class="nav-item" href="02-scaling-servers.html#monolith-vs-micro">🧱 모놀리스 vs 마이크로서비스</a>
+    <a class="nav-item" href="02-scaling-servers.html#vertical-vs-horizontal">📈 수직 확장 vs 수평 확장</a>
+    <a class="nav-item" href="02-scaling-servers.html#request-journey">🚀 요청의 여정: DNS·HTTPS</a>
+    <a class="nav-item" href="02-scaling-servers.html#latency-bandwidth">⏱️ 지연 시간 vs 대역폭</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 로드 밸런서와 Stateless</div>
+    <a class="nav-item" href="03-load-balancer-stateless.html#load-balancer">⚖️ 로드 밸런서: 교통정리</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#health-check">🩺 헬스 체크와 분배 방식</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#lb-dies">🛡️ 로드 밸런서도 죽는다면?</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#logout-bug">🔓 갑자기 로그아웃되는 버그</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#stateless">🧳 Stateful vs Stateless</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#sticky-sessions">📌 스티키 세션은 왜 안 될까</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 데이터 설계</div>
+    <a class="nav-item" href="04-data-modeling-db.html#access-patterns">🔍 접근 패턴부터 적기</a>
+    <a class="nav-item" href="04-data-modeling-db.html#data-model">🗂️ 다섯 가지 데이터</a>
+    <a class="nav-item" href="04-data-modeling-db.html#sql-vs-nosql">🗄️ SQL vs NoSQL</a>
+    <a class="nav-item" href="04-data-modeling-db.html#indexing">📖 인덱스: 책 뒤의 찾아보기</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 캐시</div>
+    <a class="nav-item" href="#why-cache">⚡ 메시의 사진 문제</a>
+    <a class="nav-item" href="#hit-miss">🎯 캐시 히트와 미스</a>
+    <a class="nav-item" href="#what-to-cache">📦 무엇을 캐시에 넣을까</a>
+    <a class="nav-item" href="#ttl-invalidation">⏳ TTL vs 능동 무효화</a>
+    <a class="nav-item" href="#stampede">🐘 캐시 스탬피드와 LRU</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 복제와 샤딩</div>
+    <a class="nav-item" href="06-replication-sharding.html#replication">📚 복제: 데이터베이스 세 벌</a>
+    <a class="nav-item" href="06-replication-sharding.html#replication-lag">🐢 복제 지연과 일관성</a>
+    <a class="nav-item" href="06-replication-sharding.html#failover-backup">🔁 페일오버와 백업</a>
+    <a class="nav-item" href="06-replication-sharding.html#sharding">🔪 샤딩: 데이터 쪼개기</a>
+    <a class="nav-item" href="06-replication-sharding.html#shard-problems">⚠️ 핫 샤드와 일관된 해싱</a>
+    <a class="nav-item" href="06-replication-sharding.html#final-design">🗺️ 최종 설계 한 장</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="04-data-modeling-db.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">Part 4 · 데이터 설계</span></a>
+    <a class="part-pager-link next" href="06-replication-sharding.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">Part 6 · 복제와 샤딩</span></a>
+  </div>
+
+  <!-- ── 메시의 사진 문제 ── -->
+  <section class="section" id="why-cache">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚡</div>
+      <h2>메시의 사진 문제</h2>
+    </div>
+
+    <p>Part 4에서 <a href="04-data-modeling-db.html#indexing">인덱스</a>를 만들어 "앨런이 올린 사진 찾기" 같은 쿼리 <strong>하나하나</strong>는 빨라졌습니다. 그런데 이번엔 성격이 다른 문제가 생깁니다. 쿼리가 느린 게 아니라, <strong>똑같은 쿼리가 너무 많이</strong> 들어오는 거예요.</p>
+
+    <p>우리 앱에 메시나 호날두 같은 유명인이 가입했다고 해봅시다. 팔로워가 수백만 명입니다. 메시가 사진 한 장을 올리는 순간, 수백만 명이 동시에 <strong>그 한 장의 사진</strong>을 보려고 합니다. 데이터베이스 입장에서 보면 "메시의 새 사진 주세요"라는 <strong>완전히 동일한 질문</strong>에 수백만 번 답하는 셈이죠. 답은 매번 똑같은데, 매번 처음부터 다시 찾아냅니다. 낭비가 심하죠.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 카페 카운터의 "오늘의 인기 메뉴" 선반</strong><br>
+        손님 100명 중 90명이 아메리카노를 시킵니다. 매번 원두를 갈고 추출하면 줄이 길어지죠. 그래서 바리스타는 아메리카노 몇 잔을 <strong>미리 만들어 카운터 앞 선반</strong>에 둡니다.
+        손님이 "아메리카노요" 하면 주방(데이터베이스)까지 갈 필요 없이 선반에서 바로 건네줍니다. 이 선반이 <strong>캐시</strong>예요. 선반은 작지만, 거기서 꺼내는 건 주방에서 새로 만드는 것보다 훨씬 빠릅니다.
+      </div>
+    </div>
+
+    <p>해결책은 <strong>캐시(cache)</strong>입니다. 캐시는 인기 있는 항목만 담아 두는 <strong>작지만 엄청나게 빠른 저장소</strong>예요. 데이터를 디스크가 아니라 메모리(RAM)에 두기 때문에 빠릅니다. 이 캐시를 데이터베이스 <strong>앞에</strong> 세워 두면, 인기 있는 질문은 데이터베이스까지 가지 않고 캐시에서 바로 답할 수 있습니다.</p>
+
+    <div class="flow-row">
+      <div class="flow-step blue">🖥️ 앱 서버</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">⚡ 캐시 (Redis)<br><small>1ms 미만</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🗄️ 데이터베이스<br><small>20~30ms</small></div>
+    </div>
+
+    <p>속도 차이를 숫자로 보면 실감이 납니다. 캐시에서 읽으면 <strong>1밀리초도 안 걸리는데</strong>, 같은 데이터를 데이터베이스에서 읽으면 <strong>20~30밀리초</strong>가 걸립니다. 20~30배 차이예요. Part 2에서 "나중에 <strong>왕복을 줄이는 부품</strong>이 등장한다"고 했던 게 바로 이 캐시입니다(<a href="02-scaling-servers.html#latency-bandwidth">지연 시간 vs 대역폭</a>).</p>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: 캐시는 <strong>"같은 질문에 매번 새로 답하지 말고, 답을 메모해 뒀다가 바로 주자"</strong>는 부품입니다. 데이터베이스 앞에 두고, 인기 항목만 담습니다.</div>
+    </div>
+  </section>
+
+  <!-- ── 캐시 히트와 미스 ── -->
+  <section class="section" id="hit-miss">
+    <div class="section-header">
+      <div class="section-icon icon-select">🎯</div>
+      <h2>캐시 히트와 미스</h2>
+    </div>
+
+    <p>캐시가 실제로 어떻게 동작하는지 따라가 봅시다. 이 강의에서는 가장 널리 쓰이는 캐시인 <strong>Redis(레디스)</strong>를 예로 듭니다. Redis도 <a href="04-data-modeling-db.html#sql-vs-nosql">데이터베이스</a>처럼 특별한 하드웨어가 아니라, 그냥 서버 위에서 돌아가는 프로그램입니다.</p>
+
+    <p>"트렌딩 사진 주세요"라는 요청이 들어왔다고 해봅시다. 앱 서버는 데이터베이스에 바로 가지 않고, <strong>먼저 Redis에게 물어봅니다.</strong> "이거 이미 갖고 있어?" 여기서 두 갈래로 나뉩니다.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-num">1</div>
+        <div class="timeline-content"><strong>요청 도착</strong> — 사용자가 트렌딩 사진을 엽니다. 앱 서버가 Redis에 "이 사진 레코드 있어?"라고 묻습니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">2</div>
+        <div class="timeline-content"><strong>있으면 → 캐시 히트(cache hit)</strong> — Redis가 갖고 있던 사진 레코드를 바로 돌려줍니다. 앱은 그걸 사용자에게 응답하고 끝. <strong>데이터베이스는 이 요청이 있었는지조차 모릅니다.</strong></div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">3</div>
+        <div class="timeline-content"><strong>없으면 → 캐시 미스(cache miss)</strong> — 앱이 데이터베이스에 가서 사진 레코드를 가져옵니다.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-num">4</div>
+        <div class="timeline-content"><strong>캐시에 채워 넣기</strong> — 가져온 결과를 <strong>Redis에 써 둔 다음</strong> 사용자에게 응답합니다. 다음에 다른 사람이 같은 사진을 요청하면 이제 캐시에서 바로 나갑니다.</div>
+      </div>
+    </div>
+
+    <h3>두 경로를 그림으로</h3>
+    <p><strong>히트</strong>일 때는 데이터베이스까지 가지 않습니다.</p>
+    <div class="flow-row">
+      <div class="flow-step blue">👤 요청</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🖥️ 앱 서버</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">⚡ Redis: 있음!</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step blue">👤 응답</div>
+    </div>
+    <p><strong>미스</strong>일 때만 데이터베이스까지 다녀오고, 돌아오는 길에 Redis를 채웁니다.</p>
+    <div class="flow-row">
+      <div class="flow-step blue">👤 요청</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🖥️ 앱 서버</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step red">⚡ Redis: 없음</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🗄️ DB 조회</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step highlight">⚡ Redis에 저장</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step blue">👤 응답</div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: <strong>맨 처음 물어본 한 사람만</strong> 데이터베이스까지 다녀오고, 그 뒤 수백만 명은 캐시에서 받습니다. 메시의 사진 문제는 이렇게 해결됩니다.</div>
+    </div>
+  </section>
+
+  <!-- ── 무엇을 캐시에 넣을까 ── -->
+  <section class="section" id="what-to-cache">
+    <div class="section-header">
+      <div class="section-icon icon-entity">📦</div>
+      <h2>무엇을 캐시에 넣을까</h2>
+    </div>
+
+    <p>캐시는 작습니다. 데이터베이스 전체를 넣을 수는 없어요. 그러면 포토앱에서는 <strong>무엇</strong>을 캐시에 넣어야 할까요?</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">📸</div>
+        <div class="card-title">지금 모두가 찾는 사진 레코드</div>
+        <div class="card-body">메시가 방금 올린 게시물처럼 <strong>이 순간</strong> 수백만 명이 요청하는 사진의 정보.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔥</div>
+        <div class="card-title">트렌딩 목록의 메타데이터</div>
+        <div class="card-body">지금 앱에서 뜨고 있는 것들의 목록. 모든 사용자가 같은 목록을 봅니다.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🪪</div>
+        <div class="card-title">인기 프로필 카드</div>
+        <div class="card-body">이름·프로필 사진·소개글. 메시의 프로필은 하루에 수백만 명이 열지만 <strong>내용은 거의 바뀌지 않습니다.</strong></div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🔑</div>
+        <div class="card-title">로그인 세션</div>
+        <div class="card-body">Part 3에서 "공유 저장소"에 두기로 했던 그것. 바로 아래에서 설명합니다.</div>
+      </div>
+    </div>
+
+    <h3>좋은 캐시 항목의 세 가지 조건</h3>
+    <p>위 목록의 공통점이 보이시나요? 전부 <strong>크기가 작고</strong>, <strong>엄청나게 자주 읽히고</strong>, <strong>거의 바뀌지 않는</strong> 것들입니다. 이 세 조건이 캐시에 넣을 만한 항목을 고르는 기준이에요.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>조건</th><th>왜 중요한가</th><th>예</th></tr></thead>
+        <tbody>
+          <tr><td><strong>작다</strong></td><td>캐시는 작아서 큰 걸 넣으면 금방 꽉 참</td><td>사진 <em>레코드</em>(정보)는 넣지만 사진 <em>파일</em>은 안 넣음</td></tr>
+          <tr><td><strong>엄청 자주 읽힌다</strong></td><td>한 번 읽고 말 데이터를 넣으면 이득이 없음</td><td>메시의 게시물, 트렌딩 목록</td></tr>
+          <tr><td><strong>거의 안 바뀐다</strong></td><td>자주 바뀌면 캐시가 옛날 값을 뿌리게 됨 (다음 섹션)</td><td>프로필 카드</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Part 3의 고리를 닫을 시간</h3>
+    <p>Part 3에서 서버를 <a href="03-load-balancer-stateless.html#stateless">stateless</a>로 만들면서 로그인 세션을 "모든 서버가 접근할 수 있는 <strong>빠른 공유 저장소</strong>"로 옮기기로 했었죠. 그 공유 저장소의 정체가 사실 <strong>바로 이 Redis</strong>입니다. 로그인 세션을 다시 보면, 크기가 아주 작고, <strong>매 요청마다</strong> 읽히고, 빨라야 합니다. 딱 캐시에 어울리는 성질이죠.</p>
+
+    <p>그래서 실제 시스템에서 Redis는 <strong>두 가지 일</strong>을 동시에 합니다. 인기 데이터를 캐시하는 일, 그리고 로그인 세션을 보관하는 일. 부품 하나로 두 문제를 해결한 셈입니다.</p>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: 캐시에는 <strong>작고 · 자주 읽히고 · 거의 안 바뀌는</strong> 것을 넣습니다. 로그인 세션이 그 대표 예라서, Part 3의 "공유 저장소"도 결국 Redis입니다.</div>
+    </div>
+  </section>
+
+  <!-- ── TTL vs 능동 무효화 ── -->
+  <section class="section" id="ttl-invalidation">
+    <div class="section-header">
+      <div class="section-icon icon-tx">⏳</div>
+      <h2>TTL vs 능동 무효화</h2>
+    </div>
+
+    <p>캐시로 속도는 얻었습니다. 그런데 Part 1에서 말했듯 <a href="01-what-is-system-design.html#three-failures">부품을 하나 넣으면 새 문제가 하나 생깁니다.</a> 캐시를 넣는 순간, <strong>같은 데이터가 두 곳에 존재</strong>하게 됩니다. Redis에 한 벌, 데이터베이스에 한 벌. 사본이 둘이면 반드시 이 질문을 해야 합니다. <strong>"하나가 바뀌었는데 다른 하나는 안 바뀌면?"</strong></p>
+
+    <p>메시가 프로필 소개글을 수정했다고 해봅시다. 수정은 데이터베이스에 저장됩니다. 그런데 Redis에는 <strong>옛날 소개글</strong>이 그대로 앉아 있고, 프로필을 여는 수백만 명에게 그 옛날 소개글을 계속 뿌립니다. 데이터베이스는 맞는 값을 갖고 있는데 사용자는 틀린 값을 보는 상황이죠. 더 심한 경우도 있습니다. 사용자가 사진을 <strong>삭제</strong>했는데, 캐시에 남아 있어서 다른 사람들이 여전히 그 사진을 볼 수 있다면요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 가게 앞 메뉴판 사진</strong><br>
+        가게 안 메뉴판(데이터베이스)은 가격을 바꿨는데, 가게 앞에 붙여 둔 메뉴판 사진(캐시)은 그대로입니다. 손님은 밖의 사진을 보고 들어왔다가 가격이 다르다고 화를 내죠.
+        이걸 막는 방법은 두 가지예요. <strong>사진에 "이 사진은 1시간만 유효"라고 써 두기</strong>, 아니면 <strong>가격을 바꾸는 순간 밖에 나가서 사진을 떼어 오기</strong>.
+      </div>
+    </div>
+
+    <h3>도구 1 — TTL: 유효 기간을 정해 두기</h3>
+    <p><strong>TTL(Time To Live)</strong>은 캐시에 뭔가를 넣을 때 <strong>유효 기간을 같이 적어 두는</strong> 방식입니다. "이건 60초 동안만 유효해." 60초가 지나면 Redis가 알아서 그 항목을 버립니다. 다음 요청은 캐시 미스가 나고, 데이터베이스에서 <strong>새 값</strong>을 가져와 캐시를 다시 채웁니다.</p>
+
+    <p>강의에서는 이걸 <strong>"게으른 해결"</strong>이라고 부르는데, 모욕이 아닙니다. 데이터가 바뀌어도 아무것도 하지 않고, 만료될 때까지 <strong>가만히 기다렸다가</strong> 그제야 새로 가져오기 때문에 게으르다는 거예요. 대신 사용자는 <strong>최대 60초 동안 옛날 값</strong>을 볼 수 있습니다. 팔로워 수가 60초 늦게 반영되는 건 아무도 신경 안 씁니다. 하지만 바뀌는 즉시 정확해야 하는 데이터라면 60초는 아주 긴 시간이에요.</p>
+
+    <h3>도구 2 — 능동 무효화: 바뀌는 순간 지우기</h3>
+    <p><strong>능동 무효화(active invalidation)</strong>는 데이터베이스에 새 값을 쓰는 <strong>바로 그 순간</strong>, 캐시에 있는 옛 사본을 직접 지우는 방식입니다. 메시가 소개글을 바꾸면, 앱은 데이터베이스에 새 소개글을 저장하면서 동시에 Redis의 옛 소개글을 삭제합니다. 다음 요청은 캐시 미스 → 데이터베이스에서 새 값 → 캐시에 새 값이 채워집니다. 만료를 기다리지 않으니 옛 값을 보는 시간이 거의 없죠.</p>
+
+    <p>더 정확하지만 <strong>일이 늘어납니다.</strong> 데이터를 쓰는 코드마다 "아, 캐시도 지워야지"를 빠짐없이 기억해야 하거든요. 한 군데라도 빼먹으면 그 데이터는 옛 값으로 남습니다.</p>
+
+    <div class="compare-grid">
+      <div class="compare-card">
+        <div class="compare-card-header" style="background:var(--blue-soft);color:#1e40af;border-bottom:1px solid #bfdbfe">⏳ TTL</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          넣을 때 유효 기간을 적음<br>
+          만료되면 자동으로 버려짐<br>
+          <strong>장점</strong>: 간단, 신경 쓸 게 없음<br>
+          <strong>단점</strong>: 최대 TTL만큼 옛 값
+        </div>
+      </div>
+      <div class="compare-card">
+        <div class="compare-card-header good">🧹 능동 무효화</div>
+        <div style="padding:14px 16px;font-size:13px;color:#374151;line-height:1.9">
+          DB에 쓸 때 캐시 사본을 삭제<br>
+          다음 요청이 새 값으로 채움<br>
+          <strong>장점</strong>: 거의 즉시 정확<br>
+          <strong>단점</strong>: 쓰는 곳마다 잊지 말아야
+        </div>
+      </div>
+    </div>
+
+    <h3>둘 중 뭘 고를까?</h3>
+    <p>정답은 없습니다. 기준은 하나예요. <strong>"이 데이터는 옛날 값을 얼마나 참을 수 있나?"</strong> 그리고 이 질문은 사실 Part 1의 <a href="01-what-is-system-design.html#five-questions">설계 전 5가지 질문</a>에서 이미 답했던 질문입니다. 트렌딩 피드가 몇 초 늦는 건 괜찮으니 <strong>짧은 TTL</strong>을 주고 넘어갑니다. 반면 사진의 <strong>공개/비공개 설정</strong>은 1초도 옛 값이면 안 됩니다. 옛 값이라는 건 곧 <strong>비공개 사진이 엉뚱한 사람에게 보인다</strong>는 뜻이니까요. 이런 건 <strong>능동 무효화</strong>를 씁니다.</p>
+
+    <p>업계에서 통용되는 기본값이 있습니다. 나중에 조정하더라도 시작점으로는 충분해요.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>데이터</th><th>기본값</th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td>홈 피드</td><td>TTL 30초</td><td>몇십 초 늦어도 아무도 모름</td></tr>
+          <tr><td>프로필 카드</td><td>TTL 몇 분</td><td>거의 안 바뀜</td></tr>
+          <tr><td>트렌딩 목록</td><td>TTL 60초</td><td>1분 단위면 충분히 "실시간"</td></tr>
+          <tr><td>보안·권한 (비공개 설정 등)</td><td><strong>TTL 없음, 능동 무효화만</strong></td><td>옛 값 = 사고</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>기억할 것</strong>: 최악의 캐시 버그는 캐시가 <em>비어 있을 때</em>가 아닙니다. 캐시가 <strong>자신 있게 틀린 데이터를 줄 때</strong>입니다.
+        "컴퓨터 과학에서 어려운 게 딱 두 가지 있는데, 그중 하나가 캐시 무효화다"라는 오래된 농담이 괜히 있는 게 아니에요.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">한 줄 정리: 옛 값을 <strong>참을 수 있으면 TTL</strong>, <strong>참을 수 없으면 능동 무효화</strong>. 어느 쪽인지는 요구사항이 정해 줍니다.</div>
+    </div>
+  </section>
+
+  <!-- ── 캐시 스탬피드와 LRU ── -->
+  <section class="section" id="stampede">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🐘</div>
+      <h2>캐시 스탬피드와 LRU</h2>
+    </div>
+
+    <p>TTL에는 부작용이 하나 더 있습니다. 트렌딩 사진에 60초 TTL을 줬다고 해봅시다. 60초가 지나 그 항목이 캐시에서 사라지는 <strong>바로 그 순간</strong>에도 사람들은 계속 그 사진을 요청하고 있습니다. 그러면 1,000개의 요청이 <strong>동시에</strong> 캐시 미스를 내고, 1,000개가 <strong>똑같은 쿼리</strong>로 데이터베이스를 한꺼번에 때립니다. 캐시를 둔 이유가 데이터베이스를 보호하려는 건데, 만료되는 순간마다 정반대 일이 벌어지는 거죠. 이 현상을 <strong>캐시 스탬피드(cache stampede)</strong>라고 합니다. stampede는 "동물 떼가 우르르 몰려드는 것"이라는 뜻이에요.</p>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 매장 오픈 시간에 몰리는 손님</strong><br>
+        인기 매장 두 곳이 <strong>같은 시각</strong>에 문을 열면 주차장이 마비됩니다. 한 곳은 10시, 다른 곳은 10시 1분에 열기만 해도 훨씬 낫죠.
+        캐시도 같습니다. 메시 사진은 60초, 호날두 사진은 61초처럼 <strong>만료 시각을 살짝 엇갈리게</strong> 두면 인기 항목들이 한꺼번에 죽지 않습니다.
+      </div>
+    </div>
+
+    <h3>스탬피드를 막는 방법들</h3>
+    <ul>
+      <li><strong>만료 시각 엇갈리기</strong> — 항목마다 TTL에 약간의 <strong>랜덤</strong>을 더해서 같은 순간에 만료되지 않게 합니다.</li>
+      <li><strong>한 명만 다시 채우기</strong> — 미스가 났을 때 요청 하나만 데이터베이스에 가서 캐시를 다시 채우고, 나머지는 잠깐 기다리거나 <strong>옛 값을 잠시 받습니다.</strong></li>
+      <li><strong>만료 전에 미리 갱신</strong> — 인기 항목은 만료를 기다리지 않고 조금 앞서 새 값으로 갈아 끼웁니다.</li>
+    </ul>
+
+    <h3>캐시가 꽉 차면?</h3>
+    <p>캐시는 작다고 했죠. 언젠가는 꽉 찹니다. 그럼 뭔가를 버려야 하는데, 뭘 버릴까요? 가장 흔한 답이 <strong>LRU(Least Recently Used)</strong>입니다. 말 그대로 <strong>가장 오래 아무도 안 찾은 항목</strong>부터 버리는 거예요. 카페 선반에 올려 둔 음료 중 제일 오래 아무도 안 집어간 걸 치우는 것과 같습니다.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>🎤 면접에서는 이렇게</strong><br>
+        캐시는 거의 매 면접에서 후속 질문이 따라옵니다. ① <em>"캐시가 꽉 차면 뭘 지우나?"</em> → <strong>LRU</strong>, 가장 오래 안 쓴 것부터.
+        ② <em>"핫 항목이 만료되고 10,000개 요청이 동시에 미스 나면?"</em> → <strong>캐시 스탬피드</strong>라는 용어를 말하고 방어책 하나(하나만 다시 채우고 나머지는 옛 값, 또는 TTL에 랜덤 추가)를 덧붙입니다.
+        ③ <em>"캐시와 DB를 어떻게 동기화하나?"</em> → 옛 값이 허용되면 <strong>TTL</strong>, 허용 안 되면 <strong>능동 무효화</strong>.
+        면접관이 묻기 전에 <strong>스탬피드를 먼저 꺼내면</strong> "기능만이 아니라 장애까지 생각했다"는 강한 채용 신호가 됩니다.
+      </div>
+    </div>
+
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body">🧪 직접 해보기 — 데이터베이스 앞에 Redis 캐시를 두고 속도를 전후로 비교한 다음, 데이터베이스 값을 바꿔서 앱이 옛 데이터를 보여주는 순간을 직접 관찰합니다. <a href="https://kode.wiki/4fpJtkE" target="_blank" rel="noopener">무료 랩 링크</a></div>
+    </div>
+
+    <p>캐시로 <strong>인기 데이터</strong>는 빨라졌습니다. 하지만 대부분의 데이터는 캐시에 없고, 여전히 수많은 쿼리가 데이터베이스로 갑니다. 그리고 그 데이터베이스는 아직 <strong>한 대</strong>뿐이죠. 다음 Part에서 이 문제를 다룹니다.</p>
+  </section>
+
+  <div class="doc-footer">
+    포토앱으로 배우는 시스템 디자인 · Part 5 · 캐시 · <a href="index.html">전체 목차로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

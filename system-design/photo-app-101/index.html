@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>포토앱으로 배우는 시스템 디자인 — 왕초보 가이드</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<div class="layout">
+
+<!-- ── Sidebar ── -->
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="#top">
+      <span class="logo-badge">PHOTO</span>
+      <span class="logo-text">포토앱으로 배우는 시스템 디자인</span>
+    </a>
+    <div class="logo-sub">서버 한 대에서 시작해 부품을 하나씩 추가하기</div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-section-title">Part 1 · 시스템 디자인이란?</div>
+    <a class="nav-item" href="01-what-is-system-design.html#what">🧭 시스템 디자인이 뭐예요?</a>
+    <a class="nav-item" href="01-what-is-system-design.html#one-server">🖥️ $10 서버 한 대에서 시작</a>
+    <a class="nav-item" href="01-what-is-system-design.html#three-failures">💥 세 가지 장애, 세 가지 부품</a>
+    <a class="nav-item" href="01-what-is-system-design.html#hld-lld">🔭 HLD vs LLD</a>
+    <a class="nav-item" href="01-what-is-system-design.html#requirements">📋 기능 vs 비기능 요구사항</a>
+    <a class="nav-item" href="01-what-is-system-design.html#five-questions">❓ 설계 전 5가지 질문</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 2 · 서버 키우기</div>
+    <a class="nav-item" href="02-scaling-servers.html#monolith-vs-micro">🧱 모놀리스 vs 마이크로서비스</a>
+    <a class="nav-item" href="02-scaling-servers.html#vertical-vs-horizontal">📈 수직 확장 vs 수평 확장</a>
+    <a class="nav-item" href="02-scaling-servers.html#request-journey">🚀 요청의 여정: DNS·HTTPS</a>
+    <a class="nav-item" href="02-scaling-servers.html#latency-bandwidth">⏱️ 지연 시간 vs 대역폭</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 3 · 로드 밸런서와 Stateless</div>
+    <a class="nav-item" href="03-load-balancer-stateless.html#load-balancer">⚖️ 로드 밸런서: 교통정리</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#health-check">🩺 헬스 체크와 분배 방식</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#lb-dies">🛡️ 로드 밸런서도 죽는다면?</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#logout-bug">🔓 갑자기 로그아웃되는 버그</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#stateless">🧳 Stateful vs Stateless</a>
+    <a class="nav-item" href="03-load-balancer-stateless.html#sticky-sessions">📌 스티키 세션은 왜 안 될까</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 4 · 데이터 설계</div>
+    <a class="nav-item" href="04-data-modeling-db.html#access-patterns">🔍 접근 패턴부터 적기</a>
+    <a class="nav-item" href="04-data-modeling-db.html#data-model">🗂️ 다섯 가지 데이터</a>
+    <a class="nav-item" href="04-data-modeling-db.html#sql-vs-nosql">🗄️ SQL vs NoSQL</a>
+    <a class="nav-item" href="04-data-modeling-db.html#indexing">📖 인덱스: 책 뒤의 찾아보기</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 5 · 캐시</div>
+    <a class="nav-item" href="05-caching.html#why-cache">⚡ 메시의 사진 문제</a>
+    <a class="nav-item" href="05-caching.html#hit-miss">🎯 캐시 히트와 미스</a>
+    <a class="nav-item" href="05-caching.html#what-to-cache">📦 무엇을 캐시에 넣을까</a>
+    <a class="nav-item" href="05-caching.html#ttl-invalidation">⏳ TTL vs 능동 무효화</a>
+    <a class="nav-item" href="05-caching.html#stampede">🐘 캐시 스탬피드와 LRU</a>
+
+    <div class="nav-section-title" style="margin-top:8px">Part 6 · 복제와 샤딩</div>
+    <a class="nav-item" href="06-replication-sharding.html#replication">📚 복제: 데이터베이스 세 벌</a>
+    <a class="nav-item" href="06-replication-sharding.html#replication-lag">🐢 복제 지연과 일관성</a>
+    <a class="nav-item" href="06-replication-sharding.html#failover-backup">🔁 페일오버와 백업</a>
+    <a class="nav-item" href="06-replication-sharding.html#sharding">🔪 샤딩: 데이터 쪼개기</a>
+    <a class="nav-item" href="06-replication-sharding.html#shard-problems">⚠️ 핫 샤드와 일관된 해싱</a>
+    <a class="nav-item" href="06-replication-sharding.html#final-design">🗺️ 최종 설계 한 장</a>
+  </div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="main" id="top">
+
+  <div class="hero">
+    <div class="hero-tag">SYSTEM DESIGN · 왕초보 입문</div>
+    <h1>포토앱으로 배우는 시스템 디자인</h1>
+    <p>개념을 하나씩 외우는 대신, <strong>사진 공유 앱 하나를 서버 한 대에서 시작해 수백만 명이 쓰는 서비스로 키워 봅니다.</strong> 부품(로드 밸런서·캐시·복제·샤딩)은 "앱이 실제로 고장 나는 순간"에만 등장하기 때문에, 각 부품이 <strong>왜 거기 있는지</strong>를 자연스럽게 알게 됩니다.</p>
+    <div class="hero-chips">
+      <span class="hero-chip">Load Balancer</span>
+      <span class="hero-chip">Stateless</span>
+      <span class="hero-chip">Data Modeling</span>
+      <span class="hero-chip">SQL vs NoSQL</span>
+      <span class="hero-chip">Index</span>
+      <span class="hero-chip">Cache</span>
+      <span class="hero-chip">Replication</span>
+      <span class="hero-chip">Sharding</span>
+    </div>
+  </div>
+
+  <div class="tip-box">
+    <strong>이 가이드를 읽는 법</strong>: 각 Part는 <strong>"앱이 이렇게 고장 났다 → 왜 그런가 → 어떤 부품으로 고치나 → 그 부품이 새로 만드는 문제는 뭔가"</strong> 순서로 이어집니다.
+    그래서 순서대로 읽는 게 가장 잘 이해돼요. 다 읽고 나면 "이 앱을 어떻게 확장할래?"라는 질문에 다이어그램을 외워서 답하는 게 아니라, <strong>논리적으로 설명</strong>할 수 있게 되는 게 목표입니다.
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🛤️</div>
+      <h2>한눈에 보는 여정</h2>
+    </div>
+    <p>이 강의에서 포토앱이 자라나는 순서입니다. 지금은 단어만 눈에 익혀 두세요. 각각이 <strong>어떤 장애를 겪고 나서</strong> 추가되는지는 본문에서 하나씩 만나게 됩니다.</p>
+    <div class="flow-row">
+      <div class="flow-step blue">🖥️ 서버 1대</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🖥️ 서버 여러 대<br><small>Part 2</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⚖️ 로드 밸런서<br><small>Part 3</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">🗄️ DB 설계·인덱스<br><small>Part 4</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">⚡ 캐시<br><small>Part 5</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step green">📚 복제·샤딩<br><small>Part 6</small></div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>비유 — 동네 분식집이 프랜차이즈가 되기까지</strong><br>
+        처음엔 사장님 혼자 주문받고 요리하고 계산합니다(서버 1대). 손님이 몰리면 요리사를 더 뽑고(서버 여러 대), 홀 매니저가 손님을 빈 테이블로 안내하고(로드 밸런서),
+        인기 메뉴는 미리 만들어 두고(캐시), 장부를 여러 벌 복사해 두고(복제), 지점을 나누기(샤딩)까지 갑니다. 각 단계는 <strong>"지금 이게 안 돼서"</strong> 추가되는 거지, 멋있어 보여서가 아니에요.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🗂️</div>
+      <h2>목차</h2>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="01-what-is-system-design.html">
+        <div class="part-card-num">1</div>
+        <div>
+          <div class="part-card-title">Part 1 · 시스템 디자인이란?</div>
+          <div class="part-card-sub">서버 한 대의 세 가지 장애 · HLD vs LLD · 요구사항 · 설계 전 5가지 질문</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="01-what-is-system-design.html#what">🧭 시스템 디자인이 뭐예요?</a></li>
+        <li><a href="01-what-is-system-design.html#one-server">🖥️ $10 서버 한 대에서 시작</a></li>
+        <li><a href="01-what-is-system-design.html#three-failures">💥 세 가지 장애, 세 가지 부품</a></li>
+        <li><a href="01-what-is-system-design.html#hld-lld">🔭 HLD vs LLD</a></li>
+        <li><a href="01-what-is-system-design.html#requirements">📋 기능 vs 비기능 요구사항</a></li>
+        <li><a href="01-what-is-system-design.html#five-questions">❓ 설계 전 5가지 질문</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="02-scaling-servers.html">
+        <div class="part-card-num">2</div>
+        <div>
+          <div class="part-card-title">Part 2 · 서버 키우기</div>
+          <div class="part-card-sub">모놀리스 vs 마이크로서비스 · 수직/수평 확장 · 요청이 서버까지 가는 길</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="02-scaling-servers.html#monolith-vs-micro">🧱 모놀리스 vs 마이크로서비스</a></li>
+        <li><a href="02-scaling-servers.html#vertical-vs-horizontal">📈 수직 확장 vs 수평 확장</a></li>
+        <li><a href="02-scaling-servers.html#request-journey">🚀 요청의 여정: DNS·HTTPS</a></li>
+        <li><a href="02-scaling-servers.html#latency-bandwidth">⏱️ 지연 시간 vs 대역폭</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="03-load-balancer-stateless.html">
+        <div class="part-card-num">3</div>
+        <div>
+          <div class="part-card-title">Part 3 · 로드 밸런서와 Stateless</div>
+          <div class="part-card-sub">서버가 여러 대가 되면 생기는 두 가지 문제 — "어느 서버로?"와 "왜 로그아웃되지?"</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="03-load-balancer-stateless.html#load-balancer">⚖️ 로드 밸런서: 교통정리</a></li>
+        <li><a href="03-load-balancer-stateless.html#health-check">🩺 헬스 체크와 분배 방식</a></li>
+        <li><a href="03-load-balancer-stateless.html#lb-dies">🛡️ 로드 밸런서도 죽는다면?</a></li>
+        <li><a href="03-load-balancer-stateless.html#logout-bug">🔓 갑자기 로그아웃되는 버그</a></li>
+        <li><a href="03-load-balancer-stateless.html#stateless">🧳 Stateful vs Stateless</a></li>
+        <li><a href="03-load-balancer-stateless.html#sticky-sessions">📌 스티키 세션은 왜 안 될까</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="04-data-modeling-db.html">
+        <div class="part-card-num">4</div>
+        <div>
+          <div class="part-card-title">Part 4 · 데이터 설계</div>
+          <div class="part-card-sub">질문 먼저, 데이터 모양 다음, 기술은 마지막 · SQL vs NoSQL · 인덱스</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="04-data-modeling-db.html#access-patterns">🔍 접근 패턴부터 적기</a></li>
+        <li><a href="04-data-modeling-db.html#data-model">🗂️ 다섯 가지 데이터</a></li>
+        <li><a href="04-data-modeling-db.html#sql-vs-nosql">🗄️ SQL vs NoSQL</a></li>
+        <li><a href="04-data-modeling-db.html#indexing">📖 인덱스: 책 뒤의 찾아보기</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="05-caching.html">
+        <div class="part-card-num">5</div>
+        <div>
+          <div class="part-card-title">Part 5 · 캐시</div>
+          <div class="part-card-sub">같은 질문 백만 번 · 히트/미스 · 오래된 데이터와 싸우기 · 스탬피드</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="05-caching.html#why-cache">⚡ 메시의 사진 문제</a></li>
+        <li><a href="05-caching.html#hit-miss">🎯 캐시 히트와 미스</a></li>
+        <li><a href="05-caching.html#what-to-cache">📦 무엇을 캐시에 넣을까</a></li>
+        <li><a href="05-caching.html#ttl-invalidation">⏳ TTL vs 능동 무효화</a></li>
+        <li><a href="05-caching.html#stampede">🐘 캐시 스탬피드와 LRU</a></li>
+      </ul>
+    </div>
+
+    <div class="part-card">
+      <a class="part-card-head" href="06-replication-sharding.html">
+        <div class="part-card-num">6</div>
+        <div>
+          <div class="part-card-title">Part 6 · 복제와 샤딩</div>
+          <div class="part-card-sub">DB가 죽으면? · 복제 지연과 일관성 · 백업은 왜 따로 · 데이터가 한 대에 안 들어가면?</div>
+        </div>
+      </a>
+      <ul class="part-card-list">
+        <li><a href="06-replication-sharding.html#replication">📚 복제: 데이터베이스 세 벌</a></li>
+        <li><a href="06-replication-sharding.html#replication-lag">🐢 복제 지연과 일관성</a></li>
+        <li><a href="06-replication-sharding.html#failover-backup">🔁 페일오버와 백업</a></li>
+        <li><a href="06-replication-sharding.html#sharding">🔪 샤딩: 데이터 쪼개기</a></li>
+        <li><a href="06-replication-sharding.html#shard-problems">⚠️ 핫 샤드와 일관된 해싱</a></li>
+        <li><a href="06-replication-sharding.html#final-design">🗺️ 최종 설계 한 장</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="doc-footer">
+    포토앱으로 배우는 시스템 디자인 · 원본 강의: <a href="https://www.youtube.com/watch?v=SE2KF-vxvS0" target="_blank" rel="noopener">KodeKloud — System Design for Beginners (2026)</a>
+  </div>
+
+</main>
+</div>
+
+<script src="assets/script.js"></script>
+</body>
+</html>

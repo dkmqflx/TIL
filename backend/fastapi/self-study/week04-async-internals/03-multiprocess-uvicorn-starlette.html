@@ -72,11 +72,6 @@
 
   <div class="tip-box"><strong>한 줄 요약.</strong> 비동기는 <b>한 가게 안에서 기다림을 겹쳐</b> 처리하는 기술(동시성)이고, 멀티프로세스(<code>--workers</code>)는 <b>가게를 여러 개 열어</b> 진짜 동시에 일하게 하는 기술(병렬성)이다. 서로 다른 문제를 풀기 때문에 실무에선 <b>둘을 같이</b> 쓴다. 그리고 요청 한 건은 <b>Uvicorn(접수) → Starlette(동선) → FastAPI(검수·메뉴판)</b> 3층을 통과한다.</div>
 
-  <div class="callout callout-note">
-    <div class="callout-icon"></div>
-    <div class="callout-body"><strong>이 문서를 읽는 순서.</strong> 이 장이 어렵게 느껴지는 가장 큰 이유는 <strong>프로세스·스레드·코어·GIL</strong> 같은 단어가 설명 없이 쏟아지기 때문입니다. 그래서 앞의 두 섹션에서 <strong>단어부터</strong> 정리하고, 그 다음에 워커와 3층 구조로 넘어갑니다. 급하지 않다면 순서대로 읽어 주세요.</div>
-  </div>
-
   <h3>학습 목표</h3>
   <ul class="checklist">
     <li>코어 · 프로세스 · 스레드를 각각 한 문장으로 말하고, "프로세스는 담고, 스레드가 돌고, 코어가 실행한다"는 관계를 그린다</li>
@@ -202,7 +197,7 @@
 
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>실제 숫자로 느껴 보기.</strong> 지금 쓰고 있는 컴퓨터도 정확히 이 구조입니다. 어느 맥북에서 재 보니 <strong>코어 12개 · 프로세스 643개 · 스레드 6,744개</strong>였습니다. 코어보다 프로세스는 50배, 스레드는 <strong>500배 이상</strong> 많은데도 아무 문제 없이 돌아가죠 — OS가 번갈아 올려 주기 때문입니다. 즉 <strong>코어 수는 "몇 개를 띄울 수 있냐"의 제한이 아니라, "한 순간에 몇 개가 진짜 동시에 계산되냐"를 정하는 숫자</strong>입니다. 직접 확인해 보세요: 맥은 <code>top -l 1 -n 0 | grep Processes</code>, 리눅스는 <code>ps -eLf | wc -l</code>(스레드 수) 입니다.</div>
+      <div class="callout-body"><strong>실제 숫자로 느껴 보기.</strong> 어느 맥북에서 재 보니 <strong>코어 12개 · 프로세스 643개 · 스레드 6,744개</strong>였습니다. 코어보다 수백 배 많은데도 문제없이 돌아가죠 — OS가 번갈아 올려 주기 때문입니다. 즉 <strong>코어 수는 "몇 개를 띄울 수 있냐"가 아니라 "한 순간에 몇 개가 진짜 동시에 계산되냐"를 정하는 숫자</strong>입니다. (맥은 <code>top -l 1 -n 0 | grep Processes</code>, 리눅스는 <code>ps -eLf | wc -l</code>로 확인할 수 있습니다.)</div>
     </div>
   </section>
 
@@ -211,38 +206,128 @@
       <div class="section-icon icon-setup">🖥️</div>
       <h2>한 프로세스는 왜 코어 하나만 쓸까 — GIL</h2>
     </div>
-    <p><code>uvicorn main:app</code>으로 서버를 띄우면 프로세스는 <strong>딱 한 개</strong> 생깁니다. 그런데 이 프로세스는 8코어 컴퓨터에서 돌려도 <strong>한 순간에 코어 하나 몫의 일</strong>밖에 해내지 못합니다 — 8코어를 사 놓고 처리량은 1코어분에 묶이는 셈이죠. 이유는 파이썬에 <strong>GIL</strong>이라는 규칙이 있기 때문입니다.</p>
+    <p><code>uvicorn main:app</code>으로 서버를 띄우면 프로세스는 <strong>딱 한 개</strong> 생깁니다. 바로 앞에서 "스레드가 여러 개면 코어 여러 개에 나눠 올라간다"고 했으니, 이 프로세스도 8코어를 다 쓸 것 같죠. 그런데 <strong>파이썬만은 예외</strong>입니다. 8코어짜리 컴퓨터에서 돌려도 한 순간에 <strong>코어 하나 몫</strong>의 계산밖에 못 합니다. 그 예외를 만드는 규칙이 <strong>GIL</strong>입니다.</p>
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>GIL = 가게에 하나뿐인 "커피 머신 열쇠".</strong> 어떤 가게(프로세스)에 직원(스레드)을 10명 뽑았다고 해봅시다. 그런데 이 가게 규칙은 <strong>"커피 머신을 쓰려면 열쇠를 쥐어야 하고, 열쇠는 딱 한 개"</strong>입니다. 직원이 10명이어도 <strong>실제로 커피를 뽑는 사람은 언제나 한 명</strong>이죠. GIL(Global Interpreter Lock)이 바로 이 열쇠입니다 — <strong>"파이썬 코드를 실행할 권리를 가진 스레드는 한 순간에 하나뿐"</strong>이라는 자물쇠요.</div>
+      <div class="callout-body"><strong>GIL = 가게에 하나뿐인 "커피 머신 열쇠".</strong> 카페(프로세스)에 직원(스레드)을 세 명 뽑았는데, 가게 규칙이 <strong>"머신을 쓰려면 열쇠를 쥐어야 하고, 열쇠는 딱 하나"</strong>입니다. 직원이 셋이든 서른이든 <strong>실제로 커피를 뽑는 사람은 늘 한 명</strong>이죠. GIL(Global Interpreter Lock)이 바로 그 열쇠 — <strong>"파이썬 코드를 실행하려면 이 열쇠를 쥐어야 한다"</strong>는 자물쇠입니다. 여러 스레드가 파이썬 내부 데이터를 동시에 건드리면 값이 깨지는데, 한 명만 들여보내는 게 가장 단순한 안전장치라서 이렇게 만들어졌습니다.</div>
     </div>
 
-    <div class="callout callout-warn">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>오해 주의 — "코어 하나만 쓴다"가 "코어 하나를 내 서버가 차지한다"는 뜻은 아닙니다.</strong> 코어는 프로세스에 예약되지 않습니다. 남은 코어들은 브라우저·DB·다른 프로그램이 계속 쓰고 있고, "코어 하나 몫"은 <strong>내 서버가 낼 수 있는 처리량</strong>이 1코어분이라는 뜻일 뿐입니다. 띄울 수 있는 프로세스 개수도 코어 수와 무관해서(앞 섹션의 "실제 숫자" 참고) 2코어에서 <code>--workers 20</code>도 잘 돌아갑니다 — 단, 한 순간에 진짜 계산되는 건 2개뿐이죠.</div>
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 232" role="img" aria-label="프로세스 안 스레드 세 개 중 GIL 열쇠를 쥔 하나만 실행되어, 코어 하나 몫만 쓰는 그림">
+        <defs>
+          <marker id="arw-gil" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/></marker>
+        </defs>
+
+        <text x="24" y="32" font-family="Pretendard, sans-serif" font-size="11.5" font-weight="700" fill="#475569">직원은 셋, 열쇠는 하나</text>
+        <rect x="24" y="44" width="400" height="162" rx="10" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="38" y="66" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#475569">프로세스 1개 (파이썬 서버)</text>
+
+        <rect x="40" y="76" width="150" height="34" rx="6" fill="#b2dfdb" stroke="#009688" stroke-width="1.5"/>
+        <text x="115" y="98" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#00695c">스레드 1</text>
+        <rect x="232" y="76" width="176" height="34" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="320" y="98" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#92400e">GIL 열쇠 — 가게에 1개</text>
+        <line x1="228" y1="93" x2="196" y2="93" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arw-gil)"/>
+
+        <rect x="40" y="120" width="150" height="34" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="115" y="142" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#94a3b8">스레드 2</text>
+        <text x="204" y="142" font-family="Pretendard, sans-serif" font-size="10.5" fill="#94a3b8">열쇠가 없어 실행 못 함 (대기)</text>
+
+        <rect x="40" y="164" width="150" height="34" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="115" y="186" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#94a3b8">스레드 3</text>
+        <text x="204" y="186" font-family="Pretendard, sans-serif" font-size="10.5" fill="#94a3b8">열쇠가 없어 실행 못 함 (대기)</text>
+
+        <line x1="428" y1="120" x2="448" y2="76" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arw-gil)"/>
+
+        <text x="452" y="32" font-family="Pretendard, sans-serif" font-size="11.5" font-weight="700" fill="#00695c">코어 4개짜리 컴퓨터</text>
+        <rect x="452" y="52" width="224" height="32" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="464" y="73" font-family="Pretendard, sans-serif" font-size="11" fill="#00695c"><tspan font-weight="700">코어 1</tspan> ← 스레드 1 실행 중</text>
+        <rect x="452" y="92" width="224" height="32" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="464" y="113" font-family="Pretendard, sans-serif" font-size="11" fill="#94a3b8"><tspan font-weight="700">코어 2</tspan> ← 우리 서버 몫 없음</text>
+        <rect x="452" y="132" width="224" height="32" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="464" y="153" font-family="Pretendard, sans-serif" font-size="11" fill="#94a3b8"><tspan font-weight="700">코어 3</tspan> ← 우리 서버 몫 없음</text>
+        <rect x="452" y="172" width="224" height="32" rx="6" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="464" y="193" font-family="Pretendard, sans-serif" font-size="11" fill="#94a3b8"><tspan font-weight="700">코어 4</tspan> ← 우리 서버 몫 없음</text>
+
+        <text x="24" y="226" font-family="Pretendard, sans-serif" font-size="11" fill="#374151">스레드를 몇 개 만들든 <tspan font-weight="700">한 순간에 파이썬 코드를 실행하는 건 하나</tspan> — 그래서 처리량이 코어 하나 몫에 묶입니다.</text>
+      </svg>
+      <div class="diagram-caption">열쇠를 쥔 하나만 일한다. 나머지 둘은 코드를 실행하지 못하고 순서를 기다린다.</div>
     </div>
 
-    <p>그럼 스레드는 왜 있는 걸까요? 열쇠를 <strong>계속</strong> 쥐고 있는 건 아니기 때문입니다. 직원이 커피 머신을 켜 두고 <strong>추출을 기다리는 동안</strong>(= 네트워크·DB·파일 응답 대기)에는 열쇠를 내려놓습니다. 그 사이 다른 직원이 열쇠를 집어 자기 일을 하죠. 그래서 결과가 이렇게 갈립니다.</p>
+    <p>여기서 "코어 하나만 쓴다"는 말은 <strong>내 서버가 낼 수 있는 처리량이 1코어분</strong>이라는 뜻이지, 코어 하나를 통째로 예약해 둔다는 뜻이 아닙니다. 남은 코어는 브라우저·DB 같은 다른 프로그램이 계속 쓰고 있습니다.</p>
 
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>하는 일</th><th>스레드를 늘리면?</th><th>왜 그럴까</th></tr></thead>
-        <tbody>
-          <tr><td><b>I/O 대기</b> (DB 응답, HTTP 호출, 파일 읽기)</td><td>✅ 효과 있다</td><td>기다리는 동안 열쇠(GIL)를 내려놓으니 다른 스레드가 그동안 진행한다</td></tr>
-          <tr><td><b>CPU 계산</b> (이미지 변환, 암호화, 큰 반복문)</td><td>❌ 효과가 거의 없다</td><td>계산하는 내내 열쇠를 쥐고 있어서, 결국 한 명씩 순서대로 하는 것과 같아진다</td></tr>
-        </tbody>
-      </table>
+    <p>그럼 스레드를 여러 개 만드는 건 헛수고일까요? 아닙니다. 열쇠를 <strong>계속</strong> 쥐고 있는 건 아니기 때문입니다. 직원이 추출 버튼을 누르고 <strong>커피가 내려오길 기다리는 동안</strong>(= DB·HTTP·파일 응답을 기다리는 시간)에는 열쇠를 내려놓습니다. 그 사이 다른 직원이 열쇠를 집어 자기 커피를 걸죠. 반대로 <strong>원두를 손으로 가는 일</strong>(= CPU 계산 — 이미지 변환, 암호화, 큰 반복문)은 열쇠를 쥔 채 끝까지 해야 합니다. 이 차이가 결과를 완전히 갈라 놓습니다 — 같은 스레드 3개인데도요.</p>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 360" role="img" aria-label="스레드 3개의 시간표 비교. CPU 계산은 순서대로 실행되어 9초, I/O 대기는 겹쳐져 4.5초에 끝나는 그림">
+        <rect x="24" y="8" width="14" height="12" rx="3" fill="#b2dfdb" stroke="#009688"/>
+        <text x="44" y="18" font-family="Pretendard, sans-serif" font-size="10.5" fill="#374151">실행 중 (열쇠 쥠)</text>
+        <rect x="170" y="8" width="14" height="12" rx="3" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="190" y="18" font-family="Pretendard, sans-serif" font-size="10.5" fill="#374151">열쇠 기다리는 중</text>
+        <rect x="330" y="8" width="14" height="12" rx="3" fill="#dbeafe" stroke="#60a5fa"/>
+        <text x="350" y="18" font-family="Pretendard, sans-serif" font-size="10.5" fill="#374151">I/O 대기 (열쇠 내려놓음)</text>
+
+        <line x1="124" y1="54" x2="124" y2="318" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="283" y1="54" x2="283" y2="318" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="442" y1="54" x2="442" y2="318" stroke="#e2e8f0" stroke-width="1"/>
+        <line x1="601" y1="54" x2="601" y2="318" stroke="#e2e8f0" stroke-width="1"/>
+
+        <text x="24" y="48" font-family="Pretendard, sans-serif" font-size="11.5" font-weight="700" fill="#b45309">① CPU 계산 3개 — 각각 3초짜리 계산</text>
+
+        <text x="114" y="76" text-anchor="end" font-family="Pretendard, sans-serif" font-size="10.5" fill="#475569">스레드 1</text>
+        <rect x="124" y="58" width="159" height="26" rx="4" fill="#b2dfdb" stroke="#009688"/>
+        <text x="203" y="76" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#00695c">계산 3초</text>
+
+        <text x="114" y="110" text-anchor="end" font-family="Pretendard, sans-serif" font-size="10.5" fill="#475569">스레드 2</text>
+        <rect x="124" y="92" width="159" height="26" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+        <text x="203" y="110" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#94a3b8">열쇠 기다림</text>
+        <rect x="283" y="92" width="159" height="26" rx="4" fill="#b2dfdb" stroke="#009688"/>
+        <text x="362" y="110" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#00695c">계산 3초</text>
+
+        <text x="114" y="144" text-anchor="end" font-family="Pretendard, sans-serif" font-size="10.5" fill="#475569">스레드 3</text>
+        <rect x="124" y="126" width="318" height="26" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+        <text x="283" y="144" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#94a3b8">열쇠 기다림</text>
+        <rect x="442" y="126" width="159" height="26" rx="4" fill="#b2dfdb" stroke="#009688"/>
+        <text x="521" y="144" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#00695c">계산 3초</text>
+
+        <line x1="601" y1="54" x2="601" y2="164" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="595" y="168" text-anchor="end" font-family="Pretendard, sans-serif" font-size="10.5" font-weight="700" fill="#dc2626">9초에 끝</text>
+
+        <text x="24" y="186" font-family="Pretendard, sans-serif" font-size="11" fill="#374151">혼자 해도 9초, 셋이 나눠 해도 <tspan font-weight="700">똑같이 9초</tspan> — 스레드를 늘린 보람이 없습니다.</text>
+
+        <text x="24" y="214" font-family="Pretendard, sans-serif" font-size="11.5" font-weight="700" fill="#1d4ed8">② I/O 대기 3개 — 각각 "0.5초 준비 + 3초 기다림"</text>
+
+        <text x="114" y="240" text-anchor="end" font-family="Pretendard, sans-serif" font-size="10.5" fill="#475569">스레드 1</text>
+        <rect x="124" y="222" width="26" height="26" rx="4" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="150" y="222" width="159" height="26" rx="4" fill="#dbeafe" stroke="#60a5fa"/>
+        <text x="229" y="240" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#1d4ed8">응답 기다리는 중</text>
+
+        <text x="114" y="274" text-anchor="end" font-family="Pretendard, sans-serif" font-size="10.5" fill="#475569">스레드 2</text>
+        <rect x="124" y="256" width="26" height="26" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+        <rect x="150" y="256" width="26" height="26" rx="4" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="176" y="256" width="159" height="26" rx="4" fill="#dbeafe" stroke="#60a5fa"/>
+        <text x="255" y="274" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#1d4ed8">응답 기다리는 중</text>
+
+        <text x="114" y="308" text-anchor="end" font-family="Pretendard, sans-serif" font-size="10.5" fill="#475569">스레드 3</text>
+        <rect x="124" y="290" width="53" height="26" rx="4" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+        <rect x="177" y="290" width="26" height="26" rx="4" fill="#b2dfdb" stroke="#009688"/>
+        <rect x="203" y="290" width="159" height="26" rx="4" fill="#dbeafe" stroke="#60a5fa"/>
+        <text x="282" y="308" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#1d4ed8">응답 기다리는 중</text>
+
+        <line x1="362" y1="218" x2="362" y2="320" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="370" y="234" font-family="Pretendard, sans-serif" font-size="10.5" font-weight="700" fill="#dc2626">← 4.5초에 셋 다 끝</text>
+
+        <text x="124" y="334" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#94a3b8">0초</text>
+        <text x="283" y="334" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#94a3b8">3초</text>
+        <text x="442" y="334" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#94a3b8">6초</text>
+        <text x="601" y="334" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#94a3b8">9초</text>
+
+        <text x="24" y="354" font-family="Pretendard, sans-serif" font-size="11" fill="#374151">혼자였다면 10.5초, 셋이면 <tspan font-weight="700">4.5초</tspan> — 기다리는 시간(파란 막대)이 서로 겹치기 때문입니다.</text>
+      </svg>
+      <div class="diagram-caption">같은 스레드 3개인데 결과가 다르다. 초록(실행)은 절대 겹치지 않지만, 파랑(기다림)은 얼마든지 겹친다.</div>
     </div>
 
-    <p>그리고 이건 <strong>파이썬 사정</strong>입니다. OS는 한 프로세스의 스레드 여러 개를 여러 코어에 동시에 올릴 준비가 되어 있고, Java·Go·C++는 GIL 같은 자물쇠가 없어 <strong>스레드만 늘려도 코어를 더 씁니다</strong>. 파이썬은 그 능력을 GIL로 스스로 포기하기 때문에 <strong>프로세스를 늘려야 코어를 더 쓰고</strong>(다음 섹션의 <code>--workers</code>), 그래서 "멀티프로세스로 코어를 쓴다"는 이야기가 유독 파이썬 세계에서 강조됩니다.</p>
-
-    <p>비동기(이벤트 루프)는 스레드를 여러 개 쓰는 것도 아니고 <strong>아예 한 개</strong>(직원 한 명)라서 CPU 병렬과는 더더욱 거리가 멀고요 — <code>await</code>는 순서를 양보하는 장치이지 두 계산을 동시에 돌리는 장치가 아닙니다. 열쇠는 프로세스마다 하나씩이니, 결론은 <strong>프로세스를 늘리는 것</strong>입니다.</p>
-
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>참고 — GIL은 영원하지 않습니다.</strong> Python 3.13부터 GIL을 끈 실험적 빌드(free-threaded build)가 나왔지만, 기본 배포판과 대부분의 라이브러리는 아직 GIL을 전제합니다. 실무의 기본 가정은 여전히 <strong>"GIL 있음 → 멀티프로세스로 코어 활용"</strong>입니다.</div>
-    </div>
+    <p>이건 <strong>파이썬만의 사정</strong>입니다. Java·Go·C++에는 이런 열쇠가 없어 스레드만 늘려도 코어를 더 씁니다. 비동기도 답이 아니고요 — 이벤트 루프는 스레드를 <strong>한 개</strong>만 쓰니 CPU 병렬과는 더 멀죠. 열쇠가 <strong>프로세스마다 하나씩</strong>이니, 코어를 더 쓰는 방법은 결국 <strong>프로세스를 늘리는 것</strong>(다음 섹션의 <code>--workers</code>)뿐입니다. 참고로 Python 3.13부터 GIL을 끈 실험 빌드가 나왔지만, 기본 배포판과 대부분의 라이브러리는 아직 GIL을 전제합니다.</p>
   </section>
 
   <section class="section" id="multiprocess-workers">
@@ -250,25 +335,24 @@
       <div class="section-icon icon-setup">⚙️</div>
       <h2>멀티프로세스 워커 — 가게를 여러 개 열기</h2>
     </div>
-    <p>해법은 생각보다 단순합니다. <strong>같은 앱을 프로세스 여러 개로 띄우고</strong>, 들어오는 요청을 나눠 주는 것. 이렇게 띄운 각 프로세스를 <strong>워커(worker)</strong>라고 부릅니다 — 정확히는 <strong>워커 프로세스</strong>로, Lesson 02 threadpool의 "워커 스레드"(한 가게 안의 보조 직원)와는 다른 것입니다. 워커는 각자 <strong>자기 GIL·자기 이벤트 루프·자기 메모리</strong>를 가진 완전히 독립된 가게라서, 서로 다른 코어에서 <strong>진짜 동시에</strong> 일합니다.</p>
+    <p>해법은 생각보다 단순합니다. <strong>같은 앱을 프로세스 여러 개로 띄우고</strong> 들어오는 요청을 나눠 주면 됩니다. 이렇게 띄운 프로세스 하나하나를 <strong>워커(worker)</strong>라고 부릅니다 — 카페로 치면 <strong>지점을 여러 개 여는 것</strong>이죠.</p>
+
+    <p>지점마다 <strong>자기 열쇠(GIL)·자기 이벤트 루프·자기 창고(메모리)</strong>를 따로 가집니다. 열쇠가 워커 수만큼 생기니 이제야 여러 코어에서 <strong>진짜 동시에</strong> 일할 수 있습니다. (Lesson 02의 "워커 스레드"와는 이름만 같습니다. 그건 한 가게 안의 보조 직원이고, 여기서 말하는 워커는 <strong>가게 자체</strong>예요.)</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">terminal</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-bash"># 방법 1) Uvicorn이 직접 워커 4개를 띄운다 (가장 간단)
+      <pre><code class="language-bash"># 운영 — 워커 4개로 띄운다
 uvicorn main:app --workers 4
 
-# 방법 2) Gunicorn이 프로세스를 관리하고, 각 워커는 Uvicorn으로 돌린다
-#         (워커가 죽으면 되살리는 등 관리 기능이 더 많아 운영 환경에서 자주 쓰임)
-#         uvicorn 0.30+ 에서는 이 워커 클래스가 deprecated 경고를 내므로
-#         pip install uvicorn-worker 후 -k uvicorn_worker.UvicornWorker 를 쓰면 됩니다
-gunicorn main:app -k uvicorn.workers.UvicornWorker --workers 4
+# 개발 — --reload (워커는 1개). --reload 와 --workers 는 함께 못 씁니다.
+uvicorn main:app --reload
 
-# 개발 중엔 --reload 를 쓰죠. --reload 와 --workers 는 함께 쓸 수 없습니다.
-# 개발 = --reload (워커 1개), 운영 = --workers N 으로 기억하세요.
-uvicorn main:app --reload</code></pre>
+# 운영에서 Gunicorn에게 프로세스 관리를 맡기기도 합니다 (죽은 워커를 되살리는 등)
+# pip install uvicorn-worker 가 필요합니다
+gunicorn main:app -k uvicorn_worker.UvicornWorker --workers 4</code></pre>
     </div>
 
-    <p>"그럼 요청은 누가 4개 워커에 나눠 주나요?" 개발자가 코드를 짤 필요는 없습니다. 워커들은 <strong>같은 포트를 함께 바라보고</strong>(소켓 — 네트워크 연결이 들어오는 "문"이라고 생각하면 됩니다), 새 연결이 들어오면 <strong>OS가 노는 워커에게 넘겨</strong> 줍니다. 우리가 할 일은 개수를 정해 주는 것뿐이죠.</p>
+    <p>"그럼 요청은 누가 4개 워커에 나눠 주나요?" 개발자가 코드를 짤 필요는 없습니다. 워커들은 <strong>같은 포트를 함께 바라보고</strong>(소켓 — 연결이 들어오는 "문"이라고 생각하면 됩니다), 새 연결이 들어오면 <strong>OS가 노는 워커에게 넘겨</strong> 줍니다. 우리가 할 일은 개수를 정해 주는 것뿐이죠.</p>
 
     <div class="diagram-card">
       <svg viewBox="0 0 700 285" role="img" aria-label="워커 1개일 때는 내 앱이 코어 1개 몫만 내고, 워커 4개일 때는 코어 4개 몫을 동시에 내는 비교">
@@ -326,51 +410,43 @@ uvicorn main:app --reload</code></pre>
       </table>
     </div>
 
-    <p>둘은 <strong>다른 문제를 푸는 다른 층위의 도구</strong>라 경쟁 관계가 아니고, 실무에선 <code>async def</code>로 쓴 앱을 <code>--workers 4</code>로 띄우는 식으로 <strong>함께</strong> 씁니다. 그렇게 띄운 서버의 내부를 "프로세스 = 그릇, 스레드 = 실행 흐름"으로 그려 보면 이렇습니다.</p>
+    <p>둘은 <strong>다른 문제를 푸는 도구</strong>라 경쟁 관계가 아닙니다. 실무에선 <code>async def</code>로 쓴 앱을 <code>--workers 4</code>로 띄우는 식으로 <strong>함께</strong> 쓰죠. 그렇게 띄운 서버 속은 이렇게 생겼습니다.</p>
 
     <div class="diagram-card">
-      <svg viewBox="0 0 700 235" role="img" aria-label="워커 4개 각각이 이벤트 루프 1개와 threadpool 스레드 약 40개를 갖는 중첩 구조">
-        <text x="20" y="28" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#475569">uvicorn main:app --workers 4</text>
+      <svg viewBox="0 0 700 208" role="img" aria-label="워커 4개 각각이 이벤트 루프 1개와 threadpool 스레드 약 40개를 갖는 중첩 구조">
+        <text x="20" y="26" font-family="JetBrains Mono, monospace" font-size="12" font-weight="700" fill="#475569">uvicorn main:app --workers 4</text>
 
         <g font-family="Pretendard, sans-serif">
-          <!-- worker A -->
-          <rect x="20" y="44" width="150" height="120" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
-          <text x="32" y="66" font-size="10.5" font-weight="700" fill="#475569">워커 A (프로세스)</text>
-          <rect x="32" y="76" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
-          <text x="95" y="93" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
-          <rect x="32" y="108" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
-          <text x="95" y="125" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
-          <text x="95" y="152" text-anchor="middle" font-size="9.5" fill="#b45309">메모리는 이 그릇 안에서만</text>
+          <rect x="20" y="40" width="150" height="98" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="32" y="62" font-size="10.5" font-weight="700" fill="#475569">워커 A (프로세스)</text>
+          <rect x="32" y="72" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
+          <text x="95" y="89" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
+          <rect x="32" y="102" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
+          <text x="95" y="119" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
 
-          <!-- worker B -->
-          <rect x="190" y="44" width="150" height="120" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
-          <text x="202" y="66" font-size="10.5" font-weight="700" fill="#475569">워커 B (프로세스)</text>
-          <rect x="202" y="76" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
-          <text x="265" y="93" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
-          <rect x="202" y="108" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
-          <text x="265" y="125" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
-          <text x="265" y="152" text-anchor="middle" font-size="9.5" fill="#b45309">메모리는 이 그릇 안에서만</text>
+          <rect x="190" y="40" width="150" height="98" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="202" y="62" font-size="10.5" font-weight="700" fill="#475569">워커 B (프로세스)</text>
+          <rect x="202" y="72" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
+          <text x="265" y="89" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
+          <rect x="202" y="102" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
+          <text x="265" y="119" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
 
-          <!-- worker C -->
-          <rect x="360" y="44" width="150" height="120" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
-          <text x="372" y="66" font-size="10.5" font-weight="700" fill="#475569">워커 C (프로세스)</text>
-          <rect x="372" y="76" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
-          <text x="435" y="93" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
-          <rect x="372" y="108" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
-          <text x="435" y="125" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
-          <text x="435" y="152" text-anchor="middle" font-size="9.5" fill="#b45309">메모리는 이 그릇 안에서만</text>
+          <rect x="360" y="40" width="150" height="98" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="372" y="62" font-size="10.5" font-weight="700" fill="#475569">워커 C (프로세스)</text>
+          <rect x="372" y="72" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
+          <text x="435" y="89" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
+          <rect x="372" y="102" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
+          <text x="435" y="119" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
 
-          <!-- worker D -->
-          <rect x="530" y="44" width="150" height="120" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
-          <text x="542" y="66" font-size="10.5" font-weight="700" fill="#475569">워커 D (프로세스)</text>
-          <rect x="542" y="76" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
-          <text x="605" y="93" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
-          <rect x="542" y="108" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
-          <text x="605" y="125" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
-          <text x="605" y="152" text-anchor="middle" font-size="9.5" fill="#b45309">메모리는 이 그릇 안에서만</text>
+          <rect x="530" y="40" width="150" height="98" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="542" y="62" font-size="10.5" font-weight="700" fill="#475569">워커 D (프로세스)</text>
+          <rect x="542" y="72" width="126" height="26" rx="5" fill="#e0f2f1" stroke="#009688"/>
+          <text x="605" y="89" text-anchor="middle" font-size="10" fill="#00695c">이벤트 루프 × 1</text>
+          <rect x="542" y="102" width="126" height="26" rx="5" fill="#e0f2fe" stroke="#0ea5e9"/>
+          <text x="605" y="119" text-anchor="middle" font-size="10" fill="#0369a1">threadpool ~40</text>
 
-          <text x="20" y="192" font-size="11" fill="#374151">초록 = <tspan font-weight="700">이벤트 루프</tspan> (메인 스레드 1개 · <tspan font-family="JetBrains Mono, monospace">async def</tspan> 가 도는 곳, Lesson 01) · 파랑 = <tspan font-weight="700">threadpool</tspan> (<tspan font-family="JetBrains Mono, monospace">def</tspan> 가 도는 곳, Lesson 02)</text>
-          <text x="20" y="214" font-size="11" fill="#374151">합치면 <tspan font-weight="700">프로세스 4개 · 이벤트 루프 4개 · 스레드 총 4 × (1 + 최대 40)개</tspan>. 전역 변수는 그릇 4개에 <tspan font-weight="700">각각 따로</tspan> 존재합니다.</text>
+          <text x="20" y="166" font-size="11" fill="#374151">초록 = <tspan font-weight="700">이벤트 루프</tspan> (<tspan font-family="JetBrains Mono, monospace">async def</tspan> 가 도는 곳, Lesson 01) · 파랑 = <tspan font-weight="700">threadpool</tspan> (<tspan font-family="JetBrains Mono, monospace">def</tspan> 가 도는 곳, Lesson 02)</text>
+          <text x="20" y="190" font-size="11" fill="#b45309">그릇이 4개로 나뉘어 있다는 게 핵심입니다 — <tspan font-weight="700">메모리도, 전역 변수도 그릇마다 따로</tspan> 존재합니다.</text>
         </g>
       </svg>
       <div class="diagram-caption">워커(프로세스) 안에 이벤트 루프 1개(Lesson 01)와 threadpool 스레드들(Lesson 02)이 들어 있다.</div>
@@ -378,12 +454,12 @@ uvicorn main:app --reload</code></pre>
 
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>워커 개수는 몇으로 둘까?</strong> <strong>CPU 코어 수</strong>(또는 코어 수 + 1)에서 시작해 <strong>실제 부하로 측정하며 조정</strong>하세요. 무작정 늘리면 안 되는 이유가 둘 있습니다 — ① 워커마다 앱 전체가 메모리에 복사되므로 <strong>메모리 사용량이 워커 수만큼 늘고</strong>, ② 코어보다 워커가 많으면 서로 번갈아 실행되며 <strong>전환 비용</strong>(코어가 프로세스를 갈아타는 데 드는 시간)만 늘어 이득이 없습니다. 컨테이너(Docker/K8s)에서 돌린다면 머신 전체 코어가 아니라 <strong>그 컨테이너에 할당된 CPU</strong>를 기준으로 잡아야 합니다.</div>
+      <div class="callout-body"><strong>워커 개수는 몇으로 둘까?</strong> <strong>CPU 코어 수</strong>에서 시작해 실제 부하로 재 보며 조정하세요. 무작정 늘리면 안 되는 이유가 둘 있습니다 — ① 워커마다 앱 전체가 메모리에 복사되므로 <strong>메모리가 워커 수만큼</strong> 들고(시작할 때 큰 모델·데이터를 올린다면 그것도 워커 수만큼입니다), ② 코어보다 워커가 많으면 서로 번갈아 실행되며 <strong>전환 비용</strong>만 늘어 이득이 없습니다. 컨테이너에서 돌린다면 머신 전체가 아니라 <strong>그 컨테이너에 할당된 CPU</strong>가 기준입니다.</div>
     </div>
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>가장 흔한 사고 — 워커는 메모리를 공유하지 않는다.</strong> 워커는 <strong>독립된 가게</strong>라 재료 창고(메모리)가 따로입니다. 그래서 전역 변수에 캐시·카운터·세션을 담아 두면 <strong>워커마다 값이 따로 놀아</strong> 버그가 됩니다.</div>
+      <div class="callout-body"><strong>가장 흔한 사고 — 워커는 메모리를 공유하지 않는다.</strong> 워커는 <strong>독립된 가게</strong>라 재료 창고가 따로입니다. 그래서 전역 변수에 캐시·카운터·세션을 담아 두면 <strong>워커마다 값이 따로 놀아</strong> 버그가 됩니다.</div>
     </div>
 
     <div class="code-block">
@@ -397,7 +473,48 @@ async def hit():
     return {"count": counter}</code></pre>
     </div>
 
-    <p>워커 4개로 띄우고 이 API를 네 번 호출하면 <code>1, 2, 3, 4</code>가 아니라 <strong><code>1, 1, 2, 1</code>처럼 뒤죽박죽</strong>으로 나옵니다. 요청이 어느 워커로 갔는지에 따라 각자의 <code>counter</code>가 오르기 때문이죠. 해결책은 값을 <strong>모든 워커가 함께 보는 바깥 저장소</strong>에 두는 것입니다.</p>
+    <p>워커 4개로 띄우고 이 API를 네 번 호출하면 <code>1, 2, 3, 4</code>가 아니라 <strong>뒤죽박죽</strong>으로 나옵니다. 왜 그런지는 그림으로 보면 바로 납득이 됩니다.</p>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 244" role="img" aria-label="요청 4건이 워커 4개에 흩어져 각 워커의 counter가 따로 올라가는 그림">
+        <rect x="24" y="32" width="652" height="30" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="350" y="52" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#92400e">POST /hit 을 네 번 호출 — 어느 워커가 받을지는 OS가 그때그때 정한다</text>
+        <line x1="99" y1="64" x2="99" y2="78" stroke="#f59e0b" stroke-width="1.5"/>
+        <line x1="265" y1="64" x2="265" y2="78" stroke="#f59e0b" stroke-width="1.5"/>
+        <line x1="431" y1="64" x2="431" y2="78" stroke="#f59e0b" stroke-width="1.5"/>
+        <line x1="597" y1="64" x2="597" y2="78" stroke="#f59e0b" stroke-width="1.5"/>
+
+        <rect x="24" y="80" width="150" height="100" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="99" y="104" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#475569">워커 A</text>
+        <text x="99" y="126" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#6b7280">받은 요청: ① ③</text>
+        <rect x="43" y="136" width="112" height="30" rx="6" fill="#b2dfdb" stroke="#009688"/>
+        <text x="99" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00695c">counter = 2</text>
+
+        <rect x="190" y="80" width="150" height="100" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="265" y="104" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#475569">워커 B</text>
+        <text x="265" y="126" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#6b7280">받은 요청: ②</text>
+        <rect x="209" y="136" width="112" height="30" rx="6" fill="#b2dfdb" stroke="#009688"/>
+        <text x="265" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00695c">counter = 1</text>
+
+        <rect x="356" y="80" width="150" height="100" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="431" y="104" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#475569">워커 C</text>
+        <text x="431" y="126" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#6b7280">받은 요청: ④</text>
+        <rect x="375" y="136" width="112" height="30" rx="6" fill="#b2dfdb" stroke="#009688"/>
+        <text x="431" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00695c">counter = 1</text>
+
+        <rect x="522" y="80" width="150" height="100" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="597" y="104" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#94a3b8">워커 D</text>
+        <text x="597" y="126" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#94a3b8">받은 요청: 없음</text>
+        <rect x="541" y="136" width="112" height="30" rx="6" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="597" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#94a3b8">counter = 0</text>
+
+        <text x="24" y="206" font-family="Pretendard, sans-serif" font-size="12" fill="#374151">브라우저가 받은 응답: <tspan font-family="JetBrains Mono, monospace" font-weight="700" fill="#dc2626">1 → 1 → 2 → 1</tspan></text>
+        <text x="24" y="230" font-family="Pretendard, sans-serif" font-size="11" fill="#6b7280">네 번 눌렀으니 1·2·3·4가 나와야 하는데, <tspan font-weight="700" fill="#374151">counter가 워커마다 따로 있어서</tspan> 각자 자기 것만 올립니다.</text>
+      </svg>
+      <div class="diagram-caption">전역 변수는 "서버에 하나"가 아니라 "워커마다 하나". 요청이 흩어지는 순간 값도 흩어진다.</div>
+    </div>
+
+    <p>해결책은 값을 <strong>모든 워커가 함께 보는 바깥 저장소</strong>에 두는 것입니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><span class="code-filename">good.py — 공유 상태는 외부 저장소로</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -410,7 +527,7 @@ async def hit():
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>같은 이유로 조심할 것 두 가지 더.</strong> ① <strong>시작 시 캐시 로딩</strong> — 서버가 켜질 때 실행되는 코드(startup)에서 큰 모델이나 데이터를 메모리에 올리면 워커 4개면 <strong>메모리도 4배</strong>로 듭니다. ② <strong>앱 안의 스케줄러/배치</strong> — APScheduler 같은 스케줄러 라이브러리를 앱에 넣고 워커 4개로 띄우면 <strong>같은 작업이 4번 실행</strong>됩니다(메일 4통, 정산 4번). 스케줄러는 별도 프로세스로 빼거나, 잠금(lock — "내가 하는 중"이라는 표시를 공용 저장소에 남겨 한 워커만 실행하게 하는 기법)을 써야 합니다. NestJS를 PM2 cluster로 여러 인스턴스 띄울 때와 똑같은 주의사항입니다.</div>
+      <div class="callout-body"><strong>같은 이유로 조심할 것 하나 더 — 앱 안의 스케줄러.</strong> APScheduler 같은 걸 앱에 넣고 워커 4개로 띄우면 <strong>같은 작업이 4번 실행</strong>됩니다(메일 4통, 정산 4번). 스케줄러는 별도 프로세스로 빼거나, 공용 저장소에 "내가 하는 중" 표시를 남겨(lock) 한 워커만 실행하게 해야 합니다.</div>
     </div>
   </section>
 
@@ -425,52 +542,63 @@ async def hit():
       <table>
         <thead><tr><th>층</th><th>정체</th><th>하는 일</th><th>카페로 보면</th></tr></thead>
         <tbody>
-          <tr><td><b>Uvicorn</b></td><td>ASGI <b>서버</b></td><td>소켓에서 바이트를 받고 HTTP를 해석해 파이썬 객체로 만든다. 이벤트 루프를 돌리는 것도 이 층.</td><td><b>드라이브스루 인터폰</b> — 밖에서 들리는 말(HTTP 바이트)을 매장용 주문서로 옮겨 적는다</td></tr>
-          <tr><td><b>Starlette</b></td><td>웹 <b>마이크로프레임워크</b></td><td>라우팅, 미들웨어, Request/Response 객체, WebSocket, 백그라운드 태스크.</td><td><b>매장 동선</b> — 주문서를 담당 파트로 보내고(라우팅), 입구에서 공통 검문(미들웨어)</td></tr>
-          <tr><td><b>FastAPI</b></td><td>Starlette 위의 <b>확장</b></td><td>타입 기반 검증(Pydantic), 의존성 주입(<code>Depends</code> — Week 6), 자동 OpenAPI 문서.</td><td><b>주문 검수원 + 메뉴판 제작</b> — 이상한 주문은 반려하고, 필요한 재료를 미리 챙겨 준다</td></tr>
+          <tr><td><b>Uvicorn</b></td><td>ASGI <b>서버</b></td><td>HTTP 바이트를 파이썬 객체로 해석하고, 이벤트 루프를 돌린다</td><td><b>드라이브스루 인터폰</b> — 밖에서 들리는 말을 주문서로 옮겨 적는다</td></tr>
+          <tr><td><b>Starlette</b></td><td>웹 <b>마이크로프레임워크</b></td><td>미들웨어, 라우팅, Request/Response, WebSocket</td><td><b>매장 동선</b> — 입구에서 공통 검문하고, 주문서를 담당 파트로 보낸다</td></tr>
+          <tr><td><b>FastAPI</b></td><td>Starlette 위의 <b>확장</b></td><td>타입 검증(Pydantic), 의존성 주입(<code>Depends</code>), 자동 문서</td><td><b>주문 검수원</b> — 이상한 주문은 반려하고, 필요한 재료를 미리 챙겨 준다</td></tr>
         </tbody>
       </table>
     </div>
 
-    <p>이제 <strong>요청 한 건의 여행</strong>을 순서대로 따라가 봅시다. 이게 이 섹션의 핵심입니다.</p>
+    <p>세 층은 <strong>양파처럼 겹쳐</strong> 있습니다. 요청은 바깥에서 안으로 한 겹씩 뚫고 들어가 <strong>맨 안쪽의 내 함수</strong>에 닿고, 응답은 그 길을 그대로 되짚어 나옵니다. 이 그림이 이 섹션의 전부입니다.</p>
 
-    <div class="timeline">
-      <div class="timeline-item">
-        <div class="timeline-num">1</div>
-        <div class="timeline-content"><strong>브라우저</strong>가 서버에 연결해 HTTP 요청을 <strong>바이트 뭉치</strong>로 보냅니다. (<code>POST /items HTTP/1.1 ...</code>)</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">2</div>
-        <div class="timeline-content"><strong>Uvicorn</strong>이 그 바이트를 해석해 메서드·경로·헤더·본문을 정리한 <strong>파이썬 딕셔너리</strong>로 바꾸고, 이벤트 루프 위에서 앱을 호출합니다. <b>← 여기까지가 서버 층</b></div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">3</div>
-        <div class="timeline-content"><strong>Starlette 미들웨어</strong>를 차례로 통과합니다. (CORS 확인, 요청 로깅, 인증 헤더 검사 등 <strong>모든 요청에 공통</strong>인 일)</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">4</div>
-        <div class="timeline-content"><strong>Starlette 라우터</strong>가 경로와 메서드를 보고 <strong>어느 함수를 부를지</strong> 찾습니다. 못 찾으면 여기서 404.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">5</div>
-        <div class="timeline-content"><strong>FastAPI</strong>가 의존성(<code>Depends</code>, Week 6에서 배움)을 실행하고, Path·Query·Body를 <strong>타입에 맞는지 검증</strong>합니다. 틀리면 <strong>422를 반환하고 내 함수는 호출조차 되지 않습니다.</strong></div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">6</div>
-        <div class="timeline-content"><strong>내가 쓴 경로 함수</strong>가 실행됩니다. (<code>async def</code>면 이벤트 루프에서, <code>def</code>면 threadpool에서 — Lesson 02!)</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-num">7</div>
-        <div class="timeline-content">반환값을 <strong>FastAPI</strong>가 <code>response_model</code>(Week 3)대로 다듬어 JSON으로 만들고, <strong>Starlette</strong>가 Response 객체로 감싸고, <strong>Uvicorn</strong>이 HTTP 바이트로 내보냅니다. <b>들어온 순서의 역순으로 나갑니다.</b></div>
-      </div>
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 348" role="img" aria-label="요청이 Uvicorn, Starlette 미들웨어, 라우터, FastAPI 검증을 거쳐 내 함수에 닿고 응답이 역순으로 나가는 구조">
+        <defs>
+          <marker id="lay-in" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
+          <marker id="lay-out" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
+        </defs>
+
+        <text x="60" y="26" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" font-weight="700" fill="#b45309">요청</text>
+        <text x="640" y="26" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" font-weight="700" fill="#00695c">응답</text>
+        <line x1="60" y1="34" x2="60" y2="316" stroke="#f59e0b" stroke-width="2" marker-end="url(#lay-in)"/>
+        <line x1="640" y1="316" x2="640" y2="34" stroke="#009688" stroke-width="2" marker-end="url(#lay-out)"/>
+
+        <rect x="96" y="44" width="508" height="44" rx="8" fill="#0d1117" stroke="#30363d" stroke-width="1.5"/>
+        <text x="350" y="71" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" fill="#c9d1d9"><tspan font-weight="700">Uvicorn</tspan> — 소켓에서 바이트를 받아 HTTP를 해석</text>
+
+        <rect x="120" y="100" width="460" height="44" rx="8" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="350" y="127" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" fill="#00695c"><tspan font-weight="700">Starlette 미들웨어</tspan> — CORS · 로깅 등 모든 요청 공통인 일</text>
+
+        <rect x="120" y="156" width="460" height="44" rx="8" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="350" y="183" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" fill="#00695c"><tspan font-weight="700">Starlette 라우터</tspan> — 경로·메서드를 보고 부를 함수를 찾음</text>
+
+        <rect x="144" y="212" width="412" height="44" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="350" y="239" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" fill="#991b1b"><tspan font-weight="700">FastAPI</tspan> — Depends 실행 · 타입 검증</text>
+
+        <rect x="168" y="268" width="364" height="44" rx="8" fill="#fff7ed" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="350" y="295" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" fill="#92400e"><tspan font-weight="700">내가 쓴 경로 함수</tspan> — async def는 루프에서, def는 threadpool에서</text>
+
+        <text x="350" y="338" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#374151">나갈 땐 역순 — FastAPI가 JSON으로 다듬고 → Starlette가 Response로 감싸고 → Uvicorn이 바이트로 내보냅니다.</text>
+      </svg>
+      <div class="diagram-caption">안쪽으로 갈수록 더 고수준의 일을 한다. 어느 층에서 막히면 그 아래 층은 아예 실행되지 않는다.</div>
     </div>
 
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>이 순서를 알면 디버깅이 쉬워집니다.</strong> <strong>422</strong>가 떴다? → 5번, FastAPI 검증 층입니다(내 함수는 안 돌았음). <strong>404</strong>? → 4번, 라우팅. <strong>CORS 에러</strong>? → 3번, 미들웨어. 요청이 아예 안 닿거나 포트 문제? → 2번, Uvicorn. 층을 알면 <strong>어디를 고쳐야 하는지</strong> 바로 보입니다.</div>
+    <p>이 그림을 외워 두면 <strong>에러 코드만 보고도 어느 층을 고쳐야 할지</strong> 바로 찍을 수 있습니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>증상</th><th>막힌 층</th><th>무슨 뜻</th></tr></thead>
+        <tbody>
+          <tr><td>연결 자체가 안 됨</td><td><b>Uvicorn</b></td><td>서버가 안 떴거나 포트가 다르다</td></tr>
+          <tr><td>CORS 에러</td><td><b>Starlette</b> 미들웨어</td><td>입구 검문에서 걸렸다</td></tr>
+          <tr><td><b>404</b> Not Found</td><td><b>Starlette</b> 라우터</td><td>그 경로에 맞는 함수가 없다</td></tr>
+          <tr><td><b>422</b> Unprocessable</td><td><b>FastAPI</b> 검증</td><td>타입이 안 맞는다 — <b>내 함수는 호출조차 되지 않았다</b></td></tr>
+          <tr><td><b>500</b> / 결과가 이상함</td><td><b>내 함수</b></td><td>여기까지 왔다는 건 앞 층은 다 통과했다는 뜻</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <p>꽤 중요한 사실 하나: <strong>FastAPI는 Starlette를 상속</strong>합니다 — Starlette의 기능을 전부 물려받고 거기에 새 기능을 얹는다는 뜻이죠.</p>
+    <p>마지막으로 꽤 중요한 사실 하나. <strong>FastAPI는 Starlette를 상속</strong>합니다.</p>
 
     <div class="code-block">
       <div class="code-header"><span class="code-lang">python</span><span class="code-filename">fastapi/applications.py (개념)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
@@ -483,43 +611,9 @@ class FastAPI(Starlette):   # ← Starlette를 그대로 상속
 
     <p>즉 <strong>내 FastAPI 앱은 그 자체로 Starlette 앱이기도 합니다</strong>. <code>app.add_middleware(...)</code>, <code>Request</code>, <code>WebSocket</code>, <code>BackgroundTasks</code>가 원래 <strong>Starlette의 기능</strong>이고, FastAPI 공식 문서가 종종 "자세한 내용은 Starlette 문서를 보라"고 하는 이유도 이것입니다.</p>
 
-    <div class="diagram-card">
-      <svg viewBox="0 0 660 350" role="img" aria-label="Uvicorn 안에 Starlette, 그 안에 FastAPI가 중첩된 3층 구조와 요청·응답의 흐름">
-        <!-- Uvicorn (outer) -->
-        <rect x="24" y="24" width="612" height="282" rx="14" fill="#0d1117" stroke="#30363d" stroke-width="2"/>
-        <text x="46" y="52" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#c9d1d9">Uvicorn — ASGI 서버</text>
-        <text x="46" y="72" font-family="Pretendard, sans-serif" font-size="11.5" fill="#8b949e">소켓 · HTTP 파싱 · 이벤트 루프 구동 · "인터폰"</text>
-
-        <!-- Starlette (middle) -->
-        <rect x="60" y="86" width="540" height="200" rx="12" fill="#e0f2f1" stroke="#009688" stroke-width="2"/>
-        <text x="82" y="114" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#00695c">Starlette — 웹 마이크로프레임워크</text>
-        <text x="82" y="134" font-family="Pretendard, sans-serif" font-size="11.5" fill="#00695c">라우팅 · 미들웨어 · Request/Response · WebSocket · "매장 동선"</text>
-
-        <!-- FastAPI (inner) -->
-        <rect x="100" y="148" width="460" height="118" rx="10" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
-        <text x="122" y="176" font-family="JetBrains Mono, monospace" font-size="14" font-weight="700" fill="#ef4444">FastAPI — Starlette 상속 확장</text>
-        <text x="122" y="196" font-family="Pretendard, sans-serif" font-size="11.5" fill="#0d1117">Pydantic 검증 · 의존성 주입 · 자동 OpenAPI 문서 · "검수원"</text>
-        <text x="122" y="216" font-family="Pretendard, sans-serif" font-size="11.5" fill="#0d1117">그 안쪽에서 결국 내가 쓴 경로 함수가 실행된다</text>
-        <text x="122" y="248" font-family="JetBrains Mono, monospace" font-size="12" fill="#b45309">class FastAPI(Starlette): ...</text>
-
-        <!-- request arrow (in) -->
-        <line x1="240" y1="332" x2="240" y2="288" stroke="#f59e0b" stroke-width="2.5" marker-end="url(#in3)"/>
-        <text x="120" y="345" font-family="Pretendard, sans-serif" font-size="11" fill="#b45309">요청: 바깥 → 안</text>
-        <!-- response arrow (out) -->
-        <line x1="420" y1="288" x2="420" y2="332" stroke="#009688" stroke-width="2.5" marker-end="url(#out3)"/>
-        <text x="440" y="345" font-family="Pretendard, sans-serif" font-size="11" fill="#00695c">응답: 안 → 바깥 (역순)</text>
-
-        <defs>
-          <marker id="in3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f59e0b"/></marker>
-          <marker id="out3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
-        </defs>
-      </svg>
-      <div class="diagram-caption">Uvicorn 안에 Starlette, 그 안에 FastAPI가 중첩된다. 안쪽일수록 더 고수준의 일을 하고, 응답은 들어온 길을 되짚어 나간다.</div>
-    </div>
-
     <div class="callout callout-note">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>그럼 Starlette만 쓰면 안 되나요?</strong> 됩니다. 라우팅·미들웨어만 필요한 아주 얇은 서버라면 Starlette만으로도 충분합니다. 우리가 FastAPI를 얹는 이유는 <strong>타입만 적으면 검증·문서·의존성 주입이 자동</strong>으로 따라오기 때문이죠. 반대로 Uvicorn 없이 FastAPI만 있으면 <strong>아무 요청도 받지 못합니다</strong> — 소켓을 열고 HTTP를 읽는 층이 없으니까요.</div>
+      <div class="callout-body"><strong>그럼 Starlette만 쓰면 안 되나요?</strong> 됩니다. 라우팅·미들웨어만 필요한 얇은 서버라면 그것으로 충분하죠. FastAPI를 얹는 이유는 <strong>타입만 적으면 검증·문서·의존성 주입이 자동</strong>으로 따라오기 때문입니다. 반대로 Uvicorn 없이 FastAPI만 있으면 <strong>아무 요청도 받지 못합니다</strong> — 소켓을 열고 HTTP를 읽는 층이 없으니까요.</div>
     </div>
   </section>
 
@@ -532,28 +626,52 @@ class FastAPI(Starlette):   # ← Starlette를 그대로 상속
 
     <div class="callout callout-analogy">
       <div class="callout-icon"></div>
-      <div class="callout-body"><strong>비유 — 규격은 콘센트 모양입니다.</strong> 220V 콘센트 모양이 정해져 있으니, 선풍기 만드는 회사와 발전소가 서로를 몰라도 그냥 꽂으면 돌아가죠. ASGI/WSGI가 바로 그 <strong>플러그 모양</strong>입니다. 서버(Uvicorn·Hypercorn)와 프레임워크(FastAPI·Django·Starlette)가 <strong>서로를 몰라도 꽂아 쓸 수 있게</strong> 파이썬 커뮤니티가 정한 약속이에요. 그래서 <code>uvicorn</code>을 <code>hypercorn</code>으로 바꿔도 <strong>내 앱 코드는 한 줄도 안 바뀝니다</strong>.</div>
+      <div class="callout-body"><strong>규격 = 콘센트 모양.</strong> 220V 콘센트 모양이 정해져 있으니 선풍기 만드는 회사와 발전소가 서로를 몰라도 그냥 꽂으면 돌아가죠. ASGI/WSGI가 바로 그 <strong>플러그 모양</strong>입니다 — 서버(Uvicorn·Hypercorn)와 프레임워크(FastAPI·Django)가 <strong>서로를 몰라도 꽂아 쓸 수 있게</strong> 파이썬 커뮤니티가 정한 약속이에요. 그래서 <code>uvicorn</code>을 <code>hypercorn</code>으로 바꿔도 <strong>내 앱 코드는 한 줄도 안 바뀝니다</strong>.</div>
     </div>
 
-    <p>모양이 실제로 어떻게 다른지 보면 차이가 확 와닿습니다. 규격이란 결국 <strong>"서버가 앱을 어떤 모양의 함수로 호출할지"</strong>에 대한 약속입니다.</p>
+    <p>그럼 그 "모양"이 구체적으로 뭘까요? <strong>서버가 내 앱을 어떤 함수 모양으로 부르고, 몇 번 주고받느냐</strong>입니다. 둘을 나란히 놓으면 차이가 한눈에 보입니다.</p>
 
-    <div class="code-block">
-      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">규격의 정체 — 함수 모양 하나</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
-      <pre><code class="language-python"># WSGI (옛 규격) — 그냥 함수. 한 번 호출하고 결과를 받으면 끝.
-#   environ        : 요청 정보(경로·헤더 등)가 담긴 딕셔너리
-#   start_response : 상태 코드·헤더를 돌려줄 때 부르는 함수
-def app(environ, start_response):
-    ...
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 296" role="img" aria-label="WSGI는 서버와 앱이 한 번만 주고받고, ASGI는 여러 번 주고받는 구조 비교">
+        <defs>
+          <marker id="aw-g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8"/></marker>
+          <marker id="aw-b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#3b82f6"/></marker>
+        </defs>
 
-# ASGI (새 규격) — async 함수. receive/send 로 메시지를 여러 번 주고받는다.
-#   scope   : 연결 정보(경로·헤더, HTTP인지 WebSocket인지)
-#   receive : 메시지를 받는 async 함수 (요청 본문 조각, WebSocket 메시지 …)
-#   send    : 메시지를 보내는 async 함수 (상태·헤더·응답 본문 조각 …)
-async def app(scope, receive, send):
-    ...</code></pre>
+        <rect x="24" y="36" width="312" height="222" rx="10" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+        <text x="44" y="62" font-family="Pretendard, sans-serif" font-size="12.5" font-weight="700" fill="#475569">WSGI — 옛 규격</text>
+        <text x="44" y="84" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#475569">def app(environ, start_response)</text>
+        <rect x="44" y="110" width="66" height="104" rx="6" fill="#e2e8f0" stroke="#94a3b8"/>
+        <text x="77" y="167" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#475569">서버</text>
+        <rect x="250" y="110" width="66" height="104" rx="6" fill="#e2e8f0" stroke="#94a3b8"/>
+        <text x="283" y="167" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#475569">내 앱</text>
+        <text x="180" y="139" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#475569">요청 정보를 넘기며 호출</text>
+        <line x1="114" y1="146" x2="244" y2="146" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#aw-g)"/>
+        <text x="180" y="184" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="10" fill="#475569">응답을 한 번에 돌려줌</text>
+        <line x1="244" y1="191" x2="114" y2="191" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#aw-g)"/>
+        <text x="180" y="238" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#b45309">한 번 부르고 한 번 답하면 끝 → WebSocket 불가</text>
+
+        <rect x="364" y="36" width="312" height="222" rx="10" fill="#eff6ff" stroke="#93c5fd" stroke-width="1.5"/>
+        <text x="384" y="62" font-family="Pretendard, sans-serif" font-size="12.5" font-weight="700" fill="#1d4ed8">ASGI — 새 규격</text>
+        <text x="384" y="84" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1d4ed8">async def app(scope, receive, send)</text>
+        <rect x="384" y="110" width="66" height="104" rx="6" fill="#dbeafe" stroke="#60a5fa"/>
+        <text x="417" y="167" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#1d4ed8">서버</text>
+        <rect x="590" y="110" width="66" height="104" rx="6" fill="#dbeafe" stroke="#60a5fa"/>
+        <text x="623" y="167" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" font-weight="700" fill="#1d4ed8">내 앱</text>
+        <text x="520" y="121" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#1d4ed8">연결 정보(scope)</text>
+        <line x1="454" y1="128" x2="584" y2="128" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#aw-b)"/>
+        <text x="520" y="147" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#1d4ed8">본문 조각 (receive)</text>
+        <line x1="454" y1="154" x2="584" y2="154" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#aw-b)"/>
+        <text x="520" y="173" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#1d4ed8">응답 조각 (send)</text>
+        <line x1="584" y1="180" x2="454" y2="180" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#aw-b)"/>
+        <text x="520" y="199" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="9.5" fill="#1d4ed8">또 보내고 · 또 받고 …</text>
+        <line x1="584" y1="206" x2="454" y2="206" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#aw-b)"/>
+        <text x="520" y="238" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#1d4ed8">메시지를 여러 번 주고받음 → 비동기 · WebSocket 가능</text>
+
+        <text x="350" y="284" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#374151">규격이 다른 건 결국 <tspan font-weight="700">"몇 번 주고받느냐"</tspan> 하나입니다.</text>
+      </svg>
+      <div class="diagram-caption">WSGI는 한 번에 끝나는 대화, ASGI는 계속 이어지는 대화. 그래서 ASGI만 WebSocket을 표현할 수 있다.</div>
     </div>
-
-    <p>차이가 보이시나요? WSGI는 <strong>"한 번 부르고 한 번 답하기"</strong>라서 요청 1건이 끝날 때까지 워커 하나가 붙잡혀 있고, 연결을 길게 유지하며 메시지를 주고받는 WebSocket은 아예 표현할 방법이 없습니다. ASGI는 <code>async</code>에 <strong>메시지를 여러 번 주고받는 구조</strong>라서 비동기 동시성과 장기 연결이 가능하죠.</p>
 
     <div class="table-wrap">
       <table>
@@ -565,12 +683,7 @@ async def app(scope, receive, send):
       </table>
     </div>
 
-    <p>FastAPI가 비동기·WebSocket을 쓸 수 있는 건 결국 <strong>ASGI라는 콘센트 위에 서 있기 때문</strong>이고, Flask·Django가 오래 동기였던 것도 그들이 WSGI 위에 있었기 때문입니다.</p>
-
-    <div class="callout callout-tip">
-      <div class="callout-icon"></div>
-      <div class="callout-body"><strong>Week 4 전체 정리 — 두 축과 3층.</strong> ① <strong>동시성 축</strong>: <code>async/await</code> + 이벤트 루프로 한 워커 안에서 기다림을 겹쳐 처리한다(Lesson 01·02). ② <strong>병렬성 축</strong>: <code>--workers N</code>으로 워커를 늘려 여러 코어를 쓴다 — GIL은 워커마다 하나씩이라 이 방법뿐이다. ③ 이 모든 게 <strong>Uvicorn → Starlette → FastAPI</strong> 3층 위에서 돈다. 이 그림이 머릿속에 있으면 성능 문제를 만났을 때 어디를 손봐야 할지 판단할 수 있습니다.</div>
-    </div>
+    <p>FastAPI가 비동기와 WebSocket을 쓸 수 있는 건 결국 <strong>ASGI라는 콘센트 위에 서 있기 때문</strong>이고, Flask·Django가 오래 동기였던 것도 그들이 WSGI 위에 있었기 때문입니다.</p>
   </section>
 
   <section class="section" id="self-check">

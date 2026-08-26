@@ -45,7 +45,7 @@
     <a class="nav-item" href="#data-3">🔄 데이터의 3요소</a>
     <a class="nav-item" href="#cap">⚖️ CAP 정리</a>
     <a class="nav-item" href="#availability">🟢 가용성 & 9의 개수</a>
-    <a class="nav-item" href="#slo-sla">📜 SLO vs SLA</a>
+    <a class="nav-item" href="#slo-sla">📜 SLI · SLO · SLA</a>
     <a class="nav-item" href="#resilience">🛡️ 신뢰성·장애내성·이중화</a>
     <a class="nav-item" href="#throughput">🏎️ 처리량 vs 지연시간</a>
 
@@ -267,15 +267,18 @@
 
     <div class="table-wrap">
       <table>
-        <thead><tr><th>가용성</th><th>별칭</th><th>연간 허용 다운타임</th></tr></thead>
+        <thead><tr><th>가용성</th><th>별칭</th><th>연간 허용 다운타임</th><th>월간(30일) 허용 다운타임</th></tr></thead>
         <tbody>
-          <tr><td><strong>99%</strong></td><td>투 나인</td><td>약 3.65일</td></tr>
-          <tr><td><strong>99.9%</strong></td><td>쓰리 나인</td><td>약 8.76시간</td></tr>
-          <tr><td><strong>99.99%</strong></td><td>포 나인</td><td>약 52분</td></tr>
-          <tr><td><strong>99.999%</strong></td><td>파이브 나인 🏆</td><td>약 5분</td></tr>
+          <tr><td><strong>99%</strong></td><td>투 나인</td><td>약 3.65일</td><td>약 7.2시간</td></tr>
+          <tr><td><strong>99.9%</strong></td><td>쓰리 나인</td><td>약 8.76시간</td><td>약 43분</td></tr>
+          <tr><td><strong>99.95%</strong></td><td>—</td><td>약 4.38시간</td><td>약 21분</td></tr>
+          <tr><td><strong>99.99%</strong></td><td>포 나인</td><td>약 52분</td><td>약 4분</td></tr>
+          <tr><td><strong>99.999%</strong></td><td>파이브 나인 🏆</td><td>약 5분</td><td>약 26초</td></tr>
         </tbody>
       </table>
     </div>
+
+    <p>실무 대시보드는 대부분 <strong>"지난 30일"</strong>을 기준으로 보기 때문에, 연 단위보다 <strong>월 단위 숫자</strong>를 외워두는 쪽이 훨씬 쓸모 있습니다. <strong>99.9%는 한 달에 43분</strong>, <strong>99.99%는 4분</strong> — 이 두 개만 기억해도 대화가 됩니다.</p>
 
     <div class="callout callout-warn">
       <div class="callout-icon"></div>
@@ -284,17 +287,131 @@
         다운타임은 연 <strong>약 5분</strong>으로 줄어요. 1초가 아쉬운 서비스(결제, 증권 등)에서는 이 차이가 어마어마합니다.
       </div>
     </div>
-    <p>계산은 간단합니다. <strong>가용성 = 업타임(켜져 있던 시간) ÷ (업타임 + 다운타임)</strong>. 1년 8,760시간 중 8.76시간 멈췄다면 99.9%죠. 그리고 이 목표를 문서로 약속한 것이 바로 다음에 볼 SLO·SLA예요.</p>
+    <p>계산은 간단합니다. <strong>가용성 = 업타임(켜져 있던 시간) ÷ (업타임 + 다운타임)</strong>. 1년 8,760시간 중 8.76시간 멈췄다면 99.9%죠. 그리고 이 숫자를 재고, 목표로 삼고, 계약으로 못 박는 것이 바로 다음에 볼 SLI·SLO·SLA예요.</p>
   </section>
 
-  <!-- ── 📜 SLO vs SLA ── -->
+  <!-- ── 📜 SLI · SLO · SLA ── -->
   <section class="section" id="slo-sla">
     <div class="section-header">
       <div class="section-icon icon-repo">📜</div>
-      <h2>SLO vs SLA — 목표와 계약의 차이</h2>
+      <h2>SLI · SLO · SLA — 지표, 목표, 그리고 계약</h2>
     </div>
 
-    <p>가용성 이야기가 나오면 <strong>SLO</strong>와 <strong>SLA</strong>가 따라옵니다. 둘 다 "얼마나 잘 서비스할지"를 정하지만, <strong>하나는 스스로 세운 목표</strong>이고 <strong>다른 하나는 고객과 맺은 계약</strong>이라는 점이 다릅니다.</p>
+    <p>가용성 이야기가 나오면 항상 따라오는 세 글자짜리 약어가 있습니다. <strong>SLI · SLO · SLA</strong>인데, 이름이 비슷해서 헷갈리기 딱 좋아요. <strong>김밥집</strong>에 비유하면 한 번에 정리됩니다.</p>
+
+    <div class="card-grid cols-3">
+      <div class="card highlight">
+        <div class="card-icon">📏</div>
+        <div class="card-title">SLI — Indicator (지표)</div>
+        <div class="card-body">실제로 김밥 나오는 데 걸린 시간을 <strong>재서 기록한 값</strong>. 그냥 <strong>측정값</strong>입니다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">SLO — Objective (목표)</div>
+        <div class="card-body">"주문의 99%는 <strong>5분 안에</strong> 나가게 하자"는 우리 <strong>내부 목표</strong>. 못 지켜도 사장이 반성할 뿐, 손님한테 돈을 물어주진 않습니다.</div>
+      </div>
+      <div class="card highlight">
+        <div class="card-icon">📜</div>
+        <div class="card-title">SLA — Agreement (계약)</div>
+        <div class="card-body">"5분 넘으면 <strong>김밥 값 환불</strong>"이라고 손님과 맺은 약속. <strong>어기면 돈이 나갑니다.</strong></div>
+      </div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>한 줄 정리</strong> — SLI는 <strong>숫자</strong>, SLO는 <strong>다짐</strong>, SLA는 <strong>계약서</strong>입니다.
+        셋 중 법적·금전적 구속력이 있는 건 <strong>SLA 하나뿐</strong>이고, 나머지 둘은 순수한 <strong>엔지니어링 도구</strong>예요.
+      </div>
+    </div>
+
+    <h3>SLI — 뭘 재느냐가 절반</h3>
+
+    <p>SLI는 보통 <strong>"좋은 이벤트 ÷ 전체 이벤트"</strong>의 비율로 씁니다. 실무에서 자주 쓰는 건 네 가지예요.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>SLI</th><th>무엇을 재나</th><th>정의 예시</th></tr></thead>
+        <tbody>
+          <tr><td><strong>가용성</strong></td><td>요청이 성공했는가</td><td>5xx가 아닌 응답 수 ÷ 전체 요청 수</td></tr>
+          <tr><td><strong>지연시간</strong></td><td>충분히 빨랐는가</td><td>300ms 안에 끝난 요청 수 ÷ 전체 요청 수</td></tr>
+          <tr><td><strong>에러율</strong></td><td>얼마나 실패하는가</td><td>실패한 요청 수 ÷ 전체 요청 수</td></tr>
+          <tr><td><strong>처리량</strong></td><td>얼마나 감당하는가</td><td>초당 처리한 요청 수 (RPS)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>초보자가 가장 많이 틀리는 것 — 평균 쓰기</strong><br>
+        "평균 응답시간 200ms"는 거의 쓸모가 없습니다. 100명 중 95명이 50ms고 5명이 3초여도 평균은 200ms 근처가 나오거든요.
+        그 5명은 <strong>이미 화가 나서 나갔는데</strong> 대시보드는 <strong>초록불</strong>입니다.
+      </div>
+    </div>
+
+    <p>그래서 <strong>백분위수(percentile)</strong>를 씁니다. <code>p95 = 500ms</code>라는 건 "요청 100개 중 95개는 500ms 안에 끝났다"는 뜻이고,
+    나머지 5개가 얼마나 느렸는지는 <strong>p99를 봐야</strong> 알 수 있어요. p99는 말하자면 <strong>"100명 중 가장 불행한 1명"</strong>을 들여다보는 창입니다.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>백분위수</th><th>읽는 법</th><th>언제 보나</th></tr></thead>
+        <tbody>
+          <tr><td><strong>p50</strong> (중앙값)</td><td>요청 100개 중 50개가 이 시간 안에 끝남</td><td>평상시 <strong>체감 속도</strong></td></tr>
+          <tr><td><strong>p95</strong></td><td>100개 중 95개가 이 시간 안에 끝남</td><td>드물지만 분명히 있는 <strong>느린 경험</strong></td></tr>
+          <tr><td><strong>p99</strong></td><td>100개 중 99개가 이 시간 안에 끝남</td><td><strong>최악의 경험</strong> · 알람 기준</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        실무에선 <strong>p50으로 평상시 체감</strong>을, <strong>p99로 최악의 경험</strong>을 봅니다. 대시보드에 그래프를 하나만 올릴 수 있다면 평균이 아니라 <strong>p99</strong>를 올리세요.
+      </div>
+    </div>
+
+    <h3>SLO — 100%는 목표가 될 수 없다</h3>
+
+    <p>SLO는 SLI에 <strong>목표선</strong>을 그은 것입니다. "<strong>지난 30일간</strong> 요청의 <strong>99.9%</strong>가 성공한다" 같은 식이죠.
+    여기서 중요한 건 <strong>기간(30일)</strong>과 <strong>숫자(99.9%)</strong>가 <strong>반드시 같이</strong> 붙는다는 겁니다.
+    "99.9% 성공"만 써두면 언제부터 언제까지 세야 하는지 아무도 모르니, <strong>기간 없는 SLO는 측정 자체가 불가능</strong>해요.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>그리고 100%는 절대 목표로 잡지 않습니다.</strong> 처음엔 이상하게 들리는데, 이유가 세 가지예요.<br><br>
+        <strong>① 비용</strong> — 9가 하나 늘어날 때마다 비용은 대충 <strong>10배씩</strong> 뜁니다.<br>
+        <strong>② 무의미</strong> — 어차피 사용자의 인터넷·와이파이·통신사가 이미 99.9% 근처라, 서버가 100%여도 <strong>체감이 안 됩니다</strong>.<br>
+        <strong>③ 배포 불가</strong> — 가장 중요한 이유. 100%를 목표로 하면 <strong>아무것도 배포할 수 없습니다</strong>.
+      </div>
+    </div>
+
+    <p>숫자로 보면 이렇습니다. <strong>한 달(30일)</strong> 기준으로 허용되는 다운타임이에요.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>SLO</th><th>한 달 허용 다운타임</th><th>현실적인 느낌</th></tr></thead>
+        <tbody>
+          <tr><td><strong>99.9%</strong></td><td>약 <strong>43분</strong></td><td>한 달에 한 번쯤 크게 넘어져도 됨</td></tr>
+          <tr><td><strong>99.95%</strong></td><td>약 <strong>21분</strong></td><td>점심 먹고 오면 이미 예산 초과</td></tr>
+          <tr><td><strong>99.99%</strong></td><td>약 <strong>4분</strong></td><td>사람이 손쓸 시간이 없음 → <strong>자동 복구 필수</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body">
+        <strong>에러 예산 (error budget)</strong> — SLO가 99.9%라는 건 뒤집으면 <strong>"0.1%까지는 실패해도 된다"</strong>는 뜻입니다.
+        이 남는 0.1%를 <strong>예산처럼 쓰는 것</strong>이 에러 예산이에요. 예산이 남아 있으면 마음 놓고 새 기능을 배포하고, 다 써버렸으면 배포를 멈추고 안정화에 집중합니다.
+        100%를 목표로 하면 이 예산이 <strong>0</strong>이라 아무것도 못 한다는 게, 위 ③번의 진짜 의미입니다.
+      </div>
+    </div>
+
+    <h3>SLA — 어기면 돈이 나가는 약속</h3>
+
+    <p>SLA는 SLO와 <strong>문장 모양이 거의 똑같습니다</strong>. 다른 건 딱 하나, <strong>어겼을 때 무슨 일이 일어나는가</strong>예요. 실제 문서에서 어떻게 갈리는지 나란히 놓고 보겠습니다.</p>
 
     <div class="compare-grid">
       <div class="compare-card">
@@ -302,8 +419,8 @@
         <div class="compare-card-body">
           <strong>Service Level Objective</strong><br>
           우리 팀이 스스로 세운 <strong>성능·가용성 목표</strong>입니다.<br><br>
-          예) "웹 서비스는 요청의 <strong>99.9%</strong>를 <strong>300ms 이내</strong>에 응답한다."<br><br>
-          → 내부적으로 "이 정도는 지키자"고 정한 <strong>다짐/기준선</strong>.
+          예) "웹 서비스는 <strong>지난 30일간</strong> 요청의 <strong>99.9%</strong>를 <strong>300ms 이내</strong>에 응답한다."<br><br>
+          → 못 지키면 <strong>배포를 멈추고 안정화</strong>. 돈은 나가지 않음.
         </div>
       </div>
       <div class="compare-card">
@@ -320,8 +437,8 @@
     <div class="callout callout-tip">
       <div class="callout-icon"></div>
       <div class="callout-body">
-        <strong>한 줄 정리</strong>: SLO는 <strong>"우리끼리의 목표"</strong>, SLA는 <strong>"고객과의 계약"</strong>. 그래서 보통 SLA(계약)보다 SLO(내부 목표)를 <strong>더 빡세게</strong> 잡아둡니다.
-        내부 목표를 먼저 못 지키면 경고등이 켜져서, 계약 위반이라는 진짜 사고로 번지기 전에 손을 쓸 수 있으니까요.
+        <strong>왜 SLO를 더 빡세게 잡을까</strong> — 보통 SLA(계약)보다 SLO(내부 목표)를 <strong>한 단계 더 엄격하게</strong> 잡아둡니다.
+        예를 들어 SLA가 99.9%면 SLO는 99.95%로요. 내부 목표를 먼저 못 지켜서 경고등이 켜지면, <strong>계약 위반이라는 진짜 사고로 번지기 전에</strong> 손을 쓸 수 있으니까요.
       </div>
     </div>
   </section>

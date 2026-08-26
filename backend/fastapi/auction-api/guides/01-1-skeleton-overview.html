@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1단계 · 뼈대와 설정 · 1-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <div class="nav-week active"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="01-1-skeleton-overview.html"><span class="sub-no">1-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">🏗️ 비유 — 터 고르기</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="01-2-skeleton-impl.html"><span class="sub-no">1-2</span> 구현</a>
+      <a class="nav-sub" href="01-3-skeleton-verify.html"><span class="sub-no">1-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>1단계 · 뼈대와 설정</b></div>
+    <h1>1-1 개요와 설계</h1>
+    <p class="lesson-subtitle">uv 프로젝트를 만들고, 폴더를 실무 모양으로 나누고, 환경별 설정을 분리하고, Docker로 Postgres·Redis를 띄운 뒤, <strong><code>GET /health</code>가 두 인프라에 진짜로 연결되는지 확인</strong>하는 출발점을 만듭니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="01-1-skeleton-overview.html"><b>1-1</b> 개요와 설계</a>
+    <a class="step-part" href="01-2-skeleton-impl.html"><b>1-2</b> 구현</a>
+    <a class="step-part" href="01-3-skeleton-verify.html"><b>1-3</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝까지 따라 하면 <code>curl localhost:8000/health</code>가 <code>{"status":"ok","db":true,"redis":true}</code>를 돌려주는, 테스트까지 통과하는 프로젝트 뼈대가 생깁니다. 기능은 아직 없지만 2~10단계가 전부 이 위에 쌓입니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>uv로 프로젝트를 만들고 Python 버전을 고정한다</li>
+    <li>라우터·서비스·리포지토리 폴더를 미리 나눠 "실무 프로젝트 모양"을 잡는다</li>
+    <li>pydantic-settings로 <code>APP_ENV=dev|test|prod</code>별 설정을 한 클래스로 관리한다</li>
+    <li>Docker compose로 Postgres(5435)·Redis(6380)를 띄운다</li>
+    <li>lifespan으로 앱 종료 시 연결을 정리하고, <code>/health</code>로 연결 상태를 확인한다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>이 단계를 끝내면 <strong>실행 가능한 프로젝트 뼈대</strong>가 생깁니다. 브라우저에서 <code>/docs</code>를 열면 Swagger가 뜨고, <code>/health</code>를 호출하면 앱이 실제로 DB와 Redis에 접속해서 살아 있는지 알려 줍니다. 아직 경매도 입찰도 없지만, 다음 단계부터는 이 뼈대 위에 파일만 하나씩 얹으면 됩니다.</p>
+
+    <p>시작하기 전에 세 가지가 설치돼 있어야 합니다. <strong>uv</strong>(<code>uv --version</code>), <strong>Docker Desktop</strong>(<code>docker ps</code>가 에러 없이 돌아야 함), 그리고 <strong>Python 3.13</strong>입니다. Python은 uv가 없으면 알아서 내려받기도 하지만, 이 가이드는 3.13이 이미 있다고 가정합니다.</p>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>작업 디렉터리.</strong> 모든 명령은 <code>til/backend/fastapi/auction-api/</code> 안에서 실행합니다. 이 폴더에는 이미 <code>guides/</code>(지금 읽는 문서)와 <code>planning/</code>(설계 문서)이 있습니다. 그 옆에 <code>app/</code>, <code>tests/</code>, <code>pyproject.toml</code> 같은 것들이 이번 단계에서 새로 생깁니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 필요한가 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🏢</div>
+      <h2>왜 필요한가 — 실무에서는 첫날에 이걸 한다</h2>
+    </div>
+    <p>self-study에서는 주차마다 <code>main.py</code> 파일 하나에 코드를 몰아 썼습니다. 배우기엔 그게 제일 좋지만, 실제 회사 프로젝트를 열어 보면 첫 커밋부터 폴더가 나뉘어 있고, 설정은 환경별로 갈라져 있고, DB는 Docker로 뜨고, 헬스체크 엔드포인트가 있습니다. 왜냐하면 이 네 가지가 없으면 <strong>두 번째 사람이 합류하는 순간</strong>부터 문제가 생기기 때문입니다. "내 컴퓨터에서는 되는데요"의 절반은 설정과 인프라 차이에서 나옵니다.</p>
+
+    <p>특히 <code>/health</code>는 별것 아닌 것 같아도 실무에서 가장 자주 호출되는 엔드포인트입니다. 배포 직후 운영자가 제일 먼저 두드리고, 로드밸런서가 몇 초마다 두드리고, Docker와 CI가 "앱이 준비됐나"를 판단할 때 두드립니다. 10단계에서 Docker healthcheck와 GitHub Actions가 바로 이 엔드포인트를 보게 됩니다.</p>
+
+    <p>그리고 이 단계에서 잡는 폴더 구조와 <code>get_db</code>, <code>get_redis</code>, <code>get_settings</code> 세 함수는 앞으로 모든 단계가 그대로 가져다 씁니다. 그래서 여기서 이름을 정확히 맞춰 두는 게 중요합니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏗️</div>
+      <h2>비유 — 집 짓기 전에 터를 고르고 수도·전기를 연결한다</h2>
+    </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>집을 지을 때 첫날에 벽돌부터 쌓지 않습니다.</strong> 먼저 터를 고르고(폴더 구조), 수도와 전기를 끌어오고(Postgres·Redis 컨테이너), 계량기가 제대로 돌아가는지 확인합니다(<code>/health</code>). 이 작업은 눈에 보이는 결과물이 없어서 지루하지만, 나중에 방을 하나씩 늘릴 때(2~10단계) 매번 수도관을 새로 파지 않아도 되게 해 줍니다.</div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>설정(Settings)은 라벨 붙은 열쇠고리입니다.</strong> 자취방 열쇠, 회사 열쇠, 본가 열쇠를 열쇠고리 하나에 라벨 붙여 두면 어디를 가든 고리 하나만 들고 다니면 됩니다. <code>Settings</code> 클래스가 그 열쇠고리이고, <code>APP_ENV=dev|test|prod</code>가 라벨입니다. 코드는 항상 <code>get_settings().database_url</code>이라고만 부르고, 그게 개발용 DB인지 테스트용 DB인지는 <code>.env</code>나 환경변수가 결정합니다. 3단계에서 테스트가 <code>auction_test</code> DB를 따로 쓰는 것도, 10단계에서 CI가 다른 주소로 붙는 것도 코드 수정 없이 이 라벨만 바꿔서 됩니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 그림 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🗺️</div>
+      <h2>설계 그림 — 무엇이 어디에 연결되나</h2>
+    </div>
+    <p>이번 단계에서 만드는 것을 한 장으로 그리면 아래와 같습니다. 클라이언트가 <code>/health</code>를 부르면 FastAPI 앱이 Postgres에 <code>SELECT 1</code>을, Redis에 <code>PING</code>을 한 번씩 보내고, 둘 다 성공하면 200, 하나라도 실패하면 503을 돌려줍니다.</p>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 250" role="img" aria-label="클라이언트-FastAPI-Postgres-Redis 연결 구조">
+        <defs>
+          <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/></marker>
+        </defs>
+        <!-- client -->
+        <rect x="20" y="95" width="120" height="60" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="80" y="121" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">클라이언트</text>
+        <text x="80" y="139" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1d4ed8">curl / 브라우저</text>
+        <!-- app -->
+        <rect x="220" y="70" width="220" height="110" rx="12" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="330" y="95" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">FastAPI 앱 · :8000</text>
+        <text x="330" y="115" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">app/main.py · lifespan</text>
+        <rect x="240" y="128" width="180" height="36" rx="8" fill="#ffffff" stroke="#009688" stroke-dasharray="3 2"/>
+        <text x="330" y="151" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00695c">GET /health</text>
+        <!-- postgres -->
+        <rect x="540" y="30" width="140" height="60" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="610" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">Postgres 16</text>
+        <text x="610" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#b45309">Docker · :5435</text>
+        <!-- redis -->
+        <rect x="540" y="160" width="140" height="60" rx="10" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="610" y="185" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">Redis 7</text>
+        <text x="610" y="204" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#b91c1c">Docker · :6380</text>
+        <!-- arrows -->
+        <line x1="142" y1="125" x2="216" y2="125" stroke="#6b7280" stroke-width="2.5" marker-end="url(#arr)"/>
+        <line x1="442" y1="100" x2="536" y2="65" stroke="#6b7280" stroke-width="2.5" marker-end="url(#arr)"/>
+        <text x="480" y="70" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">SELECT 1</text>
+        <line x1="442" y1="150" x2="536" y2="185" stroke="#6b7280" stroke-width="2.5" marker-end="url(#arr)"/>
+        <text x="480" y="185" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">PING</text>
+        <text x="350" y="232" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6b7280">둘 다 OK → 200 {"status":"ok"} · 하나라도 실패 → 503 {"status":"degraded"}</text>
+      </svg>
+      <div class="diagram-caption">앱은 두 인프라에 직접 물어보고 그 결과를 정직하게 돌려준다.</div>
+    </div>
+
+    <p>두 번째 그림은 시간 순서입니다. 앱이 켜질 때 엔진과 Redis 클라이언트 객체를 만들지만(<code>import</code> 시점), 실제 TCP 연결은 첫 요청이 올 때 비로소 맺어집니다. 그리고 앱이 꺼질 때 <code>lifespan</code>의 <code>yield</code> 아래쪽이 실행되어 연결을 정리합니다. Week 7·01에서 배운 lifespan이 바로 이 "켜질 때 / 꺼질 때" 훅입니다.</p>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 700 150" role="img" aria-label="lifespan 타임라인: 시작, 요청 처리, 종료">
+        <defs>
+          <marker id="arr2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
+        </defs>
+        <line x1="30" y1="75" x2="670" y2="75" stroke="#009688" stroke-width="3" marker-end="url(#arr2)"/>
+        <!-- startup -->
+        <circle cx="80" cy="75" r="9" fill="#3b82f6"/>
+        <text x="80" y="45" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">시작</text>
+        <text x="80" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">engine · redis_client 생성</text>
+        <text x="80" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">(아직 연결 안 함)</text>
+        <!-- yield -->
+        <circle cx="230" cy="75" r="9" fill="#009688"/>
+        <text x="230" y="45" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">lifespan: yield</text>
+        <text x="230" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">여기서 멈추고 요청을 받기 시작</text>
+        <!-- requests -->
+        <rect x="320" y="58" width="180" height="34" rx="8" fill="#e0f2f1" stroke="#009688"/>
+        <text x="410" y="80" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#00695c">요청 처리 … /health 등</text>
+        <text x="410" y="115" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">첫 요청 때 실제 TCP 연결이 맺어짐</text>
+        <!-- shutdown -->
+        <circle cx="600" cy="75" r="9" fill="#ef4444"/>
+        <text x="600" y="45" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">종료 (Ctrl+C)</text>
+        <text x="600" y="105" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">yield 아래쪽 실행:</text>
+        <text x="600" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">aclose() · dispose()</text>
+      </svg>
+      <div class="diagram-caption">객체 생성은 import 시점, 연결은 첫 사용 시점, 정리는 lifespan 종료 시점.</div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="index.html"><span class="part-pager-dir">← 로드맵</span><span class="part-pager-title">10단계 전체 보기</span></a>
+    <a class="part-pager-link next" href="01-2-skeleton-impl.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">1-2 구현</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 1단계 · 뼈대와 설정 · 1-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

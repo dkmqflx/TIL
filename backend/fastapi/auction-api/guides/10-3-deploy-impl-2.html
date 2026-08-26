@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10단계 · 성능·관측성·배포 · 10-3 구현 ② 관측성·배포 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/markdown.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <div class="nav-week active"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="10-1-deploy-overview.html"><span class="sub-no">10-1</span> 개요와 설계</a>
+      <a class="nav-sub" href="10-2-deploy-impl-1.html"><span class="sub-no">10-2</span> 구현 ① 캐시</a>
+      <a class="nav-sub active" href="10-3-deploy-impl-2.html"><span class="sub-no">10-3</span> 구현 ② 관측성·배포</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#impl-7">6. app/routers/auctions.py</a>
+        <a class="nav-item" href="#impl-8">7. app/core/logging.py</a>
+        <a class="nav-item" href="#impl-9">8. app/main.py</a>
+        <a class="nav-item" href="#impl-10">9. alembic/env.py</a>
+        <a class="nav-item" href="#impl-11">10. app/services/auth.py</a>
+        <a class="nav-item" href="#impl-12">11. GREEN</a>
+        <a class="nav-item" href="#impl-13">12. loadtest/locustfile.py</a>
+        <a class="nav-item" href="#impl-14">13. Dockerfile · .dockeri…</a>
+        <a class="nav-item" href="#impl-15">14. .github/workflows/ci.…</a>
+        <a class="nav-item" href="#impl-16">15. README.md</a>
+        <a class="nav-item" href="#impl-17">16. 최종 구조</a>
+      </div>
+      <a class="nav-sub" href="10-4-deploy-verify.html"><span class="sub-no">10-4</span> 실행·확인</a>
+    </div>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>10단계 · 성능·관측성·배포</b></div>
+    <h1>10-3 구현 ② 관측성·배포</h1>
+    <p class="lesson-subtitle">구현의 뒷부분입니다. 앞 절반은 <a href="10-2-deploy-impl-1.html">10-2 구현 ① 캐시</a>에 있고, 여기서는 남은 <strong>11개</strong>를 이어서 만듭니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="10-1-deploy-overview.html"><b>10-1</b> 개요와 설계</a>
+    <a class="step-part" href="10-2-deploy-impl-1.html"><b>10-2</b> 구현 ① 캐시</a>
+    <a class="step-part current" href="10-3-deploy-impl-2.html"><b>10-3</b> 구현 ② 관측성·배포</a>
+    <a class="step-part" href="10-4-deploy-verify.html"><b>10-4</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>이어서 하는 부분입니다.</strong> <a href="10-2-deploy-impl-1.html">10-2 구현 ① 캐시</a>를 끝냈다는 전제로 이어집니다. 아직이라면 그쪽을 먼저 마치세요.</div>
+  </div>
+
+  <!-- ───────────────────────── 구현 ───────────────────────── -->
+  <section class="section" id="impl">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔧</div>
+      <h2>구현 ② — 관측성과 배포</h2>
+    </div>
+    <p>여기부터는 <a href="10-2-deploy-impl-1.html">10-2 구현 ① 캐시</a>에서 만든 것 위에 이어서 얹습니다. 파일 이름과 위치가 그대로 이어지니, 그 문서를 끝까지 따라 했는지 먼저 확인하세요.</p>
+    <h3 id="impl-7">6. app/routers/auctions.py — Redis 주입과 부하 데모 스위치 (수정)</h3>
+    <p>목록·생성·수정·취소가 <code>RedisClient</code> 를 받아 서비스에 넘깁니다. 그리고 <code>read_auction</code> 에 이번 단계의 <em>일부러 심은 함정</em>이 들어갑니다: <code>demo_blocking_sleep</code> 가 켜져 있으면 <code>time.sleep(0.05)</code>. 실무의 <code>requests.get()</code>, 동기 DB 드라이버, PIL 이미지 변환이 정확히 이 자리에 이렇게 들어옵니다. 기본값은 꺼짐이고, 실행·확인에서 켜고 끄며 부하 테스트로 잡아냅니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/routers/auctions.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import time
+import uuid
+from typing import Annotated
+
+from fastapi import APIRouter, Query, status
+
+from app.core.config import get_settings
+from app.core.deps import CurrentUser, DbSession, RedisClient
+from app.schemas.auction import (
+    AuctionCreate,
+    AuctionListParams,
+    AuctionPage,
+    AuctionRead,
+    AuctionUpdate,
+)
+from app.services import auction as auction_service
+
+router = APIRouter(prefix="/auctions", tags=["auctions"])
+
+
+@router.post("", response_model=AuctionRead, status_code=status.HTTP_201_CREATED)
+async def create_auction(
+    data: AuctionCreate, user: CurrentUser, db: DbSession, redis: RedisClient
+) -&gt; AuctionRead:
+    return await auction_service.create(db, redis, user, data)
+
+
+@router.get("", response_model=AuctionPage)
+async def list_auctions(
+    params: Annotated[AuctionListParams, Query()], db: DbSession, redis: RedisClient
+) -&gt; AuctionPage:
+    """?status=active&amp;sort=ending_soon&amp;limit=20&amp;cursor=... — 로그인 없이 누구나. 5초 캐시."""
+    return await auction_service.list_auctions(db, redis, params)
+
+
+@router.get("/{auction_id}", response_model=AuctionRead)
+async def read_auction(auction_id: uuid.UUID, db: DbSession) -&gt; AuctionRead:
+    if get_settings().demo_blocking_sleep:
+        # 10단계 부하 데모: "누군가 무심코 넣은 동기 호출" — 이 50ms 동안 프로세스 전체가 멈춘다.
+        # 실제 코드에선 requests.get(), 동기 DB 드라이버, 이미지 변환 같은 것이 이 자리에 온다.
+        time.sleep(0.05)
+    return await auction_service.get(db, auction_id)  # 로그인 없이 누구나
+
+
+@router.patch("/{auction_id}", response_model=AuctionRead)
+async def update_auction(
+    auction_id: uuid.UUID,
+    data: AuctionUpdate,
+    user: CurrentUser,
+    db: DbSession,
+    redis: RedisClient,
+) -&gt; AuctionRead:
+    return await auction_service.update(db, redis, user, auction_id, data)
+
+
+@router.post("/{auction_id}/cancel", response_model=AuctionRead)
+async def cancel_auction(
+    auction_id: uuid.UUID, user: CurrentUser, db: DbSession, redis: RedisClient
+) -&gt; AuctionRead:
+    return await auction_service.cancel(db, redis, user, auction_id)</code></pre>
+    </div>
+    <h3 id="impl-8">7. app/core/logging.py — JSON 로그 · request-id · 느린 쿼리</h3>
+    <p>세 부분입니다. <strong>JsonFormatter</strong> 는 <code>LogRecord</code> 를 JSON 한 줄로 — 기본 속성 외에 <code>extra={…}</code> 로 들어온 우리 필드(method·status·duration_ms·statement)를 전부 싣고, <code>request_id</code> 는 레코드에 있으면 그것, 없으면 contextvar 에서 꺼냅니다. <strong>request_id_middleware</strong> 는 헤더가 있으면 재사용·없으면 발급하고, contextvar 에 넣고(<code>set</code>), 끝나면 되돌리고(<code>reset</code>), 응답 헤더로 돌려주고, access 로그 한 줄을 남깁니다 — uvicorn 의 access 로그는 끕니다(같은 내용을 request_id 없이 두 번 찍을 이유가 없습니다). <strong>install_slow_query_logging</strong> 은 5단계 query_counter 와 같은 SQLAlchemy 커서 이벤트로 SQL 하나의 소요 시간을 재서 임계값을 넘으면 WARNING 을 남깁니다 — 되돌리는 함수를 돌려줘서 테스트가 임계값 0 짜리를 잠깐 달았다 뗄 수 있습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/core/logging.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""JSON 로그 · request-id · 느린 쿼리 경고.
+
+로그 한 줄 = JSON 한 개. 사람이 아니라 수집기(Loki·CloudWatch·Datadog)가 읽는다고 생각하고 쓴다.
+request_id 는 contextvar 에 둔다 — 같은 요청을 처리하는 동안 어디서 찍힌 로그든 자동으로 따라붙는다.
+"""
+
+import contextvars
+import json
+import logging
+import sys
+import time
+import uuid
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+
+from fastapi import Request, Response
+from sqlalchemy import event
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+REQUEST_ID_HEADER = "X-Request-ID"
+request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
+
+# LogRecord 가 원래 갖고 있는 속성들 — 이 밖의 것은 extra={} 로 들어온 우리 필드다
+_STANDARD = set(logging.LogRecord("x", 0, "", 0, "", (), None).__dict__) | {
+    "message",
+    "asctime",
+    "taskName",
+}
+
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -&gt; str:
+        line: dict[str, object] = {
+            "ts": datetime.fromtimestamp(record.created, UTC).isoformat(timespec="milliseconds"),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+            "request_id": getattr(record, "request_id", None) or request_id_var.get(),
+        }
+        for key, value in record.__dict__.items():
+            if key not in _STANDARD and key != "request_id":
+                line[key] = value
+        if record.exc_info:
+            line["exc"] = self.formatException(record.exc_info)
+        return json.dumps(line, ensure_ascii=False, default=str)
+
+
+def setup_logging(level: str = "INFO") -&gt; None:
+    """루트 로거 하나에 JSON 핸들러 하나. uvicorn 의 로그도 여기로 흘려보내고,
+    uvicorn 의 access 로그는 끈다 — 우리 미들웨어가 request_id 와 소요 시간을 붙여 대신 남긴다."""
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(level)
+    for name in ("uvicorn", "uvicorn.error"):
+        uv = logging.getLogger(name)
+        uv.handlers = []
+        uv.propagate = True
+    access = logging.getLogger("uvicorn.access")
+    access.handlers = []
+    access.propagate = False
+
+
+access_logger = logging.getLogger("app.access")
+db_logger = logging.getLogger("app.db")
+
+
+async def request_id_middleware(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -&gt; Response:
+    """들어온 X-Request-ID 가 있으면 그대로(게이트웨이·프론트가 붙인 것), 없으면 발급.
+    응답 헤더로 돌려주고, 요청 한 줄을 JSON 으로 남긴다."""
+    request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+    token = request_id_var.set(request_id)
+    started = time.perf_counter()
+    status = 500  # 처리 중 예외로 끝나면 500 으로 기록된다
+    try:
+        response = await call_next(request)
+        status = response.status_code
+    finally:
+        access_logger.info(
+            "request",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status": status,
+                "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            },
+        )
+        request_id_var.reset(token)
+    response.headers[REQUEST_ID_HEADER] = request_id
+    return response
+
+
+def install_slow_query_logging(engine: AsyncEngine, threshold_ms: int) -&gt; Callable[[], None]:
+    """커서 실행 전후 이벤트로 SQL 하나의 소요 시간을 재고, 임계값을 넘으면 WARNING.
+    async 엔진도 속은 동기 엔진(engine.sync_engine)이라 거기에 건다. 되돌리는 함수를 돌려준다."""
+    sync_engine = engine.sync_engine
+    stack_key = f"slow_query_started:{id(sync_engine)}:{threshold_ms}"
+
+    def before(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001
+        conn.info.setdefault(stack_key, []).append(time.perf_counter())
+
+    def after(conn, cursor, statement, parameters, context, executemany):  # noqa: ANN001
+        started = conn.info.get(stack_key)
+        if not started:
+            return
+        elapsed_ms = (time.perf_counter() - started.pop()) * 1000
+        if elapsed_ms &gt;= threshold_ms:
+            db_logger.warning(
+                "slow query",
+                extra={
+                    "duration_ms": round(elapsed_ms, 1),
+                    "statement": " ".join(statement.split())[:300],
+                },
+            )
+
+    event.listen(sync_engine, "before_cursor_execute", before)
+    event.listen(sync_engine, "after_cursor_execute", after)
+
+    def remove() -&gt; None:
+        event.remove(sync_engine, "before_cursor_execute", before)
+        event.remove(sync_engine, "after_cursor_execute", after)
+
+    return remove</code></pre>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>contextvar 가 왜 필요한가.</strong> 요청 하나는 미들웨어 → 라우터 → 서비스 → SQL → httpx 를 거치는데, <code>request_id</code> 를 함수 인자로 다 끌고 다닐 순 없습니다. <code>ContextVar</code> 는 "지금 이 코루틴(과 거기서 파생된 태스크·스레드)만의 전역 변수" 입니다. 미들웨어가 한 번 <code>set</code> 하면 그 요청을 처리하는 동안 어디서 <code>get</code> 해도 같은 값이고, 동시에 처리 중인 <em>다른</em> 요청은 자기 값을 봅니다. 실행·확인에서 <code>httpx</code> 라이브러리의 자체 로그에까지 우리 request_id 가 붙는 걸 보게 됩니다 — 우리가 httpx 에 아무것도 안 넘겼는데도요.</div>
+    </div>
+    <h3 id="impl-9">8. app/main.py — 로깅 · 느린 쿼리 · CORS · 미들웨어 (수정)</h3>
+    <p><code>create_app</code> 맨 앞에서 <code>setup_logging()</code> 과 <code>install_slow_query_logging()</code>. CORS 는 허용 출처가 <em>있을 때만</em> 답니다(빈 리스트면 브라우저 교차 출처 요청은 전부 막힌 상태 — 안전한 기본값). 미들웨어는 <strong>나중에 add 한 것이 바깥</strong>입니다. CORS 를 먼저(안쪽), request-id 를 나중에(바깥) 두면 preflight 응답과 거절(400)에도 <code>X-Request-ID</code> 와 access 로그가 붙습니다. CORS 자체는 7주차·03 에서 다뤘으므로 여기서 다시 설명하지 않습니다(정본 링크).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/main.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import asyncio
+import pathlib
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+from app.core.config import get_settings
+from app.core.db import engine
+from app.core.exceptions import register_exception_handlers
+from app.core.http import http_client
+from app.core.logging import (
+    REQUEST_ID_HEADER,
+    install_slow_query_logging,
+    request_id_middleware,
+    setup_logging,
+)
+from app.core.redis import redis_client
+from app.routers import auctions, auth, bids, health, payments, users, webhooks
+from app.ws import router as ws_router
+from app.ws.bridge import run_bridge
+from app.ws.manager import manager
+
+STATIC_DIR = pathlib.Path(__file__).resolve().parent.parent / "static"
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -&gt; AsyncIterator[None]:
+    # 프로세스(워커)마다 Redis 구독 루프 하나 — 이 워커에 붙은 소켓들에게 이벤트를 중계한다
+    bridge = asyncio.create_task(run_bridge(redis_client, manager))
+    yield
+    bridge.cancel()
+    try:
+        await bridge
+    except asyncio.CancelledError:
+        pass
+    await http_client.aclose()  # 열려 있던 PG 커넥션 정리
+    await redis_client.aclose()
+    await engine.dispose()
+
+
+def create_app() -&gt; FastAPI:
+    settings = get_settings()
+    setup_logging()  # 루트 로거 = JSON 한 줄. uvicorn 로그도 같은 모양으로
+    install_slow_query_logging(engine, settings.slow_query_ms)
+    app = FastAPI(title="Auction API", debug=settings.debug, lifespan=lifespan)
+    register_exception_handlers(app)
+
+    # 미들웨어는 나중에 add 한 것이 바깥이다. CORS 를 먼저(안쪽), request-id 를 나중에(바깥) 둬서
+    # preflight 응답까지 request-id 와 access 로그가 붙게 한다.
+    if settings.cors_origins:  # 비어 있으면 CORS 를 끈다 — 브라우저 교차 출처 요청이 전부 막힌다
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_credentials=True,  # 출처를 명시했을 때만 안전하다 ("*" 와는 같이 못 쓴다)
+            allow_methods=["*"],
+            allow_headers=["*"],
+            expose_headers=[REQUEST_ID_HEADER],  # 브라우저 JS 가 X-Request-ID 를 읽을 수 있게
+        )
+    app.middleware("http")(request_id_middleware)
+    app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(users.router)
+    app.include_router(auctions.router)
+    app.include_router(bids.router)
+    app.include_router(payments.router)
+    app.include_router(webhooks.router)
+    app.include_router(ws_router.router)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    return app
+
+
+app = create_app()</code></pre>
+    </div>
+    <h3 id="impl-10">9. alembic/env.py — 한 단어 (수정)</h3>
+    <p>이게 없으면 관측성 테스트 두 개가 이유도 모른 채 실패합니다. Alembic 의 <code>env.py</code> 는 <code>fileConfig(alembic.ini)</code> 로 로깅을 설정하는데, 그 함수의 기본값 <code>disable_existing_loggers=True</code> 는 <em>그 시점에 이미 만들어진 모든 로거를 꺼 버립니다</em>. 테스트는 앱을 import 한 뒤(<code>app.access</code>·<code>app.db</code> 로거가 이미 생김) 세션 시작 fixture 에서 <code>alembic upgrade head</code> 를 같은 프로세스로 돌리므로, 우리 로거가 전부 <code>disabled</code> 가 됩니다. 운영에서는 마이그레이션이 별도 프로세스라 문제없지만, 같은 프로세스에서 돌리는 순간 터지는 종류의 함정입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) alembic/env.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import asyncio
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from app.core.config import get_settings
+from app.models import Base
+
+# Alembic Config 객체 — alembic.ini 의 값에 접근한다
+config = context.config
+
+# alembic.ini 의 sqlalchemy.url 대신 앱의 Settings(.env) 에서 접속 주소를 가져온다.
+# → 앱과 마이그레이션이 같은 DB 를 보게 되고, 비밀번호가 ini 에 박히지 않는다.
+config.set_main_option("sqlalchemy.url", get_settings().database_url)
+
+if config.config_file_name is not None:
+    # disable_existing_loggers=False: 기본값(True)은 이 시점에 이미 만들어진 로거(app.access 등)를
+    # 전부 꺼 버린다. 테스트처럼 같은 프로세스에서 마이그레이션을 돌리면 앱 로그가 사라진다(10단계).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
+
+# autogenerate 가 "현재 모델" 로 삼는 메타데이터
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -&gt; None:
+    """DB 연결 없이 SQL 만 출력하는 모드 (alembic upgrade head --sql)."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection) -&gt; None:
+    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -&gt; None:
+    """asyncpg 엔진으로 연결한 뒤, 동기 API 인 Alembic 을 run_sync 로 감싸 실행한다."""
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
+
+
+def run_migrations_online() -&gt; None:
+    asyncio.run(run_async_migrations())
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()</code></pre>
+    </div>
+    <h3 id="impl-11">10. app/services/auth.py — 부하 테스트가 찾아낸 진짜 병목 (수정)</h3>
+    <p>이 수정은 원래 계획에 없었습니다. 실행·확인의 부하 테스트를 처음 돌렸을 때 로그인·회원가입이 유독 느렸고, 재 보니 <code>hash_password</code> 가 <strong>202ms</strong>, <code>verify_password</code> 가 <strong>197ms</strong> 였습니다. bcrypt 는 <em>일부러</em> 느린 알고리즘입니다(무차별 대입을 막으려고) — 그 자체는 정상입니다. 문제는 3단계에서 이 동기 함수를 <code>async def</code> 서비스 안에서 그냥 불렀다는 것: 그 200ms 동안 이벤트 루프가 멈춰 <em>다른 모든 요청</em>이 기다립니다. 4주차·02 의 블로킹 함정 그대로입니다. 고치는 법은 한 줄 — <code>await asyncio.to_thread(hash_password, …)</code> 로 스레드에 보냅니다. 3단계 테스트는 전부 그대로 통과합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/services/auth.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""인증 규칙. HTTP 를 모른다 — 도메인 예외(AppError) 만 던진다."""
+
+import asyncio
+import uuid
+
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import EmailAlreadyExistsError, UnauthorizedError
+from app.core.security import (
+    TokenError,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from app.models import User
+from app.repositories import user as user_repo
+from app.schemas.auth import LoginRequest, SignupRequest, TokenPair
+
+
+def _refresh_key(jti: str) -&gt; str:
+    return f"refresh:{jti}"
+
+
+async def signup(db: AsyncSession, data: SignupRequest) -&gt; User:
+    if await user_repo.get_by_email(db, data.email) is not None:
+        raise EmailAlreadyExistsError()
+    user = await user_repo.create(
+        db,
+        email=data.email,
+        # bcrypt 는 일부러 느리다(수십~수백 ms). 동기 함수를 그냥 부르면 그 시간 동안
+        # 이벤트 루프가 멈춘다 → 스레드로 보낸다 (10단계 부하 테스트가 찾아낸 병목)
+        password_hash=await asyncio.to_thread(hash_password, data.password),
+        nickname=data.nickname,
+    )
+    await db.commit()
+    await db.refresh(user)  # DB 가 채운 created_at 을 읽어 온다
+    return user
+
+
+async def _issue_token_pair(redis: Redis, user_id: uuid.UUID) -&gt; TokenPair:
+    access = create_access_token(user_id)
+    refresh, jti, ttl = create_refresh_token(user_id)
+    await redis.set(_refresh_key(jti), str(user_id), ex=ttl)  # 살아 있는 refresh 토큰 목록
+    return TokenPair(access_token=access, refresh_token=refresh)
+
+
+async def login(db: AsyncSession, redis: Redis, data: LoginRequest) -&gt; TokenPair:
+    user = await user_repo.get_by_email(db, data.email)
+    # 이메일이 없는 경우와 비밀번호가 틀린 경우를 구분해 알려주지 않는다 (계정 존재 여부 노출 방지)
+    ok = user is not None and await asyncio.to_thread(
+        verify_password, data.password, user.password_hash
+    )
+    if not ok:
+        raise UnauthorizedError("이메일 또는 비밀번호가 올바르지 않습니다")
+    return await _issue_token_pair(redis, user.id)
+
+
+async def refresh(redis: Redis, refresh_token: str) -&gt; TokenPair:
+    try:
+        payload = decode_token(refresh_token, expected_type="refresh")
+    except TokenError as exc:
+        raise UnauthorizedError("refresh 토큰이 유효하지 않습니다") from exc
+    # DEL 은 원자적이다: 같은 토큰으로 동시에 두 번 와도 한 쪽만 1 을 받는다 → 회전(rotation)
+    deleted = await redis.delete(_refresh_key(payload["jti"]))
+    if not deleted:
+        raise UnauthorizedError("이미 사용됐거나 폐기된 refresh 토큰입니다")
+    return await _issue_token_pair(redis, uuid.UUID(payload["sub"]))
+
+
+async def logout(redis: Redis, refresh_token: str) -&gt; None:
+    try:
+        payload = decode_token(refresh_token, expected_type="refresh")
+    except TokenError:
+        return  # 이미 못 쓰는 토큰이면 할 일이 없다 — 로그아웃은 멱등
+    await redis.delete(_refresh_key(payload["jti"]))</code></pre>
+    </div>
+    <h3 id="impl-12">11. GREEN — 10 + 87 = 97</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q tests/test_cache.py tests/test_observability.py
+# ..........                                                               [100%]
+# 10 passed in 1.66s
+uv run pytest -q
+# 97 passed in 66.75s (0:01:06)
+uv run ruff check . &amp;&amp; uv run ruff format --check .
+# All checks passed!
+# 76 files already formatted</code></pre>
+    </div>
+    <h3 id="impl-13">12. loadtest/locustfile.py — 가상 사용자 한 명의 하루</h3>
+    <p>locust 는 "사용자 한 명이 하는 일" 을 파이썬 클래스로 씁니다. <code>on_start</code> 에서 가입·로그인을 한 번 하고, 그 뒤엔 목록 5 : 상세 3 : 입찰 1 의 비율로 반복합니다(<code>@task(5)</code>). 입찰은 대부분 규칙에 걸려 422·429 로 거절되는데, 그건 서버가 <em>일을 제대로 한</em> 것이므로 실패로 세지 않습니다(<code>catch_response</code>). 9주차·03 에서 <code>ab</code>/<code>wrk</code> 로 했던 것의 "시나리오 있는" 버전입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">loadtest/locustfile.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""부하 테스트 시나리오 — 실행:
+    uv run locust -f loadtest/locustfile.py --headless -u 50 -r 10 -t 20s \
+        --host http://localhost:8000 --only-summary
+
+가상 사용자 한 명 = 회원가입 → 로그인(한 번) → 목록 5 : 상세 3 : 입찰 1 비율로 반복.
+AUCTION_ID 환경변수가 있으면 그 경매에 입찰하고, 없으면 active 목록의 첫 경매를 쓴다.
+입찰은 422(너무 낮음)·429(rate limit)도 '정상 응답' 으로 센다 —
+서버가 규칙대로 거절한 것이지 장애가 아니다.
+"""
+
+import os
+import random
+import uuid
+
+from locust import HttpUser, between, task
+
+
+class Bidder(HttpUser):
+    wait_time = between(0.1, 0.5)  # 요청 사이 0.1~0.5초 (사람이 화면을 보는 시간)
+
+    def on_start(self) -&gt; None:
+        email = f"load-{uuid.uuid4().hex[:8]}@example.com"
+        self.client.post(
+            "/auth/signup",
+            json={"email": email, "password": "secret123", "nickname": "부하"},
+            name="/auth/signup",
+        )
+        res = self.client.post(
+            "/auth/login", json={"email": email, "password": "secret123"}, name="/auth/login"
+        )
+        self.headers = {"Authorization": f"Bearer {res.json()['access_token']}"}
+        self.auction_id = os.environ.get("AUCTION_ID")
+        if not self.auction_id:
+            res = self.client.get("/auctions", params={"status": "active"}, name="/auctions")
+            page = res.json()
+            self.auction_id = page["items"][0]["id"] if page["items"] else None
+
+    @task(5)
+    def list_auctions(self) -&gt; None:
+        self.client.get("/auctions", params={"status": "active", "limit": 20}, name="/auctions")
+
+    @task(3)
+    def read_auction(self) -&gt; None:
+        if self.auction_id:
+            self.client.get(f"/auctions/{self.auction_id}", name="/auctions/{id}")
+
+    @task(1)
+    def place_bid(self) -&gt; None:
+        if not self.auction_id:
+            return
+        # 대부분 '너무 낮음' 으로 거절된다 — 그래도 서버가 하는 일(락·규칙 검사)은 같다
+        amount = random.randint(1, 500) * 1_000
+        with self.client.post(
+            f"/auctions/{self.auction_id}/bids",
+            json={"amount": amount},
+            headers=self.headers,
+            name="/auctions/{id}/bids",
+            catch_response=True,
+        ) as res:
+            if res.status_code in (201, 422, 429):
+                res.success()
+            else:
+                res.failure(f"unexpected {res.status_code}")</code></pre>
+    </div>
+    <h3 id="impl-14">13. Dockerfile · .dockerignore · docker-compose.prod.yml</h3>
+    <p><strong>Dockerfile</strong> 은 두 <code>FROM</code> 입니다. 빌더는 uv 공식 이미지 — 잠금 파일만 먼저 복사해 <code>uv sync --frozen --no-dev</code> 를 돌리면 코드가 바뀌어도 의존성 레이어는 캐시에서 재사용됩니다(<code>--mount=type=cache</code> 로 uv 캐시까지). 런타임은 <code>python:3.13-slim</code> 에 <code>.venv</code> 와 코드만 복사하고, <code>app</code> 사용자로 내려온 뒤 <strong>exec 형식</strong> <code>CMD</code> — PID 1 이 uvicorn 자신이라 <code>docker stop</code> 의 SIGTERM 을 직접 받습니다(셸 형식이면 <code>sh</code> 가 PID 1 이 되어 신호를 삼킵니다 — 8단계 워커의 graceful shutdown 이 여기서 무너집니다). <strong>.dockerignore</strong> 는 <code>.venv</code>(호스트용 바이너리라 컨테이너에서 못 씀), <code>.git</code>, <code>.env</code>(비밀!), 테스트를 이미지 밖에 둡니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">dockerfile</span><span class="code-filename">Dockerfile</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-dockerfile"># ── 1단계: 빌더 — uv 로 의존성을 .venv 에 설치한다 (uv 와 캐시는 여기서만 쓴다) ──
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0
+WORKDIR /app
+# 잠금 파일만 먼저 복사 → 코드가 바뀌어도 의존성 레이어는 캐시에서 재사용된다
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-install-project
+COPY . .
+
+# ── 2단계: 런타임 — 파이썬과 .venv 만 있는 가벼운 이미지. uv·빌드 캐시·git 은 없다 ──
+FROM python:3.13-slim-bookworm
+RUN useradd --create-home --uid 1000 app
+WORKDIR /app
+COPY --from=builder --chown=app:app /app /app
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+USER app
+EXPOSE 8000
+# exec 형식(JSON 배열) — PID 1 이 uvicorn 자신이라 docker stop 의 SIGTERM 을 직접 받는다
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">.dockerignore</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">.venv/
+.git/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.ruff_cache/
+tests/
+loadtest/
+uvicorn.log
+*.log</code></pre>
+    </div>
+    <p><strong>compose</strong> 는 <code>name: auction-prod</code> 로 개발용 compose(<code>auction-api-solution</code>/<code>auction-api</code> 프로젝트)와 이름을 분리합니다 — 둘 다 떠 있어도 충돌하지 않습니다. <code>x-app-env</code> 앵커 하나에 환경변수를 모아 세 파이썬 서비스가 공유합니다. 주소를 보세요: <code>db:5432</code>, <code>redis:6379</code>, <code>http://mock_pg:8001</code>, <code>http://app:8000</code> — 전부 서비스 이름입니다. <code>app</code> 의 <code>command</code> 가 <code>alembic upgrade head &amp;&amp; exec uvicorn …</code> 인 것, <code>worker</code> 가 <code>depends_on: app: condition: service_healthy</code> 인 것이 "마이그레이션은 한 번, 그 뒤에 나머지" 를 만듭니다. 비밀값은 <code>${{JWT_SECRET:-기본값}}</code> — 같은 폴더의 <code>.env</code> 에 <code>JWT_SECRET=…</code> 을 두면 compose 가 치환합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><span class="code-filename">docker-compose.prod.yml</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-yaml"># 운영 모양으로 다섯 개를 한 번에 — 실행:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml ps / logs -f app
+#   docker compose -f docker-compose.prod.yml down -v
+# 개발용 docker-compose.yml(db 5435·redis 6380 노출) 과 이름이 겹치지 않게 프로젝트명을 따로 둔다.
+name: auction-prod
+
+x-app-env: &amp;app-env
+  APP_ENV: prod
+  DEBUG: "false"
+  # 컨테이너 네트워크 안에서는 서비스 이름이 곧 호스트명이다 (localhost 가 아니다!)
+  DATABASE_URL: postgresql+asyncpg://auction:auction_pw@db:5432/auction
+  REDIS_URL: redis://redis:6379/0
+  JWT_SECRET: ${JWT_SECRET:-prod-change-me-please-32-bytes-minimum-secret}
+  PG_WEBHOOK_SECRET: ${PG_WEBHOOK_SECRET:-prod-pg-webhook-secret-change-me-32-bytes}
+  PG_BASE_URL: http://mock_pg:8001      # 앱 → 모의 PG
+  PUBLIC_BASE_URL: http://app:8000      # 모의 PG → 앱 (웹훅 콜백)
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+
+services:
+  app:
+    build: .
+    image: auction-api:local
+    # 마이그레이션은 app 하나만, 그것도 서버가 뜨기 전에. exec 로 uvicorn 을 PID 1 로 바꾼다.
+    command: ["sh", "-c", "alembic upgrade head &amp;&amp; exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    environment: *app-env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      # slim 이미지엔 curl 이 없다 → 파이썬으로 /health 를 두드린다
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=2).status == 200 else 1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  worker:
+    image: auction-api:local          # 같은 이미지, 다른 명령
+    command: ["python", "-m", "app.workers.closer"]
+    environment:
+      &lt;&lt;: *app-env
+      CLOSER_INTERVAL_SECONDS: "1.0"
+    depends_on:
+      app: { condition: service_healthy }   # 마이그레이션이 끝난 뒤에
+    stop_grace_period: 10s                  # SIGTERM 뒤 10초 — 8단계의 graceful shutdown 이 이 안에 끝난다
+    restart: unless-stopped
+
+  mock_pg:
+    image: auction-api:local
+    command: ["uvicorn", "mock_pg.main:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      PG_WEBHOOK_SECRET: ${PG_WEBHOOK_SECRET:-prod-pg-webhook-secret-change-me-32-bytes}
+      PG_WEBHOOK_DELAY: "1.0"
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: auction
+      POSTGRES_PASSWORD: auction_pw
+      POSTGRES_DB: auction
+    volumes:
+      - prod-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction -d auction"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    # ports 없음 — DB 는 바깥에 열지 않는다
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  prod-pgdata:</code></pre>
+    </div>
+    <h3 id="impl-15">14. .github/workflows/ci.yml — 푸시마다 97개</h3>
+    <p>til 레포에 넣을 때는 이 파일을 <code>til/.github/workflows/auction-api-ci.yml</code> 에 둡니다(워크플로 파일은 레포 루트의 <code>.github/</code> 에만 있어야 GitHub 이 봅니다). 레포 루트에는 파이썬 프로젝트가 없으므로 두 가지가 필수입니다: <code>on.push.paths</code> 로 "이 폴더가 바뀔 때만", <code>defaults.run.working-directory</code> 로 "이 폴더 안에서". 서비스 컨테이너로 Postgres·Redis 를 띄우되 호스트 포트를 로컬과 같은 5435·6380 에 매핑해서 <code>.env</code> 없이 기본값이 그대로 맞게 합니다. 순서는 로컬과 같습니다: ruff → <code>alembic upgrade head</code>(빈 DB 에 스키마) → <code>alembic check</code> → pytest(conftest 가 <code>auction_test</code> 를 만듭니다).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><span class="code-filename">.github/workflows/ci.yml</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-yaml"># til 레포에서는 이 파일을 til/.github/workflows/auction-api-ci.yml 에 둔다.
+# 레포 루트에는 파이썬 프로젝트가 없으므로 paths 로 "이 폴더가 바뀔 때만", working-directory 로
+# "이 폴더 안에서" 를 명시해야 한다.
+name: auction-api CI
+
+on:
+  push:
+    paths: ["backend/fastapi/auction-api/**"]
+  pull_request:
+    paths: ["backend/fastapi/auction-api/**"]
+
+defaults:
+  run:
+    working-directory: backend/fastapi/auction-api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: auction
+          POSTGRES_PASSWORD: auction_pw
+          POSTGRES_DB: auction
+        ports: ["5435:5432"]            # 로컬과 같은 포트로 매핑 → .env 없이 기본값 그대로
+        options: &gt;-
+          --health-cmd "pg_isready -U auction -d auction"
+          --health-interval 5s --health-timeout 3s --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports: ["6380:6379"]
+        options: &gt;-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 5
+    env:
+      DATABASE_URL: postgresql+asyncpg://auction:auction_pw@localhost:5435/auction
+      REDIS_URL: redis://localhost:6380/0
+      JWT_SECRET: ci-only-secret-that-is-at-least-32-bytes-long
+      PG_WEBHOOK_SECRET: ci-only-pg-webhook-secret-32-bytes-minimum
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/fastapi/auction-api/uv.lock
+      - run: uv python install 3.13
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run alembic upgrade head      # 서비스 컨테이너의 빈 DB 에 스키마를 만든다
+      - run: uv run alembic check             # 모델 ↔ 마이그레이션 정합성
+      - run: uv run pytest -q                 # conftest 가 auction_test 를 만들고 마이그레이션한다</code></pre>
+    </div>
+    <h3 id="impl-16">15. README.md — 프로젝트의 얼굴</h3>
+    <p>포트폴리오로 보여 줄 때 가장 먼저 읽히는 파일입니다. 한 문단 소개, 아키텍처 그림, 실행 방법(dev/prod), 단계별 가이드 목차, 그리고 <em>직접 채울</em> 회고 세 줄. <code>auction-api/README.md</code> 로 저장하세요.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">markdown</span><span class="code-filename">README.md</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-markdown"># 실시간 경매 API
+
+FastAPI 10주 self-study 를 **실무 모양의 한 프로젝트**로 옮긴 캡스톤. 경매 등록 → 실시간 입찰 → 자동 마감 → 결제 웹훅까지,
+10단계 가이드(`guides/`)를 따라가면 단계마다 동작하는 기능이 하나씩 쌓인다.
+
+- REST + WebSocket, PostgreSQL(async SQLAlchemy 2.0 + Alembic), Redis(세션·rate limit·Pub/Sub·캐시)
+- 동시 입찰은 `SELECT … FOR UPDATE`, 마감은 별도 워커(`SKIP LOCKED`), 결제는 HMAC 서명 웹훅 + 멱등 처리
+- 테스트 100개 안팎(롤백 세션 · 실제 커밋 동시성 · 라이브 서버 WebSocket), JSON 로그 + request-id, Docker, GitHub Actions
+
+## 아키텍처
+
+```
+                 ┌──────────────┐  HTTP/WS   ┌──────────────────────────────┐
+  브라우저/클라이언트 ─┤ uvicorn :8000 ├───────────►│ FastAPI app                  │
+                 └──────────────┘            │  routers → services → repos  │
+                                             │  ws bridge (Redis SUBSCRIBE) │
+                                             └──────┬───────────┬───────────┘
+                                                    │           │
+                    ┌──────────────┐   FOR UPDATE   ▼           ▼   PUBLISH / cache / rate limit
+                    │ closer worker├──────────► PostgreSQL     Redis ◄──── 워커도 발행
+                    │ (1초 tick)   │  SKIP LOCKED  :5432        :6379
+                    └──────────────┘
+                    ┌──────────────┐  POST /pg/payments ◄── app (httpx, timeout·retry)
+                    │ mock PG :8001├─────────────────────────► app  POST /webhooks/payments (HMAC)
+                    └──────────────┘
+```
+
+## 실행
+
+개발(로컬 파이썬 + Docker 로 DB/Redis):
+
+```bash
+docker compose up -d                      # postgres 5435 · redis 6380
+cp .env.example .env
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload      # http://localhost:8000/docs
+uv run python -m app.workers.closer       # 별도 터미널: 마감 워커
+uv run uvicorn mock_pg.main:app --port 8001   # 별도 터미널: 모의 결제사
+uv run pytest -q
+```
+
+운영 모양(전부 컨테이너):
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f app worker
+docker compose -f docker-compose.prod.yml down -v
+```
+
+## 단계별 가이드
+
+| 단계 | 문서 | 얻는 것 |
+|---|---|---|
+| 01 | [뼈대와 설정](guides/01-skeleton.html) | uv · Settings · compose · lifespan · `/health` |
+| 02 | [모델링 + Alembic](guides/02-models-alembic.html) | 4개 모델 · 제약/인덱스 · async 마이그레이션 |
+| 03 | [테스트 인프라 + 인증](guides/03-tests-auth.html) | 롤백 세션 · JWT access/refresh(Redis) |
+| 04 | [경매 CRUD](guides/04-auction-crud.html) | 소유권 · 상태 머신 · 표준 에러 봉투 |
+| 05 | [목록·페이지네이션](guides/05-list-pagination.html) | 커서(keyset) · 필터 · N+1 증명 |
+| 06 | [입찰과 동시성](guides/06-bids-concurrency.html) | `FOR UPDATE` · 동시 50건 · 스나이핑 연장 · rate limit |
+| 07 | [실시간 WebSocket](guides/07-realtime-ws.html) | Redis Pub/Sub 로 멀티 워커 브로드캐스트 |
+| 08 | [마감 워커](guides/08-closer-worker.html) | `SKIP LOCKED` 멱등 배치 · 낙찰 · Payment |
+| 09 | [결제 웹훅](guides/09-payment-webhook.html) | httpx 타임아웃/재시도 · HMAC 서명 · 멱등 장부 |
+| 10 | [성능·관측성·배포](guides/10-deploy.html) | 버전 키 캐시 · JSON 로그 · locust · Docker · CI |
+
+## 학습 회고 (직접 채우세요)
+
+- 가장 어려웠던 단계와 이유:
+- 실무에서 바로 쓸 수 있을 것 같은 패턴 3가지:
+- 다음에 붙여 보고 싶은 것 (진짜 PG · arq/Celery · OpenTelemetry · k8s):</code></pre>
+    </div>
+    <h3 id="impl-17">16. 최종 구조</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) auction-api/ 구조 — 10단계 후</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">auction-api/
+├── app/
+│   ├── core/
+│   │   ├── config.py             ← 수정: list_cache_ttl_seconds · slow_query_ms · cors_origins · demo_blocking_sleep
+│   │   ├── cache.py              ← 신규: current_version · bump_version · list_cache_key · get_json/set_json
+│   │   └── logging.py            ← 신규: JsonFormatter · setup_logging · request_id_middleware · install_slow_query_logging
+│   ├── services/
+│   │   ├── auction.py            ← 수정: list_auctions 캐시 · create/update/cancel 뒤 bump
+│   │   ├── bid.py                ← 수정: place_bid 커밋 뒤 bump
+│   │   ├── closer.py             ← 수정: close_due 커밋 뒤 bump
+│   │   └── auth.py               ← 수정: bcrypt 를 asyncio.to_thread 로
+│   ├── routers/auctions.py       ← 수정: RedisClient 주입 · demo_blocking_sleep
+│   ├── workers/closer.py         ← 수정: setup_logging · activate 뒤 bump
+│   └── main.py                   ← 수정: setup_logging · slow query · CORS · request-id 미들웨어
+├── alembic/env.py                ← 수정: fileConfig(…, disable_existing_loggers=False)
+├── tests/
+│   ├── conftest.py               ← 수정: CORS_ORIGINS
+│   ├── test_cache.py             ← 신규: 4 테스트
+│   └── test_observability.py     ← 신규: 6 테스트
+├── loadtest/locustfile.py        ← 신규
+├── Dockerfile  .dockerignore  docker-compose.prod.yml   ← 신규
+├── .github/workflows/ci.yml      ← 신규 (til 에서는 til/.github/workflows/auction-api-ci.yml 로)
+└── README.md                     ← 신규</code></pre>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="10-2-deploy-impl-1.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">10-2 구현 ① 캐시</span></a>
+    <a class="part-pager-link next" href="10-4-deploy-verify.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">10-4 실행·확인</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 10단계 · 성능·관측성·배포 · 10-3 구현 ② 관측성·배포 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

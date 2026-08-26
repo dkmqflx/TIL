@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1단계 · 뼈대와 설정 · 1-2 구현 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <div class="nav-week active"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="01-1-skeleton-overview.html"><span class="sub-no">1-1</span> 개요와 설계</a>
+      <a class="nav-sub active" href="01-2-skeleton-impl.html"><span class="sub-no">1-2</span> 구현</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#impl-1">① uv 프로젝트 만들기</a>
+        <a class="nav-item" href="#impl-2">② .gitignore</a>
+        <a class="nav-item" href="#impl-3">③ 폴더 구조 잡기</a>
+        <a class="nav-item" href="#impl-4">④ Docker compose</a>
+        <a class="nav-item" href="#impl-5">⑤ 환경 파일</a>
+        <a class="nav-item" href="#impl-6">⑥ 테스트부터</a>
+        <a class="nav-item" href="#impl-7">⑦ app/core/config.py</a>
+        <a class="nav-item" href="#impl-8">⑧ app/core/db.py</a>
+        <a class="nav-item" href="#impl-9">⑨ app/core/redis.py</a>
+        <a class="nav-item" href="#impl-10">⑩ app/routers/health.py</a>
+        <a class="nav-item" href="#impl-11">⑪ app/main.py</a>
+      </div>
+      <a class="nav-sub" href="01-3-skeleton-verify.html"><span class="sub-no">1-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>1단계 · 뼈대와 설정</b></div>
+    <h1>1-2 구현</h1>
+    <p class="lesson-subtitle">앞에서 그린 설계를 실제 파일로 옮깁니다. 아래 <strong>11개</strong>를 위에서부터 순서대로 따라 하면 됩니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="01-1-skeleton-overview.html"><b>1-1</b> 개요와 설계</a>
+    <a class="step-part current" href="01-2-skeleton-impl.html"><b>1-2</b> 구현</a>
+    <a class="step-part" href="01-3-skeleton-verify.html"><b>1-3</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>여기서부터 손을 움직입니다.</strong> 설계 그림이 흐릿하면 <a href="01-1-skeleton-overview.html#design">1-1 설계 그림</a>으로 잠깐 돌아갔다 오세요. 이 문서를 끝내면 <a href="01-3-skeleton-verify.html">1-3 실행·확인</a>에서 결과를 확인합니다.</div>
+  </div>
+
+  <!-- ───────────────────────── 구현 ───────────────────────── -->
+  <section class="section" id="impl">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔧</div>
+      <h2>구현 — 파일을 하나씩 만든다</h2>
+    </div>
+    <p>아래 순서 그대로 따라 하세요. 각 코드 블록은 잘라낸 조각이 아니라 <strong>붙여넣으면 그대로 도는 전체 파일</strong>입니다. 오른쪽 위 "복사" 버튼을 쓰면 편합니다.</p>
+
+    <h3 id="impl-1">① uv 프로젝트 만들기</h3>
+    <p>먼저 Python 버전을 <strong>고정</strong>하고, 그다음 프로젝트를 만듭니다. 순서가 중요합니다. <code>uv init --bare</code>는 <code>pyproject.toml</code>만 만들고 <code>.python-version</code> 파일은 만들지 않기 때문에, 먼저 pin을 하지 않으면 컴퓨터에 있는 가장 최신 Python(이 머신은 3.14)으로 가상환경이 잡힙니다. <code>--bare</code>는 "샘플 <code>main.py</code>나 README 같은 걸 만들지 말고 최소한만"이라는 뜻입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">til/backend/fastapi/auction-api/</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv python pin 3.13
+uv init --bare
+uv add fastapi "uvicorn[standard]" "sqlalchemy[asyncio]" asyncpg redis pydantic-settings
+uv add --dev ruff pytest httpx2</code></pre>
+    </div>
+
+    <p>두 번째 <code>uv add</code>의 <code>--dev</code>는 "개발할 때만 필요한 도구"라는 뜻입니다. 운영 서버에 ruff나 pytest가 깔릴 필요는 없으니까요. <code>httpx2</code>는 테스트에서 쓸 <code>TestClient</code>가 요구하는 HTTP 라이브러리입니다. 예전 자료에는 <code>httpx</code>라고 돼 있는데, 이 프로젝트가 쓰는 Starlette 1.6부터는 <code>httpx2</code>를 요구합니다(아래 함정 참고).</p>
+
+    <p>설치가 끝나면 <code>pyproject.toml</code>이 생겨 있을 겁니다. 그 파일 <strong>맨 아래</strong>에 ruff와 pytest 설정을 붙여 넣습니다. ruff는 "코드 스타일 검사기 + 정리기"이고, <code>select</code>는 어떤 규칙을 켤지입니다(E/F는 기본 문법·오류, I는 import 정렬, UP은 최신 문법 권장, B는 흔한 버그 패턴).</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">toml</span><span class="code-filename">pyproject.toml — 맨 아래에 추가</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]</code></pre>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>검증 당시 버전.</strong> fastapi 0.141.1 · starlette 1.6.0 · sqlalchemy 2.0.52 · asyncpg 0.31.0 · redis 8.1.0 · pydantic-settings 2.15.0 · uvicorn 0.52.4 · httpx2 2.12.0 · pytest 9.1.1 · ruff 0.16.4. 이보다 새 버전이 깔려도 대부분 그대로 동작하지만, 뭔가 다르게 나오면 이 버전을 기준으로 비교하세요.</div>
+    </div>
+
+    <h3 id="impl-2">② .gitignore</h3>
+    <p>가상환경(<code>.venv/</code>)과 비밀값이 든 <code>.env</code>는 절대 git에 올라가면 안 됩니다. til 저장소 루트에도 <code>.gitignore</code>가 있지만 거기엔 <code>.venv</code>가 없으므로, 이 프로젝트 폴더에 따로 만듭니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">.gitignore</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+.ruff_cache/</code></pre>
+    </div>
+
+    <h3 id="impl-3">③ 폴더 구조 잡기</h3>
+    <p>Week 6·02에서 배운 라우터·서비스·리포지토리 계층을 폴더로 미리 만들어 둡니다. 지금은 <code>core</code>와 <code>routers</code>만 채우고 나머지는 빈 패키지지만, "여기에 이런 게 들어간다"는 자리를 잡아 두는 겁니다. 파이썬에서 폴더를 패키지로 인식시키려면 <code>__init__.py</code>라는 빈 파일이 필요해서 <code>touch</code>로 만들어 줍니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">mkdir -p app/core app/routers app/models app/schemas app/repositories app/services app/ws app/workers tests
+touch app/__init__.py app/core/__init__.py app/routers/__init__.py app/models/__init__.py \
+      app/schemas/__init__.py app/repositories/__init__.py app/services/__init__.py \
+      app/ws/__init__.py app/workers/__init__.py tests/__init__.py</code></pre>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>폴더</th><th>들어갈 것</th><th>채워지는 단계</th></tr></thead>
+        <tbody>
+          <tr><td><code>app/core/</code></td><td>설정, DB·Redis 연결, 보안, 예외 같은 공통 기반</td><td>1단계부터</td></tr>
+          <tr><td><code>app/routers/</code></td><td>URL과 HTTP만 다루는 얇은 층</td><td>1단계부터</td></tr>
+          <tr><td><code>app/models/</code></td><td>SQLAlchemy 테이블 정의</td><td>2단계</td></tr>
+          <tr><td><code>app/schemas/</code></td><td>Pydantic 요청/응답 모양</td><td>3단계</td></tr>
+          <tr><td><code>app/repositories/</code></td><td>DB 쿼리만</td><td>3단계</td></tr>
+          <tr><td><code>app/services/</code></td><td>비즈니스 규칙 (HTTP를 모름)</td><td>3단계</td></tr>
+          <tr><td><code>app/ws/</code></td><td>WebSocket 연결 관리</td><td>7단계</td></tr>
+          <tr><td><code>app/workers/</code></td><td>경매 마감 워커 (별도 프로세스)</td><td>8단계</td></tr>
+          <tr><td><code>tests/</code></td><td>pytest 테스트</td><td>1단계부터</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="impl-4">④ Docker compose — Postgres와 Redis</h3>
+    <p>Week 5·01에서 한 것과 같은 방식이지만 두 가지가 다릅니다. 첫째, Redis가 추가됐습니다. 둘째, 호스트 포트가 <strong>5435와 6380</strong>입니다. 이 머신에서 5432(Postgres 기본)와 5434는 이미 다른 프로젝트의 컨테이너가 쓰고 있어서, 겹치지 않는 번호를 골랐습니다. 콜론 왼쪽이 내 컴퓨터 쪽 포트, 오른쪽이 컨테이너 안쪽 포트입니다. 컨테이너 안에서는 여전히 기본 포트를 쓰고, 바깥에서 접속할 때만 5435로 들어갑니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">yaml</span><span class="code-filename">docker-compose.yml</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-yaml">services:
+  db:
+    image: postgres:16-alpine
+    container_name: auction-db
+    environment:
+      POSTGRES_USER: auction
+      POSTGRES_PASSWORD: auction_pw
+      POSTGRES_DB: auction
+    ports:
+      - "5435:5432"
+    volumes:
+      - auction-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auction -d auction"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: auction-redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  auction-pgdata:</code></pre>
+    </div>
+
+    <p><code>healthcheck</code>는 Docker가 몇 초마다 "이 컨테이너 제대로 살아 있니?"를 확인하는 명령입니다. <code>docker compose ps</code>에서 <code>(healthy)</code>라고 뜨면 접속해도 된다는 뜻입니다. <code>volumes</code>는 컨테이너를 지워도 DB 데이터가 남도록 별도 저장소를 붙이는 설정입니다.</p>
+
+    <h3 id="impl-5">⑤ 환경 파일 — .env.example과 .env</h3>
+    <p>설정값은 코드에 박지 않고 <code>.env</code> 파일에서 읽습니다. 그런데 <code>.env</code>는 git에 안 올리기로 했으니, 새로 합류한 사람은 "어떤 키가 필요한지" 알 수가 없습니다. 그래서 <strong>비밀이 아닌 예시값</strong>을 담은 <code>.env.example</code>을 함께 두고 커밋합니다. 지금은 개발용이라 둘의 내용이 같지만, 습관을 들이는 게 목적입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">env</span><span class="code-filename">.env.example</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">APP_ENV=dev
+DATABASE_URL=postgresql+asyncpg://auction:auction_pw@localhost:5435/auction
+REDIS_URL=redis://localhost:6380/0
+DEBUG=true</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">cp .env.example .env</code></pre>
+    </div>
+
+    <p><code>DATABASE_URL</code>을 뜯어보면 <code>postgresql+asyncpg://</code>는 "Postgres를 asyncpg 드라이버로", <code>auction:auction_pw</code>는 사용자와 비밀번호, <code>localhost:5435</code>는 compose에서 열어 둔 포트, 마지막 <code>/auction</code>은 DB 이름입니다. compose 파일의 값과 하나라도 다르면 접속이 안 되니 대조해 보세요.</p>
+
+    <h3 id="impl-6">⑥ 테스트부터 — tests/test_health.py</h3>
+    <p>이제 코드를 쓸 차례인데, 구현보다 <strong>테스트를 먼저</strong> 씁니다. "이런 결과가 나와야 한다"를 먼저 적어 두고, 그걸 통과시키는 방식으로 구현하면 뭘 만들어야 하는지가 명확해집니다(4단계부터는 이 방식을 본격적으로 씁니다). <code>with TestClient(app) as client:</code>처럼 <code>with</code> 블록 안에서 쓰면 lifespan의 시작·종료가 실제로 실행됩니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_health.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from fastapi.testclient import TestClient
+
+from app.main import app
+
+
+def test_health_reports_db_and_redis():
+    with TestClient(app) as client:
+        res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok", "db": True, "redis": True}</code></pre>
+    </div>
+
+    <p>지금 실행하면 당연히 실패합니다. <code>app.main</code>이 아직 없으니까요. 그래도 한 번 돌려 보세요. "실패하는 걸 눈으로 확인하고 → 통과시킨다"가 TDD의 리듬입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# ...
+# ModuleNotFoundError: No module named 'app.main'
+# 1 error in 1.00s</code></pre>
+    </div>
+
+    <h3 id="impl-7">⑦ app/core/config.py — 설정 열쇠고리</h3>
+    <p><code>BaseSettings</code>를 상속한 클래스는 필드 이름과 같은 <strong>환경변수</strong>(대소문자 무시)를 자동으로 읽습니다. <code>env_file=".env"</code>를 주면 <code>.env</code> 파일도 읽는데, 우선순위는 <strong>진짜 환경변수 &gt; .env 파일 &gt; 코드의 기본값</strong>입니다. 그래서 CI나 운영 서버에서는 <code>.env</code> 없이 환경변수만 넣어도 되고, 로컬에서는 <code>.env</code>만 있으면 됩니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/core/config.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from functools import lru_cache
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    app_env: Literal["dev", "test", "prod"] = "dev"
+    database_url: str = "postgresql+asyncpg://auction:auction_pw@localhost:5435/auction"
+    redis_url: str = "redis://localhost:6380/0"
+    debug: bool = False
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()</code></pre>
+    </div>
+
+    <p><code>Literal["dev", "test", "prod"]</code>는 "이 셋 중 하나만 허용"이라는 타입입니다. 오타로 <code>APP_ENV=prd</code>라고 적으면 앱이 뜨는 순간 에러가 나서 바로 알 수 있습니다. <code>@lru_cache</code>는 <code>get_settings()</code>를 아무리 많이 불러도 <code>.env</code> 파일은 <strong>딱 한 번만</strong> 읽게 해 주는 장식자입니다. 요청마다 파일을 다시 읽을 이유가 없으니까요.</p>
+
+    <h3 id="impl-8">⑧ app/core/db.py — 비동기 엔진과 세션</h3>
+    <p>Week 7·01에서 배운 async SQLAlchemy 구성입니다. <code>engine</code>은 "DB에 어떻게 접속하는지 아는 객체 + 커넥션 풀"이고, <code>SessionLocal</code>은 "세션을 찍어내는 공장", <code>get_db</code>는 요청마다 세션 하나를 열어서 건네주고 요청이 끝나면 닫아 주는 의존성입니다. Week 6·02의 <code>yield</code> 의존성과 모양이 같은데 <code>async</code>가 붙었을 뿐입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/core/db.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from collections.abc import AsyncIterator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.config import get_settings
+
+engine = create_async_engine(get_settings().database_url, pool_pre_ping=True)
+SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_db() -> AsyncIterator[AsyncSession]:
+    async with SessionLocal() as session:
+        yield session</code></pre>
+    </div>
+
+    <p><code>engine</code>을 함수 안이 아니라 파일 맨 위(모듈 수준)에서 만드는 게 의아할 수 있는데, <code>create_async_engine</code>은 이 줄이 실행되는 순간 DB에 접속하지 않습니다. 접속 정보만 기억해 뒀다가 <strong>첫 쿼리가 나갈 때</strong> 연결합니다. 그래서 import만 해도 안전하고, 정리(<code>dispose</code>)만 lifespan에서 해 주면 됩니다.</p>
+
+    <h3 id="impl-9">⑨ app/core/redis.py — Redis 클라이언트</h3>
+    <p>같은 패턴입니다. <code>Redis.from_url</code>도 실제 연결은 첫 명령 때 맺습니다. <code>decode_responses=True</code>는 Redis가 돌려주는 값을 바이트가 아니라 문자열로 받겠다는 뜻으로, 매번 <code>.decode()</code>를 안 해도 돼서 편합니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/core/redis.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from redis.asyncio import Redis
+
+from app.core.config import get_settings
+
+redis_client: Redis = Redis.from_url(get_settings().redis_url, decode_responses=True)
+
+
+def get_redis() -> Redis:
+    return redis_client</code></pre>
+    </div>
+
+    <h3 id="impl-10">⑩ app/routers/health.py — 진짜로 확인하는 헬스체크</h3>
+    <p>"살아 있어요"만 돌려주는 헬스체크는 앱 프로세스가 떠 있다는 것밖에 증명하지 못합니다. 이 엔드포인트는 DB에 <code>SELECT 1</code>, Redis에 <code>PING</code>을 실제로 보내서 각각 성공했는지를 따로 보고합니다. 하나라도 실패하면 <strong>503</strong>으로 응답하는데, 이유는 아래 함정 절에서 설명합니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/routers/health.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from typing import Annotated
+
+from fastapi import APIRouter, Depends, Response, status
+from redis.asyncio import Redis
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.db import get_db
+from app.core.redis import get_redis
+
+router = APIRouter(tags=["health"])
+
+
+@router.get("/health")
+async def health(
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    redis: Annotated[Redis, Depends(get_redis)],
+) -> dict[str, str | bool]:
+    db_ok = False
+    redis_ok = False
+    try:
+        await db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        pass
+    try:
+        redis_ok = bool(await redis.ping())
+    except Exception:
+        pass
+
+    ok = db_ok and redis_ok
+    if not ok:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    return {"status": "ok" if ok else "degraded", "db": db_ok, "redis": redis_ok}</code></pre>
+    </div>
+
+    <p><code>db: Annotated[AsyncSession, Depends(get_db)]</code>는 Week 6·02의 <code>Annotated</code> 스타일 그대로입니다. 인자에 <code>response: Response</code>를 받으면 응답 본문은 그대로 <code>return</code>하면서 상태 코드만 바꿀 수 있습니다. <code>except Exception: pass</code>는 평소엔 나쁜 습관이지만 헬스체크만큼은 예외입니다 — "연결이 됐나 안 됐나"만 알면 되고, 어떤 이유로 실패했든 결과는 <code>False</code>이기 때문입니다.</p>
+
+    <h3 id="impl-11">⑪ app/main.py — 앱 조립과 lifespan</h3>
+    <p><code>create_app()</code>이라는 함수로 앱을 만드는 이유는 나중에 테스트에서 "설정만 다른 앱"을 하나 더 만들기 쉽게 하려는 겁니다. <code>lifespan</code>은 <code>yield</code>를 기준으로 위가 시작, 아래가 종료인데, 이번 단계에서는 시작 때 할 일이 없어서(엔진·클라이언트는 이미 import 때 만들어졌으니) 종료 정리만 넣었습니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/main.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from app.core.config import get_settings
+from app.core.db import engine
+from app.core.redis import redis_client
+from app.routers import health
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+    await redis_client.aclose()
+    await engine.dispose()
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+    app = FastAPI(title="Auction API", debug=settings.debug, lifespan=lifespan)
+    app.include_router(health.router)
+    return app
+
+
+app = create_app()</code></pre>
+    </div>
+
+    <p>여기까지 만들었으면 파일 구조가 아래와 같아야 합니다. <code>guides/</code>와 <code>planning/</code>은 원래 있던 것이고, 나머지가 이번에 생긴 것입니다.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">auction-api/ 구조</span></div>
+      <pre><code class="language-bash">auction-api/
+├── .env  .env.example  .gitignore  .python-version
+├── pyproject.toml  uv.lock  docker-compose.yml
+├── app/
+│   ├── __init__.py  main.py
+│   ├── core/    __init__.py  config.py  db.py  redis.py
+│   ├── routers/ __init__.py  health.py
+│   └── models/ schemas/ repositories/ services/ ws/ workers/   (각각 __init__.py만)
+├── tests/   __init__.py  test_health.py
+├── guides/  planning/</code></pre>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-1-skeleton-overview.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">1-1 개요와 설계</span></a>
+    <a class="part-pager-link next" href="01-3-skeleton-verify.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">1-3 실행·확인</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 1단계 · 뼈대와 설정 · 1-2 구현 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

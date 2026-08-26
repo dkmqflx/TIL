@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8단계 · 마감 워커 · 8-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <div class="nav-week active"><span class="wk-no">8</span> 8단계 · 마감 워커</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="08-1-closer-worker-overview.html"><span class="sub-no">8-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">🔨 비유 — 시계 보는 경매사</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="08-2-closer-worker-impl.html"><span class="sub-no">8-2</span> 구현</a>
+      <a class="nav-sub" href="08-3-closer-worker-verify.html"><span class="sub-no">8-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>8단계 · 마감 워커</b></div>
+    <h1>8-1 개요와 설계</h1>
+    <p class="lesson-subtitle">지금까지의 모든 일은 <em>누군가 요청을 보내야</em> 일어났습니다. 그런데 경매 마감은 아무도 요청하지 않습니다 — 시각이 지나면 그냥 일어나야 합니다. 이번 단계는 API 서버와 <strong>별개의 프로세스</strong>(<code>python -m app.workers.closer</code>)가 1초마다 시계를 보고 ① 시작 시각이 지난 경매를 열고, ② 마감 시각이 지난 경매를 닫아 낙찰자를 정하고 결제 대기표(<code>Payment</code>)를 끊고 <code>auction_closed</code> 를 방송하며, ③ 결제 기한이 지난 대기표를 만료시킵니다. 그리고 워커를 <em>두 개</em> 띄워도 한 경매가 두 번 닫히지 않는다는 것을 <code>FOR UPDATE SKIP LOCKED</code> 로 보장하고 눈으로 확인합니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="08-1-closer-worker-overview.html"><b>8-1</b> 개요와 설계</a>
+    <a class="step-part" href="08-2-closer-worker-impl.html"><b>8-2</b> 구현</a>
+    <a class="step-part" href="08-3-closer-worker-verify.html"><b>8-3</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code>가 <code>71 passed</code>를 찍고, 45초 뒤 마감되는 경매에 입찰 두 건을 넣어 두면 워커 로그에 <code>[notify] user=76de74b6 낙찰! … 12,000원</code>이 찍히면서 WebSocket 구독자가 <code>auction_closed</code> 를 받고, <code>payments</code> 테이블에 <code>pending</code> 한 행이 생기며, 같은 순간에 마감되는 경매 40개를 워커 두 개가 24 : 16 으로 나눠 처리하되 <strong>40개 전부 정확히 한 번씩</strong> 닫힙니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>"요청이 없어도 일어나야 하는 일"을 API 프로세스 안의 <code>BackgroundTasks</code>/<code>create_task</code> 가 아니라 별도 워커 프로세스로 두는 이유를 설명할 수 있다</li>
+    <li>시간에 의존하는 규칙을 <code>now</code> 를 인자로 받는 순수 함수로 써서, 45초를 기다리지 않고 테스트하는 법을 안다</li>
+    <li><code>SELECT … FOR UPDATE SKIP LOCKED</code> 가 "줄 서기"(6단계) 와 어떻게 다르며 왜 워커 여러 개의 중복 처리를 막는지 안다</li>
+    <li>후보 조회 → 잠금 → <strong>재검사</strong> → 한 건씩 커밋 → 커밋 뒤 발행, 이 순서가 각각 무엇을 막는지 안다</li>
+    <li><code>UPDATE … RETURNING</code> 한 문장이 왜 그 자체로 안전한 배치인지 안다</li>
+    <li>SIGTERM 을 받으면 하던 틱을 끝내고 조용히 내려오는 루프(graceful shutdown)를 만들 수 있다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>7단계까지의 경매는 <strong>영원히 active</strong> 였습니다. <code>ends_at</code> 이 지나도 아무도 닫아 주지 않았고, 6단계의 입찰 서비스가 <code>now &gt;= ends_at</code> 을 검사해서 입찰만 막았을 뿐입니다. 낙찰자도, 결제도 없었습니다. 이번 단계가 끝나면 <code>uv run python -m app.workers.closer</code> 를 띄워 두는 것만으로, 마감 시각이 지난 경매는 1초 안에 <code>ended</code> 가 되고 <code>winner_id</code> 가 채워지며 <code>payments</code> 에 24시간짜리 <code>pending</code> 행이 생기고, 7단계의 소켓 구독자들이 <code>{"type":"auction_closed","payload":{"winner_id":…,"final_price":12000,"payment_id":…}}</code> 를 받습니다. 시작 시각이 미래인 <code>scheduled</code> 경매도 같은 워커가 제때 <code>active</code> 로 바꿔 줍니다(4단계에서 미뤄 둔 숙제).</p>
+    <p>이 단계의 <strong>진짜 확인 포인트</strong>는 워커가 두 개일 때입니다. 10단계에서 워커 컨테이너를 2개로 늘리거나, 배포 중 옛 워커와 새 워커가 잠깐 같이 돌면, 같은 경매를 둘 다 닫으려 듭니다. 낙찰 알림이 두 번 가고 결제 대기표가 두 장 생기면 사고입니다. 그래서 "같은 순간 마감되는 경매 40개, 워커 2개"를 실제로 돌려 <em>40개가 정확히 한 번씩</em> 닫히는 것을 로그로 확인합니다.</p>
+    <p><strong>전제.</strong> 7단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>64 passed</code>, 컨테이너 두 개 <code>(healthy)</code>. 새로 설치하는 패키지는 <strong>없습니다</strong>. 마이그레이션도 없습니다 — 2단계에서 만든 <code>payments</code> 테이블에 <code>status</code>·<code>expires_at</code>·<code>paid_at</code>·<code>external_id</code> 가 이미 있습니다(그때 "8·9단계가 쓴다"고 적어 둔 칸들입니다). 작업 위치는 <code>til/backend/fastapi/auction-api/</code>.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 새 파일 4개(<code>services/closer.py</code> 규칙 세 가지, <code>workers/closer.py</code> 루프·시그널, <code>repositories/payment.py</code>, <code>tests/test_closer.py</code>), 손보는 파일 3개(<code>core/config.py</code> 설정 3개, <code>repositories/auction.py</code> 에 <code>skip_locked</code> 와 후보 조회 2개, <code>repositories/bid.py</code> 에 <code>top_bid</code>). 7단계의 bridge 는 한 줄도 안 바꿉니다 — 워커가 같은 채널에 <code>auction_closed</code> 를 발행하면 bridge 가 그대로 소켓으로 흘려보냅니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>웹 서버는 <strong>요청이 와야 움직입니다</strong>. 그런데 실무 시스템의 절반은 요청 없이 일어나는 일입니다 — 경매 마감, 구독 갱신, 예약 리마인더, 장바구니 만료, 미결제 주문 취소, 리포트 집계. 처음엔 다들 "다음 요청이 왔을 때 겸사겸사 처리하자"(lazy 처리)를 떠올립니다. 경매 조회 요청이 오면 그때 마감 여부를 보고 닫는 식이죠. 새벽 3시에 마감되는 경매를 아무도 안 보면? 아침에 첫 손님이 볼 때까지 낙찰자가 없습니다. 낙찰 알림도 그때 갑니다. 안 됩니다.</p>
+    <p>그래서 <strong>시계를 보는 별도 프로세스</strong>가 필요합니다. 이걸 API 프로세스 안의 <code>asyncio.create_task</code> 로 두면 안 되는 이유가 세 가지입니다. (1) <code>uvicorn --workers 4</code> 면 그 루프도 4개가 되어 서로 같은 경매를 닫으려 합니다(오늘 배우는 <code>SKIP LOCKED</code> 로 막을 순 있지만, 애초에 4개가 돌 이유가 없습니다). (2) API 를 재시작·스케일 다운하면 루프도 같이 사라집니다. (3) 마감 처리가 무거워지면(알림 100건 발송) API 응답이 느려집니다. 별도 프로세스면 API 와 독립적으로 죽이고, 살리고, 개수를 정할 수 있습니다 — 10단계 compose 에 <code>worker</code> 서비스가 따로 생기는 이유입니다.</p>
+    <p>워커가 별도 프로세스가 되는 순간 새 문제가 생깁니다. <strong>두 개가 돌면?</strong> 배포 중엔 반드시 두 개가 잠깐 같이 돕니다(옛 것이 내려가기 전에 새 것이 뜹니다). 같은 경매를 둘 다 "마감 시각 지났네" 하고 닫으면 낙찰 알림이 두 번, 결제 대기표가 두 장. 6단계의 <code>FOR UPDATE</code> 는 "줄을 서서 내 차례에 처리"라 둘째 워커가 기다렸다가 이미 닫힌 경매를 <em>또</em> 닫게 됩니다(재검사가 없으면). 오늘은 그 위에 <code>SKIP LOCKED</code>(남이 잡은 건 건너뛴다) 와 <strong>잠근 뒤 재검사</strong>를 얹어, 워커가 몇 개든 한 경매는 정확히 한 번 닫히게 합니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무에서 같은 모양이 나오는 곳.</strong> "큐에서 작업 하나를 집어 처리하는 워커 N개"는 전부 이 패턴입니다 — 이메일 발송 큐, 이미지 리사이즈, 결제 재시도, 크롤러. Postgres 를 큐로 쓰는 라이브러리(pgqueuer, procrastinate, Oban 등)의 심장도 <code>SELECT … FOR UPDATE SKIP LOCKED LIMIT n</code> 한 줄입니다. 오늘 손으로 만들어 두면 나중에 그런 도구를 쓸 때 안이 보입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🔨</div>
+      <h2>비유 — 시계 보는 경매사</h2>
+    </div>
+    <p><strong>시계 보는 경매사.</strong> 경매장에 경매사가 한 명 서서 1초마다 벽시계를 봅니다(<code>closer_interval_seconds</code>). "3번 물건, 시작 시각 됐네" → 판을 엽니다(<code>activate_due</code>). "7번 물건, 마감 시각 지났네" → 장부에서 최고 입찰을 찾아 망치를 내리치고(<code>close_due</code>: <code>ended</code>·<code>winner_id</code>), 낙찰자에게 "24시간 안에 계산대로 오세요" 대기표를 끊어 주고(<code>Payment(pending, expires_at)</code>), 장내 방송으로 "7번 낙찰!"을 알립니다(<code>auction_closed</code> 발행 — 7단계의 스피커가 받아서 객석에 틀어 줍니다). "어제 끊어 준 대기표, 24시간 지났네" → 무효 처리합니다(<code>expire_payments</code>). 경매사는 규칙책(<code>services/closer.py</code>)만 봅니다. 시계를 몇 초마다 보는지, 퇴근 신호를 어떻게 받는지는 근무 수칙(<code>workers/closer.py</code>)에 따로 적혀 있습니다.</p>
+    <p><strong>경매사가 두 명이면.</strong> 바쁜 날엔 경매사를 두 명 세웁니다. 둘 다 같은 순간 "7번 마감이네" 하고 다가갑니다. 6단계 방식(<code>FOR UPDATE</code>)은 <em>줄서기</em>입니다 — 둘째가 첫째 뒤에 서서 기다렸다가, 첫째가 끝나면 7번에 또 망치를 내리칩니다(재검사가 없으면). 오늘 방식(<code>SKIP LOCKED</code>)은 <em>"누가 잡고 있는 물건은 건너뛰고 다음 것"</em> 입니다 — 둘째는 7번을 보자마자 8번으로 갑니다. 그래도 혹시 모르니, 물건을 잡은 뒤엔 <strong>다시 한 번 확인</strong>합니다(잠근 뒤 재검사): "어? 이거 이미 닫혀 있네" 하면 손을 뗍니다. 그리고 계산대는 대기표를 <em>물건당 한 장만</em> 받습니다(<code>payments.auction_id UNIQUE</code>) — 마지막 안전망입니다.</p>
+    <p><strong>퇴근 신호.</strong> 관리자가 "오늘 그만"(SIGTERM)을 외치면, 경매사는 망치를 든 채 도망가지 않습니다. 지금 내리치던 망치까지 끝내고(현재 틱 완료), 장부를 덮고(DB·Redis 연결 정리) 나갑니다. Docker 는 <code>docker stop</code> 뒤 10초를 기다렸다가 강제로 끕니다 — 그 10초 안에 스스로 나가는 게 graceful shutdown 입니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>첫 그림은 <strong>워커의 한 틱</strong>입니다. 루프(<code>workers/closer.py</code>)는 세 함수를 차례로 부르고, 함수마다 세션을 새로 엽니다. 활성화와 만료는 <code>UPDATE … WHERE 조건 … RETURNING id</code> 한 문장입니다 — UPDATE 는 바꾸는 행을 스스로 잠그므로 워커가 둘이어도 둘째는 첫째의 커밋을 기다렸다가 조건을 다시 보고(이미 <code>active</code>) 0 행을 바꿉니다. 마감만 복잡합니다. 낙찰자를 찾고 Payment 를 만들고 방송까지 해야 해서 한 문장으로 안 되니, <em>후보 id 목록</em>을 락 없이 값싸게 뽑은 뒤 <strong>한 건씩</strong> 잠그고(<code>SKIP LOCKED</code>) 재검사하고 커밋하고, 커밋 <em>뒤에</em> 발행합니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 300" role="img" aria-label="워커 한 틱: activate_due(UPDATE RETURNING) → close_due(후보 조회 → 한 건씩 FOR UPDATE SKIP LOCKED → 재검사 → ended/winner/Payment → commit → PUBLISH → notify) → expire_payments(UPDATE RETURNING)">
+        <defs><marker id="ah8" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="300" fill="#f8fafc" rx="12"/>
+        <text x="16" y="26" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">workers/closer.py — tick() 1초마다 · 함수마다 새 세션 · 하나가 실패해도 나머지는 독립</text>
+        <rect x="16" y="40" width="200" height="54" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+        <text x="116" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">① activate_due(db, now)</text>
+        <text x="116" y="77" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#14532d">UPDATE … WHERE scheduled</text>
+        <text x="116" y="89" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#14532d">AND starts_at&lt;=now RETURNING id</text>
+        <rect x="544" y="40" width="200" height="54" rx="8" fill="#fee2e2" stroke="#ef4444"/>
+        <text x="644" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#7f1d1d">③ expire_payments(db, now)</text>
+        <text x="644" y="77" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7f1d1d">UPDATE … WHERE pending</text>
+        <text x="644" y="89" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7f1d1d">AND expires_at&lt;=now RETURNING id</text>
+        <rect x="236" y="40" width="288" height="54" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="380" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#92400e">② close_due(db, redis, now)</text>
+        <text x="380" y="77" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#92400e">후보 id: active AND ends_at&lt;=now (락 없음)</text>
+        <text x="380" y="89" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#92400e">→ 아래를 후보마다 반복</text>
+        <line x1="216" y1="67" x2="234" y2="67" stroke="#64748b" marker-end="url(#ah8)"/><line x1="524" y1="67" x2="542" y2="67" stroke="#64748b" marker-end="url(#ah8)"/>
+        <line x1="380" y1="94" x2="380" y2="118" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah8)"/>
+        <rect x="16" y="122" width="132" height="60" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="82" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">a. 잠근다</text><text x="82" y="157" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">FOR UPDATE</text><text x="82" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">SKIP LOCKED</text>
+        <rect x="164" y="122" width="132" height="60" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="230" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">b. 재검사</text><text x="230" y="157" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">still active?</text><text x="230" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">ends_at &lt;= now?</text>
+        <rect x="312" y="122" width="136" height="60" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="380" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">c. 닫는다</text><text x="380" y="157" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">top_bid → winner_id</text><text x="380" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">ended · Payment(pending)</text>
+        <rect x="464" y="122" width="132" height="60" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="530" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#14532d">d. commit</text><text x="530" y="157" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#14532d">이 경매의 락 해제</text><text x="530" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#14532d">(한 건 = 한 트랜잭션)</text>
+        <rect x="612" y="122" width="132" height="60" rx="8" fill="#fee2e2" stroke="#ef4444"/><text x="678" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#7f1d1d">e. 커밋 뒤</text><text x="678" y="157" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#7f1d1d">PUBLISH auction_closed</text><text x="678" y="170" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#7f1d1d">[notify] 로그</text>
+        <line x1="148" y1="152" x2="162" y2="152" stroke="#64748b" marker-end="url(#ah8)"/><line x1="296" y1="152" x2="310" y2="152" stroke="#64748b" marker-end="url(#ah8)"/><line x1="448" y1="152" x2="462" y2="152" stroke="#64748b" marker-end="url(#ah8)"/><line x1="596" y1="152" x2="610" y2="152" stroke="#64748b" marker-end="url(#ah8)"/>
+        <text x="82" y="200" text-anchor="middle" font-family="Inter, sans-serif" font-size="9.5" fill="#64748b">남이 잠갔으면 None → 다음 후보</text>
+        <text x="230" y="200" text-anchor="middle" font-family="Inter, sans-serif" font-size="9.5" fill="#64748b">아니면 rollback → 다음 후보</text>
+        <text x="380" y="236" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">규칙은 전부 services/closer.py 에, now 는 인자 — 테스트는 45초를 기다리지 않고 now 를 마감 뒤로 넘긴다</text>
+        <text x="380" y="256" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">7단계 bridge 는 그대로 — 같은 채널 auction:{id} 에 auction_closed 가 실리면 소켓으로 흘러간다</text>
+        <text x="380" y="282" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">tick: activated=0 closed=1 expired=0   ← 뭔가 했을 때만 로그 한 줄</text>
+      </svg>
+    </div>
+    <p>둘째 그림은 <strong>워커 두 개가 같은 후보 목록을 봤을 때</strong>입니다. 실행·확인에서 실제로 돌린 상황 — 같은 순간 마감되는 경매 40개, 워커 두 개(pid 25225·25226), 한 틱에 최대 5건. 둘 다 후보 <code>[#1 #2 #3 #4 #5]</code> 를 뽑습니다. 워커 A 가 #1 을 잠그는 순간, 워커 B 의 <code>SKIP LOCKED</code> 는 #1 을 <em>기다리지 않고</em> 건너뛰어 #2 를 잠급니다. A 는 #1 을 커밋하고 #2 로 가지만 B 가 잡고 있으니 건너뛰고 #3… 이렇게 번갈아 가며 5건을 나눕니다. 둘 다 다음 틱에서 새 후보 5건을 뽑아 반복하고, 결과는 24 : 16, 합쳐서 40개 각 1회. 6단계의 <code>FOR UPDATE</code>(줄서기)였다면 B 는 #1 앞에서 A 를 기다렸다가, 재검사가 없으면 이미 닫힌 #1 을 또 닫습니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 210" role="img" aria-label="워커 A 와 B 가 같은 후보 5건을 보고 SKIP LOCKED 로 번갈아 처리하는 타임라인">
+        <rect x="0" y="0" width="760" height="210" fill="#f8fafc" rx="12"/>
+        <text x="16" y="24" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">후보 [#1 #2 #3 #4 #5] — 둘 다 같은 목록을 본다 (락 없이 뽑았으니까)</text>
+        <text x="16" y="62" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">워커 A</text><text x="16" y="76" font-family="JetBrains Mono, monospace" font-size="9" fill="#64748b">pid 25225</text>
+        <text x="16" y="122" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#7f1d1d">워커 B</text><text x="16" y="136" font-family="JetBrains Mono, monospace" font-size="9" fill="#64748b">pid 25226</text>
+        <line x1="90" y1="70" x2="740" y2="70" stroke="#cbd5e1"/><line x1="90" y1="130" x2="740" y2="130" stroke="#cbd5e1"/>
+        <rect x="96" y="54" width="110" height="32" rx="6" fill="#e0e7ff" stroke="#6366f1"/><text x="151" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#312e81">#1 잠금→커밋</text>
+        <rect x="96" y="114" width="70" height="32" rx="6" fill="#fff" stroke="#ef4444" stroke-dasharray="4 3"/><text x="131" y="134" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7f1d1d">#1 skip</text>
+        <rect x="172" y="114" width="110" height="32" rx="6" fill="#fee2e2" stroke="#ef4444"/><text x="227" y="134" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7f1d1d">#2 잠금→커밋</text>
+        <rect x="212" y="54" width="70" height="32" rx="6" fill="#fff" stroke="#6366f1" stroke-dasharray="4 3"/><text x="247" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#312e81">#2 skip</text>
+        <rect x="288" y="54" width="110" height="32" rx="6" fill="#e0e7ff" stroke="#6366f1"/><text x="343" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#312e81">#3 잠금→커밋</text>
+        <rect x="288" y="114" width="70" height="32" rx="6" fill="#fff" stroke="#ef4444" stroke-dasharray="4 3"/><text x="323" y="134" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7f1d1d">#3 skip</text>
+        <rect x="364" y="114" width="110" height="32" rx="6" fill="#fee2e2" stroke="#ef4444"/><text x="419" y="134" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7f1d1d">#4 잠금→커밋</text>
+        <rect x="404" y="54" width="70" height="32" rx="6" fill="#fff" stroke="#6366f1" stroke-dasharray="4 3"/><text x="439" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#312e81">#4 skip</text>
+        <rect x="480" y="54" width="110" height="32" rx="6" fill="#e0e7ff" stroke="#6366f1"/><text x="535" y="74" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#312e81">#5 잠금→커밋</text>
+        <rect x="480" y="114" width="70" height="32" rx="6" fill="#fff" stroke="#ef4444" stroke-dasharray="4 3"/><text x="515" y="134" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#7f1d1d">#5 skip</text>
+        <text x="600" y="74" font-family="Inter, sans-serif" font-size="10.5" fill="#312e81">→ 다음 틱, 새 후보 5건</text>
+        <text x="600" y="134" font-family="Inter, sans-serif" font-size="10.5" fill="#7f1d1d">→ 다음 틱, 새 후보 5건</text>
+        <text x="380" y="172" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">실제 로그: 00:07:56.855 [25225] #366ccd30 · 00:07:56.855 [25226] #14cd80a9 · .869 [25226] · .878 [25226] · .879 [25225] …</text>
+        <text x="380" y="194" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#14532d">worker1: 24  worker2: 16  →  40개 각 1회 (uniq -c 가 전부 1)</text>
+      </svg>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>세 겹의 안전망.</strong> ① <code>SKIP LOCKED</code> 는 성능 장치입니다 — 기다리지 않게 해 줄 뿐, 정확성을 보장하진 않습니다. ② 정확성은 <strong>잠근 뒤 재검사</strong>가 맡습니다 — 후보를 뽑은 순간과 잠근 순간 사이에 다른 워커가 닫고 커밋했을 수 있으니, 잠근 뒤 본 <code>status</code> 만 믿습니다. ③ 그래도 코드에 구멍이 생기면 <code>payments.auction_id UNIQUE</code> 가 두 번째 대기표 INSERT 를 <code>IntegrityError</code> 로 막습니다. 세 겹 중 하나만 믿는 설계는 언젠가 뚫립니다.</div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="07-3-realtime-ws-verify.html"><span class="part-pager-dir">← 이전 단계</span><span class="part-pager-title">7단계 · 실시간 WebSocket</span></a>
+    <a class="part-pager-link next" href="08-2-closer-worker-impl.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">8-2 구현</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 8단계 · 마감 워커 · 8-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

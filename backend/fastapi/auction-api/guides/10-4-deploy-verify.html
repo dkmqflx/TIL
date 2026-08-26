@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10단계 · 성능·관측성·배포 · 10-4 실행·확인 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/markdown.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <div class="nav-week active"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="10-1-deploy-overview.html"><span class="sub-no">10-1</span> 개요와 설계</a>
+      <a class="nav-sub" href="10-2-deploy-impl-1.html"><span class="sub-no">10-2</span> 구현 ① 캐시</a>
+      <a class="nav-sub" href="10-3-deploy-impl-2.html"><span class="sub-no">10-3</span> 구현 ② 관측성·배포</a>
+      <a class="nav-sub active" href="10-4-deploy-verify.html"><span class="sub-no">10-4</span> 실행·확인</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#run">▶️ 실행·확인</a>
+        <div class="nav-anchors">
+          <a class="nav-item" href="#run-1">1. 서버(스위치 켬) · 캐시 ·…</a>
+          <a class="nav-item" href="#run-2">2. 부하 테스트 A</a>
+          <a class="nav-item" href="#run-3">3. 부하 테스트 B</a>
+          <a class="nav-item" href="#run-4">4. 개발 환경 정리</a>
+          <a class="nav-item" href="#run-5">5. 컨테이너 다섯 개</a>
+          <a class="nav-item" href="#run-6">6. 로그 추적 · 정상 종료 · …</a>
+          <a class="nav-item" href="#run-7">7. CI 파일 검증</a>
+        </div>
+        <a class="nav-item" href="#done">✅ 완료 기준</a>
+        <a class="nav-item" href="#pitfalls">⚠️ 함정 &amp; 실무 팁</a>
+        <a class="nav-item" href="#refs">🔗 self-study 정본</a>
+        <a class="nav-item" href="#self-check">❓ 셀프 체크</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>10단계 · 성능·관측성·배포</b></div>
+    <h1>10-4 실행·확인</h1>
+    <p class="lesson-subtitle">만든 것이 <strong>진짜로 도는지</strong> 명령 하나하나로 확인하고, 완료 기준 체크리스트·함정·정본 링크·셀프 체크로 이 단계를 닫습니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="10-1-deploy-overview.html"><b>10-1</b> 개요와 설계</a>
+    <a class="step-part" href="10-2-deploy-impl-1.html"><b>10-2</b> 구현 ① 캐시</a>
+    <a class="step-part" href="10-3-deploy-impl-2.html"><b>10-3</b> 구현 ② 관측성·배포</a>
+    <a class="step-part current" href="10-4-deploy-verify.html"><b>10-4</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>코드를 다 만들었다는 전제입니다.</strong> 아직이라면 <a href="10-2-deploy-impl-1.html">10-2 구현 ① 캐시</a> · <a href="10-3-deploy-impl-2.html">10-3 구현 ② 관측성·배포</a>를 먼저 끝내고 오세요.</div>
+  </div>
+
+  <!-- ───────────────────────── 6. 실행 ───────────────────────── -->
+  <section class="section" id="run">
+    <div class="section-header">
+      <div class="section-icon icon-select">▶️</div>
+      <h2>실행·확인 — 이 출력이 나와야 한다</h2>
+    </div>
+    <p>여섯 장면입니다. ① 스위치를 켠 서버에서 캐시·request-id 를 눈으로 확인 → ② 부하 테스트 A(스위치 켬) → ③ 스위치 끄고 부하 테스트 B → ④ 개발 환경 정리 → ⑤ 컨테이너 다섯 개로 전체 흐름 → ⑥ CI 와 같은 명령을 로컬에서. 터미널 두 개를 씁니다.</p>
+    <h3 id="run-1">1. 서버(스위치 켬) · 캐시 · request-id</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">cd til/backend/fastapi/auction-api
+docker compose up -d                                   # 개발용 db·redis (이미 떠 있으면 그대로)
+DEMO_BLOCKING_SLEEP=true uv run uvicorn app.main:app --port 8000
+# {"ts": "2026-08-25T16:42:11.980+00:00", "level": "INFO", "logger": "uvicorn.error", "msg": "Application startup complete.", "request_id": "-"}
+# ↑ uvicorn 의 로그까지 JSON 한 줄이다. 요청이 오면 아래 같은 줄이 하나씩 찍힌다 (터미널 2 를 실행한 뒤 다시 보자):
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "4d34d18b-…", "method": "GET", "path": "/health", "status": 200, "duration_ms": 9.2}
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "trace-from-frontend-42", "method": "GET", "path": "/auctions/8ecf…", "status": 200, "duration_ms": 63.0}</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">J='Content-Type: application/json'
+curl -s -X POST localhost:8000/auth/signup -H "$J" -d '{"email":"alice@example.com","password":"secret123","nickname":"alice"}' &gt; /dev/null
+ALICE=$(curl -s -X POST localhost:8000/auth/login -H "$J" -d '{"email":"alice@example.com","password":"secret123"}' | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+ENDS=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC)+timedelta(hours=1)).isoformat())")
+A=$(curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $ALICE" -H "$J" -d "{\"title\":\"부하 테스트용 경매\",\"category\":\"etc\",\"starting_price\":1000,\"ends_at\":\"$ENDS\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
+echo "A=$A"
+# A=8ecfc158-9843-46c5-ac47-2df7be932663      (id 는 매번 다르다)
+
+echo "=== 캐시: 같은 목록 두 번"
+curl -s -o /dev/null -w "1st %{time_total}s\n" "localhost:8000/auctions?status=active"
+curl -s -o /dev/null -w "2nd %{time_total}s\n" "localhost:8000/auctions?status=active"
+# 1st 0.017772s
+# 2nd 0.002159s          ← 두 번째는 Redis 에서 (DB 0번)
+docker compose exec redis redis-cli --scan --pattern 'auction:list:*'
+# auction:list:v1:limit=20,sort=ending_soon,status=active
+# auction:list:version   ← 경매를 하나 만들었으니 버전은 이미 1
+docker compose exec redis redis-cli TTL "auction:list:v1:limit=20,sort=ending_soon,status=active"
+# 4                      ← 몇 초 뒤면 사라진다 (TTL 5)
+
+echo "=== request-id: 없으면 발급, 있으면 그대로"
+curl -s -i localhost:8000/health | grep -i x-request-id
+# x-request-id: 4d34d18b-1010-4842-ac86-c0abf4146b86
+curl -s -i -H "X-Request-ID: trace-from-frontend-42" localhost:8000/auctions/$A | grep -i x-request-id
+# x-request-id: trace-from-frontend-42
+# ↑ 터미널 1 의 로그에 같은 request_id 가 찍혀 있다. duration_ms 63.0 — 50ms 짜리 sleep 이 켜져 있어서다.</code></pre>
+    </div>
+    <h3 id="run-2">2. 부하 테스트 A — 50ms 동기 호출이 켜진 채</h3>
+    <p>50명이 초당 10명씩 들어와 20초. 표의 <code>req/s</code> 와 <code>50%</code>(p50)·<code>95%</code> 열만 보면 됩니다. 상세 조회(<code>/auctions/{id}</code>)에만 50ms 를 넣었는데 <em>목록·입찰·로그인까지 전부</em> 700ms 대입니다 — 한 요청의 <code>time.sleep</code> 이 같은 프로세스의 다른 요청들을 다 세워 두기 때문입니다. 터미널 1 을 보면 <code>slow query</code> 경고가 30줄 찍혀 있는데, SQL 자체가 느린 게 아니라 <em>결과를 받아 처리할 차례가 안 와서</em> 221ms 로 재진 것입니다. 블로킹은 남의 쿼리까지 느려 보이게 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">AUCTION_ID=$A uv run locust -f loadtest/locustfile.py --headless -u 50 -r 10 -t 20s --host http://localhost:8000 --only-summary
+# → 아래 표 (A: DEMO_BLOCKING_SLEEP=true). 20초 동안 50명이 869 요청 · 44.6 req/s · p50 790ms</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) locust A — DEMO_BLOCKING_SLEEP=true</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      /auctions                                                                        441     0(0.00%) |    640       2    1540    740 |   22.61        0.00
+GET      /auctions/{id}                                                                   246     0(0.00%) |    846      59    1471    960 |   12.61        0.00
+POST     /auctions/{id}/bids                                                               82     0(0.00%) |    790       3    1880    840 |    4.20        0.00
+POST     /auth/login                                                                       50     0(0.00%) |    579     222    1386    520 |    2.56        0.00
+POST     /auth/signup                                                                      50     0(0.00%) |    789     259    1326    650 |    2.56        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                       869     0(0.00%) |    717       2    1880    790 |   44.56        0.00
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      /auctions                                                                             740    910    990   1000   1100   1300   1400   1400   1500   1500   1500    441
+GET      /auctions/{id}                                                                        960   1100   1100   1100   1300   1400   1400   1500   1500   1500   1500    246
+POST     /auctions/{id}/bids                                                                   880   1000   1100   1100   1300   1800   1900   1900   1900   1900   1900     82
+POST     /auth/login                                                                           530    540    790    830   1400   1400   1400   1400   1400   1400   1400     50
+POST     /auth/signup                                                                          670   1200   1200   1300   1300   1300   1300   1300   1300   1300   1300     50
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                            790    970   1000   1100   1200   1300   1400   1500   1900   1900   1900    869</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) 터미널 1 에 찍힌 slow query 경고 (일부)</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-json">{"ts": "2026-08-25T16:42:17.616+00:00", "level": "WARNING", "logger": "app.db", "msg": "slow query", "request_id": "c83f01b2-11e1-4f41-9930-ccb16552eadb", "duration_ms": 221.5, "statement": "SELECT users.id, users.email, users.password_hash, users.nickname, us
+{"ts": "2026-08-25T16:42:17.617+00:00", "level": "WARNING", "logger": "app.db", "msg": "slow query", "request_id": "4020312d-9793-4d6e-b382-7dd702541aad", "duration_ms": 221.9, "statement": "SELECT users.id, users.email, users.password_hash, users.nickname, us</code></pre>
+    </div>
+    <h3 id="run-3">3. 부하 테스트 B — 스위치 끔</h3>
+    <p>같은 20초에 요청 수 3.3배, p50 은 790ms → 5ms. 이것이 "async 안의 동기 호출 하나" 의 값입니다. 그런데 B 에서도 로그인·가입만 240·370ms 인 것이 보입니까? 그게 bcrypt 입니다 — 아래 한 줄로 재 보면 해시 한 번에 200ms. <code>to_thread</code> 로 스레드에 보냈기 때문에 <em>그 요청은</em> 200ms 걸려도 <em>다른 요청</em>은 5ms 로 답합니다. 보내지 않았다면 표 전체가 A 처럼 됐을 겁니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash"># 터미널 1 에서 Ctrl-C 로 끄고, 이번엔 스위치 없이
+uv run uvicorn app.main:app --port 8000</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">AUCTION_ID=$A uv run locust -f loadtest/locustfile.py --headless -u 50 -r 10 -t 20s --host http://localhost:8000 --only-summary
+# → 아래 표 (B: 기본값). 같은 20초에 2,898 요청 · 146 req/s · p50 5ms
+
+uv run python -c "
+import time
+from app.core.security import hash_password, verify_password
+t=time.perf_counter(); h=hash_password('secret123'); a=(time.perf_counter()-t)*1000
+t=time.perf_counter(); verify_password('secret123', h); b=(time.perf_counter()-t)*1000
+print(f'hash {a:.0f} ms · verify {b:.0f} ms')"
+# hash 202 ms · verify 197 ms   ← 로그인·가입이 B 에서도 240ms 대인 이유. to_thread 덕에 다른 요청은 안 기다린다</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) locust B — 기본값</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">Type     Name                                                                          # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+GET      /auctions                                                                       1506     0(0.00%) |     10       1     365      3 |   76.04        0.00
+GET      /auctions/{id}                                                                   984     0(0.00%) |     16       2     515      5 |   49.69        0.00
+POST     /auctions/{id}/bids                                                              308     0(0.00%) |     23       4     639      9 |   15.55        0.00
+POST     /auth/login                                                                       50     0(0.00%) |    245     224     273    240 |    2.52        0.00
+POST     /auth/signup                                                                      50     0(0.00%) |    359     259     469    370 |    2.52        0.00
+--------|----------------------------------------------------------------------------|-------|-------------|-------|-------|-------|-------|--------|-----------
+         Aggregated                                                                      2898     0(0.00%) |     23       1     639      5 |  146.33        0.00
+Response time percentiles (approximated)
+Type     Name                                                                                  50%    66%    75%    80%    90%    95%    98%    99%  99.9% 99.99%   100% # reqs
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+GET      /auctions                                                                               3      4      5      6     15     46     87    140    280    370    370   1506
+GET      /auctions/{id}                                                                          5      6      8      9     20     82    160    240    520    520    520    984
+POST     /auctions/{id}/bids                                                                     9     11     13     14     23     89    220    280    640    640    640    308
+POST     /auth/login                                                                           240    250    250    260    260    270    270    270    270    270    270     50
+POST     /auth/signup                                                                          370    390    400    410    430    440    470    470    470    470    470     50
+--------|--------------------------------------------------------------------------------|--------|------|------|------|------|------|------|------|------|------|------|------
+         Aggregated                                                                              5      6      8     10     35    160    280    390    520    640    640   2898</code></pre>
+    </div>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>읽는 법 — 병목의 냄새.</strong> (1) 특정 엔드포인트만이 아니라 <em>모든</em> 엔드포인트의 p50 이 함께 올라간다 → 이벤트 루프가 막힌다(동기 호출). (2) 특정 엔드포인트만 느리고 나머지는 멀쩡하다 → 그 엔드포인트의 쿼리·외부 호출(로그인의 bcrypt 처럼). (3) <code>--workers 4</code> 로 늘리면 A 의 숫자가 4배 좋아지는데 그건 치료가 아니라 진통제입니다 — 프로세스마다 같은 함정을 안고 갑니다(4주차·03).</div>
+    </div>
+    <h3 id="run-4">4. 개발 환경 정리</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose exec db psql -U auction -d auction -c "DELETE FROM users WHERE email LIKE 'load-%' OR email = 'alice@example.com';"
+# DELETE 101
+docker compose exec redis redis-cli FLUSHDB
+# OK
+# 터미널 1 의 uvicorn 도 Ctrl-C — 8000 포트를 컨테이너에 내줘야 한다</code></pre>
+    </div>
+    <h3 id="run-5">5. 컨테이너 다섯 개 — 빌드 · 기동 · 전체 흐름</h3>
+    <p><code>--build</code> 가 Dockerfile 로 이미지를 만들고(337MB — uv·빌드 캐시가 없는 런타임만), compose 가 다섯을 순서대로 띄웁니다: db·redis healthy → app(마이그레이션 두 개 실행 → uvicorn) healthy → worker. 그다음은 9단계 시나리오를 <em>컨테이너를 상대로</em> 그대로 돌립니다 — 다른 점은 입찰과 checkout 에 <code>X-Request-ID</code> 를 붙여 나중에 로그에서 찾는 것뿐입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose -f docker-compose.prod.yml up -d --build
+# [+] Building … app  Built            (처음은 1~3분, 두 번째부턴 캐시)
+# ✔ Container auction-prod-db-1       Healthy
+# ✔ Container auction-prod-redis-1    Healthy
+# ✔ Container auction-prod-app-1      Healthy
+# ✔ Container auction-prod-worker-1   Started
+docker compose -f docker-compose.prod.yml ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
+# SERVICE   STATUS                    PORTS
+# app       Up 6 seconds (healthy)    0.0.0.0:8000-&gt;8000/tcp
+# db        Up 11 seconds (healthy)   5432/tcp                    ← 호스트에 안 열림
+# mock_pg   Up 11 seconds             8000/tcp, 0.0.0.0:8001-&gt;8001/tcp
+# redis     Up 11 seconds (healthy)   6379/tcp
+# worker    Up Less than a second     8000/tcp
+docker compose -f docker-compose.prod.yml logs app | grep -E "Running upgrade"
+# INFO  [alembic.runtime.migration] Running upgrade  -&gt; 8d6a60ccfea0, create users auctions bids payments
+# INFO  [alembic.runtime.migration] Running upgrade 8d6a60ccfea0 -&gt; cea32ab5e7e8, add webhook_events and payments external_id index
+docker images auction-api:local --format '{{.Repository}}:{{.Tag}} {{.Size}}'
+# auction-api:local 337MB</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">J='Content-Type: application/json'
+for who in alice bob; do curl -s -X POST localhost:8000/auth/signup -H "$J" -d "{\"email\":\"$who@example.com\",\"password\":\"secret123\",\"nickname\":\"$who\"}" &gt; /dev/null; done
+tok() { curl -s -X POST localhost:8000/auth/login -H "$J" -d "{\"email\":\"$1@example.com\",\"password\":\"secret123\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])'; }
+ALICE=$(tok alice); BOB=$(tok bob)
+ENDS=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC)+timedelta(seconds=45)).isoformat())")
+A=$(curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $ALICE" -H "$J" -d "{\"title\":\"컨테이너 속 경매\",\"category\":\"etc\",\"starting_price\":10000,\"ends_at\":\"$ENDS\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
+echo "A=$A"
+curl -s -X POST localhost:8000/auctions/$A/bids -H "Authorization: Bearer $BOB" -H "$J" -H "X-Request-ID: e2e-bid-1" -d '{"amount":10000}' | python3 -c 'import sys,json; d=json.load(sys.stdin); print("bid:", d["current_price"], d["bid_count"])'
+# bid: 10000 1
+echo "waiting for close..."; sleep 52
+curl -s localhost:8000/auctions/$A | python3 -c 'import sys,json; d=json.load(sys.stdin); print("auction:", d["status"], "winner", (d["winner_id"] or "")[:8])'
+# auction: ended winner d3ca1010            ← 컨테이너 속 워커가 닫았다
+PAY=$(docker compose -f docker-compose.prod.yml exec -T db psql -U auction -d auction -tA -c "SELECT id FROM payments WHERE auction_id='$A'")
+echo "PAY=$PAY"
+curl -s -X POST localhost:8000/payments/$PAY/checkout -H "Authorization: Bearer $BOB" -H "X-Request-ID: e2e-checkout-1"; echo
+# {"payment_id":"42e9d953-…","external_id":"pg_d5eb29153ae2","status":"pending"}
+sleep 3
+curl -s localhost:8000/payments/$PAY -H "Authorization: Bearer $BOB" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("payment:", d["status"], "paid_at", d["paid_at"])'
+# payment: paid paid_at 2026-08-25T16:47:50.907317Z   ← mock_pg 컨테이너가 http://app:8000 으로 웹훅을 보냈다</code></pre>
+    </div>
+    <h3 id="run-6">6. 로그 추적 · 정상 종료 · 정리</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose -f docker-compose.prod.yml logs app | grep -E 'e2e-bid-1|e2e-checkout-1' | sed 's/^[^{]*//' | cut -c1-230
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "e2e-bid-1", "method": "POST", "path": "/auctions/ef9a…/bids", "status": 201, "duration_ms": …}
+# {"ts": "…", "level": "INFO", "logger": "httpx", "msg": "HTTP Request: POST http://mock_pg:8001/pg/payments \"HTTP/1.1 201 Created\"", "request_id": "e2e-checkout-1"}
+# {"ts": "…", "level": "INFO", "logger": "app.access", "msg": "request", "request_id": "e2e-checkout-1", "method": "POST", "path": "/payments/42e9…/checkout", "status": 200, …}
+# ↑ 가운데 줄을 보자. httpx 라이브러리가 자기 로그를 찍었는데 request_id 가 우리 것이다 — contextvar 가 한 일.
+docker compose -f docker-compose.prod.yml logs worker | grep -E 'notify|closed=' | sed 's/^[^{]*//' | cut -c1-200
+# {"ts": "…", "level": "INFO", "logger": "app.services.closer", "msg": "[notify] user=d3ca1010 낙찰! auction=ef9a8973 10,000원 — … 까지 결제해 주세요", "request_id": "-"}
+# {"ts": "…", "level": "INFO", "logger": "worker.closer", "msg": "tick: activated=0 closed=1 expired=0", "request_id": "-"}
+docker compose -f docker-compose.prod.yml logs mock_pg | grep -i webhook | tail -1
+# mock_pg-1  | … mock_pg webhook paid → 200 {"received":true,"duplicate":false}
+
+echo "=== 워커를 SIGTERM 으로 (docker stop = SIGTERM 후 10초 뒤 SIGKILL)"
+docker compose -f docker-compose.prod.yml stop worker
+docker compose -f docker-compose.prod.yml logs worker | grep -E "stopped" | sed 's/^[^{]*//'
+# {"ts": "…", "level": "INFO", "logger": "worker.closer", "msg": "closer stopped", "request_id": "-"}   ← exec 형식 덕에 신호가 닿았다
+docker compose -f docker-compose.prod.yml down -v
+# ✔ Volume auction-prod_prod-pgdata  Removed
+# ✔ Network auction-prod_default     Removed</code></pre>
+    </div>
+    <h3 id="run-7">7. CI 파일 검증 — GitHub 에 올리기 전에 같은 명령을 로컬에서</h3>
+    <p>Actions 를 로컬에서 실행하는 도구(<code>act</code>)도 있지만, 여기선 YAML 이 유효한지와 CI 가 돌릴 <em>명령 자체</em>가 같은 환경변수로 통과하는지만 확인합니다. 그 둘이 되면 GitHub 에서도 됩니다. 파일을 <code>til/.github/workflows/auction-api-ci.yml</code> 로 옮겨 커밋·푸시하면 Actions 탭에 <code>auction-api CI</code> 가 나타납니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run python -c "import yaml; d=yaml.safe_load(open('.github/workflows/ci.yml')); print('ci.yml ok:', list(d['jobs']['test'].keys()))"
+# ci.yml ok: ['runs-on', 'services', 'env', 'steps']
+
+# CI 와 정확히 같은 환경변수·명령을 로컬에서 (서비스 컨테이너 대신 개발용 compose 의 5435·6380)
+export DATABASE_URL=postgresql+asyncpg://auction:auction_pw@localhost:5435/auction REDIS_URL=redis://localhost:6380/0
+export JWT_SECRET=ci-only-secret-that-is-at-least-32-bytes-long PG_WEBHOOK_SECRET=ci-only-pg-webhook-secret-32-bytes-minimum
+uv sync --frozen &amp;&amp; uv run ruff check . &amp;&amp; uv run ruff format --check . &amp;&amp; uv run alembic upgrade head &amp;&amp; uv run alembic check &amp;&amp; uv run pytest -q
+# Audited 72 packages in 2ms
+# All checks passed!
+# 76 files already formatted
+# INFO  [alembic.runtime.migration] Will assume transactional DDL.
+# No new upgrade operations detected.
+# 97 passed in 66.75s (0:01:06)
+unset DATABASE_URL REDIS_URL JWT_SECRET PG_WEBHOOK_SECRET</code></pre>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 7. 완료 ───────────────────────── -->
+  <section class="section" id="done">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>완료 기준 체크리스트</h2>
+    </div>
+    <ul class="checklist">
+      <li><code>uv run pytest -q</code> → <code>97 passed</code>, 경고 0 (캐시 4 · 관측성 6)</li>
+      <li><code>uv run ruff check .</code> · <code>ruff format --check .</code> 통과, <code>uv run alembic check</code> 무변경</li>
+      <li>같은 <code>GET /auctions</code> 두 번 → 두 번째가 훨씬 빠르고 <code>redis-cli --scan</code> 에 <code>auction:list:v…</code> 키가 보인다</li>
+      <li>모든 응답에 <code>X-Request-ID</code>, 보낸 값은 그대로 돌아오고, 터미널 로그가 JSON 한 줄에 같은 <code>request_id</code></li>
+      <li>locust A(스위치 켬) 와 B(끔) 의 <code>req/s</code>·<code>p50</code> 이 확연히 다르다 (기준: 3배 이상)</li>
+      <li><code>docker compose -f docker-compose.prod.yml up -d --build</code> → <code>ps</code> 에 5개, app·db·redis <code>(healthy)</code>, 호스트엔 8000·8001 만</li>
+      <li>컨테이너 상대로 가입 → 45초 경매 → 입찰 → <code>ended</code> + winner → checkout → 3초 뒤 <code>paid</code></li>
+      <li><code>logs app</code> 에서 <code>e2e-checkout-1</code> 로 grep 하면 access 로그와 httpx 로그가 같은 request_id 로 나온다</li>
+      <li><code>stop worker</code> → 로그에 <code>closer stopped</code>, <code>down -v</code> 로 깨끗이</li>
+      <li><code>ci.yml</code> 이 <code>yaml.safe_load</code> 를 통과하고, CI 와 같은 명령이 로컬에서 전부 통과</li>
+    </ul>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기서 커밋하세요 — 마지막입니다.</strong> 예: <code>git commit -m "add(be(fastapi)): auction-api 10단계 — 캐시·JSON 로그·부하 테스트·Docker·CI"</code>. <code>README.md</code> 의 회고 세 줄을 채우고, <code>ci.yml</code> 을 <code>til/.github/workflows/auction-api-ci.yml</code> 로 옮겨 푸시하면 첫 CI 가 돕니다. 로드맵(<code>index.html</code>)의 "완주 후" 에 다음 갈 길을 적어 두었습니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 8. 함정 ───────────────────────── -->
+  <section class="section" id="pitfalls">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>함정 &amp; 실무 팁</h2>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>로그인 사용자에 따라 달라지는 응답을 공용 키로 캐시하지 마세요.</strong> 오늘 캐시한 <code>GET /auctions</code> 는 누가 불러도 같은 답이라서 됐습니다. <code>GET /users/me</code> 나 "내 입찰 목록" 을 같은 방식으로 캐시하면 A 의 화면이 B 에게 갑니다 — 실제로 일어난 유명한 사고들입니다. 사용자별 응답은 키에 <code>user_id</code> 를 넣거나, 아예 캐시하지 않습니다. 규칙: <em>키를 만드는 재료에 응답을 결정하는 모든 것이 들어가야 한다.</em></div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>버전을 올리는 자리는 커밋 뒤, 그리고 '목록에 보이는 것이 바뀌는 곳' 전부.</strong> 커밋 전에 올리면 그 사이 들어온 요청이 옛 데이터를 새 버전 키로 캐시해 5초 동안 틀린 답이 남습니다. 지점을 하나 빼먹으면(예: 워커의 활성화) 그 변경만 5초 늦게 보입니다 — TTL 이 안전망인 이유이자, TTL 을 무한으로 두면 안 되는 이유입니다. 새 기능을 추가할 때 "이게 목록을 바꾸나?" 를 체크리스트에 넣으세요.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>캐시 스탬피드.</strong> 인기 키가 만료되는 순간 요청 100개가 동시에 미스를 내고 100번 DB 를 읽어 100번 SET 합니다. 오늘 규모에선 문제없지만 트래픽이 크면 (1) TTL 에 약간의 랜덤(4~6초)을 더해 만료 시각을 흩고, (2) 첫 미스만 DB 를 가고 나머지는 잠깐 기다리게 하는 락(Redis <code>SET NX</code>)을 둡니다. 6단계의 <code>FOR UPDATE</code> 와 같은 발상입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>print()</code> 는 로그가 아닙니다.</strong> 컨테이너 다섯 개의 출력이 한 화면에 섞이는 순간 request_id 없는 줄은 쓸모가 없어집니다. 오늘 만든 <code>JsonFormatter</code> 는 <code>logging.getLogger(__name__)</code> 로 찍은 <em>모든</em> 로그에 적용되고 request_id 가 자동으로 붙습니다 — 서비스 코드에서 <code>logger.info("bid placed", extra={{"amount": amount}})</code> 처럼 쓰세요. 그리고 비밀번호·토큰·카드번호는 절대 로그에 넣지 않습니다(로그는 오래 남고 많은 사람이 봅니다).</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>부하 테스트는 배포 환경과 비슷할 때만 숫자를 믿습니다.</strong> 오늘은 노트북에서 서버와 locust 를 같이 돌렸으니 절대값(146 req/s)은 의미가 없고 <em>A 와 B 의 비율</em>만 의미가 있습니다. 운영 전 측정은 스테이징에 배포하고 다른 머신에서 쏘세요. 그리고 <code>--workers</code> 를 늘려 나온 개선은 "블로킹이 없어졌다" 가 아니라 "블로킹을 4개 프로세스가 나눠 맞는다" 입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>.env</code> 는 이미지에 들어가면 안 됩니다.</strong> <code>.dockerignore</code> 에 <code>.env</code> 가 있는 이유입니다. 이미지는 레지스트리에 올라가고 복사되고 남습니다 — 한 번 들어간 비밀은 회수할 수 없습니다. 비밀은 실행 시점에 환경변수(compose <code>${{JWT_SECRET}}</code>, Actions secrets, 클라우드의 시크릿 매니저)로 넣습니다. 같은 이유로 <code>docker-compose.prod.yml</code> 의 기본값(<code>:-prod-change-me…</code>)은 로컬 확인용이지 운영값이 아닙니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>CMD 는 exec 형식, 셸이 필요하면 <code>exec</code> 로 넘기기.</strong> <code>CMD uvicorn app.main:app</code>(셸 형식)이면 PID 1 은 <code>sh</code> 이고 uvicorn 은 그 자식입니다. <code>docker stop</code> 의 SIGTERM 은 <code>sh</code> 가 받고 자식에게 안 넘깁니다 → 10초 뒤 SIGKILL → 8단계의 graceful shutdown 이 무의미해지고 처리 중이던 틱이 반쯤에서 죽습니다. compose 의 <code>app</code> 처럼 마이그레이션 뒤에 서버를 띄워야 할 땐 <code>sh -c "alembic … &amp;&amp; exec uvicorn …"</code> — <code>exec</code> 가 셸을 uvicorn 으로 <em>바꿔치기</em>해서 PID 1 이 됩니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>마이그레이션은 한 컨테이너만.</strong> app 을 <code>--scale app=3</code> 으로 늘리면 셋이 동시에 <code>alembic upgrade head</code> 를 돌립니다. Alembic 은 락을 잡지 않아 둘이 같은 DDL 을 시도하다 하나가 죽습니다. 운영에선 마이그레이션을 배포 파이프라인의 <em>별도 단계</em>(한 번 실행되는 job)로 빼고, 서버 컨테이너는 서버만 띄웁니다. 오늘 compose 는 app 이 하나라서 <code>&amp;&amp;</code> 로 묶은 것이지 정석은 아닙니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>healthcheck 가 200 이라고 '준비됨' 은 아닙니다.</strong> 우리 <code>/health</code> 는 DB·Redis 핑까지 보므로 꽤 정직한 편입니다. 실무에선 <em>liveness</em>(프로세스가 살아 있나 — 죽었으면 재시작)와 <em>readiness</em>(트래픽을 받아도 되나 — 아니면 로드밸런서에서 뺀다)를 나눕니다. 마이그레이션 중이거나 캐시 워밍 중엔 살아 있지만 준비는 안 된 상태입니다. k8s 로 가면 두 프로브를 따로 붙입니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>CI 의 DB 주소와 로컬의 DB 주소.</strong> Actions 서비스 컨테이너는 <code>localhost:호스트포트</code> 로 접근합니다(job 이 컨테이너 안이 아니라 러너 VM 에서 돌 때). 오늘은 5435·6380 으로 매핑해 로컬 기본값을 그대로 썼습니다. job 을 <code>container:</code> 안에서 돌리면 서비스 이름(<code>postgres:5432</code>)으로 바뀝니다 — compose 의 규칙과 같습니다. <code>alembic check</code> 를 CI 에 넣어 두면 "모델은 고쳤는데 마이그레이션을 안 만든" PR 이 여기서 잡힙니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 9. 정본 ───────────────────────── -->
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>self-study 정본 링크 — 개념은 여기서 복습</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이번 단계에서 쓴 것</th><th>정본</th></tr></thead>
+        <tbody>
+          <tr><td>Dockerfile · docker compose · GitHub Actions — 기본 문법과 흐름</td><td><a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#dockerfile">Week 10·03 Dockerfile</a> · <a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#docker-compose">compose</a> · <a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#github-actions">GitHub Actions</a> · <a href="../../self-study/week10-test-deploy/03-docker-cicd-retrospective.html#deploy">배포</a></td></tr>
+          <tr><td>CORS 설정 · 미들웨어 계층 · 커스텀 미들웨어 (request-id 미들웨어의 배경)</td><td><a href="../../self-study/week07-async-db-external/03-cors-middleware.html#cors-config">Week 7·03 CORS 설정</a> · <a href="../../self-study/week07-async-db-external/03-cors-middleware.html#middleware-layer">미들웨어 계층</a> · <a href="../../self-study/week07-async-db-external/03-cors-middleware.html#custom-middleware">커스텀 미들웨어</a></td></tr>
+          <tr><td>async 안의 동기 호출이 왜 서버 전체를 세우나 (부하 테스트 A 의 원리)</td><td><a href="../../self-study/week04-async-internals/02-async-await-threadpool.html#two-paths">Week 4·02 두 갈래</a> · <a href="../../self-study/week04-async-internals/02-async-await-threadpool.html#blocking-trap">블로킹 함정</a></td></tr>
+          <tr><td>워커 프로세스 늘리기 — 왜 진통제인가</td><td><a href="../../self-study/week04-async-internals/03-multiprocess-uvicorn-starlette.html#multiprocess-workers">Week 4·03 멀티프로세스 워커</a></td></tr>
+          <tr><td>측정의 이유 · 부하 테스트 도구 · 병목 찾기</td><td><a href="../../self-study/week09-realtime-events/03-performance-test.html#why-measure">Week 9·03 왜 재나</a> · <a href="../../self-study/week09-realtime-events/03-performance-test.html#load-test-tools">도구</a> · <a href="../../self-study/week09-realtime-events/03-performance-test.html#bottlenecks">병목</a></td></tr>
+          <tr><td>Redis 를 캐시로 — 기본 명령과 TTL</td><td><a href="../../self-study/week08-auth/02-dependency-auth-redis.html#redis">Week 8·02 Redis</a></td></tr>
+          <tr><td>커넥션 풀 — 컨테이너 여러 개가 같은 DB 를 볼 때 풀 크기 계산의 배경</td><td><a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#connection-pool">Week 5·03 Connection Pool</a></td></tr>
+          <tr><td>fixture 가 잠깐 달았다 떼는 패턴 (slow query 테스트)</td><td><a href="../../self-study/week10-test-deploy/01-pytest-mocking-fixture.html#fixture">Week 10·01 Fixture</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 10. 셀프 체크 ───────────────────────── -->
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-teal">❓</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 캐시 무효화를 <code>DEL auction:list:*</code> 로 하지 않고 버전을 올리는 이유는? 그리고 이 방식의 대가는 무엇인가요?</summary>
+        <div class="qa-answer"><p>Redis 에는 패턴으로 한 번에 지우는 명령이 없습니다 — <code>KEYS</code>/<code>SCAN</code> 으로 찾아서 하나씩 지워야 하고, <code>KEYS</code> 는 키가 많으면 Redis 전체를 멈춥니다. 게다가 "어떤 파라미터 조합이 캐시돼 있는지" 를 서버가 알 수 없습니다(커서·필터·정렬의 조합은 무한합니다). 버전 키는 그 문제를 없앱니다: 변경 지점은 <code>INCR</code> 하나만 하고, 읽는 쪽이 항상 최신 버전 키를 찾으니 옛 키는 자연히 안 읽힙니다. 대가는 (1) 읽을 때마다 <code>GET version</code> 이 한 번 더 든다(Redis 왕복 두 번 — 대개 1ms 미만), (2) 옛 키가 TTL 까지 메모리에 남는다(그래서 TTL 이 짧아야 한다), (3) 경매 <em>하나</em>가 바뀌어도 <em>모든</em> 목록 캐시가 무효화된다 — 변경이 잦으면 히트율이 떨어집니다. 그때는 키에 카테고리 같은 축을 더해 버전을 축별로 나눕니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 부하 테스트 A 에서 <code>time.sleep(0.05)</code> 는 상세 조회에만 있는데 왜 목록·입찰·로그인까지 전부 700ms 대가 됐나요? <code>uvicorn --workers 4</code> 로 띄우면 해결되나요?</summary>
+        <div class="qa-answer"><p>uvicorn 워커 하나는 이벤트 루프 하나이고, 루프는 한 번에 한 코루틴만 실행합니다. <code>await</code> 에서만 다른 코루틴으로 넘어가는데 <code>time.sleep</code> 은 <code>await</code> 가 아니라 그냥 50ms 를 붙잡고 있습니다. 그 50ms 동안 목록 요청의 DB 응답이 도착해도, 입찰의 락이 풀려도, 로그인의 스레드가 끝나도 아무도 처리하지 못합니다 — 줄 전체가 섭니다. 초당 상세 조회가 12건이면 매초 600ms 가 그렇게 사라지고, 그게 모든 엔드포인트의 지연으로 번집니다(slow query 경고가 30개나 찍힌 것도 SQL 이 느린 게 아니라 결과를 받아 줄 차례가 안 와서였습니다). <code>--workers 4</code> 는 루프가 넷이 되니 약 4배 나아지지만, 각 워커가 똑같이 50ms 씩 멈추는 건 그대로입니다 — 트래픽이 4배 되면 원위치입니다. 치료는 동기 호출을 없애거나(<code>httpx</code>·asyncpg 처럼 async 라이브러리로) 스레드로 보내는 것(<code>asyncio.to_thread</code>, 오늘 bcrypt 에 한 일)입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> Dockerfile 이 <code>FROM</code> 을 두 번 쓰는 이유는? 그리고 <code>USER app</code> 과 exec 형식 <code>CMD</code> 를 빼면 각각 무슨 일이 생기나요?</summary>
+        <div class="qa-answer"><p>첫 <code>FROM</code>(빌더)에는 uv 와 빌드 캐시, 컴파일에 필요한 도구가 들어가고 거기서 <code>.venv</code> 를 만듭니다. 둘째 <code>FROM</code>(런타임)은 파이썬만 있는 slim 이미지에서 시작해 빌더의 <code>/app</code> 만 <code>COPY --from</code> 합니다. 결과: 이미지가 작고(337MB — 빌더 전체를 쓰면 2배 이상), 공격 표면이 작고(uv·컴파일러가 없음), 캐시 레이어가 잘 나뉩니다(잠금 파일이 안 바뀌면 의존성 설치를 건너뜀). <code>USER app</code> 을 빼면 프로세스가 root 로 돕니다 — 앱에 취약점이 있을 때 컨테이너 안에서 무엇이든 할 수 있고, 컨테이너 탈출 취약점과 만나면 호스트까지 갑니다. 파일을 못 쓰는 게 아니라 <em>못 쓰게 두는 것</em>이 목적입니다. exec 형식을 셸 형식으로 바꾸면 PID 1 이 <code>sh</code> 가 되어 <code>docker stop</code> 의 SIGTERM 이 uvicorn·워커에 전달되지 않고, 10초 뒤 SIGKILL 로 죽습니다 — 처리 중이던 요청이 끊기고, 8단계 워커는 틱 중간에 죽어 락만 풀립니다(데이터는 트랜잭션 덕에 안전하지만 "조용한 종료" 는 없어집니다).</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="10-3-deploy-impl-2.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">10-3 구현 ② 관측성·배포</span></a>
+    <a class="part-pager-link next" href="index.html"><span class="part-pager-dir">완주 →</span><span class="part-pager-title">로드맵 · 완주 후 갈 길</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 10단계 · 성능·관측성·배포 · 10-4 실행·확인 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>8단계 · 마감 워커 · 8-2 구현 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <div class="nav-week active"><span class="wk-no">8</span> 8단계 · 마감 워커</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="08-1-closer-worker-overview.html"><span class="sub-no">8-1</span> 개요와 설계</a>
+      <a class="nav-sub active" href="08-2-closer-worker-impl.html"><span class="sub-no">8-2</span> 구현</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#impl-1">1. tests/test_closer.py</a>
+        <a class="nav-item" href="#impl-2">2. RED</a>
+        <a class="nav-item" href="#impl-3">3. app/core/config.py</a>
+        <a class="nav-item" href="#impl-4">4. app/repositories/aucti…</a>
+        <a class="nav-item" href="#impl-5">5. app/repositories/bid.py</a>
+        <a class="nav-item" href="#impl-6">6. app/repositories/payme…</a>
+        <a class="nav-item" href="#impl-7">7. app/services/closer.py</a>
+        <a class="nav-item" href="#impl-8">8. app/workers/closer.py</a>
+        <a class="nav-item" href="#impl-9">9. GREEN</a>
+        <a class="nav-item" href="#impl-10">10. 지금까지의 구조</a>
+      </div>
+      <a class="nav-sub" href="08-3-closer-worker-verify.html"><span class="sub-no">8-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>8단계 · 마감 워커</b></div>
+    <h1>8-2 구현</h1>
+    <p class="lesson-subtitle">앞에서 그린 설계를 실제 파일로 옮깁니다. 아래 <strong>10개</strong>를 위에서부터 순서대로 따라 하면 됩니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="08-1-closer-worker-overview.html"><b>8-1</b> 개요와 설계</a>
+    <a class="step-part current" href="08-2-closer-worker-impl.html"><b>8-2</b> 구현</a>
+    <a class="step-part" href="08-3-closer-worker-verify.html"><b>8-3</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>여기서부터 손을 움직입니다.</strong> 설계 그림이 흐릿하면 <a href="08-1-closer-worker-overview.html#design">8-1 설계 그림</a>으로 잠깐 돌아갔다 오세요. 이 문서를 끝내면 <a href="08-3-closer-worker-verify.html">8-3 실행·확인</a>에서 결과를 확인합니다.</div>
+  </div>
+
+  <!-- ───────────────────────── 구현 ───────────────────────── -->
+  <section class="section" id="impl">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔧</div>
+      <h2>구현 — 파일을 하나씩 만든다</h2>
+    </div>
+    <p>순서는 늘 같습니다 — <strong>테스트 먼저(RED)</strong>, 그다음 통과시킬 코드(GREEN). 이번 테스트의 요령은 하나입니다: <em>시계를 인자로 넘긴다</em>. "마감 45초 뒤"를 기다리는 테스트는 느리고 불안정합니다. 규칙 함수가 <code>now</code> 를 받으면, 테스트는 <code>NOW = 2026-08-25 12:00</code> 을 정해 두고 경매의 <code>ends_at</code> 을 그 1초 전으로 만들면 됩니다. 파일은 새로 4개, 손보는 건 3개입니다.</p>
+    <h3 id="impl-1">1. tests/test_closer.py — 시계를 쥔 테스트</h3>
+    <p>일곱 개입니다. 앞의 다섯은 롤백 세션(<code>db_session</code>)으로 충분합니다 — 서비스가 <code>commit()</code> 해도 3단계 fixture 가 SAVEPOINT 로 받아 주고 끝나면 전부 롤백됩니다. 낙찰(winner·Payment·이벤트 세 가지를 한 번에), 유찰(winner 없음·Payment 없음·이벤트는 감), 마감 전·취소된 경매는 건드리지 않음, 활성화(두 번 돌려도 0), 결제 만료(기한 지난 pending 만). 이벤트는 <code>events.publish</code> 를 <code>monkeypatch</code> 로 기록기로 바꿔 어떤 payload 가 나갔는지 <em>결정적으로</em> 봅니다.</p>
+    <p>뒤의 둘은 <code>@pytest.mark.commits</code> — 진짜 커밋합니다. 잠금은 <em>서로 다른 커넥션</em> 사이에서만 의미가 있어서, 워커 두 개를 흉내 내려면 세션 두 개로 정말 커밋해야 합니다(6단계와 같은 이유). 마감된 경매 5건을 두 코루틴이 동시에 <code>close_due</code> 하면 합쳐서 정확히 5건, 중복 0, <code>payments</code> 5행. 마지막은 루프 자체: <code>run()</code> 이 <code>interval=0.05</code> 로 돌다가 <code>stop</code> 이 set 되면 돌아오는지, 첫 틱이 5건을 닫고 그다음 틱들은 빈손인지.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_closer.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""마감 워커 테스트 — 규칙은 서비스 함수(순수 함수, now 를 인자로)에서, 동시성은 진짜 커밋으로.
+
+시계를 인자로 받으므로 "15초 뒤 마감"을 기다릴 필요가 없다. now 를 마감 뒤로 넘겨 주면 된다.
+대부분은 롤백 세션(db_session)으로 충분하다. '워커 두 개가 동시에' 만 실제 커밋(@commits)이 필요하다
+— 잠금은 서로 다른 커넥션 사이에서만 의미가 있으니까.
+"""
+
+import asyncio
+import uuid
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from redis.asyncio import Redis
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import events
+from app.core.config import get_settings
+from app.core.db import SessionLocal
+from app.models import Auction, AuctionStatus, Bid, Payment, PaymentStatus, User
+from app.services import closer as closer_service
+from app.workers import closer as closer_worker
+from tests.factories import create_auction, create_user
+
+NOW = datetime(2026, 8, 25, 12, 0, tzinfo=UTC)
+
+
+async def _bid(db: AsyncSession, auction: Auction, bidder: User, amount: int, at: datetime) -&gt; Bid:
+    """입찰 행을 직접 만든다 (place_bid 의 락·rate limit 은 6단계가 검증했다)."""
+    bid = Bid(auction_id=auction.id, bidder_id=bidder.id, amount=amount, created_at=at)
+    db.add(bid)
+    auction.current_price = amount
+    auction.bid_count += 1
+    await db.flush()
+    return bid
+
+
+@pytest.fixture
+def published(monkeypatch: pytest.MonkeyPatch) -&gt; list[events.AuctionEvent]:
+    """events.publish 를 기록기로 바꿔치기 — 어떤 이벤트가 나갔는지 결정적으로 본다."""
+    box: list[events.AuctionEvent] = []
+
+    async def fake_publish(redis: Redis, event: events.AuctionEvent) -&gt; int:
+        box.append(event)
+        return 1
+
+    monkeypatch.setattr(events, "publish", fake_publish)
+    return box
+
+
+async def test_close_due_picks_winner_creates_payment_and_publishes(
+    db_session: AsyncSession, redis: Redis, published: list[events.AuctionEvent]
+):
+    seller = await create_user(db_session, nickname="판매자")
+    bob = await create_user(db_session, nickname="bob")
+    carol = await create_user(db_session, nickname="carol")
+    auction = await create_auction(
+        db_session, seller, starts_at=NOW - timedelta(hours=1), ends_at=NOW - timedelta(seconds=1)
+    )
+    await _bid(db_session, auction, bob, 10_000, NOW - timedelta(minutes=5))
+    await _bid(db_session, auction, carol, 12_000, NOW - timedelta(minutes=2))
+
+    closed = await closer_service.close_due(db_session, redis, NOW)
+
+    assert [c.auction_id for c in closed] == [auction.id]
+    assert closed[0].winner_id == carol.id
+    assert closed[0].final_price == 12_000
+    await db_session.refresh(auction)
+    assert auction.status == AuctionStatus.ENDED
+    assert auction.winner_id == carol.id
+    assert auction.version == 1
+
+    payment = await db_session.scalar(select(Payment).where(Payment.auction_id == auction.id))
+    assert payment is not None
+    assert payment.status == PaymentStatus.PENDING
+    assert payment.payer_id == carol.id
+    assert payment.amount == 12_000
+    assert payment.expires_at == NOW + timedelta(hours=get_settings().payment_deadline_hours)
+    assert closed[0].payment_id == payment.id
+
+    assert [e.type for e in published] == ["auction_closed"]
+    assert published[0].auction_id == auction.id
+    assert published[0].payload["winner_id"] == carol.id
+    assert published[0].payload["final_price"] == 12_000
+    assert published[0].payload["payment_id"] == payment.id
+
+
+async def test_close_due_without_bids_ends_with_no_winner_and_no_payment(
+    db_session: AsyncSession, redis: Redis, published: list[events.AuctionEvent]
+):
+    seller = await create_user(db_session)
+    auction = await create_auction(
+        db_session, seller, starts_at=NOW - timedelta(hours=1), ends_at=NOW - timedelta(minutes=1)
+    )
+
+    closed = await closer_service.close_due(db_session, redis, NOW)
+
+    assert len(closed) == 1 and closed[0].winner_id is None and closed[0].payment_id is None
+    await db_session.refresh(auction)
+    assert auction.status == AuctionStatus.ENDED
+    assert auction.winner_id is None
+    assert await db_session.scalar(select(func.count()).select_from(Payment)) == 0
+    assert published[0].payload["winner_id"] is None
+
+
+async def test_close_due_leaves_not_yet_due_and_non_active_alone(
+    db_session: AsyncSession, redis: Redis, published: list[events.AuctionEvent]
+):
+    seller = await create_user(db_session)
+    future = await create_auction(
+        db_session, seller, starts_at=NOW - timedelta(hours=1), ends_at=NOW + timedelta(seconds=30)
+    )
+    cancelled = await create_auction(
+        db_session,
+        seller,
+        starts_at=NOW - timedelta(hours=2),
+        ends_at=NOW - timedelta(hours=1),
+        status=AuctionStatus.CANCELLED,
+    )
+
+    closed = await closer_service.close_due(db_session, redis, NOW)
+
+    assert closed == []
+    await db_session.refresh(future)
+    await db_session.refresh(cancelled)
+    assert future.status == AuctionStatus.ACTIVE
+    assert cancelled.status == AuctionStatus.CANCELLED
+    assert published == []
+
+
+async def test_activate_due_turns_scheduled_into_active(db_session: AsyncSession):
+    seller = await create_user(db_session)
+    due = await create_auction(
+        db_session,
+        seller,
+        status=AuctionStatus.SCHEDULED,
+        starts_at=NOW - timedelta(seconds=1),
+        ends_at=NOW + timedelta(days=1),
+    )
+    later = await create_auction(
+        db_session,
+        seller,
+        status=AuctionStatus.SCHEDULED,
+        starts_at=NOW + timedelta(hours=1),
+        ends_at=NOW + timedelta(days=1),
+    )
+
+    assert await closer_service.activate_due(db_session, NOW) == 1
+    await db_session.refresh(due)
+    await db_session.refresh(later)
+    assert due.status == AuctionStatus.ACTIVE and due.version == 1
+    assert later.status == AuctionStatus.SCHEDULED
+    assert await closer_service.activate_due(db_session, NOW) == 0  # 두 번 돌려도 더 바뀌지 않는다
+
+
+async def test_expire_payments_marks_only_overdue_pending(db_session: AsyncSession):
+    seller = await create_user(db_session)
+    payer = await create_user(db_session)
+    rows = []
+    for status, expires_at in [
+        (PaymentStatus.PENDING, NOW - timedelta(minutes=1)),  # 기한 지남 → expired
+        (PaymentStatus.PENDING, NOW + timedelta(hours=1)),  # 아직 → 그대로
+        (PaymentStatus.PAID, NOW - timedelta(days=1)),  # 이미 결제 → 그대로
+    ]:
+        auction = await create_auction(
+            db_session,
+            seller,
+            status=AuctionStatus.ENDED,
+            starts_at=NOW - timedelta(days=3),
+            ends_at=NOW - timedelta(days=2),
+        )
+        payment = Payment(
+            auction_id=auction.id,
+            payer_id=payer.id,
+            amount=10_000,
+            status=status,
+            expires_at=expires_at,
+        )
+        db_session.add(payment)
+        rows.append(payment)
+    await db_session.flush()
+
+    assert await closer_service.expire_payments(db_session, NOW) == 1
+    for p in rows:
+        await db_session.refresh(p)
+    expected = [PaymentStatus.EXPIRED, PaymentStatus.PENDING, PaymentStatus.PAID]
+    assert [p.status for p in rows] == expected
+
+
+# ── 여기부터는 진짜 커밋 — 워커 두 개가 같은 순간에 같은 후보를 보는 상황 ─────────────────
+
+
+@pytest.fixture
+async def five_due_auctions(redis: Redis):
+    async with SessionLocal() as db:
+        seller = await create_user(db, nickname="판매자")
+        bidder = await create_user(db, nickname="입찰자")
+        ids = []
+        for i in range(5):
+            auction = await create_auction(
+                db,
+                seller,
+                title=f"경매 {i}",
+                starts_at=NOW - timedelta(hours=1),
+                ends_at=NOW - timedelta(seconds=1),
+            )
+            await _bid(db, auction, bidder, 10_000 + i * 1_000, NOW - timedelta(minutes=1))
+            ids.append(auction.id)
+        await db.commit()
+    yield ids
+    async with SessionLocal() as db:
+        await db.execute(text("TRUNCATE bids, payments, auctions, users CASCADE"))
+        await db.commit()
+
+
+@pytest.mark.commits
+async def test_two_workers_close_each_auction_exactly_once(
+    five_due_auctions: list[uuid.UUID], redis: Redis
+):
+    async def worker() -&gt; list[closer_service.ClosedResult]:
+        async with SessionLocal() as db:  # 워커 하나 = 세션(커넥션) 하나
+            return await closer_service.close_due(db, redis, NOW)
+
+    a, b = await asyncio.gather(worker(), worker())
+
+    closed_ids = [c.auction_id for c in a + b]
+    assert sorted(closed_ids) == sorted(five_due_auctions)  # 5건 전부, 중복 없이
+    assert len(set(closed_ids)) == 5
+    async with SessionLocal() as db:
+        ended = await db.scalar(
+            select(func.count()).select_from(Auction).where(Auction.status == AuctionStatus.ENDED)
+        )
+        payments = await db.scalar(select(func.count()).select_from(Payment))
+    assert ended == 5 and payments == 5
+
+
+@pytest.mark.commits
+async def test_worker_loop_ticks_and_stops_cleanly(
+    five_due_auctions: list[uuid.UUID], redis: Redis, monkeypatch: pytest.MonkeyPatch
+):
+    """run() 은 stop 이 set 될 때까지 interval 마다 tick 하고, set 되면 조용히 돌아온다."""
+    ticks: list[closer_worker.TickResult] = []
+    original_tick = closer_worker.tick
+
+    async def recording_tick(redis: Redis, now: datetime | None = None) -&gt; closer_worker.TickResult:
+        result = await original_tick(redis, now=NOW)  # 시계를 고정
+        ticks.append(result)
+        return result
+
+    monkeypatch.setattr(closer_worker, "tick", recording_tick)
+    stop = asyncio.Event()
+
+    async def stop_soon() -&gt; None:
+        await asyncio.sleep(0.3)
+        stop.set()
+
+    await asyncio.gather(closer_worker.run(stop, redis, interval=0.05), stop_soon())
+
+    assert len(ticks) &gt;= 2
+    assert len(ticks[0].closed) == 5 and ticks[0].activated == 0 and ticks[0].expired == 0
+    assert all(t.empty for t in ticks[1:])  # 두 번째 틱부터는 할 일이 없다</code></pre>
+    </div>
+    <h3 id="impl-2">2. RED — 서비스 모듈이 없다</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q tests/test_closer.py
+# ImportError while importing test module '…/tests/test_closer.py'.
+# E   ImportError: cannot import name 'closer' from 'app.services' (…/app/services/__init__.py)
+# !!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+# 1 error in 0.08s</code></pre>
+    </div>
+    <h3 id="impl-3">3. app/core/config.py — 시간 값 세 개 (수정)</h3>
+    <p>루프 주기, 한 틱에 집는 최대 건수, 낙찰 뒤 결제 기한. 코드에 숫자를 박지 않고 설정으로 빼 두면 테스트에서 <code>interval=0.05</code> 로 줄이고, 실행·확인에서 <code>CLOSER_INTERVAL_SECONDS=0.3 CLOSER_BATCH_SIZE=5</code> 처럼 환경변수로 바꿔 끼울 수 있습니다(1단계 규칙: 환경변수가 <code>.env</code> 보다 우선).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/core/config.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from functools import lru_cache
+from typing import Literal
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    app_env: Literal["dev", "test", "prod"] = "dev"
+    database_url: str = "postgresql+asyncpg://auction:auction_pw@localhost:5435/auction"
+    redis_url: str = "redis://localhost:6380/0"
+    debug: bool = False
+
+    # 인증 — 프로덕션에서는 반드시 환경변수/시크릿 매니저로 주입한다
+    jwt_secret: str = "dev-only-change-me-in-prod-please-use-32-bytes-or-more"
+    access_token_minutes: int = 15
+    refresh_token_days: int = 7
+
+    # 입찰 (6단계) — 시간·횟수 규칙은 설정으로 빼 둔다. 테스트에서 줄이고, 운영에서 조정한다
+    snipe_window_seconds: int = 30  # 마감까지 이 초 이내에 입찰이 오면
+    snipe_extend_seconds: int = 30  # 마감을 이만큼 늦춘다 (스나이핑 방지)
+    bid_rate_limit_per_second: int = 5  # 한 사용자가 1초에 보낼 수 있는 입찰 수
+
+    # 마감 워커 (8단계) — 루프 주기·한 틱에 집는 건수·낙찰 후 결제 기한
+    closer_interval_seconds: float = 1.0  # 워커가 시계를 보는 주기 (테스트에선 0.05 로 줄인다)
+    closer_batch_size: int = 100  # 한 틱에 처리할 최대 건수 (한 틱이 너무 길어지지 않게)
+    payment_deadline_hours: int = 24  # 낙찰 뒤 이 시간 안에 결제하지 않으면 expired
+
+
+@lru_cache
+def get_settings() -&gt; Settings:
+    return Settings()</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run python -c "from app.core.config import get_settings as g; s=g(); print(s.closer_interval_seconds, s.closer_batch_size, s.payment_deadline_hours)"
+# 1.0 100 24</code></pre>
+    </div>
+    <h3 id="impl-4">4. app/repositories/auction.py — skip_locked 와 후보 조회 (수정)</h3>
+    <p>6단계의 <code>get_for_update</code> 에 <code>skip_locked</code> 스위치를 답니다. 기본값 <code>False</code> 라 입찰 쪽은 한 글자도 안 바뀝니다. 그리고 "시작 시각 지난 scheduled"·"마감 시각 지난 active" 의 <strong>id 만</strong> 뽑는 조회 두 개 — 락 없이, <code>limit</code> 만큼. 마감 후보 조회는 2단계에서 만든 <code>ix_auctions_status_ends_at</code> 인덱스를 정확히 탑니다(<code>WHERE status = … AND ends_at &lt;= …</code>).</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>왜 id 만 뽑고 다시 잠그나.</strong> <code>SELECT * … FOR UPDATE SKIP LOCKED LIMIT 100</code> 한 방으로 100건을 잠그고 처리할 수도 있습니다. 하지만 그러면 100건이 한 트랜잭션이 되어 (1) 99번째에서 실패하면 전부 롤백, (2) 100개 행이 처리가 끝날 때까지 잠겨 그 사이 입찰 요청이 줄을 섭니다(마감 직후 입찰은 어차피 거절이지만, 락 대기 자체가 응답을 늦춥니다). 후보는 값싸게 보고, 잠금은 한 건씩 짧게 — 큐 워커의 정석입니다.</div>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/repositories/auction.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""auctions 테이블 접근. 쿼리만 있고 규칙은 없다."""
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import select, tuple_
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from app.models import Auction, AuctionCategory, AuctionStatus
+
+
+async def get(db: AsyncSession, auction_id: uuid.UUID) -&gt; Auction | None:
+    return await db.get(Auction, auction_id)
+
+
+async def get_for_update(
+    db: AsyncSession, auction_id: uuid.UUID, *, skip_locked: bool = False
+) -&gt; Auction | None:
+    """행 잠금(SELECT … FOR UPDATE). 이 트랜잭션이 커밋/롤백될 때까지 같은 행을 잠그려는
+    다른 트랜잭션은 줄을 선다 → '읽고 → 판단하고 → 쓰는' 사이에 아무도 끼어들지 못한다.
+
+    populate_existing: 이 세션이 같은 행을 이미 읽어 둔 적이 있어도 DB 의 최신 값으로 덮어쓴다.
+    (락을 기다리는 동안 누가 값을 바꿨을 수 있다 — 옛 값으로 판단하면 락을 건 의미가 없다.)
+
+    skip_locked=True (8단계): 줄을 서지 않고, 이미 남이 잠근 행이면 None 을 돌려준다.
+    입찰(6단계)은 "기다렸다가 내 차례에 처리" 가 맞지만,
+    마감 워커는 "남이 하고 있으면 나는 다음 것" 이 맞다.
+    """
+    stmt = (
+        select(Auction)
+        .where(Auction.id == auction_id)
+        .with_for_update(skip_locked=skip_locked)
+        .execution_options(populate_existing=True)
+    )
+    return await db.scalar(stmt)
+
+
+async def list_due_scheduled_ids(db: AsyncSession, now: datetime, *, limit: int) -&gt; list[uuid.UUID]:
+    """시작 시각이 지난 scheduled 경매 id — 활성화 후보. 락 없음(값싼 조회)."""
+    stmt = (
+        select(Auction.id)
+        .where(Auction.status == AuctionStatus.SCHEDULED, Auction.starts_at &lt;= now)
+        .order_by(Auction.starts_at)
+        .limit(limit)
+    )
+    return list((await db.scalars(stmt)).all())
+
+
+async def list_due_active_ids(db: AsyncSession, now: datetime, *, limit: int) -&gt; list[uuid.UUID]:
+    """마감 시각이 지난 active 경매 id — 마감 후보. ix_auctions_status_ends_at 인덱스를 탄다."""
+    stmt = (
+        select(Auction.id)
+        .where(Auction.status == AuctionStatus.ACTIVE, Auction.ends_at &lt;= now)
+        .order_by(Auction.ends_at)
+        .limit(limit)
+    )
+    return list((await db.scalars(stmt)).all())
+
+
+async def add(db: AsyncSession, auction: Auction) -&gt; Auction:
+    db.add(auction)
+    await db.flush()  # INSERT → id / created_at 확보. 커밋은 서비스가 결정한다
+    return auction
+
+
+async def list_page(
+    db: AsyncSession,
+    *,
+    status: AuctionStatus | None = None,
+    category: AuctionCategory | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    sort: str = "ending_soon",
+    limit: int = 20,
+    after: tuple[datetime, uuid.UUID] | None = None,
+    load_seller: bool = True,
+) -&gt; list[Auction]:
+    """keyset 페이지 한 장. limit+1 건을 가져와 '다음 페이지가 있나' 를 알려 준다.
+    (limit 개로 잘라내는 일은 서비스가 한다.)
+
+    정렬 키는 (시각, id) 쌍이다. 시각이 같은 행이 여러 개여도 id 가 순서를 확정하므로
+    페이지 경계에서 같은 행이 두 번 나오거나 빠지는 일이 없다.
+    """
+    key = Auction.ends_at if sort == "ending_soon" else Auction.created_at
+    ascending = sort == "ending_soon"
+
+    stmt = select(Auction)
+    if status is not None:
+        stmt = stmt.where(Auction.status == status)
+    if category is not None:
+        stmt = stmt.where(Auction.category == category)
+    if min_price is not None:
+        stmt = stmt.where(Auction.current_price &gt;= min_price)
+    if max_price is not None:
+        stmt = stmt.where(Auction.current_price &lt;= max_price)
+
+    if after is not None:
+        pair = tuple_(key, Auction.id)  # SQL: (ends_at, id) &gt; ($1, $2)  ← 행 비교
+        stmt = stmt.where(pair &gt; after if ascending else pair &lt; after)
+
+    if ascending:
+        stmt = stmt.order_by(key.asc(), Auction.id.asc())
+    else:
+        stmt = stmt.order_by(key.desc(), Auction.id.desc())
+
+    if load_seller:
+        stmt = stmt.options(selectinload(Auction.seller))  # 판매자는 IN (...) 한 방으로
+
+    result = await db.scalars(stmt.limit(limit + 1))
+    return list(result.all())</code></pre>
+    </div>
+    <h3 id="impl-5">5. app/repositories/bid.py — top_bid (수정)</h3>
+    <p>낙찰자 = 최고 입찰 한 건. 같은 금액이 둘이면 먼저 넣은 쪽(<code>created_at asc</code>). 6단계 규칙상 같은 금액은 한 건뿐이지만, 순서를 코드로 못 박아 두면 나중에 규칙이 바뀌어도 낙찰자가 흔들리지 않습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/repositories/bid.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""bids 테이블 접근."""
+
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Bid
+
+
+async def add(db: AsyncSession, bid: Bid) -&gt; Bid:
+    db.add(bid)
+    await db.flush()  # INSERT → id / created_at 확보. 커밋은 서비스가 결정한다
+    return bid
+
+
+async def top_bid(db: AsyncSession, auction_id: uuid.UUID) -&gt; Bid | None:
+    """최고 입찰 한 건 = 낙찰자 (8단계). 같은 금액이 둘이면 먼저 넣은 쪽 — 규칙상 같은 금액은
+    한 건뿐이지만, 순서를 코드로 못 박아 두면 나중에 규칙이 바뀌어도 낙찰자가 흔들리지 않는다."""
+    stmt = (
+        select(Bid)
+        .where(Bid.auction_id == auction_id)
+        .order_by(Bid.amount.desc(), Bid.created_at.asc())
+        .limit(1)
+    )
+    return await db.scalar(stmt)
+
+
+async def list_by_auction(db: AsyncSession, auction_id: uuid.UUID, *, limit: int = 50) -&gt; list[Bid]:
+    """높은 금액부터. 같은 금액이면 나중 것부터 (같은 금액은 규칙상 한 건뿐이지만 안전하게)."""
+    stmt = (
+        select(Bid)
+        .where(Bid.auction_id == auction_id)
+        .order_by(Bid.amount.desc(), Bid.created_at.desc())
+        .limit(limit)
+    )
+    result = await db.scalars(stmt)
+    return list(result.all())</code></pre>
+    </div>
+    <h3 id="impl-6">6. app/repositories/payment.py — 대기표 발급</h3>
+    <p><code>add()</code> 하나입니다. <code>auction_id</code> 가 <code>UNIQUE</code> 라 같은 경매에 두 번째 대기표를 끊으려 하면 <code>flush()</code> 에서 <code>IntegrityError</code> 가 납니다 — 설계 그림의 세 번째 안전망. 9단계가 조회·갱신을 더합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/repositories/payment.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""payments 테이블 접근. 9단계(결제 웹훅)가 조회·갱신을 더한다."""
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Payment
+
+
+async def add(db: AsyncSession, payment: Payment) -&gt; Payment:
+    db.add(payment)
+    await db.flush()  # INSERT → id 확보. auction_id 는 unique 라 두 번 만들면 여기서 터진다
+    return payment</code></pre>
+    </div>
+    <h3 id="impl-7">7. app/services/closer.py — 규칙 세 가지, now 는 인자</h3>
+    <p>핵심 파일입니다. 세 함수 모두 HTTP·루프·시그널을 모르고, <code>now</code> 를 받습니다. <code>activate_due</code> 와 <code>expire_payments</code> 는 <code>update(...).where(...).values(...).returning(id)</code> 한 문장 + 커밋 — UPDATE 가 잠근 행은 커밋까지 다른 UPDATE 를 기다리게 하고, 기다린 쪽은 <em>커밋된 최신 값</em>으로 <code>WHERE</code> 를 다시 평가하므로(READ COMMITTED) 이미 <code>active</code> 인 행은 0 건으로 빠집니다. 워커가 둘이어도 안전한 이유입니다.</p>
+    <p><code>close_due</code> 는 설계 그림 그대로입니다. 후보 id 목록 → 한 건씩 <code>get_for_update(skip_locked=True)</code> → <code>None</code> 이면 남의 몫 → 잠근 뒤 <code>status</code>·<code>ends_at</code> <strong>재검사</strong>(아니면 <code>rollback()</code> 으로 락만 풀고 다음) → <code>top_bid</code> 로 낙찰자 → <code>ended</code>·<code>winner_id</code>·<code>version+1</code> → 입찰이 있었으면 <code>Payment(pending, expires_at = now + 24h)</code> → <code>commit()</code> → 그리고 <em>커밋 뒤에</em> <code>auction_closed</code> 발행과 <code>[notify]</code> 로그. 이메일 발송은 이 프로젝트의 비목표라 로그 한 줄이 알림을 대신합니다. 진짜라면 그 자리에 "알림 큐에 넣기"가 옵니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/services/closer.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""시간이 흐르면 저절로 일어나야 하는 일 세 가지. HTTP 도, 루프도, 시그널도 모른다.
+
+  activate_due   : 시작 시각이 지난 scheduled 경매 → active
+  close_due      : 마감 시각이 지난 active 경매 → ended (+ 낙찰자, Payment, auction_closed 이벤트)
+  expire_payments: 결제 기한이 지난 pending 결제 → expired
+
+세 함수 모두 `now` 를 인자로 받는다. 워커는 진짜 시계를 넣고, 테스트는 원하는 시각을 넣는다.
+누가 부르든(워커 1개든 2개든) 결과가 같아야 한다 — 그게 이 파일의 유일한 어려움이다.
+"""
+
+import logging
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from redis.asyncio import Redis
+from sqlalchemy import update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import events
+from app.core.config import get_settings
+from app.models import Auction, AuctionStatus, Payment, PaymentStatus
+from app.repositories import auction as auction_repo
+from app.repositories import bid as bid_repo
+from app.repositories import payment as payment_repo
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ClosedResult:
+    auction_id: uuid.UUID
+    winner_id: uuid.UUID | None  # None = 유찰 (입찰 0건)
+    final_price: int | None
+    bid_count: int
+    payment_id: uuid.UUID | None
+
+
+async def activate_due(db: AsyncSession, now: datetime, *, limit: int | None = None) -&gt; int:
+    """UPDATE 한 문장. UPDATE 는 스스로 행을 잠그므로 워커가 둘이어도 안전하다 —
+    둘째 워커는 첫째의 커밋을 기다렸다가 다시 조건을 보고(이미 active) 0 행을 바꾼다."""
+    limit = limit or get_settings().closer_batch_size
+    ids = await auction_repo.list_due_scheduled_ids(db, now, limit=limit)
+    if not ids:
+        return 0
+    stmt = (
+        update(Auction)
+        .where(Auction.id.in_(ids), Auction.status == AuctionStatus.SCHEDULED)  # 조건을 한 번 더
+        .values(status=AuctionStatus.ACTIVE, version=Auction.version + 1)
+        .returning(Auction.id)
+    )
+    activated = list((await db.scalars(stmt)).all())
+    await db.commit()
+    if activated:
+        logger.info("activated %d auction(s): %s", len(activated), [str(i)[:8] for i in activated])
+    return len(activated)
+
+
+async def close_due(
+    db: AsyncSession, redis: Redis, now: datetime, *, limit: int | None = None
+) -&gt; list[ClosedResult]:
+    """후보 목록은 락 없이 값싸게 뽑고, 실제 처리는 **한 건씩** 잠그고 커밋한다.
+
+    왜 한 건씩인가: 100건을 한 트랜잭션에 묶으면 (1) 100번째에서 실패하면 99건이 같이 롤백되고,
+    (2) 그동안 100개 행이 잠겨 입찰 요청들이 줄을 선다. 한 건씩이면 실패도 잠금도 한 건뿐이다.
+    왜 skip_locked 인가: 다른 워커가 이미 잡은 행이면 기다릴 이유가 없다 — 그쪽이 끝낼 것이다.
+    왜 재검사인가: 후보를 뽑은 뒤 잠그기까지 사이에 누가 이미 닫았을 수 있다(그 워커가 커밋해서
+    락을 풀면 우리는 status=ended 인 행을 잠그게 된다). 잠근 *뒤에* 본 값만 믿는다.
+    """
+    settings = get_settings()
+    limit = limit or settings.closer_batch_size
+    results: list[ClosedResult] = []
+
+    for auction_id in await auction_repo.list_due_active_ids(db, now, limit=limit):
+        auction = await auction_repo.get_for_update(db, auction_id, skip_locked=True)
+        if auction is None:  # 다른 워커가 잠갔거나(skip) 사라졌다 → 내 몫이 아니다
+            continue
+        if auction.status != AuctionStatus.ACTIVE or auction.ends_at &gt; now:  # 잠근 뒤 재검사
+            await db.rollback()  # 잠금만 풀고 다음
+            continue
+
+        top = await bid_repo.top_bid(db, auction.id)
+        auction.status = AuctionStatus.ENDED
+        auction.winner_id = top.bidder_id if top else None
+        auction.version += 1
+
+        payment: Payment | None = None
+        if top is not None:
+            payment = await payment_repo.add(
+                db,
+                Payment(
+                    auction_id=auction.id,
+                    payer_id=top.bidder_id,
+                    amount=auction.current_price,
+                    status=PaymentStatus.PENDING,
+                    expires_at=now + timedelta(hours=settings.payment_deadline_hours),
+                ),
+            )
+        await db.commit()  # ← 여기서 이 경매의 락이 풀린다. 아래는 커밋된 사실만 방송한다
+
+        result = ClosedResult(
+            auction_id=auction.id,
+            winner_id=auction.winner_id,
+            final_price=auction.current_price if top else None,
+            bid_count=auction.bid_count,
+            payment_id=payment.id if payment else None,
+        )
+        await events.publish(
+            redis,
+            events.AuctionEvent(
+                type="auction_closed",
+                auction_id=auction.id,
+                payload={
+                    "winner_id": result.winner_id,
+                    "final_price": result.final_price,
+                    "bid_count": result.bid_count,
+                    "payment_id": result.payment_id,
+                    "payment_expires_at": payment.expires_at if payment else None,
+                    "version": auction.version,
+                },
+            ),
+        )
+        if top is not None:
+            # 진짜라면 여기서 메일/푸시 큐에 넣는다. 이 프로젝트에서는 로그 한 줄이 '알림' 이다.
+            logger.info(
+                "[notify] user=%s 낙찰! auction=%s %s원 — %s 까지 결제해 주세요",
+                str(top.bidder_id)[:8],
+                str(auction.id)[:8],
+                f"{auction.current_price:,}",
+                payment.expires_at.isoformat(timespec="minutes") if payment else "",
+            )
+        else:
+            logger.info("[notify] auction=%s 유찰 (입찰 0건)", str(auction.id)[:8])
+        results.append(result)
+    return results
+
+
+async def expire_payments(db: AsyncSession, now: datetime) -&gt; int:
+    """기한 지난 pending → expired. activate_due 와 같은 'UPDATE 한 문장' 패턴."""
+    stmt = (
+        update(Payment)
+        .where(Payment.status == PaymentStatus.PENDING, Payment.expires_at &lt;= now)
+        .values(status=PaymentStatus.EXPIRED)
+        .returning(Payment.id)
+    )
+    expired = list((await db.scalars(stmt)).all())
+    await db.commit()
+    if expired:
+        logger.info("expired %d payment(s): %s", len(expired), [str(i)[:8] for i in expired])
+    return len(expired)</code></pre>
+    </div>
+    <h3 id="impl-8">8. app/workers/closer.py — 루프, 시그널, 로그</h3>
+    <p>규칙은 위에 다 있으니 여기엔 "언제 부르나·어떻게 멈추나"만 있습니다. <code>tick()</code> 은 함수마다 <code>SessionLocal()</code> 을 새로 엽니다 — 하나가 실패해도 나머지 둘은 독립적으로 커밋되고, 틱 사이에 커넥션을 쥐고 있지 않습니다. <code>run()</code> 은 <code>stop</code> 이벤트가 set 될 때까지 돌고, 한 틱이 예외로 죽어도 <code>logger.exception</code> 만 남기고 계속 돕니다(워커는 한 번의 실패로 죽으면 안 됩니다). 기다릴 땐 <code>asyncio.sleep(interval)</code> 이 아니라 <code>wait_for(stop.wait(), timeout=interval)</code> — 종료 신호가 오면 interval 을 다 채우지 않고 즉시 깹니다. <code>main()</code> 은 SIGINT/SIGTERM 을 <code>stop.set</code> 에 연결하고, 끝나면 Redis·엔진을 닫습니다. 워커는 <em>자기</em> Redis 클라이언트를 만듭니다 — API 프로세스의 <code>redis_client</code> 는 다른 프로세스의 것이니까요.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/workers/closer.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""마감 워커 — API 서버와 **별개의 프로세스**.  실행:  uv run python -m app.workers.closer
+
+하는 일은 단순하다: interval 초마다 시계를 보고 services/closer 의 세 함수를 차례로 부른다.
+규칙은 전부 서비스에 있고, 이 파일은 "언제 부르나 · 어떻게 멈추나 · 무엇을 남기나" 만 안다.
+
+왜 API 안의 BackgroundTasks 나 asyncio.create_task 가 아닌가:
+  - 요청이 없어도 돌아야 한다 (새벽 3시에 마감되는 경매도 제때 닫혀야 한다)
+  - uvicorn --workers 4 면 태스크도 4개가 되고, 서버를 재시작하면 사라진다
+  - 별도 프로세스면 API 와 독립적으로 죽이고 살리고 늘릴 수 있다 (10단계 compose 의 `worker` 서비스)
+"""
+
+import asyncio
+import logging
+import signal
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+
+from redis.asyncio import Redis
+
+from app.core.config import get_settings
+from app.core.db import SessionLocal, engine
+from app.services import closer
+from app.services.closer import ClosedResult
+
+logger = logging.getLogger("worker.closer")
+
+
+@dataclass
+class TickResult:
+    activated: int = 0
+    closed: list[ClosedResult] = field(default_factory=list)
+    expired: int = 0
+
+    @property
+    def empty(self) -&gt; bool:
+        return self.activated == 0 and not self.closed and self.expired == 0
+
+
+async def tick(redis: Redis, now: datetime | None = None) -&gt; TickResult:
+    """한 번의 '시계 보기'. 함수마다 세션을 새로 여는 이유: 하나가 실패해도 다른 둘은 독립적으로
+    커밋되고, 세션(커넥션)을 틱 사이에 쥐고 있지 않기 위해서다."""
+    now = now or datetime.now(UTC)
+    result = TickResult()
+    async with SessionLocal() as db:
+        result.activated = await closer.activate_due(db, now)
+    async with SessionLocal() as db:
+        result.closed = await closer.close_due(db, redis, now)
+    async with SessionLocal() as db:
+        result.expired = await closer.expire_payments(db, now)
+    return result
+
+
+async def run(stop: asyncio.Event, redis: Redis, interval: float) -&gt; None:
+    """stop 이 set 될 때까지 interval 마다 tick. 한 틱이 실패해도 루프는 죽지 않는다(로그만)."""
+    logger.info("closer started (interval=%ss)", interval)
+    while not stop.is_set():
+        try:
+            result = await tick(redis)
+            if not result.empty:
+                logger.info(
+                    "tick: activated=%d closed=%d expired=%d",
+                    result.activated,
+                    len(result.closed),
+                    result.expired,
+                )
+        except Exception:  # noqa: BLE001 — 워커는 한 틱의 실패로 죽으면 안 된다
+            logger.exception("tick failed")
+        try:
+            # sleep 하면 종료 신호를 interval 만큼 늦게 받는다. stop.wait() 를 기다리면 즉시 깬다.
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+        except TimeoutError:
+            pass
+    logger.info("closer stopped")
+
+
+async def main() -&gt; None:
+    settings = get_settings()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [pid %(process)d] %(levelname)s %(name)s: %(message)s",
+    )
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)  # 워커 전용 클라이언트
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):  # Ctrl-C, docker stop → 조용히 마무리
+        loop.add_signal_handler(sig, stop.set)
+    try:
+        await run(stop, redis, settings.closer_interval_seconds)
+    finally:
+        await redis.aclose()
+        await engine.dispose()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())</code></pre>
+    </div>
+    <h3 id="impl-9">9. GREEN</h3>
+    <p>7개가 3초에 끝납니다(45초를 기다리는 테스트는 하나도 없습니다). 전체는 71개.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q tests/test_closer.py
+# .......                                                                  [100%]
+# 7 passed in 3.03s
+
+uv run pytest -q
+# .......................................................................  [100%]
+# 71 passed in 64.57s (0:01:04)
+
+uv run ruff check .
+# All checks passed!
+uv run ruff format --check .
+# 59 files already formatted</code></pre>
+    </div>
+    <h3 id="impl-10">10. 지금까지의 구조</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) auction-api/ 구조</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">auction-api/
+├── app/
+│   ├── core/config.py            ← 수정: closer_interval_seconds · closer_batch_size · payment_deadline_hours
+│   ├── repositories/
+│   │   ├── auction.py            ← 수정: get_for_update(skip_locked=) · list_due_scheduled_ids · list_due_active_ids
+│   │   ├── bid.py                ← 수정: top_bid()
+│   │   └── payment.py            ← 신규: add()
+│   ├── services/closer.py        ← 신규: activate_due · close_due · expire_payments (규칙, now 는 인자)
+│   └── workers/closer.py         ← 신규: tick · run · main  (python -m app.workers.closer)
+└── tests/test_closer.py          ← 신규: 7 테스트 (2개는 @commits)</code></pre>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="08-1-closer-worker-overview.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">8-1 개요와 설계</span></a>
+    <a class="part-pager-link next" href="08-3-closer-worker-verify.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">8-3 실행·확인</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 8단계 · 마감 워커 · 8-2 구현 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

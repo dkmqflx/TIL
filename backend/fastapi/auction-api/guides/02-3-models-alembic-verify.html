@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2단계 · 모델링 + Alembic · 2-3 실행·확인 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <div class="nav-week active"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="02-1-models-alembic-overview.html"><span class="sub-no">2-1</span> 개요와 설계</a>
+      <a class="nav-sub" href="02-2-models-alembic-impl.html"><span class="sub-no">2-2</span> 구현</a>
+      <a class="nav-sub active" href="02-3-models-alembic-verify.html"><span class="sub-no">2-3</span> 실행·확인</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#run">▶️ 실행·확인</a>
+        <a class="nav-item" href="#done">✅ 완료 기준</a>
+        <a class="nav-item" href="#pitfalls">⚠️ 함정 &amp; 실무 팁</a>
+        <a class="nav-item" href="#refs">🔗 self-study 정본</a>
+        <a class="nav-item" href="#self-check">❓ 셀프 체크</a>
+      </div>
+    </div>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>2단계 · 모델링 + Alembic</b></div>
+    <h1>2-3 실행·확인</h1>
+    <p class="lesson-subtitle">만든 것이 <strong>진짜로 도는지</strong> 명령 하나하나로 확인하고, 완료 기준 체크리스트·함정·정본 링크·셀프 체크로 이 단계를 닫습니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="02-1-models-alembic-overview.html"><b>2-1</b> 개요와 설계</a>
+    <a class="step-part" href="02-2-models-alembic-impl.html"><b>2-2</b> 구현</a>
+    <a class="step-part current" href="02-3-models-alembic-verify.html"><b>2-3</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>코드를 다 만들었다는 전제입니다.</strong> 아직이라면 <a href="02-2-models-alembic-impl.html">2-2 구현</a>를 먼저 끝내고 오세요.</div>
+  </div>
+
+  <!-- ───────────────────────── 6. 실행·확인 ───────────────────────── -->
+  <section class="section" id="run">
+    <div class="section-header">
+      <div class="section-icon icon-select">▶️</div>
+      <h2>실행·확인 — 이 출력이 나와야 한다</h2>
+    </div>
+
+    <h3>1. Alembic 상태</h3>
+    <p><code>current</code>는 "DB가 어느 일지까지 실행됐나", <code>history</code>는 "일지 목록", <code>check</code>는 "모델과 DB가 지금 같은가"입니다. <code>check</code>가 <code>No new upgrade operations detected.</code>를 찍으면 모델과 DB가 완전히 일치한다는 뜻입니다. 10단계 CI에서 이 명령으로 "마이그레이션 안 만들고 모델만 고친 커밋"을 잡아냅니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run alembic current
+# 8d6a60ccfea0 (head)
+uv run alembic history
+# &lt;base&gt; -&gt; 8d6a60ccfea0 (head), create users auctions bids payments
+uv run alembic check
+# No new upgrade operations detected.</code></pre>
+    </div>
+
+    <h3>2. DB에 진짜로 걸렸는지 — psql로 확인</h3>
+    <p>컨테이너 안의 <code>psql</code>로 테이블 정의를 봅니다. <code>\d auctions</code>에서 <strong>Check constraints 4개, Indexes 3개, Foreign-key constraints 2개</strong>가 보여야 하고, 외래키의 <code>ON DELETE</code>가 각각 <code>CASCADE</code>·<code>SET NULL</code>이어야 합니다. 컬럼 순서가 <code>id</code>부터 시작하는 것은 <code>sort_order</code> 덕분입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose exec db psql -U auction -d auction -c '\dt'
+#              List of relations
+#  Schema |      Name       | Type  |  Owner
+# --------+-----------------+-------+---------
+#  public | alembic_version | table | auction
+#  public | auctions        | table | auction
+#  public | bids            | table | auction
+#  public | payments        | table | auction
+#  public | users           | table | auction
+
+docker compose exec db psql -U auction -d auction -c '\d auctions'
+#                           Table "public.auctions"
+#      Column     |           Type           | Collation | Nullable | Default
+# ----------------+--------------------------+-----------+----------+---------
+#  id             | uuid                     |           | not null |
+#  seller_id      | uuid                     |           | not null |
+#  title          | character varying(120)   |           | not null |
+#  description    | text                     |           | not null |
+#  category       | character varying(20)    |           | not null |
+#  starting_price | bigint                   |           | not null |
+#  current_price  | bigint                   |           | not null |
+#  min_increment  | bigint                   |           | not null |
+#  starts_at      | timestamp with time zone |           | not null |
+#  ends_at        | timestamp with time zone |           | not null |
+#  status         | character varying(20)    |           | not null |
+#  bid_count      | integer                  |           | not null |
+#  winner_id      | uuid                     |           |          |
+#  version        | integer                  |           | not null |
+#  created_at     | timestamp with time zone |           | not null | now()
+#  updated_at     | timestamp with time zone |           | not null | now()
+# Indexes:
+#     "auctions_pkey" PRIMARY KEY, btree (id)
+#     "ix_auctions_seller_id" btree (seller_id)
+#     "ix_auctions_status_ends_at" btree (status, ends_at)
+# Check constraints:
+#     "ck_auctions_current_price_positive" CHECK (current_price &gt; 0)
+#     "ck_auctions_ends_after_starts" CHECK (ends_at &gt; starts_at)
+#     "ck_auctions_min_increment_positive" CHECK (min_increment &gt; 0)
+#     "ck_auctions_starting_price_positive" CHECK (starting_price &gt; 0)
+# Foreign-key constraints:
+#     "auctions_seller_id_fkey" FOREIGN KEY (seller_id) REFERENCES users(id) ON DELETE CASCADE
+#     "auctions_winner_id_fkey" FOREIGN KEY (winner_id) REFERENCES users(id) ON DELETE SET NULL
+# Referenced by:
+#     TABLE "bids" CONSTRAINT "bids_auction_id_fkey" FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE
+#     TABLE "payments" CONSTRAINT "payments_auction_id_fkey" FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE
+
+docker compose exec db psql -U auction -d auction -c '\d bids'
+# ...
+# Indexes:
+#     "bids_pkey" PRIMARY KEY, btree (id)
+#     "ix_bids_auction_id_amount_desc" btree (auction_id, amount DESC)
+#     "ix_bids_bidder_id" btree (bidder_id)
+# Check constraints:
+#     "ck_bids_amount_positive" CHECK (amount &gt; 0)</code></pre>
+    </div>
+
+    <h3>3. 테스트 통과</h3>
+    <p>⑨에서 실패했던 두 테스트가 이제 통과합니다. 1단계의 헬스체크 테스트까지 합쳐 4개입니다. 테스트가 끝난 뒤 <code>users</code>에 행이 남아 있지 않은지도 확인해 보세요 — rollback이 제대로 됐다는 증거입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# ....                                                                     [100%]
+# 4 passed in 0.67s
+
+uv run ruff check .
+# All checks passed!
+
+docker compose exec db psql -U auction -d auction -tAc 'select count(*) from users'
+# 0</code></pre>
+    </div>
+
+    <h3>4. 되돌렸다가 다시 적용 — 마이그레이션의 왕복</h3>
+    <p>마이그레이션의 진짜 가치는 "되돌릴 수 있다"입니다. <code>downgrade base</code>로 맨 처음 상태(테이블 없음)로 돌아갔다가 <code>upgrade head</code>로 다시 올라옵니다. <code>downgrade()</code> 함수가 제대로 쓰였는지 확인하는 습관입니다. 되돌린 상태에서 <code>\dt</code>를 치면 <code>alembic_version</code>만 남습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run alembic downgrade base
+# INFO  [alembic.runtime.migration] Running downgrade 8d6a60ccfea0 -&gt; , create users auctions bids payments
+docker compose exec db psql -U auction -d auction -c '\dt'
+#  public | alembic_version | table | auction
+uv run alembic upgrade head
+# INFO  [alembic.runtime.migration] Running upgrade  -&gt; 8d6a60ccfea0, create users auctions bids payments
+uv run pytest -q
+# 4 passed in 0.52s</code></pre>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 7. 완료 기준 ───────────────────────── -->
+  <section class="section" id="done">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>완료 기준 체크리스트</h2>
+    </div>
+    <ul class="checklist">
+      <li><code>uv run python -c "from app.models import Base; print(sorted(Base.metadata.tables))"</code> → 네 테이블</li>
+      <li><code>uv run alembic current</code> → <code>&lt;rev&gt; (head)</code>, <code>uv run alembic check</code> → <code>No new upgrade operations detected.</code></li>
+      <li><code>\d auctions</code>에 CHECK 4개 · 인덱스 3개 · FK 2개(CASCADE / SET NULL), <code>\d bids</code>에 <code>(auction_id, amount DESC)</code></li>
+      <li><code>uv run pytest -q</code> → <code>4 passed</code>, 경고 없음, 테스트 후 <code>users</code> 행 수 0</li>
+      <li><code>uv run ruff check .</code> → <code>All checks passed!</code></li>
+      <li><code>alembic downgrade base</code> → <code>upgrade head</code> 왕복이 에러 없이 됨</li>
+      <li><code>git status</code>에 <code>alembic.ini</code>, <code>alembic/</code>, <code>app/models/*.py</code>, <code>tests/test_models.py</code>가 보이고 <code>.env</code>는 안 보임</li>
+    </ul>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기서 커밋하세요.</strong> 마이그레이션 파일은 반드시 함께 커밋합니다 — 다른 사람(그리고 CI)이 같은 스키마를 만들 수 있어야 하니까요. 예: <code>git commit -m "add(be(fastapi)): auction-api 2단계 — 도메인 모델과 첫 마이그레이션"</code></div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 8. 함정 ───────────────────────── -->
+  <section class="section" id="pitfalls">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>함정 &amp; 실무 팁</h2>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>enum을 VARCHAR로 저장한 이유 (native enum을 안 쓴 이유).</strong> Postgres에는 진짜 ENUM 타입이 있고 SQLAlchemy 기본값(<code>native_enum=True</code>)은 그걸 씁니다. 저장 공간이 조금 작고 DB가 값을 검사해 주는 장점이 있지만, <em>값을 하나 추가할 때마다</em> <code>ALTER TYPE ... ADD VALUE</code>가 필요하고, 이 명령은 트랜잭션 안에서 못 쓰는 등 제약이 많으며, Alembic autogenerate가 <strong>enum 값 변경을 감지하지 못합니다.</strong> 카테고리처럼 자주 늘어나는 값에는 부담입니다. <code>native_enum=False</code>는 그냥 <code>VARCHAR(20)</code>이라 값 추가가 파이썬 코드 수정만으로 끝납니다. 대신 DB가 값을 검사하지 않으므로 검증은 Pydantic(3단계 이후)이 맡습니다. 둘 다 정답이 될 수 있고, 팀에서 하나로 정해 일관되게 쓰는 게 중요합니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>autogenerate가 못 보는 것들.</strong> 컬럼·테이블·인덱스·이름 붙은 제약의 추가/삭제는 잘 잡지만, <em>테이블 이름 변경</em>은 "삭제 + 추가"로 잡아서 데이터가 날아가고, <em>enum 값 변경</em>·<em>server_default 변경</em>·<em>CHECK 제약의 내용 변경</em>은 종종 놓칩니다. 그래서 생성된 파일을 반드시 읽어 보고, 필요하면 <code>op.rename_table</code>·<code>op.alter_column</code>으로 손으로 고칩니다. 자세한 목록은 <a href="../../self-study/week10-test-deploy/02-alembic-migration.html#autogenerate-limits">Week 10·02 autogenerate의 한계</a>.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>alembic</code> 폴더 이름과 ruff.</strong> 프로젝트에 <code>alembic/</code> 폴더가 있으면 ruff의 import 정렬이 <code>from alembic import context</code>를 내 코드로 간주해 <code>app</code> 옆에 두려 합니다. ①에서 <code>known-third-party = ["alembic"]</code>을 넣은 이유입니다. 폴더 이름을 <code>migrations</code>로 바꿔 피하는 팀도 많습니다(<code>alembic init -t async migrations</code> + <code>alembic.ini</code>의 <code>script_location</code> 수정).</div>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>돈은 절대 float으로 저장하지 않는다.</strong> <code>0.1 + 0.2 != 0.3</code>인 부동소수점으로 금액을 다루면 합계가 어긋납니다. 원 단위 정수(<code>BigInteger</code>)가 가장 단순하고, 소수점이 필요한 통화라면 <code>Numeric(precision, scale)</code>을 씁니다. <code>Integer</code>(약 21억)가 아니라 <code>BigInteger</code>인 이유는 경매 최고가가 21억을 넘는 날이 올 수도 있기 때문입니다 — 나중에 타입을 바꾸는 마이그레이션은 테이블 락을 잡아 고통스럽습니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>시각은 항상 <code>DateTime(timezone=True)</code> + UTC.</strong> <code>timezone=False</code>(기본값)로 만들면 "09:00"이 한국 9시인지 UTC 9시인지 DB가 모릅니다. 서버가 여러 대이거나 클라우드로 옮기는 순간 마감 시각이 9시간 어긋나는 사고가 납니다. 테스트에서 <code>datetime.now(UTC)</code>를 쓴 것도, <code>created_at.tzinfo is not None</code>을 확인한 것도 그래서입니다. 표시할 때만 사용자의 시간대로 바꿉니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>expire_on_commit=False</code>와 <code>refresh()</code>.</strong> 1단계에서 세션 공장에 <code>expire_on_commit=False</code>를 줬습니다. async 세션에서는 커밋 후 속성을 읽을 때 자동으로 재조회(lazy load)가 일어나면 안 되기 때문입니다. 대신 <code>server_default</code>로 DB가 채운 값(<code>created_at</code>)은 파이썬 객체에 없으니, 필요하면 <code>await session.refresh(obj)</code>로 명시적으로 읽어 옵니다. 테스트의 <code>refresh(auction)</code>이 그 예입니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>Base.metadata.create_all()</code>은 이 프로젝트에서 금지.</strong> Alembic과 <code>create_all</code>을 섞으면 "DB엔 테이블이 있는데 <code>alembic_version</code>은 비어 있는" 상태가 되어 <code>upgrade head</code>가 "이미 테이블이 있다"며 실패합니다. 스키마를 만드는 방법은 오직 <code>alembic upgrade head</code> 하나입니다. 3단계의 테스트 DB도 마이그레이션으로 만듭니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>모델을 고쳤을 때의 루틴.</strong> ① 모델 수정 → ② <code>uv run alembic revision --autogenerate -m "무엇을 왜"</code> → ③ 생성된 파일 읽기 → ④ <code>uv run alembic upgrade head</code> → ⑤ <code>uv run alembic check</code>로 일치 확인 → ⑥ 모델과 마이그레이션을 <em>같은 커밋</em>에. 이 루틴을 9단계(<code>webhook_events</code> 추가)에서 한 번 더 합니다.</div>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>alembic 명령은 프로젝트 루트에서.</strong> <code>env.py</code>가 <code>app.core.config</code>를 import하는데, 이게 되는 건 <code>alembic.ini</code>의 <code>prepend_sys_path = .</code>("현재 폴더를 import 경로에 추가") 덕분입니다. <code>guides/</code>나 <code>app/</code> 안에서 실행하면 <code>ModuleNotFoundError: No module named 'app'</code>이 납니다. <code>.env</code>도 현재 폴더에서 읽으므로 같은 이유로 루트여야 합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 9. 정본 링크 ───────────────────────── -->
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>self-study 정본 링크 — 개념은 여기서 복습</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이번 단계에서 쓴 것</th><th>정본</th></tr></thead>
+        <tbody>
+          <tr><td>ORM이란 · <code>DeclarativeBase</code> · <code>Mapped</code>/<code>mapped_column</code></td><td><a href="../../self-study/week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html#what-is-orm">Week 5·02 ORM</a> · <a href="../../self-study/week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html#declarative-base">DeclarativeBase</a></td></tr>
+          <tr><td><code>| None</code>과 nullable · 컬럼 옵션(unique, index, default)</td><td><a href="../../self-study/week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html#nullable-typing">Week 5·02 nullable</a> · <a href="../../self-study/week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html#column-options">컬럼 옵션</a></td></tr>
+          <tr><td>TypeORM ↔ SQLAlchemy 모델 비교</td><td><a href="../../self-study/week05-postgres-sqlalchemy/02-sqlalchemy-orm-modeling.html#nestjs-compare">Week 5·02 NestJS 비교</a></td></tr>
+          <tr><td>왜 마이그레이션인가 · <code>alembic init</code> · <code>revision</code>/<code>upgrade</code></td><td><a href="../../self-study/week10-test-deploy/02-alembic-migration.html#why-migration">Week 10·02 왜 마이그레이션</a> · <a href="../../self-study/week10-test-deploy/02-alembic-migration.html#init-env">init/env</a> · <a href="../../self-study/week10-test-deploy/02-alembic-migration.html#revision-upgrade">revision/upgrade</a></td></tr>
+          <tr><td>autogenerate의 한계 · TypeORM 마이그레이션과 비교</td><td><a href="../../self-study/week10-test-deploy/02-alembic-migration.html#autogenerate-limits">Week 10·02 한계</a> · <a href="../../self-study/week10-test-deploy/02-alembic-migration.html#compare-typeorm">TypeORM 비교</a></td></tr>
+          <tr><td>async 엔진·세션 · <code>run_sync</code></td><td><a href="../../self-study/week07-async-db-external/01-async-db-asyncpg.html#engine-session">Week 7·01 엔진·세션</a></td></tr>
+          <tr><td>세션 · flush와 commit의 차이</td><td><a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#session">Week 5·03 세션</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 10. 셀프 체크 ───────────────────────── -->
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-teal">❓</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 3단계부터 Pydantic이 요청을 검증할 텐데, 왜 DB에도 CHECK 제약을 거나요? 중복 아닌가요?</summary>
+        <div class="qa-answer"><p>검증 위치가 다릅니다. Pydantic은 <strong>HTTP 요청이라는 한 경로</strong>만 지킵니다. 하지만 데이터는 배치 스크립트, 관리자의 <code>psql</code>, 8단계 워커, 나중에 붙을 다른 서비스 등 여러 경로로 들어옵니다. DB 제약은 경로와 무관하게 <em>마지막 방어선</em>입니다. 특히 6단계처럼 동시 요청이 몰릴 때 "앱이 검사한 시점"과 "DB에 쓰는 시점" 사이에 상태가 바뀔 수 있는데, 제약은 쓰는 시점에 원자적으로 적용됩니다. Pydantic 검증은 사용자에게 친절한 에러 메시지를 주기 위한 것이고, CHECK는 데이터가 절대 깨지지 않게 하기 위한 것입니다. 역할이 다르니 둘 다 둡니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>native_enum=False</code>로 저장하면 DB가 <code>status='banana'</code> 같은 값을 막지 못하는데, 괜찮은가요?</summary>
+        <div class="qa-answer"><p>트레이드오프입니다. native ENUM은 DB가 값을 검사하지만 값을 추가할 때 <code>ALTER TYPE</code>이 필요하고 autogenerate가 그 변경을 못 잡아 운영 중 실수가 잦습니다. VARCHAR는 값 검증을 애플리케이션(Pydantic + <code>StrEnum</code>)이 하고, DB 변경 없이 값을 늘릴 수 있습니다. 정말 DB 수준 검증이 필요하면 <code>CheckConstraint("status IN ('scheduled','active','ended','cancelled')")</code>를 추가하는 절충도 있습니다 — 이건 autogenerate가 이름으로 추적할 수 있어서 native ENUM보다 다루기 쉽습니다. 중요한 건 "왜 이 선택을 했는지"를 설명할 수 있는 것입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 개발 초기라 데이터도 없는데 그냥 <code>create_all()</code> 쓰다가 나중에 Alembic을 붙이면 안 되나요?</summary>
+        <div class="qa-answer"><p>가능은 하지만 "나중에" 붙이는 순간 두 가지 문제를 만납니다. 첫째, 이미 테이블이 있는 DB에 첫 마이그레이션을 적용하려면 <code>alembic stamp head</code>로 "이미 적용된 셈 치자"고 속여야 하는데, 여러 환경(내 PC, 동료 PC, 스테이징)의 상태가 제각각이면 어느 것을 stamp해야 할지 꼬입니다. 둘째, 그동안 모델 변경 이력이 없어서 "언제 무엇이 바뀌었나"를 복원할 수 없습니다. 첫 마이그레이션이 빈 DB에서 시작하면 모든 환경이 같은 일지를 처음부터 재생할 수 있어서, 처음부터 Alembic을 쓰는 비용이 가장 쌉니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-2-models-alembic-impl.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">2-2 구현</span></a>
+    <a class="part-pager-link next" href="03-1-tests-auth-overview.html"><span class="part-pager-dir">다음 단계 →</span><span class="part-pager-title">3단계 · 테스트 인프라 + 인증</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 2단계 · 모델링 + Alembic · 2-3 실행·확인 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

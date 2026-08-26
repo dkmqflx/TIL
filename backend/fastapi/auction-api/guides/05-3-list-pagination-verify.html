@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5단계 · 목록·페이지네이션 · 5-3 실행·확인 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <div class="nav-week active"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="05-1-list-pagination-overview.html"><span class="sub-no">5-1</span> 개요와 설계</a>
+      <a class="nav-sub" href="05-2-list-pagination-impl.html"><span class="sub-no">5-2</span> 구현</a>
+      <a class="nav-sub active" href="05-3-list-pagination-verify.html"><span class="sub-no">5-3</span> 실행·확인</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#run">▶️ 실행·확인</a>
+        <div class="nav-anchors">
+          <a class="nav-item" href="#run-1">1. 서버 띄우기</a>
+          <a class="nav-item" href="#run-2">2. 판매자 둘 가입·로그인</a>
+          <a class="nav-item" href="#run-3">3. 경매 12건 시드</a>
+          <a class="nav-item" href="#run-4">4. 첫 페이지 → 커서 열어보기 …</a>
+          <a class="nav-item" href="#run-5">5. 필터와 정렬</a>
+          <a class="nav-item" href="#run-6">6. 잘못된 입력 네 가지</a>
+          <a class="nav-item" href="#run-7">7. SQL 로그로 "두 번"을 눈…</a>
+          <a class="nav-item" href="#run-8">8. 정리</a>
+        </div>
+        <a class="nav-item" href="#done">✅ 완료 기준</a>
+        <a class="nav-item" href="#pitfalls">⚠️ 함정 &amp; 실무 팁</a>
+        <a class="nav-item" href="#refs">🔗 self-study 정본</a>
+        <a class="nav-item" href="#self-check">❓ 셀프 체크</a>
+      </div>
+    </div>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>5단계 · 목록·페이지네이션</b></div>
+    <h1>5-3 실행·확인</h1>
+    <p class="lesson-subtitle">만든 것이 <strong>진짜로 도는지</strong> 명령 하나하나로 확인하고, 완료 기준 체크리스트·함정·정본 링크·셀프 체크로 이 단계를 닫습니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="05-1-list-pagination-overview.html"><b>5-1</b> 개요와 설계</a>
+    <a class="step-part" href="05-2-list-pagination-impl.html"><b>5-2</b> 구현</a>
+    <a class="step-part current" href="05-3-list-pagination-verify.html"><b>5-3</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>코드를 다 만들었다는 전제입니다.</strong> 아직이라면 <a href="05-2-list-pagination-impl.html">5-2 구현</a>를 먼저 끝내고 오세요.</div>
+  </div>
+
+  <!-- ───────────────────────── 6. 실행 ───────────────────────── -->
+  <section class="section" id="run">
+    <div class="section-header">
+      <div class="section-icon icon-select">▶️</div>
+      <h2>실행·확인 — 이 출력이 나와야 한다</h2>
+    </div>
+
+    <h3 id="run-1">1. 서버 띄우기</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run uvicorn app.main:app --reload
+# INFO:     Application startup complete.</code></pre>
+    </div>
+
+    <h3 id="run-2">2. 판매자 둘 가입·로그인</h3>
+    <p>4단계와 같은 두 사람입니다. 이번엔 둘 다 판매자로, 경매를 번갈아 올립니다 — 목록에 판매자 닉네임이 섞여 나오고 SQL 로그의 <code>IN ($1, $2)</code>에 id 두 개가 찍히는 걸 보기 위해서입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">J='Content-Type: application/json'
+for who in alice bob; do
+  curl -s -X POST localhost:8000/auth/signup -H "$J" \
+    -d "{\"email\":\"$who@example.com\",\"password\":\"secret123\",\"nickname\":\"$who\"}" &gt; /dev/null
+done
+ALICE=$(curl -s -X POST localhost:8000/auth/login -H "$J" \
+  -d '{"email":"alice@example.com","password":"secret123"}' \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')
+BOB=$(curl -s -X POST localhost:8000/auth/login -H "$J" \
+  -d '{"email":"bob@example.com","password":"secret123"}' \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])')</code></pre>
+    </div>
+
+    <h3 id="run-3">3. 경매 12건 시드 — 마감 시각을 두 건씩 같게</h3>
+    <p>반복문으로 12건을 올립니다. 홀수는 앨리스, 짝수는 밥. 3의 배수는 <code>books</code>. 마감은 "다음 정각 + (i+1)//2 시간"이라 1·2번이 같고, 3·4번이 같고… 동점이 여섯 쌍 생깁니다. 시작가는 i만 원.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">for i in $(seq 1 12); do
+  TOKEN=$ALICE; [ $((i % 2)) -eq 0 ] &amp;&amp; TOKEN=$BOB
+  CAT=electronics; [ $((i % 3)) -eq 0 ] &amp;&amp; CAT=books
+  ENDS=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC).replace(minute=0,second=0,microsecond=0)+timedelta(hours=($i+1)//2)).isoformat())")
+  curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $TOKEN" -H "$J" \
+    -d "{\"title\":\"경매 $i\",\"category\":\"$CAT\",\"starting_price\":$((i*10000)),\"ends_at\":\"$ENDS\"}" \
+    | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d["title"], d["category"], d["current_price"], d["ends_at"])'
+done
+# 경매 1 electronics 10000 2026-08-25T08:00:00Z
+# 경매 2 electronics 20000 2026-08-25T08:00:00Z
+# 경매 3 books 30000 2026-08-25T09:00:00Z
+# 경매 4 electronics 40000 2026-08-25T09:00:00Z
+# ... (12줄, 두 건씩 같은 마감)
+# 경매 12 books 120000 2026-08-25T13:00:00Z</code></pre>
+    </div>
+
+    <h3 id="run-4">4. 첫 페이지 → 커서 열어보기 → 둘째 → 셋째(끝)</h3>
+    <p><code>limit=5</code>로 세 장입니다. 첫 장에서 <strong>경매 2가 경매 1보다 먼저</strong> 나오는 걸 보세요 — 마감이 같아서 id로 갈랐고, 이 실행에서는 2번의 id(<code>b0b5…</code>)가 더 작았습니다(여러분의 실행에서는 순서가 반대일 수 있습니다. UUID는 무작위니까요. 중요한 건 <em>순서가 항상 같다</em>는 것). 커서를 base64로 풀면 마지막 항목의 키 세 개가 그대로 보입니다. 세 번째 장은 2건이고 <code>next_cursor</code>가 <code>None</code>(JSON의 <code>null</code>)입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">PAGE=$(curl -s "localhost:8000/auctions?limit=5")
+echo $PAGE | python3 -c 'import sys,json; d=json.load(sys.stdin); [print(i["title"], i["ends_at"], i["seller"]["nickname"], i["id"][:8]) for i in d["items"]]; print("next_cursor:", d["next_cursor"])'
+# 경매 2 2026-08-25T08:00:00Z bob b0b5d49b
+# 경매 1 2026-08-25T08:00:00Z alice d17ee2c0
+# 경매 4 2026-08-25T09:00:00Z bob b578c5bf
+# 경매 3 2026-08-25T09:00:00Z alice c7db6094
+# 경매 5 2026-08-25T10:00:00Z alice 5bef57a4
+# next_cursor: WyJlbmRpbmdfc29vbiIsICIyMDI2LTA4LTI1VDEwOjAwOjAwKzAwOjAwIiwgIjViZWY1N2E0LWI5YjItNDE0Ni1iMzAwLTZmZjYzNDQ0OGI0MCJd
+CURSOR=$(echo $PAGE | python3 -c 'import sys,json; print(json.load(sys.stdin)["next_cursor"])')
+
+python3 -c "import base64; c='$CURSOR'; print(base64.urlsafe_b64decode(c + '=' * (-len(c) % 4)).decode())"
+# ["ending_soon", "2026-08-25T10:00:00+00:00", "5bef57a4-b9b2-4146-b300-6ff634448b40"]
+
+PAGE=$(curl -s "localhost:8000/auctions?limit=5&amp;cursor=$CURSOR")
+echo $PAGE | python3 -c 'import sys,json; d=json.load(sys.stdin); [print(i["title"], i["ends_at"], i["id"][:8]) for i in d["items"]]; print("next_cursor:", d["next_cursor"])'
+# 경매 6 2026-08-25T10:00:00Z 9c029074      ← 5와 마감이 같지만 id가 커서 2페이지 첫 줄
+# 경매 7 2026-08-25T11:00:00Z 62e5a92d
+# 경매 8 2026-08-25T11:00:00Z 840b7e8d
+# 경매 10 2026-08-25T12:00:00Z e52a1030
+# 경매 9 2026-08-25T12:00:00Z e8643167
+# next_cursor: WyJlbmRpbmdfc29vbiIsICIyMDI2LTA4LTI1VDEyOjAwOjAwKzAwOjAwIiwgImU4NjQzMTY3LTlhZjUtNGIyZS1iYTc3LTQ5M2M2Y2Y1M2MzZSJd
+CURSOR=$(echo $PAGE | python3 -c 'import sys,json; print(json.load(sys.stdin)["next_cursor"])')
+
+curl -s "localhost:8000/auctions?limit=5&amp;cursor=$CURSOR" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); [print(i["title"], i["ends_at"], i["id"][:8]) for i in d["items"]]; print("next_cursor:", d["next_cursor"])'
+# 경매 11 2026-08-25T13:00:00Z 0d3b1de8
+# 경매 12 2026-08-25T13:00:00Z dbb98845
+# next_cursor: None</code></pre>
+    </div>
+
+    <h3 id="run-5">5. 필터와 정렬</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">curl -s "localhost:8000/auctions?category=books&amp;min_price=50000&amp;max_price=100000" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); [print(i["title"], i["category"], i["current_price"]) for i in d["items"]]'
+# 경매 6 books 60000
+# 경매 9 books 90000
+
+curl -s "localhost:8000/auctions?sort=newest&amp;limit=3" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); [print(i["title"], i["created_at"]) for i in d["items"]]'
+# 경매 12 2026-08-25T07:14:50.357889Z
+# 경매 11 2026-08-25T07:14:50.322028Z
+# 경매 10 2026-08-25T07:14:50.286959Z
+NEWEST_CURSOR=$(curl -s "localhost:8000/auctions?sort=newest&amp;limit=3" | python3 -c 'import sys,json; print(json.load(sys.stdin)["next_cursor"])')</code></pre>
+    </div>
+
+    <h3 id="run-6">6. 잘못된 입력 네 가지 — 전부 422, 같은 껍데기</h3>
+    <p>가격 역전은 <code>model_validator</code>라 <code>loc: ["query"]</code>, <code>limit=0</code>은 필드 제약이라 <code>["query", "limit"]</code>. 엉터리 커서와 "다른 정렬의 커서"는 우리 예외 <code>INVALID_CURSOR</code>입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">curl -s "localhost:8000/auctions?min_price=200&amp;max_price=100" | python3 -m json.tool --no-ensure-ascii
+# {
+#     "code": "VALIDATION_ERROR",
+#     "message": "요청 값이 올바르지 않습니다",
+#     "errors": [
+#         {
+#             "loc": ["query"],
+#             "msg": "Value error, min_price 는 max_price 보다 클 수 없습니다",
+#             "type": "value_error"
+#         }
+#     ]
+# }
+curl -s -i "localhost:8000/auctions?limit=0" | grep -E '^HTTP|loc'
+# HTTP/1.1 422 Unprocessable Content
+# {"code":"VALIDATION_ERROR",...,"errors":[{"loc":["query","limit"],"msg":"Input should be greater than or equal to 1","type":"greater_than_equal"}]}
+curl -s -i "localhost:8000/auctions?cursor=abc" | grep -E '^HTTP|code'
+# HTTP/1.1 422 Unprocessable Content
+# {"code":"INVALID_CURSOR","message":"커서가 올바르지 않습니다. 목록을 처음부터 다시 조회하세요"}
+curl -s -i "localhost:8000/auctions?sort=ending_soon&amp;cursor=$NEWEST_CURSOR" | grep -E '^HTTP|code'
+# HTTP/1.1 422 Unprocessable Content
+# {"code":"INVALID_CURSOR","message":"정렬 기준이 다른 커서입니다"}</code></pre>
+    </div>
+
+    <h3 id="run-7">7. SQL 로그로 "두 번"을 눈으로 확인</h3>
+    <p>테스트가 이미 숫자로 증명했지만, 실제 SQL을 한 번은 보는 게 좋습니다. <code>echo=True</code>로 엔진을 하나 만들어 <code>list_page</code>를 부르면 SQLAlchemy가 보낸 문장이 그대로 찍힙니다. 첫 문장의 <code>LIMIT $1</code>에 <code>6</code>(= limit 5 + 1)이 들어가고, 둘째 문장이 <code>users.id IN ($1, $2)</code>인 것을 보세요. 판매자가 둘이라 파라미터가 둘입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run python - &lt;&lt;'PY'
+import asyncio
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from app.core.config import get_settings
+from app.repositories.auction import list_page
+
+async def main():
+    engine = create_async_engine(get_settings().database_url, echo=True)
+    async with async_sessionmaker(engine)() as db:
+        rows = await list_page(db, limit=5)
+        print("rows:", len(rows), "| sellers:", sorted({a.seller.nickname for a in rows}))
+    await engine.dispose()
+
+asyncio.run(main())
+PY
+# ... BEGIN (implicit)
+# ... SELECT auctions.id, auctions.seller_id, auctions.title, ... FROM auctions
+#     ORDER BY auctions.ends_at ASC, auctions.id ASC LIMIT $1::INTEGER
+# ... [generated in 0.00005s] (6,)
+# ... SELECT users.id AS users_id, users.email AS users_email, ... FROM users
+#     WHERE users.id IN ($1::UUID, $2::UUID)
+# ... [generated in 0.00008s] (UUID('0ef317a9-...'), UUID('a3108b0f-...'))
+# rows: 6 | sellers: ['alice', 'bob']
+# ... ROLLBACK</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><code>rows: 6</code>인 이유 — 리포지토리는 <code>limit+1</code>건을 돌려주고, 5개로 자르는 건 서비스의 일입니다. 여기서는 리포지토리를 직접 불렀으니 6개가 그대로 보입니다. 위 SQL을 <code>psql</code>에서 <code>EXPLAIN</code>으로 돌려 보는 것도 좋은 연습입니다 — 다만 12행짜리 테이블에서는 Postgres가 인덱스 대신 <code>Seq Scan</code>을 고릅니다(그게 더 빠르니까요). <code>status=active</code> 필터를 걸고 데이터가 수만 건이 되면 2단계에서 만든 <code>ix_auctions_status_ends_at</code>가 <code>WHERE</code>와 <code>ORDER BY</code>를 한 번에 처리합니다.</div>
+    </div>
+
+    <h3 id="run-8">8. 정리</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose exec db psql -U auction -d auction \
+  -c "DELETE FROM users WHERE email IN ('alice@example.com','bob@example.com');"
+# DELETE 2
+docker compose exec db psql -U auction -d auction -c 'SELECT count(*) FROM auctions;'
+#  count
+# -------
+#      0</code></pre>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 7. 완료 ───────────────────────── -->
+  <section class="section" id="done">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>완료 기준 체크리스트</h2>
+    </div>
+    <ul class="checklist">
+      <li><code>uv run pytest -q</code> → <code>42 passed</code>, 경고 0 (그중 <code>test_auction_list.py</code> 14개)</li>
+      <li><code>uv run ruff check .</code> → <code>All checks passed!</code>, <code>uv run ruff format --check .</code> 통과</li>
+      <li>12건을 <code>limit=5</code>로 세 장 넘기면 5 · 5 · 2, 마지막 <code>next_cursor</code>가 <code>None</code></li>
+      <li>마감이 같은 두 건이 두 번 실행해도 같은 순서로 나온다(id 순)</li>
+      <li>커서를 base64로 풀면 <code>["ending_soon", "…시각…", "…uuid…"]</code></li>
+      <li>필터 조합(<code>category&amp;min_price&amp;max_price</code>)과 <code>sort=newest</code>가 기대대로</li>
+      <li>가격 역전·<code>limit=0</code> → <code>VALIDATION_ERROR</code>, 엉터리 커서·다른 정렬의 커서 → <code>INVALID_CURSOR</code>, 전부 422</li>
+      <li>SQL 로그에 <code>SELECT</code> 두 문장(<code>LIMIT 6</code>, <code>users.id IN ($1, $2)</code>)</li>
+      <li>정리 후 개발 DB <code>auctions</code> 행 수 0</li>
+    </ul>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기서 커밋하세요.</strong> 예: <code>git commit -m "add(be(fastapi)): auction-api 5단계 — 커서 페이지네이션·필터·N+1 제거"</code>. 다음 6단계(입찰)는 <code>repositories/auction.py</code>에 <code>FOR UPDATE</code> 조회를, 서비스에 입찰 규칙을 <em>더합니다</em>.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 8. 함정 ───────────────────────── -->
+  <section class="section" id="pitfalls">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>함정 &amp; 실무 팁</h2>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>offset 페이지네이션이 틀린 건 아닙니다 — 조건이 있을 뿐.</strong> 관리자 화면처럼 "3페이지로 바로 가기"가 필요하고 데이터가 거의 안 바뀌는 곳에서는 offset이 편합니다. 하지만 (1) 실시간으로 행이 끼어드는 목록, (2) 무한 스크롤, (3) 깊은 페이지(offset 10만)가 있는 곳에서는 keyset이 답입니다. 경매 목록은 셋 다 해당합니다. 둘을 섞어 쓰지는 마세요 — 같은 API에 <code>page</code>와 <code>cursor</code>가 둘 다 있으면 클라이언트가 혼란스러워합니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>ORDER BY</code>와 커서 키는 한 몸입니다.</strong> 정렬을 <code>ends_at</code> 하나로만 하고 커서도 <code>ends_at</code>만 담으면, 마감이 같은 행 5개가 페이지 경계에 걸릴 때 <code>WHERE ends_at &gt; 커서</code>가 그 5개를 몽땅 건너뛰거나(<code>&gt;</code>) 몽땅 다시 보여줍니다(<code>&gt;=</code>). 그래서 항상 유일한 컬럼(<code>id</code>)을 마지막에 붙이고, <code>ORDER BY</code>도 정확히 같은 두 컬럼·같은 방향으로 씁니다. 이번 테스트의 시드가 동점을 일부러 만드는 이유입니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>커서는 불투명(opaque) 토큰입니다.</strong> base64 안에 뭐가 들어 있는지는 서버 사정이고, 클라이언트는 받은 문자열을 그대로 돌려주기만 해야 합니다. 그래서 나중에 커서 형식을 바꿔도(정렬 컬럼 추가 등) 클라이언트 코드는 안 바뀝니다. 반대로 말하면 커서를 <em>만들어서</em> 보내는 클라이언트는 언제든 깨질 수 있으니 422로 명확히 거부합니다. 보안이 걱정되면(커서 안의 id로 뭔가 추측할까 봐) HMAC 서명을 붙이면 되는데, 9단계에서 웹훅 서명을 배운 뒤 적용해 보세요.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>async SQLAlchemy는 lazy load를 막아 놓았습니다 — 일부러.</strong> 동기 세션에서 <code>auction.seller</code>는 필요할 때 몰래 SELECT를 날립니다(그래서 N+1이 <em>조용히</em> 생깁니다). async 세션에서 같은 짓을 하면 <code>MissingGreenlet</code> 에러가 납니다 — "await 없이 I/O를 하려 했다"는 뜻입니다. 처음엔 짜증나지만 축복입니다: 연관 객체가 필요하면 <code>selectinload</code>/<code>joinedload</code>로 <em>미리 선언</em>해야 하고, 그 선언이 곧 "쿼리 몇 번"의 문서가 됩니다. 정말 한 건씩 가져와야 하면 <code>await db.run_sync(lambda s: a.seller)</code>처럼 감싸는데, 반복문 안에서 그러면 21번이 됩니다(마지막 테스트가 그 증거).</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>selectinload</code> vs <code>joinedload</code>.</strong> 둘 다 N+1을 없앱니다. <code>joinedload</code>는 <code>LEFT JOIN</code>으로 쿼리 <em>한 번</em>, <code>selectinload</code>는 <code>IN (...)</code>으로 <em>두 번</em>. 그런데 목록에는 <code>selectinload</code>가 낫습니다 — <code>joinedload</code>는 <code>LIMIT</code>과 만나면 SQLAlchemy가 서브쿼리로 감싸야 하고(행이 뻥튀기되니까), 1:N(경매→입찰 목록)에서는 부모 행이 자식 수만큼 중복돼 전송량이 커집니다. 다대일·목록·LIMIT이 있으면 <code>selectinload</code>, 단건 상세에서 다대일 하나만 붙일 땐 <code>joinedload</code>가 깔끔합니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>limit + 1</code> 트릭은 <code>COUNT(*)</code>를 없앱니다.</strong> "다음 페이지가 있나"를 알려고 전체 개수를 세면 목록마다 쿼리가 하나 늘고, 큰 테이블에서 <code>COUNT(*)</code>는 느립니다. 하나 더 가져와서 넘치면 "있음", 아니면 "없음" — 쿼리 하나로 끝납니다. 전체 개수("경매 1,234건")를 화면에 꼭 보여줘야 한다면 그건 별도 캐시(10단계)의 몫입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>커서 안의 시각은 타임존을 잃으면 안 됩니다.</strong> <code>isoformat()</code>은 aware datetime이면 <code>+00:00</code>을 붙이고, <code>fromisoformat()</code>은 그걸 되살립니다. 만약 naive로 저장했다가 되살리면 asyncpg가 UTC로 간주해 비교가 9시간 어긋납니다(4단계 함정과 같은 뿌리). 모델 컬럼이 <code>DateTime(timezone=True)</code>라 여기서 나오는 값은 항상 aware입니다 — 그 전제를 깨지 마세요.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>쿼리 카운터가 <code>SELECT</code>만 세는 이유와 한계.</strong> 요청 하나에 <code>BEGIN</code>·<code>ROLLBACK</code> 같은 문장도 오가지만 그건 N+1과 무관하니 뺐습니다. 또 이 카운터는 <em>이 프로세스의 엔진</em>이 보낸 것만 봅니다 — 운영에서 실제 쿼리 수를 보려면 Postgres의 <code>pg_stat_statements</code>나 APM을 씁니다(10단계 관측성). 테스트의 역할은 "2가 3이 되는 순간 알려주기"입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 9. 정본 ───────────────────────── -->
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>self-study 정본 링크 — 개념은 여기서 복습</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이번 단계에서 쓴 것</th><th>정본</th></tr></thead>
+        <tbody>
+          <tr><td>쿼리 파라미터의 기본 (타입 변환·기본값·필수/선택)</td><td><a href="../../self-study/week02-request-http/01-path-query-body-header.html#query-params">Week 2·01 Query 파라미터</a></td></tr>
+          <tr><td>입력 모델 / 출력 모델 분리 · <code>response_model</code> 옵션</td><td><a href="../../self-study/week03-pydantic-response/02-response-model.html#input-vs-output">Week 3·02 입력 vs 출력</a> · <a href="../../self-study/week03-pydantic-response/02-response-model.html#useful-options">유용한 옵션</a></td></tr>
+          <tr><td>커넥션 풀이 왜 소중한가 (N+1이 풀을 잡아먹는 이유)</td><td><a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#connection-pool">Week 5·03 Connection Pool</a> · <a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#session">Session</a></td></tr>
+          <tr><td><code>select()</code>로 조회하고 결과를 꺼내기 · 바인드 변수(<code>$1</code>)</td><td><a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#query-fetch">Week 5·03 조회와 fetch</a> · <a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#bind-params">bind 변수</a></td></tr>
+          <tr><td>ORM 객체 → Pydantic (<code>from_attributes</code>)</td><td><a href="../../self-study/week06-json-api-structure/01-rest-api-crud.html#from-attributes">Week 6·01 from_attributes</a></td></tr>
+          <tr><td>흔한 병목 목록 — N+1 · <code>selectinload</code> / TypeORM <code>relations</code> 비교</td><td><a href="../../self-study/week09-realtime-events/03-performance-test.html#bottlenecks">Week 9·03 병목</a> · <a href="../../self-study/week09-realtime-events/03-performance-test.html#nestjs-compare">NestJS 비교</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 10. 셀프 체크 ───────────────────────── -->
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-teal">❓</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>?page=3&amp;size=20</code>(offset)이 더 익숙한데, 커서 방식이 꼭 필요한 이유를 경매 목록으로 설명해 보세요.</summary>
+        <div class="qa-answer"><p>offset은 "앞에서 40개를 버리고 20개"입니다. 사용자가 2페이지를 읽는 사이 새 경매 3건이 등록되면(마감 임박순이면 순서까지 바뀌면) 3페이지의 시작점이 3칸 밀려, 이미 본 항목이 다시 나오고 새 항목 3건은 건너뛰어집니다. 커서는 "이 항목(마감 시각, id) <em>다음</em>부터"라 앞에 뭐가 끼어들든 이어서 읽습니다. 덤으로 <code>OFFSET 100000</code>은 10만 행을 세고 버리지만 <code>WHERE (ends_at, id) &gt; (…)</code>는 인덱스로 바로 점프하므로 깊은 페이지도 같은 속도입니다. 대신 "3페이지로 바로 가기"는 못 합니다 — 무한 스크롤 UI에는 문제가 안 되고, 관리자 표처럼 점프가 필요하면 offset을 따로 둡니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 커서에 <code>ends_at</code>만 담고 <code>id</code>를 빼면 어떤 버그가 생기나요? 테스트의 어느 부분이 그걸 잡나요?</summary>
+        <div class="qa-answer"><p>마감 시각이 같은 행이 페이지 경계에 걸릴 때 문제가 납니다. 시드에는 같은 시각이 5건씩 있는데 limit이 10이면 1페이지의 마지막 항목과 2페이지의 첫 항목이 같은 시각일 수 있습니다. <code>WHERE ends_at &gt; 커서</code>면 같은 시각의 나머지 행이 통째로 사라지고(누락), <code>&gt;=</code>면 1페이지 끝에서 본 행이 2페이지에 다시 나옵니다(중복). <code>(ends_at, id)</code> 쌍으로 비교하면 같은 시각 안에서도 id로 "다음"이 정해집니다. <code>test_page_walk_covers_every_item_once</code>가 25건의 id 집합이 정확히 한 번씩 나오는지 검사하고, <code>test_ending_soon_is_sorted_by_ends_at_then_id</code>가 페이지를 이어 붙였을 때 <code>(ends_at, id)</code>가 단조 증가하는지 검사합니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> async 세션에서 <code>auction.seller.nickname</code>을 그냥 읽으면 무슨 일이 생기고, 그게 왜 오히려 좋은 점인가요?</summary>
+        <div class="qa-answer"><p><code>MissingGreenlet</code> 예외가 납니다. 동기 SQLAlchemy는 속성에 접근하는 순간 lazy load SELECT를 몰래 보내지만, async 드라이버는 <code>await</code> 없이 I/O를 할 수 없어서 그 자리에서 실패합니다. 불편해 보이지만, 덕분에 N+1이 <em>조용히</em> 생기는 일이 없습니다 — 연관 객체가 필요하면 <code>selectinload(Auction.seller)</code>처럼 쿼리 시점에 미리 선언해야 하고, 그 선언을 보면 쿼리가 몇 번 나갈지 읽힙니다. 정말 한 건만 늦게 가져와야 하면 <code>await db.run_sync(lambda s: a.seller)</code>나 <code>await db.refresh(a, ["seller"])</code>로 <em>명시적으로</em> 합니다. 반복문 안에서 그러면 N+1이 되는데, 그때는 코드에 그 반복문이 눈에 보이니 리뷰에서 잡힙니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="05-2-list-pagination-impl.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">5-2 구현</span></a>
+    <a class="part-pager-link next" href="06-1-bids-concurrency-overview.html"><span class="part-pager-dir">다음 단계 →</span><span class="part-pager-title">6단계 · 입찰과 동시성</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 5단계 · 목록·페이지네이션 · 5-3 실행·확인 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

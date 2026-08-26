@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3단계 · 테스트 인프라 + 인증 · 3-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <div class="nav-week active"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="03-1-tests-auth-overview.html"><span class="sub-no">3-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">🎟️ 비유 — 연습장과 입장 팔찌</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="03-2-tests-auth-impl.html"><span class="sub-no">3-2</span> 구현</a>
+      <a class="nav-sub" href="03-3-tests-auth-verify.html"><span class="sub-no">3-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>3단계 · 테스트 인프라 + 인증</b></div>
+    <h1>3-1 개요와 설계</h1>
+    <p class="lesson-subtitle">테스트마다 깨끗하게 롤백되는 <strong>테스트 전용 DB</strong>를 갖추고, 그 위에서 회원가입·로그인·<code>refresh</code> 회전·로그아웃·<code>/users/me</code>를 TDD로 만듭니다. 이 단계의 fixture는 4~10단계 모든 테스트가 그대로 씁니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="03-1-tests-auth-overview.html"><b>3-1</b> 개요와 설계</a>
+    <a class="step-part" href="03-2-tests-auth-impl.html"><b>3-2</b> 구현</a>
+    <a class="step-part" href="03-3-tests-auth-verify.html"><b>3-3</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code>가 <code>13 passed</code>를 찍고(경고 0), <code>curl</code>로 가입 → 로그인 → 토큰으로 <code>/users/me</code> → refresh → 로그아웃까지 한 바퀴 돌며, Redis에 살아 있는 refresh 토큰이 생겼다 사라지는 걸 눈으로 확인합니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>앱을 import하기 <em>전에</em> 환경변수를 바꿔 테스트 DB/Redis로 갈아 끼우는 원리를 이해한다</li>
+    <li>"테스트 하나 = 트랜잭션 하나, 끝나면 롤백"을 SAVEPOINT로 구현하고, 서비스가 <code>commit()</code>해도 왜 안전한지 설명할 수 있다</li>
+    <li>비밀번호 해싱(bcrypt), JWT access/refresh 분리, refresh 회전을 코드로 옮긴다</li>
+    <li>NestJS Guard에 해당하는 <code>get_current_user</code> 의존성을 만들고 표준 에러 형태로 401·409를 돌려준다</li>
+    <li>pytest-asyncio의 이벤트 루프 범위(session)가 왜 필요한지 안다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>이 단계가 끝나면 두 가지가 생깁니다. 하나는 <strong>테스트 인프라</strong>입니다. <code>tests/conftest.py</code> 한 파일이 테스트 전용 DB(<code>auction_test</code>)를 만들고 마이그레이션하고, 테스트마다 트랜잭션을 열었다가 롤백해서 어떤 테스트도 다른 테스트에 흔적을 남기지 않게 합니다. 다른 하나는 <strong>인증</strong>입니다. 이메일·비밀번호로 가입하고, 로그인하면 access 토큰(15분)과 refresh 토큰(7일)을 받고, access 토큰으로 <code>/users/me</code>를 부르고, refresh 토큰으로 새 쌍을 받고, 로그아웃하면 그 refresh 토큰이 죽습니다.</p>
+    <p><strong>전제.</strong> 2단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>4 passed</code>, <code>uv run alembic check</code> → <code>No new upgrade operations detected.</code>, 컨테이너 두 개 <code>(healthy)</code>. 이번 단계도 <code>til/backend/fastapi/auction-api/</code>에서 진행합니다.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 테스트 쪽 3개(<code>conftest.py</code>, <code>factories.py</code>, <code>test_auth.py</code>), 앱 쪽 9개(<code>core/exceptions.py</code>, <code>core/security.py</code>, <code>core/deps.py</code>, <code>schemas/user.py</code>, <code>schemas/auth.py</code>, <code>repositories/user.py</code>, <code>services/auth.py</code>, <code>routers/auth.py</code>, <code>routers/users.py</code>). 그리고 기존 파일 5개를 손봅니다(<code>pyproject.toml</code>, <code>.env.example</code>, <code>config.py</code>, <code>main.py</code>, 그리고 1·2단계 테스트 두 개를 새 fixture로 옮깁니다). 회원가입 이메일 OTP는 이 프로젝트에선 만들지 않고, 그 자리에 있던 BackgroundTasks는 9단계 모의 결제 서버에서 씁니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>왜 인증보다 <em>테스트 인프라</em>를 먼저 만들까요. 4단계부터 만드는 기능은 전부 "로그인한 사용자가 자기 경매를 다룬다"는 전제 위에 있습니다. 그 테스트를 쓰려면 매번 사용자를 만들고, 로그인하고, 토큰을 헤더에 넣어야 합니다. 이걸 테스트마다 손으로 하면 테스트가 길어지고 결국 안 쓰게 됩니다. 그래서 이번 단계에서 <code>create_user()</code>와 <code>login_headers()</code> 같은 공장 함수, 그리고 자동으로 롤백되는 <code>db_session</code>을 만들어 두면 이후 테스트는 본론만 적으면 됩니다.</p>
+    <p>인증 쪽에서 실무가 self-study와 다른 점은 <strong>refresh 토큰</strong>입니다. Week 8에서는 access 토큰 하나만 발급했습니다. 그런데 access 토큰을 길게 주면 유출됐을 때 오래 악용되고, 짧게 주면 사용자가 15분마다 다시 로그인해야 합니다. 그래서 실무는 둘을 나눕니다. access는 짧게(15분), refresh는 길게(7일) 주되 refresh는 <em>서버가 기억</em>해서 로그아웃이나 유출 시 즉시 죽일 수 있게 합니다. 그리고 refresh를 한 번 쓰면 새 것으로 바꿔 주고 옛 것은 폐기하는 <strong>회전(rotation)</strong>을 합니다 — 훔친 refresh 토큰을 나중에 쓰면 이미 폐기돼 있어 막힙니다.</p>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>테스트를 개발 DB에서 돌리면 안 되는 이유.</strong> 2단계 스모크 테스트는 커밋 없이 롤백만 해서 개발 DB를 더럽히지 않았습니다. 하지만 이제 서비스 코드가 <code>commit()</code>을 호출합니다. 테스트가 개발 DB에 커밋하면 다음 테스트가 "이미 가입된 이메일" 409를 받고 실패하고, 내가 Swagger로 만들어 둔 데이터도 섞입니다. 테스트 전용 DB + 롤백은 선택이 아니라 필수입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🎟️</div>
+      <h2>비유 — 연습장, 입장 팔찌, 재발급 창구</h2>
+    </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>롤백 세션은 연습장에 쓰고 찢어 버리기입니다.</strong> 시험 공부할 때 연습장에 풀이를 잔뜩 써도 다음 문제는 새 페이지에서 시작하죠. 테스트가 시작될 때 DB 트랜잭션을 열고(새 페이지), 테스트 안에서 가입·로그인·입찰을 마음껏 하고(풀이), 테스트가 끝나면 롤백합니다(찢어 버림). 그런데 서비스 코드는 중간에 <code>commit()</code>을 부릅니다. 이걸 진짜 커밋으로 처리하면 페이지를 찢을 수 없으니, SQLAlchemy에게 "세션의 commit은 <em>SAVEPOINT</em>(책갈피)만 확정해라"고 시킵니다. 책갈피는 페이지 안의 표시일 뿐이라 페이지째 찢으면 같이 사라집니다. 그게 <code>join_transaction_mode="create_savepoint"</code>입니다.</div>
+    </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>access 토큰은 입장 팔찌, refresh 토큰은 재발급 창구 티켓입니다.</strong> 놀이공원 팔찌(access)는 보여주기만 하면 어디든 들어가지만 15분짜리라 금방 만료됩니다. 만료되면 재발급 창구에 티켓(refresh)을 내는데, 창구 직원은 장부(Redis)에서 그 티켓 번호(<code>jti</code>)를 찾아 <em>지우고</em> 새 팔찌와 새 티켓을 줍니다. 같은 티켓을 또 내면 장부에 없으니 거절됩니다(회전). 퇴장(로그아웃)할 때 티켓을 반납하면 장부에서 지워지고, 이미 차고 있는 팔찌는 15분 뒤 저절로 죽습니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>그림 두 장으로 정리합니다. 첫 장은 <strong>요청이 지나가는 길</strong>입니다. 1단계에서 잡아 둔 폴더가 처음으로 다 채워집니다 — 라우터는 요청을 Pydantic으로 검증해 서비스에 넘기고, 서비스는 규칙을 검사해 리포지토리(Postgres)와 Redis를 만지고, 결과를 라우터가 응답 모델로 돌려줍니다. 서비스는 <code>HTTPException</code>을 import하지 않습니다. 대신 <code>UnauthorizedError</code> 같은 <em>도메인 예외</em>를 던지고, <code>main.py</code>에 등록한 핸들러가 <code>{"code", "message"}</code> JSON과 상태 코드로 번역합니다.</p>
+    <div class="diagram-card">
+      <svg viewBox="0 0 760 300" role="img" aria-label="인증 요청 흐름: 라우터, 서비스, 리포지토리, Postgres, Redis">
+        <defs>
+          <marker id="arr3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/></marker>
+        </defs>
+        <rect x="20" y="110" width="120" height="60" rx="10" fill="#f3f4f6" stroke="#9ca3af" stroke-width="1.5"/>
+        <text x="80" y="135" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">클라이언트</text>
+        <text x="80" y="153" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#374151">POST /auth/login</text>
+
+        <rect x="190" y="100" width="150" height="80" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="265" y="125" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">routers/auth.py</text>
+        <text x="265" y="143" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#1d4ed8">LoginRequest 검증</text>
+        <text x="265" y="160" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#1d4ed8">Depends(get_db, get_redis)</text>
+
+        <rect x="390" y="100" width="150" height="80" rx="10" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="465" y="125" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">services/auth.py</text>
+        <text x="465" y="143" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#00695c">verify_password</text>
+        <text x="465" y="160" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#00695c">UnauthorizedError</text>
+
+        <rect x="590" y="30" width="150" height="70" rx="10" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/>
+        <text x="665" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">Postgres</text>
+        <text x="665" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#c2410c">users (repositories/user.py)</text>
+
+        <rect x="590" y="180" width="150" height="70" rx="10" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="665" y="205" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">Redis</text>
+        <text x="665" y="225" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#b91c1c">refresh:{jti} = user_id (TTL 7d)</text>
+
+        <line x1="140" y1="140" x2="188" y2="140" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="340" y1="140" x2="388" y2="140" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="540" y1="125" x2="588" y2="75" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr3)"/>
+        <line x1="540" y1="155" x2="588" y2="205" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr3)"/>
+
+        <text x="80" y="215" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#374151">← 응답</text>
+        <text x="80" y="232" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#374151">{access_token, refresh_token}</text>
+        <text x="380" y="265" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#6b7280">라우터는 HTTP만, 서비스는 규칙만, 리포지토리는 쿼리만. 서비스는 HTTPException을 모른다 — AppError를 던지면 main.py의 핸들러가 JSON으로 바꾼다.</text>
+      </svg>
+      <div class="diagram-caption">로그인 한 번에 두 저장소를 만진다. 사용자는 Postgres에서 찾고, 발급한 refresh 토큰의 id(jti)는 Redis에 TTL과 함께 적어 둔다.</div>
+    </div>
+    <p>둘째 장은 <strong>테스트가 도는 동안의 시간표</strong>입니다. 핵심은 순서입니다. <code>conftest.py</code>의 맨 위에서 환경변수를 바꾼 <em>다음에</em> 앱 모듈을 import합니다. 1단계에서 확인했듯 환경변수는 <code>.env</code>보다 우선하므로, 이 순서만 지키면 <code>app.core.db.engine</code>도 <code>redis_client</code>도 처음부터 테스트 주소로 만들어집니다. 앱 코드는 테스트를 위해 한 줄도 바꾸지 않습니다.</p>
+    <div class="diagram-card">
+      <svg viewBox="0 0 760 250" role="img" aria-label="테스트 세션의 시간 흐름: 환경변수 교체, DB 준비, 테스트마다 BEGIN과 ROLLBACK">
+        <defs>
+          <marker id="arr3b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/></marker>
+        </defs>
+        <line x1="30" y1="60" x2="740" y2="60" stroke="#9ca3af" stroke-width="2" marker-end="url(#arr3b)"/>
+        <text x="740" y="48" text-anchor="end" font-family="Inter, sans-serif" font-size="11" fill="#6b7280">pytest 세션 시간</text>
+
+        <rect x="30" y="80" width="150" height="58" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="105" y="102" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">conftest import</text>
+        <text x="105" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1d4ed8">os.environ[...] 교체</text>
+        <text x="105" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1d4ed8">→ 그 다음 app import</text>
+
+        <rect x="200" y="80" width="150" height="58" rx="8" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/>
+        <text x="275" y="102" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">세션 1회</text>
+        <text x="275" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#c2410c">CREATE DATABASE auction_test</text>
+        <text x="275" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#c2410c">alembic upgrade head</text>
+
+        <rect x="370" y="80" width="170" height="58" rx="8" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="455" y="102" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">테스트 1</text>
+        <text x="455" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#00695c">BEGIN → (SAVEPOINT…)</text>
+        <text x="455" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#00695c">→ ROLLBACK</text>
+
+        <rect x="560" y="80" width="170" height="58" rx="8" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="645" y="102" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">테스트 2 …</text>
+        <text x="645" y="120" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#00695c">BEGIN → … → ROLLBACK</text>
+        <text x="645" y="132" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#00695c">FLUSHDB (Redis 15)</text>
+
+        <rect x="370" y="160" width="360" height="62" rx="8" fill="#f9fafb" stroke="#d1d5db" stroke-width="1.2"/>
+        <text x="550" y="182" text-anchor="middle" font-family="Inter, sans-serif" font-size="11.5" font-weight="600" fill="#374151">테스트 안에서 서비스가 db.commit() 을 부르면?</text>
+        <text x="550" y="200" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#374151">RELEASE SAVEPOINT 만 실행 — 바깥 BEGIN 은 그대로</text>
+        <text x="550" y="214" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#374151">→ 마지막 ROLLBACK 이 전부 지운다</text>
+      </svg>
+      <div class="diagram-caption">환경변수 교체는 앱 모듈이 import되기 전에 한 번, DB 준비는 세션에 한 번, 트랜잭션은 테스트마다. 모든 테스트가 하나의 이벤트 루프(session scope) 위에서 돈다.</div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-3-models-alembic-verify.html"><span class="part-pager-dir">← 이전 단계</span><span class="part-pager-title">2단계 · 모델링 + Alembic</span></a>
+    <a class="part-pager-link next" href="03-2-tests-auth-impl.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">3-2 구현</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 3단계 · 테스트 인프라 + 인증 · 3-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

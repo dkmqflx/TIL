@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10단계 · 성능·관측성·배포 · 10-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/dockerfile.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/markdown.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <div class="nav-week active"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="10-1-deploy-overview.html"><span class="sub-no">10-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">🏭 비유 — 공장과 매장</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="10-2-deploy-impl-1.html"><span class="sub-no">10-2</span> 구현 ① 캐시</a>
+      <a class="nav-sub" href="10-3-deploy-impl-2.html"><span class="sub-no">10-3</span> 구현 ② 관측성·배포</a>
+      <a class="nav-sub" href="10-4-deploy-verify.html"><span class="sub-no">10-4</span> 실행·확인</a>
+    </div>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>10단계 · 성능·관측성·배포</b></div>
+    <h1>10-1 개요와 설계</h1>
+    <p class="lesson-subtitle">기능은 9단계로 끝났습니다. 마지막 단계는 <strong>새 기능을 더하지 않습니다</strong>. 지금까지 만든 API·워커·모의 PG 를 "내 노트북에서 도는 것" 에서 "남이 운영할 수 있는 것" 으로 바꿉니다: 자주 읽는 목록에 <strong>캐시</strong>를 붙이고, 모든 로그를 <strong>JSON 한 줄 + request-id</strong> 로 통일하고, 브라우저가 부를 수 있게 <strong>CORS</strong> 를 열고, <strong>부하 테스트</strong>로 숨은 블로킹 호출을 잡아내고, <strong>Dockerfile·compose</strong> 로 다섯 프로세스를 한 번에 띄우고, <strong>GitHub Actions</strong> 가 매 푸시마다 테스트를 돌리게 합니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="10-1-deploy-overview.html"><b>10-1</b> 개요와 설계</a>
+    <a class="step-part" href="10-2-deploy-impl-1.html"><b>10-2</b> 구현 ① 캐시</a>
+    <a class="step-part" href="10-3-deploy-impl-2.html"><b>10-3</b> 구현 ② 관측성·배포</a>
+    <a class="step-part" href="10-4-deploy-verify.html"><b>10-4</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code> 가 <code>97 passed</code> 를 찍고, 같은 목록을 두 번 부르면 두 번째는 DB 를 안 건드리며(<code>17.8ms → 2.2ms</code>), 모든 응답에 <code>X-Request-ID</code> 가 붙고 로그가 <code>{"ts": …, "request_id": …, "duration_ms": …}</code> 한 줄로 나오며, locust 가 "일부러 넣은 50ms 동기 호출" 을 <code>44 → 146 req/s</code>, <code>p50 790ms → 5ms</code> 라는 숫자로 드러내고, <code>docker compose -f docker-compose.prod.yml up -d --build</code> 한 줄로 다섯 컨테이너가 떠서 가입 → 경매 → 입찰 → 자동 마감 → 결제 → 웹훅까지 컨테이너 안에서 전부 돕니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>"버전 키" 캐시가 왜 <code>DEL</code>·<code>SCAN</code> 없이 무효화되는지 설명하고, 어디서 버전을 올려야 하는지 고를 수 있다</li>
+    <li>request-id 가 contextvar 를 타고 <em>같은 요청의 모든 로그</em>(우리 코드·httpx·SQL 경고)에 자동으로 붙는 원리를 안다</li>
+    <li>부하 테스트 숫자(RPS·p50·p95)만 보고 "이벤트 루프를 막는 동기 호출이 있다" 를 의심할 수 있다</li>
+    <li>멀티스테이지 Dockerfile 이 왜 두 <code>FROM</code> 인지, 비루트 사용자와 exec-form <code>CMD</code> 가 왜 중요한지 안다</li>
+    <li>compose 안에서는 <code>localhost</code> 가 아니라 서비스 이름이 호스트명이라는 것, 마이그레이션은 한 컨테이너만 돌려야 한다는 것을 안다</li>
+    <li>GitHub Actions 서비스 컨테이너로 Postgres·Redis 를 띄워 우리 테스트 전체를 CI 에서 돌릴 수 있다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>9단계까지의 서비스는 <strong>내 노트북 전용</strong>이었습니다. 터미널 세 개에 uvicorn·워커·모의 PG 를 따로 띄우고, 로그는 사람 눈으로 읽는 한 줄짜리 텍스트였고, 목록은 부를 때마다 DB 를 갔습니다. 이번 단계가 끝나면 (1) <code>GET /auctions</code> 는 5초 동안 Redis 에서 답하고 경매가 바뀌는 순간 자동으로 새로 읽으며, (2) 모든 로그가 <code>request_id</code> 를 품은 JSON 한 줄이라 "이 요청이 왜 느렸지?" 를 한 값으로 좇을 수 있고, (3) locust 가 50명 동시 접속을 흉내 내 병목을 숫자로 보여 주며, (4) <code>docker compose -f docker-compose.prod.yml up -d --build</code> 한 줄로 다섯 컨테이너(app·worker·mock_pg·db·redis)가 뜨고, (5) GitHub 에 푸시할 때마다 Actions 가 ruff → 마이그레이션 → 테스트 97개를 돌립니다.</p>
+    <p><strong>전제.</strong> 9단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>87 passed</code>, 컨테이너 두 개 <code>(healthy)</code>, Docker Desktop 실행 중, 8000·8001 포트 비어 있음. 새로 설치하는 패키지는 <code>locust</code>(개발용) 하나입니다. 마이그레이션은 없습니다. 작업 위치는 <code>til/backend/fastapi/auction-api/</code>.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 새 파일 10개(<code>core/cache.py</code>, <code>core/logging.py</code>, 테스트 2개, <code>loadtest/locustfile.py</code>, <code>Dockerfile</code>, <code>.dockerignore</code>, <code>docker-compose.prod.yml</code>, <code>.github/workflows/ci.yml</code>, <code>README.md</code>), 손보는 파일 10개(설정 4개 값, <code>alembic/env.py</code> 한 줄, 서비스 4개에 "버전 올리기" 한 줄씩, <code>services/auth.py</code> 의 bcrypt 를 스레드로, 라우터, <code>main.py</code>, 워커, <code>conftest.py</code>). 기능(엔드포인트·모델·규칙)은 하나도 안 바뀝니다 — 그래서 9단계까지의 87개 테스트가 그대로 통과해야 합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>실무에서 "기능이 된다" 와 "운영할 수 있다" 사이에는 네 가지 질문이 있습니다. <strong>빠른가</strong> — 인기 경매 목록은 초당 수백 번 읽히는데 매번 DB 를 가야 하나? <strong>보이는가</strong> — 새벽에 "결제가 안 돼요" 라는 문의가 오면, 그 사용자의 그 요청이 어느 워커에서 어떤 SQL 을 몇 ms 돌렸는지 찾을 수 있나? <strong>버티는가</strong> — 50명이 동시에 누르면 어디가 먼저 무너지나? 그걸 배포 <em>전에</em> 알 수 있나? <strong>옮길 수 있는가</strong> — 내 노트북의 uv·파이썬 버전·환경변수 없이도 다른 컴퓨터(동료, 서버, CI)에서 똑같이 뜨나? 이 넷에 답하는 도구가 각각 캐시, 구조화 로그, 부하 테스트, 컨테이너입니다.</p>
+    <p>이 중 초보자가 가장 자주 놓치는 것이 <strong>로그</strong>입니다. <code>print()</code> 와 텍스트 로그는 혼자 개발할 땐 충분하지만, 컨테이너 다섯 개가 같은 화면에 섞여 찍히기 시작하면 "이 줄이 어느 요청의 것인지" 를 알 수 없습니다. 그래서 운영 로그는 (1) 기계가 읽는 JSON, (2) 요청마다 고유한 <code>request_id</code>, (3) 응답 코드와 소요 시간이 기본입니다. 프론트가 에러 화면에 <code>X-Request-ID</code> 를 찍어 두면 사용자가 그 값을 알려 주는 순간 서버 로그에서 한 줄로 찾습니다 — 택배 송장번호와 같습니다.</p>
+    <p><strong>부하 테스트</strong>는 4주차·02 에서 배운 "async 안의 동기 호출은 서버 전체를 멈춘다" 를 <em>숫자</em>로 보는 시간입니다. 코드 리뷰로는 놓치는 <code>requests.get()</code> 하나, 동기 이미지 변환 하나가 p95 를 1초로 만듭니다. 오늘은 일부러 50ms 짜리 <code>time.sleep</code> 을 넣고 켜고 끄며 재 봅니다 — 그리고 그 과정에서 우리 코드에 <em>진짜로</em> 숨어 있던 200ms 짜리 블로킹 호출(bcrypt)도 찾아냅니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>순서에 대해.</strong> 실무에선 Dockerfile 과 CI 가 1단계에 있는 경우도 많습니다(처음부터 컨테이너로 개발). 이 커리큘럼이 10단계에 둔 이유는 "컨테이너에 넣을 것이 다 갖춰진 뒤" 가 가장 배우기 쉽기 때문입니다 — 다섯 프로세스의 역할과 환경변수를 전부 아는 지금이라야 compose 파일의 한 줄 한 줄이 왜 있는지 보입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏭</div>
+      <h2>비유 — 공장과 매장, 송장번호, FAQ 종이</h2>
+    </div>
+    <p><strong>캐시 = 카운터 앞에 붙여 둔 FAQ 답변.</strong> 손님 100명이 같은 질문("지금 열린 경매 뭐 있어요?")을 하면 매번 창고(DB)에 다녀오는 대신 답을 종이에 적어 카운터에 붙여 둡니다. 종이엔 <em>판 번호</em>(<code>v7</code>)가 적혀 있고, 경매가 하나라도 바뀌면 벽의 판 번호판을 <code>v8</code> 로 넘깁니다. 그러면 <code>v7</code> 종이는 아무도 안 보고(찾아서 떼어낼 필요도 없이) 5초 뒤 바람에 날아갑니다(TTL). 새 손님에겐 <code>v8</code> 종이를 새로 적어 붙입니다. "어떤 종이를 떼야 하지?" 를 고민하지 않아도 되는 게 버전 키의 요점입니다.</p>
+    <p><strong>request-id = 택배 송장번호.</strong> 물건 하나가 접수 → 허브 → 배송기사 → 문 앞까지 가는 동안 여러 사람 손을 거치지만, 송장번호 하나로 전 구간을 좇습니다. 우리 요청도 미들웨어 → 라우터 → 서비스 → SQL → httpx(PG 호출) 를 거치는데, 맨 앞에서 번호를 붙여 두면(contextvar) 그 뒤 어디서 찍힌 로그든 같은 번호가 따라붙습니다. 프론트가 번호를 미리 붙여 보내면(<code>X-Request-ID</code> 헤더) 브라우저 콘솔과 서버 로그가 같은 번호를 공유합니다.</p>
+    <p><strong>멀티스테이지 Dockerfile = 공장과 매장.</strong> 공장(빌더 스테이지)에는 uv, 컴파일러, 캐시 같은 큰 장비가 있고 거기서 제품(<code>.venv</code>)을 만듭니다. 매장(런타임 스테이지)엔 제품과 진열대(파이썬)만 옮겨 놓습니다 — 장비는 안 가져갑니다. 그래서 최종 이미지가 작고, 공격 표면도 작고, 매장 직원은 관리자(root)가 아니라 일반 직원(<code>app</code> 사용자)입니다.</p>
+    <p><strong>부하 테스트 = 개점 전 리허설.</strong> 손님 50명을 한 번에 들여보내 보면 카운터가 하나인지, 직원이 화장실 갈 때 줄 전체가 멈추는지(동기 호출!) 개점 전에 보입니다. locust 는 그 50명을 연기하는 배우들입니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>첫 그림은 <strong>캐시의 한 요청</strong>입니다. <code>GET /auctions?status=active</code> 가 오면 서비스는 먼저 Redis 에서 <code>auction:list:version</code>(정수, 없으면 0)을 읽고, 정렬된 파라미터와 합쳐 키를 만듭니다: <code>auction:list:v3:limit=20,sort=ending_soon,status=active</code>. 있으면 그 JSON 을 그대로 돌려주고(DB 0번), 없으면 5단계 그대로 DB 를 읽어 <code>AuctionPage</code> 를 만든 뒤 <code>SET … EX 5</code> 로 붙여 둡니다. 경매가 바뀌는 여섯 지점(생성·수정·취소·입찰·활성화·마감) 은 커밋 <em>뒤에</em> <code>INCR auction:list:version</code> 한 번만 합니다 — 다음 요청은 <code>v4</code> 키를 찾으니 <code>v3</code> 은 자연히 미스이고, TTL 이 치웁니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 300" role="img" aria-label="GET /auctions → GET auction:list:version → 키 조립 → Redis GET → HIT 면 JSON 반환 / MISS 면 DB 조회 → SET EX 5 → 반환. 경매 변경 지점 6곳은 커밋 뒤 INCR version">
+        <defs><marker id="ah10" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="300" fill="#f8fafc" rx="12"/>
+        <text x="16" y="24" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">GET /auctions?status=active — services/auction.list_auctions</text>
+        <rect x="16" y="40" width="200" height="54" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="116" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">① 버전 읽기</text><text x="116" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#312e81">GET auction:list:version → 3</text>
+        <rect x="236" y="40" width="240" height="54" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="356" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">② 키 조립 (파라미터 이름순)</text><text x="356" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">auction:list:v3:limit=20,sort=ending_soon,status=active</text>
+        <rect x="496" y="40" width="248" height="54" rx="8" fill="#fef3c7" stroke="#f59e0b"/><text x="620" y="60" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#92400e">③ Redis GET 키</text><text x="620" y="78" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#92400e">있다(HIT) / 없다(MISS)</text>
+        <line x1="216" y1="67" x2="234" y2="67" stroke="#64748b" marker-end="url(#ah10)"/><line x1="476" y1="67" x2="494" y2="67" stroke="#64748b" marker-end="url(#ah10)"/>
+        <rect x="416" y="120" width="160" height="60" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="496" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#14532d">HIT → JSON 그대로 반환</text><text x="496" y="160" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#14532d">DB 0번 · 2ms</text>
+        <rect x="596" y="120" width="148" height="60" rx="8" fill="#fee2e2" stroke="#ef4444"/><text x="670" y="142" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#7f1d1d">MISS → 5단계 쿼리</text><text x="670" y="160" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9" fill="#7f1d1d">SET 키 JSON EX 5 → 반환</text>
+        <line x1="580" y1="94" x2="520" y2="118" stroke="#22c55e" marker-end="url(#ah10)"/><line x1="660" y1="94" x2="670" y2="118" stroke="#ef4444" marker-end="url(#ah10)"/>
+        <rect x="16" y="120" width="380" height="60" rx="8" fill="#fff" stroke="#6366f1"/><text x="26" y="140" font-family="Inter, sans-serif" font-size="10.5" font-weight="600" fill="#312e81">무효화 = 버전 올리기 (커밋 뒤 한 줄)</text><text x="26" y="158" font-family="JetBrains Mono, monospace" font-size="9" fill="#334155">create · update · cancel · place_bid · activate_due · close_due</text><text x="26" y="172" font-family="JetBrains Mono, monospace" font-size="9" fill="#334155">→ INCR auction:list:version  (3 → 4)  → 다음 요청은 v4 키를 찾는다</text>
+        <text x="380" y="214" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">v3 키들은 아무도 다시 안 찾는다 → 찾아서 지울 필요 없음(SCAN 없음) → TTL 5초가 치운다</text>
+        <text x="380" y="236" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">파라미터가 다르면 키가 다르다: 커서 2쪽·newest 정렬·필터 조합 각각 따로 캐시 · 로그인 사용자에 따라 달라지는 응답은 이 키로 캐시하면 안 된다</text>
+        <text x="380" y="270" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">테스트: query_counter.selects == 0 (두 번째 호출) · 입찰 뒤 current_version == 1 · 키 3개 (limit=2 / 커서 / newest)</text>
+      </svg>
+    </div>
+    <p>둘째 그림은 <strong>운영 모양</strong>입니다. 다섯 컨테이너가 <code>auction-prod</code> 라는 하나의 네트워크 안에 있고, 그 안에서는 <code>db</code>·<code>redis</code>·<code>app</code>·<code>mock_pg</code> 라는 <em>서비스 이름</em>이 곧 호스트명입니다(<code>localhost</code> 는 각 컨테이너 자기 자신입니다!). 밖(호스트)에는 8000(app)과 8001(mock_pg)만 엽니다 — DB 와 Redis 는 열지 않습니다. <code>app</code> 만 시작할 때 <code>alembic upgrade head</code> 를 먼저 돌리고(<code>sh -c "… &amp;&amp; exec uvicorn …"</code>), <code>worker</code> 는 <code>app</code> 이 healthy 가 된 <em>뒤에</em> 뜹니다(마이그레이션이 끝났다는 뜻). 세 파이썬 컨테이너는 <strong>같은 이미지</strong>(<code>auction-api:local</code>)에 명령만 다릅니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 250" role="img" aria-label="auction-prod 네트워크: app(8000 노출, alembic 후 uvicorn) · worker(app healthy 뒤) · mock_pg(8001 노출) · db(미노출) · redis(미노출). 같은 이미지 3개. 호스트는 8000·8001 만 본다">
+        <rect x="0" y="0" width="760" height="250" fill="#f8fafc" rx="12"/>
+        <rect x="12" y="34" width="736" height="180" rx="10" fill="#fff" stroke="#94a3b8" stroke-dasharray="6 4"/><text x="24" y="52" font-family="Inter, sans-serif" font-size="11" font-weight="700" fill="#475569">docker network: auction-prod_default  (서비스 이름 = 호스트명)</text>
+        <rect x="28" y="66" width="200" height="70" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="128" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">app  (auction-api:local)</text><text x="128" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">alembic upgrade head &amp;&amp;</text><text x="128" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">exec uvicorn … :8000  (healthcheck)</text>
+        <rect x="248" y="66" width="200" height="70" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="348" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">worker  (같은 이미지)</text><text x="348" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">python -m app.workers.closer</text><text x="348" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#312e81">depends_on app: healthy · SIGTERM 10s</text>
+        <rect x="468" y="66" width="200" height="70" rx="8" fill="#fef3c7" stroke="#f59e0b"/><text x="568" y="86" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#92400e">mock_pg  (같은 이미지)</text><text x="568" y="104" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#92400e">uvicorn mock_pg.main:app :8001</text><text x="568" y="118" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#92400e">→ 웹훅: http://app:8000/webhooks/…</text>
+        <rect x="128" y="156" width="200" height="44" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="228" y="174" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">db  postgres:16 · 5432</text><text x="228" y="190" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#14532d">ports 없음 · volume prod-pgdata</text>
+        <rect x="368" y="156" width="200" height="44" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="468" y="174" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">redis  7-alpine · 6379</text><text x="468" y="190" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="8.5" fill="#14532d">ports 없음 · 세션·캐시·Pub/Sub</text>
+        <text x="128" y="234" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#1e3a8a">호스트 :8000 → app</text><text x="568" y="234" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#92400e">호스트 :8001 → mock_pg</text><text x="348" y="234" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#64748b">DB·Redis 는 밖에서 안 보인다</text>
+      </svg>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>세 프로세스가 같은 이미지인 이유.</strong> 코드·의존성이 같으니 이미지를 하나만 빌드하고 <code>command</code> 만 바꿉니다. 이미지가 셋이면 빌드 시간도 셋, 버전이 엇갈릴 위험도 셋입니다. 진짜 운영에서는 <code>mock_pg</code> 가 빠지고 그 자리에 진짜 PG 의 URL 이 <code>PG_BASE_URL</code> 로 들어갑니다 — 코드는 안 바뀌고 환경변수만 바뀝니다(1단계의 Settings 가 여기서 빛을 봅니다).</div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="09-4-payment-webhook-verify.html"><span class="part-pager-dir">← 이전 단계</span><span class="part-pager-title">9단계 · 결제 웹훅</span></a>
+    <a class="part-pager-link next" href="10-2-deploy-impl-1.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">10-2 구현 ① 캐시</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 10단계 · 성능·관측성·배포 · 10-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

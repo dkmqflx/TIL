@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7단계 · 실시간 WebSocket · 7-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/xml.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <div class="nav-week active"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="07-1-realtime-ws-overview.html"><span class="sub-no">7-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">📻 비유 — 지점 스피커와 공용 방송</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="07-2-realtime-ws-impl.html"><span class="sub-no">7-2</span> 구현</a>
+      <a class="nav-sub" href="07-3-realtime-ws-verify.html"><span class="sub-no">7-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>7단계 · 실시간 WebSocket</b></div>
+    <h1>7-1 개요와 설계</h1>
+    <p class="lesson-subtitle">경매 화면에서 남이 입찰한 순간이 <em>새로고침 없이</em> 보이게 만듭니다. <code>WS /ws/auctions/{id}?token=…</code> 로 구독하면 현재 상태 한 장(snapshot)을 받고, 그 뒤로 입찰이 들어올 때마다 <code>bid_placed</code> 이벤트가 밀려옵니다. 핵심은 "uvicorn 워커가 2개, 4개여도 <strong>모든</strong> 구독자가 받는다" — 그 일을 Redis Pub/Sub 가 합니다. 그리고 그것을 <em>워커 2개를 실제로 띄워</em> 눈으로 확인합니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="07-1-realtime-ws-overview.html"><b>7-1</b> 개요와 설계</a>
+    <a class="step-part" href="07-2-realtime-ws-impl.html"><b>7-2</b> 구현</a>
+    <a class="step-part" href="07-3-realtime-ws-verify.html"><b>7-3</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code>가 <code>64 passed</code>를 찍고(그중 WebSocket 테스트 5개는 <em>진짜 uvicorn 자식 프로세스</em>에 붙습니다), <code>--workers 2</code>로 띄운 서버에 구독자 4명을 붙였을 때 snapshot 의 <code>served_by_pid</code>가 두 값으로 갈리는데도 입찰 이벤트는 4명 모두에게 도착하며, <code>redis-cli PUBLISH</code>로 직접 쏜 메시지까지 소켓에 그대로 나옵니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>HTTP 요청-응답으로는 안 되는 것(서버가 먼저 말 걸기)과 WebSocket 이 필요한 순간을 설명할 수 있다</li>
+    <li>서비스가 <em>커밋 뒤에</em> 도메인 이벤트를 발행하고, 발행자는 구독자를 모른다는 Pub/Sub 의 분리를 코드로 안다</li>
+    <li>프로세스(워커)마다 구독 루프 하나 + 프로세스 로컬 <code>ConnectionManager</code> 구조가 왜 필요한지 그림으로 설명한다</li>
+    <li>소켓 인증: <code>accept</code> 후 <code>4401</code>/<code>4404</code> 로 닫는 이유(핸드셰이크 403 과의 차이)를 안다</li>
+    <li>TestClient 대신 자식 프로세스 서버 + 실제 WebSocket 클라이언트로 테스트하는 이유와 방법을 안다</li>
+    <li>Redis Pub/Sub 의 한계(유실, at-most-once)와 snapshot 으로 보정하는 패턴을 안다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>6단계까지는 입찰을 <em>보내는</em> 쪽만 있었습니다. 남의 입찰을 보려면 <code>GET /auctions/{id}</code>를 계속 새로고침해야 했죠. 이번 단계가 끝나면 <code>ws://localhost:8000/ws/auctions/{id}?token=…</code> 에 소켓을 하나 열어 두는 것만으로, 누가 입찰하든 <code>{"type":"bid_placed","payload":{"amount":12000,"current_price":12000,"bid_count":2,…}}</code> 가 밀려옵니다. 붙자마자 <code>snapshot</code> 한 장(현재가·입찰 수·마감 시각)을 먼저 받으니 화면을 그리는 데 다른 요청이 필요 없습니다.</p>
+    <p>그리고 이 단계의 <strong>진짜 확인 포인트</strong>는 워커 2개입니다. <code>uvicorn --workers 2</code>는 프로세스를 두 개 띄우고, 브라우저마다 어느 프로세스에 붙을지는 운입니다. bob 의 입찰을 1번 워커가 처리했는데 carol 의 소켓은 2번 워커에 있다면? 1번 워커 메모리 속 소켓 목록엔 carol 이 없습니다. 이 문제를 Redis Pub/Sub 가 풀고, 그걸 리스너 4개로 직접 봅니다.</p>
+    <p><strong>전제.</strong> 6단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>59 passed</code>, 컨테이너 두 개 <code>(healthy)</code>. 새로 설치하는 것은 테스트·CLI 클라이언트용 <code>websockets</code> 하나(dev). 작업 위치는 <code>til/backend/fastapi/auction-api/</code>.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 새 파일 7개(<code>core/events.py</code>, <code>ws/manager.py</code>, <code>ws/bridge.py</code>, <code>ws/router.py</code>, <code>static/ws-demo.html</code>, <code>scripts/ws_listen.py</code>, <code>tests/test_ws.py</code>), 손보는 파일 2개(<code>services/bid.py</code>는 커밋 뒤 한 번 발행, <code>main.py</code>는 구독 루프 기동·라우터·정적 파일). 6단계의 규칙·락은 한 글자도 안 바뀝니다 — 실시간은 <em>덧붙이는</em> 층입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>경매 화면은 "지금 얼마인가"가 전부입니다. 5초마다 폴링하면 5초 늦은 값을 보여 주고, 마감 30초 전엔 그 5초가 승부를 가릅니다. 폴링 주기를 1초로 줄이면 사용자 1,000명이 초당 1,000번 <code>GET</code> 을 때립니다 — 대부분은 "바뀐 게 없다"는 응답입니다. <strong>서버가 바뀐 순간에만 말해 주는</strong> 쪽이 맞고, 그게 WebSocket 입니다(9주차·01).</p>
+    <p>WebSocket 자체는 9주차에 해 봤습니다. 실무에서 어려운 건 소켓이 아니라 <strong>"누가 누구에게 알리나"</strong> 입니다. 입찰을 처리한 코드(서비스)가 소켓 목록을 뒤져 직접 <code>send</code> 하면, (1) 서비스가 웹소켓을 알게 되고(계층 위반), (2) 워커가 여럿이면 <em>다른 프로세스</em>의 소켓엔 손이 닿지 않고, (3) 나중에 "입찰 시 Slack 알림"을 붙이려면 서비스를 또 고쳐야 합니다. 그래서 서비스는 <em>"경매 X 에 입찰이 있었다"</em> 만 방송하고 끝냅니다. 누가 듣는지는 모릅니다. 이번 단계엔 웹소켓 중계기가 듣고, 9단계엔 알림이 들을 수 있습니다.</p>
+    <p>방송 채널이 Redis Pub/Sub 입니다(9주차·02). 이미 3단계부터 붙어 있는 Redis 에 <code>PUBLISH auction:{id} …</code> 한 줄이면 됩니다. 워커마다 <code>PSUBSCRIBE auction:*</code> 로 듣고 있다가 자기 소켓에 뿌리니, 워커 수가 몇이든 같은 코드입니다. 10단계에서 <code>--workers</code> 를 늘려도, 나중에 서버를 두 대로 늘려도 바뀌지 않습니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무에서 같은 모양이 나오는 곳.</strong> 채팅방, 주문 상태 추적("배달 중 → 도착"), 협업 문서의 커서, 대시보드의 실시간 지표, 알림 벨. 전부 "어느 프로세스가 사건을 처리했든 관심 있는 모든 소켓에 전달"이고, 전부 브로커(Redis Pub/Sub, Kafka, NATS…)가 가운데 섭니다. 이 단계는 그중 가장 작은 버전입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">📻</div>
+      <h2>비유 — 지점 스피커와 공용 방송</h2>
+    </div>
+    <p><strong>지점 스피커와 공용 방송.</strong> 은행 지점이 두 곳 있고(워커 2개), 각 지점엔 대기 손님들(소켓)과 천장 스피커(<code>ConnectionManager</code>)가 있습니다. 1지점 창구에서 "통장 잔액이 바뀌었습니다"가 일어나면 1지점 스피커로는 1지점 손님에게만 들립니다. 2지점 손님은 모릅니다. 그래서 본점에 <strong>공용 방송 채널</strong>(Redis Pub/Sub)을 두고, 지점마다 <strong>수신기 하나</strong>(<code>bridge</code> 태스크)를 답니다. 창구 직원(서비스)은 일이 끝난 뒤(커밋 뒤) 본점 채널에 한 마디만 하고, 각 지점 수신기가 그걸 받아 <em>자기 지점</em> 스피커로 틀어 줍니다. 창구 직원은 몇 개 지점이 듣는지 모르고, 알 필요도 없습니다.</p>
+    <p><strong>입장 팔찌.</strong> 공연장 객석(경매 방)에 들어오려면 입구에서 팔찌(access 토큰)를 보여야 합니다. 그런데 팔찌가 없다고 입구 <em>문 자체를 안 열어 주면</em>(핸드셰이크 403) 손님은 왜 못 들어가는지 모릅니다. 문은 열어 주되(<code>accept</code>) 바로 "팔찌 없음"(<code>4401</code>)이라고 말하고 내보내는 게 우리 방식입니다. 객석에 앉으면 먼저 지금 무대 상황을 한 장 요약해 줍니다(snapshot). 그 뒤로는 무대에서 일이 날 때마다 스피커로 듣습니다.</p>
+    <p><strong>공용 방송의 성질.</strong> 방송은 그 순간 듣고 있는 사람에게만 들립니다. 화장실에 간 사이의 방송은 다시 틀어 주지 않습니다(Redis Pub/Sub 는 저장하지 않는다). 그래서 객석에 다시 앉을 때마다 요약(snapshot)을 다시 받습니다 — 놓친 방송은 요약으로 메웁니다. "한 건도 놓치면 안 되는" 알림(결제 완료 같은 것)은 방송이 아니라 <em>편지함</em>(큐·Streams)이 맞고, 그건 9주차·02 의 Pub/Sub vs Queue 그대로입니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>첫 그림은 <strong>워커 2개일 때 이벤트가 가는 길</strong>입니다. bob 의 입찰 HTTP 요청이 워커 A 에 떨어졌습니다. 서비스는 락·규칙·커밋을 끝내고(6단계) <code>events.publish()</code> 로 Redis 에 <code>PUBLISH auction:{id}</code> 를 보냅니다. 워커 A 와 B 는 각자 lifespan 에서 띄운 <code>bridge</code> 태스크로 <code>auction:*</code> 를 구독 중이라 <em>둘 다</em> 그 메시지를 받고, 각자의 <code>ConnectionManager</code> 에 적힌 <em>자기</em> 소켓들에게 <code>send_text</code> 합니다. carol 이 워커 B 에 붙어 있어도 받습니다. 서비스 코드는 소켓을 전혀 모릅니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 330" role="img" aria-label="워커 2개 구조: 워커 A 의 서비스가 Redis 에 PUBLISH, 워커 A·B 의 bridge 가 각각 구독해 자기 소켓에 브로드캐스트">
+        <defs><marker id="ah7" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="330" fill="#f8fafc" rx="12"/>
+        <rect x="20" y="20" width="300" height="290" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+        <text x="32" y="42" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">uvicorn 워커 A (pid 72960)</text>
+        <rect x="440" y="20" width="300" height="290" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+        <text x="452" y="42" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">uvicorn 워커 B (pid 72961)</text>
+        <rect x="36" y="58" width="130" height="40" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+        <text x="101" y="75" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">POST /bids (bob)</text>
+        <text x="101" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#14532d">services/bid.py</text>
+        <rect x="36" y="112" width="130" height="34" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="101" y="133" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#92400e">commit → publish()</text>
+        <rect x="190" y="58" width="116" height="40" rx="8" fill="#e0e7ff" stroke="#6366f1"/>
+        <text x="248" y="75" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">bridge 태스크</text>
+        <text x="248" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#312e81">PSUBSCRIBE auction:*</text>
+        <rect x="190" y="112" width="116" height="34" rx="8" fill="#e0e7ff" stroke="#6366f1"/>
+        <text x="248" y="133" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#312e81">ConnectionManager</text>
+        <rect x="190" y="170" width="52" height="26" rx="6" fill="#fff" stroke="#6366f1"/><text x="216" y="187" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#312e81">소켓 1</text>
+        <rect x="254" y="170" width="52" height="26" rx="6" fill="#fff" stroke="#6366f1"/><text x="280" y="187" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#312e81">소켓 3</text>
+        <rect x="610" y="58" width="116" height="40" rx="8" fill="#e0e7ff" stroke="#6366f1"/>
+        <text x="668" y="75" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">bridge 태스크</text>
+        <text x="668" y="90" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#312e81">PSUBSCRIBE auction:*</text>
+        <rect x="610" y="112" width="116" height="34" rx="8" fill="#e0e7ff" stroke="#6366f1"/>
+        <text x="668" y="133" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#312e81">ConnectionManager</text>
+        <rect x="610" y="170" width="52" height="26" rx="6" fill="#fff" stroke="#6366f1"/><text x="636" y="187" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#312e81">소켓 2</text>
+        <rect x="674" y="170" width="52" height="26" rx="6" fill="#fff" stroke="#6366f1"/><text x="700" y="187" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#312e81">소켓 4</text>
+        <rect x="456" y="58" width="130" height="40" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="4 3"/>
+        <text x="521" y="82" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#64748b">(이 요청은 여기 안 옴)</text>
+        <rect x="330" y="120" width="100" height="60" rx="10" fill="#fee2e2" stroke="#ef4444"/>
+        <text x="380" y="145" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#7f1d1d">Redis</text>
+        <text x="380" y="163" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7f1d1d">auction:{id}</text>
+        <line x1="166" y1="129" x2="328" y2="150" stroke="#f59e0b" stroke-width="2" marker-end="url(#ah7)"/>
+        <text x="236" y="156" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#92400e">PUBLISH</text>
+        <line x1="336" y1="118" x2="252" y2="100" stroke="#6366f1" stroke-width="2" marker-end="url(#ah7)"/>
+        <line x1="424" y1="118" x2="608" y2="98" stroke="#6366f1" stroke-width="2" marker-end="url(#ah7)"/>
+        <text x="470" y="106" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#312e81">message ×2</text>
+        <line x1="248" y1="146" x2="216" y2="168" stroke="#6366f1" marker-end="url(#ah7)"/>
+        <line x1="248" y1="146" x2="280" y2="168" stroke="#6366f1" marker-end="url(#ah7)"/>
+        <line x1="668" y1="146" x2="636" y2="168" stroke="#6366f1" marker-end="url(#ah7)"/>
+        <line x1="668" y1="146" x2="700" y2="168" stroke="#6366f1" marker-end="url(#ah7)"/>
+        <text x="380" y="230" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">리스너 4개를 붙였을 때 실제로 1·3 은 pid 72961, 2·4 는 72960 에 붙었고 — 넷 다 두 입찰을 받았다</text>
+        <text x="380" y="250" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#475569">서비스는 소켓을 모른다 · bridge 는 서비스를 모른다 · 둘을 잇는 건 채널 이름 하나</text>
+        <text x="380" y="285" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#7f1d1d">redis-cli PUBLISH auction:… → (integer) 2   ← 받은 구독자 = 워커 수</text>
+      </svg>
+    </div>
+    <p>둘째 그림은 <strong>소켓 하나의 일생</strong>입니다. 순서가 곧 규칙입니다. <code>accept</code> 를 먼저 하고 나서 토큰을 봅니다(그래야 close 코드를 보낼 수 있습니다). 토큰이 틀리면 <code>4401</code>, 경매가 없으면 <code>4404</code> — 4000번대는 앱이 마음대로 정하는 구간이라 HTTP 의 401/404 를 흉내 냈습니다. 통과하면 snapshot 을 <em>먼저</em> 보내고 그다음에 장부(<code>ConnectionManager</code>)에 적습니다. 장부에 적히는 순간부터 방송을 받습니다. 클라이언트가 끊으면 <code>WebSocketDisconnect</code> 가 나고, <code>finally</code> 에서 장부에서 지웁니다. DB 세션은 인증·snapshot 두 순간에만 열었다 닫습니다 — 소켓이 살아 있는 몇 분 동안 커넥션을 쥐고 있으면 풀(기본 5개)이 금방 마릅니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 150" role="img" aria-label="소켓 수명: accept → 토큰 검사(4401) → 경매 확인(4404) → snapshot → 장부 등록 → 이벤트 수신 → 끊김 → 장부 삭제">
+        <defs><marker id="ah7b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="150" fill="#f8fafc" rx="12"/>
+        <rect x="14" y="36" width="90" height="46" rx="8" fill="#dbeafe" stroke="#3b82f6"/><text x="59" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#1e3a8a">① accept</text><text x="59" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1e3a8a">문을 연다</text>
+        <rect x="118" y="36" width="110" height="46" rx="8" fill="#fee2e2" stroke="#ef4444"/><text x="173" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#7f1d1d">② 토큰?</text><text x="173" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7f1d1d">아니면 close 4401</text>
+        <rect x="242" y="36" width="110" height="46" rx="8" fill="#fee2e2" stroke="#ef4444"/><text x="297" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#7f1d1d">③ 경매?</text><text x="297" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7f1d1d">없으면 close 4404</text>
+        <rect x="366" y="36" width="100" height="46" rx="8" fill="#fef3c7" stroke="#f59e0b"/><text x="416" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#92400e">④ snapshot</text><text x="416" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#92400e">현재 상태 1장</text>
+        <rect x="480" y="36" width="100" height="46" rx="8" fill="#e0e7ff" stroke="#6366f1"/><text x="530" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#312e81">⑤ 장부 등록</text><text x="530" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#312e81">manager.connect</text>
+        <rect x="594" y="36" width="152" height="46" rx="8" fill="#dcfce7" stroke="#22c55e"/><text x="670" y="55" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">⑥ 방송 수신 … 끊김</text><text x="670" y="71" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#14532d">finally: disconnect</text>
+        <line x1="104" y1="59" x2="116" y2="59" stroke="#64748b" marker-end="url(#ah7b)"/><line x1="228" y1="59" x2="240" y2="59" stroke="#64748b" marker-end="url(#ah7b)"/><line x1="352" y1="59" x2="364" y2="59" stroke="#64748b" marker-end="url(#ah7b)"/><line x1="466" y1="59" x2="478" y2="59" stroke="#64748b" marker-end="url(#ah7b)"/><line x1="580" y1="59" x2="592" y2="59" stroke="#64748b" marker-end="url(#ah7b)"/>
+        <path d="M118,96 L466,96" stroke="#f59e0b" stroke-width="2"/><text x="292" y="112" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#92400e">②~④ 만 DB 세션을 연다 (SessionLocal 을 직접, 짧게)</text>
+        <text x="380" y="136" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#64748b">accept 전에 close 하면 서버는 HTTP 403 으로 핸드셰이크를 거절한다 — 클라이언트는 "왜" 를 모른다</text>
+      </svg>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>왜 snapshot 을 보내고 <em>그다음</em> 장부에 적나.</strong> 반대로 하면 등록 직후 도착한 <code>bid_placed</code> 가 snapshot 보다 먼저 클라이언트에 닿아 화면이 옛 값으로 덮일 수 있습니다. 지금 순서에서도 snapshot 을 읽은 시각과 등록 사이의 몇 밀리초에 온 이벤트는 놓칠 수 있는데, 다음 이벤트가 <code>bid_count</code>·<code>version</code> 을 통째로 실어 오므로 화면은 곧 맞춰집니다. "이벤트에 <em>증분</em>이 아니라 <em>현재 값</em>을 싣는다"가 이런 유실을 무해하게 만듭니다.</div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="06-3-bids-concurrency-verify.html"><span class="part-pager-dir">← 이전 단계</span><span class="part-pager-title">6단계 · 입찰과 동시성</span></a>
+    <a class="part-pager-link next" href="07-2-realtime-ws-impl.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">7-2 구현</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 7단계 · 실시간 WebSocket · 7-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

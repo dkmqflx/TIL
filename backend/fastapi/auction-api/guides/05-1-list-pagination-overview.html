@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5단계 · 목록·페이지네이션 · 5-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <div class="nav-week active"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="05-1-list-pagination-overview.html"><span class="sub-no">5-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">🔖 비유 — 책갈피와 주방</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="05-2-list-pagination-impl.html"><span class="sub-no">5-2</span> 구현</a>
+      <a class="nav-sub" href="05-3-list-pagination-verify.html"><span class="sub-no">5-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>5단계 · 목록·페이지네이션</b></div>
+    <h1>5-1 개요와 설계</h1>
+    <p class="lesson-subtitle"><code>GET /auctions</code>에 <strong>커서 페이지네이션</strong>, <strong>필터·정렬</strong>을 붙이고, 판매자 정보를 함께 실으면서도 쿼리가 <strong>딱 두 번</strong>만 나가게 만듭니다. "N+1이 없다"를 감으로 믿지 않고 <em>쿼리를 세는 테스트</em>로 증명하는 것이 이 단계의 핵심입니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="05-1-list-pagination-overview.html"><b>5-1</b> 개요와 설계</a>
+    <a class="step-part" href="05-2-list-pagination-impl.html"><b>5-2</b> 구현</a>
+    <a class="step-part" href="05-3-list-pagination-verify.html"><b>5-3</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code>가 <code>42 passed</code>를 찍고, 경매 12건을 <code>limit=5</code>로 세 장에 걸쳐 넘기며 마지막 장의 <code>next_cursor</code>가 <code>null</code>이 되는 것, 커서를 열어 보면 마지막 항목의 <code>(정렬 기준, 마감 시각, id)</code>가 들어 있는 것, 그리고 SQL 로그에 <code>SELECT</code>가 정확히 두 줄(경매 + 판매자 <code>IN (...)</code>)만 찍히는 것을 확인합니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>offset 페이지네이션이 "밀리는" 이유와 keyset(커서) 방식이 그것을 어떻게 피하는지 설명할 수 있다</li>
+    <li>정렬 키가 같은 행(동점)을 <code>id</code>로 갈라 페이지 경계에서 중복·누락이 없게 만든다</li>
+    <li>커서를 불투명 토큰으로 만들고, 잘못된 커서를 422로 거부한다</li>
+    <li>쿼리스트링 여러 개를 Pydantic 모델 하나로 받아 검증한다</li>
+    <li><code>selectinload</code>로 N+1을 없애고, SQLAlchemy 이벤트로 쿼리 수를 세어 테스트로 고정한다</li>
+    <li>async SQLAlchemy에서 lazy load가 왜 막혀 있는지(<code>MissingGreenlet</code>) 이해한다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>4단계의 <code>GET /auctions/{id}</code>는 한 건입니다. 이번에는 <strong>목록</strong> — 사용자가 앱을 열자마자 보는 화면이자, 서비스에서 가장 많이 호출되는 API — 을 만듭니다. 끝나면 <code>GET /auctions?status=active&amp;category=books&amp;min_price=50000&amp;sort=ending_soon&amp;limit=20&amp;cursor=…</code>가 동작하고, 응답은 <code>{"items": [...], "next_cursor": "..." | null}</code> 모양입니다. 각 항목에는 판매자 닉네임이 함께 실리지만 쿼리는 항목 수와 무관하게 두 번입니다.</p>
+    <p><strong>전제.</strong> 4단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>28 passed</code>, 컨테이너 두 개 <code>(healthy)</code>. 새로 설치하는 패키지는 없습니다. 작업 위치는 <code>til/backend/fastapi/auction-api/</code>.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 새 파일 2개(<code>app/core/pagination.py</code>, <code>tests/test_auction_list.py</code>), 손보는 파일 6개(<code>tests/conftest.py</code>에 쿼리 카운터, <code>core/exceptions.py</code>에 예외 하나, <code>schemas/auction.py</code>에 목록용 스키마 4개, <code>repositories/auction.py</code>에 <code>list_page</code>, <code>services/auction.py</code>에 <code>list_auctions</code>, <code>routers/auctions.py</code>에 <code>GET ""</code>). 4단계에서 만든 함수는 한 줄도 바뀌지 않고 <em>더하기만</em> 합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>목록 API는 겉보기엔 <code>SELECT * FROM auctions LIMIT 20</code>이면 끝날 것 같지만, 실무에서 사고가 나는 지점이 세 군데 있습니다.</p>
+    <p><strong>첫째, 페이지가 밀립니다.</strong> 흔히 쓰는 <code>?page=3</code>(offset 40)은 "앞에서 40개 건너뛰고 20개"라는 뜻입니다. 그런데 경매는 실시간으로 새로 올라옵니다. 사용자가 2페이지를 보는 동안 경매가 3개 등록되면, 3페이지에는 2페이지에서 이미 본 항목 3개가 다시 나오고 그만큼의 새 항목은 영영 건너뛰어집니다. 마감 임박순 정렬이면 더 심합니다 — 매초 순서가 바뀌니까요. 그래서 실무에서는 "몇 번째부터"가 아니라 "<em>이 항목 다음부터</em>"를 기억하는 <strong>커서(keyset)</strong> 방식을 씁니다. 트위터·슬랙·GitHub API가 전부 이렇게 합니다.</p>
+    <p><strong>둘째, 필터가 늘어납니다.</strong> 상태, 카테고리, 가격대, 정렬 기준, 페이지 크기… 쿼리 파라미터가 일곱 개쯤 되면 라우터 함수 시그니처가 한 화면을 넘고, "최소가가 최대가보다 크면?" 같은 교차 검증을 넣을 자리가 없습니다. FastAPI는 쿼리스트링 전체를 <strong>Pydantic 모델 하나</strong>로 받을 수 있습니다. 4단계에서 본문에 했던 검증(범위, enum, 교차 검증)을 쿼리스트링에도 똑같이 적용합니다.</p>
+    <p><strong>셋째, N+1.</strong> 목록에 판매자 닉네임을 실으려면 경매마다 판매자를 찾아야 합니다. ORM이 편한 만큼 위험한 게 여기입니다 — <code>auction.seller.nickname</code> 한 줄이 항목마다 SELECT 하나를 몰래 날립니다. 20건 목록이 21번 쿼리, 50건이면 51번. 개발 PC에서는 눈치채지 못하다가 운영 DB에서 목록 API 하나가 커넥션 풀을 다 잡아먹습니다. 이번 단계는 이걸 <em>없애는</em> 것에 더해, <em>없다는 사실을 테스트로 고정</em>합니다. 누가 나중에 <code>selectinload</code> 한 줄을 지우면 CI가 빨간불을 켭니다.</p>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>목록 응답은 상세 응답과 다른 모델로.</strong> <code>AuctionRead</code>를 그대로 쓰고 싶어지지만, 목록 20건에 2,000자짜리 <code>description</code>을 다 실으면 응답이 수십 KB가 됩니다. 목록 카드에 보이는 것만 담은 <code>AuctionListItem</code>을 따로 둡니다. 판매자도 <code>{"id", "nickname"}</code>만 — 이메일을 목록에 실었다가 개인정보 이슈가 되는 사고는 실제로 흔합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🔖</div>
+      <h2>비유 — 책갈피와 주방 왕복</h2>
+    </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>offset은 페이지 번호, 커서는 책갈피입니다.</strong> 두꺼운 책을 읽다 멈출 때 "137쪽까지 읽었다"고 기억하면, 누군가 앞쪽에 페이지를 세 장 끼워 넣는 순간 137쪽은 다른 내용이 됩니다(이미 읽은 걸 또 읽거나, 세 장을 건너뜁니다). 책갈피는 다릅니다 — "<em>이 문장</em> 다음부터"를 물리적으로 기억하니 앞에 뭐가 끼워지든 상관없습니다. 커서에 들어 있는 것이 바로 그 "마지막 문장"입니다: 마지막으로 본 경매의 <code>(마감 시각, id)</code>. 다음 요청은 "이것보다 뒤인 것부터 20개"가 되고, 이건 인덱스가 바로 찾아 줍니다. offset 100,000은 10만 행을 세고 버려야 하지만, 커서는 몇 페이지째든 같은 속도입니다.</div>
+    </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>N+1은 주방을 스무 번 다녀오는 홀 직원입니다.</strong> 테이블 20개의 주문을 받아 놓고, 1번 테이블 음식 가져오고, 2번 테이블 음식 가져오고… 주방(DB)까지 스무 번 왕복합니다. 한 번에 "1번부터 20번까지 다 주세요"(<code>WHERE id IN (...)</code>)라고 하면 두 번이면 끝납니다. ORM의 <code>selectinload</code>가 정확히 이 "몰아서 한 번"입니다. 그리고 async SQLAlchemy는 홀 직원이 무심코 주방으로 걸어가는 것(lazy load) 자체를 막아 놓았습니다 — 그래서 N+1이 <em>조용히</em> 생기지는 않지만, 반복문 안에서 일부러 한 건씩 가져오면 똑같이 스무 번이 됩니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>첫 그림은 <strong>커서가 무엇을 기억하는가</strong>입니다. 목록을 <code>(ends_at, id)</code> 순으로 늘어놓고 다섯 개를 자르면, 커서에는 다섯 번째 항목의 키가 들어갑니다. 다음 요청은 <code>WHERE (ends_at, id) &gt; (커서)</code> — Postgres의 <em>행 비교</em>(row comparison)입니다. "마감이 더 늦거나, 마감이 같으면 id가 더 큰 것"을 한 식으로 씁니다. <code>LIMIT</code>은 요청한 것보다 하나 더(<code>limit+1</code>) 가져옵니다. 여섯 번째가 있으면 "다음 페이지 있음", 없으면 <code>next_cursor: null</code>. <code>COUNT(*)</code>를 따로 날리지 않아도 됩니다.</p>
+    <div class="diagram-card">
+      <svg viewBox="0 0 760 300" role="img" aria-label="keyset 커서 페이지네이션: (ends_at, id) 순으로 정렬된 행과 커서 위치">
+        <defs>
+          <marker id="arr5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/></marker>
+        </defs>
+        <text x="20" y="28" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">auctions 를 (ends_at, id) 오름차순으로 늘어놓으면</text>
+        <g font-family="JetBrains Mono, monospace" font-size="10.5">
+          <rect x="20" y="42" width="110" height="34" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.2"/><text x="75" y="56" text-anchor="middle" fill="#1a1d23">08:00 · b0b5</text><text x="75" y="70" text-anchor="middle" fill="#00695c">경매 2</text>
+          <rect x="136" y="42" width="110" height="34" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.2"/><text x="191" y="56" text-anchor="middle" fill="#1a1d23">08:00 · d17e</text><text x="191" y="70" text-anchor="middle" fill="#00695c">경매 1</text>
+          <rect x="252" y="42" width="110" height="34" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.2"/><text x="307" y="56" text-anchor="middle" fill="#1a1d23">09:00 · b578</text><text x="307" y="70" text-anchor="middle" fill="#00695c">경매 4</text>
+          <rect x="368" y="42" width="110" height="34" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.2"/><text x="423" y="56" text-anchor="middle" fill="#1a1d23">09:00 · c7db</text><text x="423" y="70" text-anchor="middle" fill="#00695c">경매 3</text>
+          <rect x="484" y="42" width="110" height="34" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="2.2"/><text x="539" y="56" text-anchor="middle" fill="#1a1d23">10:00 · 5bef</text><text x="539" y="70" text-anchor="middle" fill="#00695c">경매 5</text>
+          <rect x="600" y="42" width="110" height="34" rx="6" fill="#f3f4f6" stroke="#9ca3af" stroke-width="1.2"/><text x="655" y="56" text-anchor="middle" fill="#1a1d23">10:00 · 9c02</text><text x="655" y="70" text-anchor="middle" fill="#4b5563">경매 6</text>
+          <text x="730" y="64" fill="#9ca3af">…</text>
+        </g>
+        <path d="M20,84 L594,84" stroke="#009688" stroke-width="2"/>
+        <text x="307" y="100" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#00695c">1페이지 (limit=5) — 같은 08:00 끼리는 id 순: b0b5 &lt; d17e</text>
+
+        <line x1="594" y1="76" x2="594" y2="130" stroke="#ef4444" stroke-width="2" stroke-dasharray="4 3"/>
+        <rect x="430" y="132" width="310" height="52" rx="8" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="585" y="152" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#b91c1c">next_cursor = 마지막 항목의 키</text>
+        <text x="585" y="172" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#b91c1c">["ending_soon", "…T10:00:00+00:00", "5bef57a4-…"]</text>
+
+        <rect x="20" y="206" width="720" height="78" rx="8" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.2"/>
+        <text x="34" y="228" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#1d4ed8">2페이지 요청 = 커서 뒤부터</text>
+        <text x="34" y="250" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1d4ed8">SELECT … FROM auctions WHERE (ends_at, id) &gt; ('…10:00', '5bef…')</text>
+        <text x="34" y="270" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1d4ed8">ORDER BY ends_at ASC, id ASC LIMIT 6   ← limit+1: 6번째가 있으면 "다음 있음"</text>
+      </svg>
+      <div class="diagram-caption">키는 항상 <code>(정렬 컬럼, id)</code> 쌍이다. 마감 시각이 같은 행이 열 개여도 id가 순서를 확정하므로, 페이지 경계를 어디서 자르든 같은 행이 두 번 나오거나 빠지지 않는다. 회색 <code>경매 6</code>은 마감이 5와 같지만 id가 커서 2페이지 첫 줄이 된다.</div>
+    </div>
+    <p>둘째 그림은 <strong>N+1과 그 반대</strong>입니다. 왼쪽처럼 되는 코드는 이번 단계 테스트 안에 일부러 하나 들어 있습니다(<code>test_loading_seller_row_by_row_is_n_plus_one</code>) — "이렇게 하면 21번"을 눈으로 확인하고 나면 오른쪽 <code>selectinload</code> 한 줄이 왜 중요한지 잊지 않게 됩니다. 오른쪽의 두 번째 쿼리는 첫 쿼리로 얻은 <code>seller_id</code>들을 모아 <code>IN (...)</code> 한 방으로 판매자를 가져옵니다.</p>
+    <div class="diagram-card">
+      <svg viewBox="0 0 760 240" role="img" aria-label="N+1 쿼리와 selectinload 비교">
+        <defs>
+          <marker id="arr5b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/></marker>
+        </defs>
+        <text x="180" y="24" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#b91c1c">N+1 — 한 건씩 판매자 조회</text>
+        <rect x="30" y="40" width="300" height="34" rx="6" fill="#fef2f2" stroke="#ef4444" stroke-width="1.2"/>
+        <text x="180" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1a1d23">SELECT … FROM auctions LIMIT 21</text>
+        <g font-family="JetBrains Mono, monospace" font-size="9.5" fill="#b91c1c">
+          <rect x="30" y="90" width="140" height="22" rx="4" fill="#fff" stroke="#ef4444"/><text x="100" y="105" text-anchor="middle">SELECT users WHERE id=$1</text>
+          <rect x="190" y="90" width="140" height="22" rx="4" fill="#fff" stroke="#ef4444"/><text x="260" y="105" text-anchor="middle">SELECT users WHERE id=$1</text>
+          <rect x="30" y="118" width="140" height="22" rx="4" fill="#fff" stroke="#ef4444"/><text x="100" y="133" text-anchor="middle">SELECT users WHERE id=$1</text>
+          <rect x="190" y="118" width="140" height="22" rx="4" fill="#fff" stroke="#ef4444"/><text x="260" y="133" text-anchor="middle">SELECT users WHERE id=$1</text>
+          <text x="180" y="162" text-anchor="middle" font-size="12">… × 20</text>
+        </g>
+        <text x="180" y="196" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#b91c1c">쿼리 21번 · 항목이 늘수록 늘어난다</text>
+        <text x="180" y="214" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#6b7280">(async 에서는 lazy load 가 막혀 있어 반복문에서 직접 부를 때만 생긴다)</text>
+
+        <line x1="380" y1="30" x2="380" y2="220" stroke="#e5e7eb" stroke-width="1.5"/>
+
+        <text x="570" y="24" text-anchor="middle" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#00695c">selectinload — 몰아서 한 번</text>
+        <rect x="420" y="40" width="300" height="34" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.2"/>
+        <text x="570" y="62" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1a1d23">SELECT … FROM auctions LIMIT 21</text>
+        <line x1="570" y1="74" x2="570" y2="88" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr5b)"/>
+        <rect x="420" y="92" width="300" height="46" rx="6" fill="#e0f2f1" stroke="#009688" stroke-width="1.2"/>
+        <text x="570" y="110" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1a1d23">SELECT … FROM users</text>
+        <text x="570" y="128" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1a1d23">WHERE users.id IN ($1, $2, … $20)</text>
+        <text x="570" y="196" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" fill="#00695c">쿼리 2번 · 항목이 50개여도 2번</text>
+        <text x="570" y="214" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#6b7280">tests/test_auction_list.py 가 "== 2" 로 고정한다</text>
+      </svg>
+      <div class="diagram-caption">왼쪽은 이번 단계의 마지막 테스트가 일부러 재현하는 상황(1 + 20 = 21), 오른쪽은 <code>list_page</code>의 기본 동작(2). 둘 다 숫자로 테스트에 박혀 있다.</div>
+    </div>
+    <p>코드 배치는 4단계 그대로입니다. 커서를 만들고 푸는 순수 함수는 <code>core/pagination.py</code>, SQL은 <code>repositories/auction.py</code>의 <code>list_page</code>, "잘라내고 다음 커서 만들기"는 <code>services/auction.py</code>의 <code>list_auctions</code>, 쿼리스트링 검증은 <code>schemas/auction.py</code>의 <code>AuctionListParams</code>. 라우터는 여전히 한 줄입니다.</p>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="04-3-auction-crud-verify.html"><span class="part-pager-dir">← 이전 단계</span><span class="part-pager-title">4단계 · 경매 CRUD</span></a>
+    <a class="part-pager-link next" href="05-2-list-pagination-impl.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">5-2 구현</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 5단계 · 목록·페이지네이션 · 5-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

@@ -16,6 +16,24 @@
 - **완료**: 10단계 (2026-08-26) — `guides/10-deploy.html`(159KB), `planning/plan-step-10.md`. solution 태그 `step-10`(97 passed, 경고 0, ruff clean, `alembic check` clean). replay: `git archive step-09` → 가이드 블록만 적용 → run.sh 전부 통과 — 캐시 hit/miss, request-id 발급/유지, locust(블로킹 sleep 켬: p50 747ms·41.8 RPS → 끔: p50 19ms·145 RPS), Docker 이미지 빌드, prod compose 5개 컨테이너 healthy, 컨테이너 e2e(경매 ended·낙찰자 → checkout → mock_pg 웹훅 200 → payment paid), 워커 SIGTERM graceful, CI 동일 명령(ruff·alembic upgrade/check·97 passed) 통과. (fork가 replay 완료 후 마무리하지 못해 메인 세션이 결과 확인·태그.) 가이드는 `scratchpad/gen_step10_a.py`+`gen_step10_b.py`, replay 는 `replay10.py`+`replay10.sh`.
 - **전체 완료** — 가이드 11개(`index.html` + 01~10), 테스트 97개, 컨테이너 5개(app·worker·mock_pg·db·redis)로 e2e(가입→경매→입찰→마감→checkout→웹훅 paid) 통과. 사용자가 할 일: 가이드를 따라 `auction-api/` 안에 코드를 만들고 단계마다 커밋, `ci.yml` 은 `til/.github/workflows/auction-api-ci.yml` 로, `README.md` 회고 채우기.
   - 정리: solution 디렉터리(`~/Documents/auction-api-solution`)는 정답지로 남겨도 되고 지워도 된다. 컨테이너는 `docker compose down -v`(solution 쪽), 이미지는 `docker rmi auction-api:local`, 스크래치 replay 는 세션 종료 시 사라진다.
+## 문서 구조 — 2026-08-26 세부 분할
+
+단계당 HTML 한 장(44~159KB)이 너무 커서 **단계마다 3개 문서**로 쪼갰다. 원본 `guides/NN-<slug>.html` 10개는 삭제됐고(히스토리에 남음), 위쪽 단계별 기록에 적힌 파일명은 **분할 전 이름**이다.
+
+- `NN-1-<slug>-overview.html` — 한 줄 요약·학습 목표 + `#goal` `#why` `#analogy` `#design`
+- `NN-2-<slug>-impl.html` — `#impl` (구현). 각 `<h3>`에 `id="impl-1..N"`을 붙여 사이드바에서 바로 점프한다.
+- `NN-3-<slug>-verify.html` — `#run` `#done` `#pitfalls` `#refs` `#self-check`
+
+9·10단계는 `#impl`이 65KB·73KB라 둘로 더 갈라 **4개 문서**다 (`NN-2-…-impl-1` / `NN-3-…-impl-2` / `NN-4-…-verify`). 9단계는 `⑦ exceptions.py` 뒤에서, 10단계는 `⑤ 서비스 네 파일` 뒤에서 끊었다. 결과적으로 최대 파일이 159KB → 47KB.
+
+**수정 시 지켜야 할 것**
+
+- 사이드바는 **33개 파일 전부**가 각자 들고 있다. 단계 제목·파일명이 바뀌면 33개를 함께 고친다.
+- 페이저(`part-pager`)는 `index → 1-1 → … → 10-4 → index` 로 일직선이다. 문서를 추가/제거하면 앞뒤 문서의 페이저도 고친다.
+- 본문 위쪽 `.step-parts` 탭과 `index.html` 카드의 `.card-parts` 칩에도 같은 목록이 들어간다.
+- 새로 추가된 CSS(`.nav-sub` `.nav-anchors` `.step-crumb` `.step-parts`)는 공용 `self-study/assets/style.css` 가 아니라 **각 파일의 `<style>` 블록**에 있다(self-study 페이지에 영향 주지 않으려고).
+- 앵커 검증은 파이썬 링크 체커로 — 모든 `href` 의 대상 파일과 `#id` 가 실제로 있는지 확인.
+
 ## 가이드 코드 블록 헤더 규약 (replay 스크립트가 의존)
 
 - `code-filename` 첫 토큰이 **경로**(`app/models/base.py`)면 → 파일 전체로 쓴다.
@@ -27,7 +45,7 @@
 
 ## 재검증 방법 (매 단계 반복)
 
-가이드 `#impl`·`#run` 섹션의 `<pre><code>` 블록을 정규식으로 추출 → 스크래치 `replay/auction-api/`에서 순서대로 실행. 실행 전 solution 쪽 컨테이너를 `docker compose down`(이름 충돌), 끝나면 `down -v` 후 solution 쪽 다시 `up -d`.
+가이드 `#impl`·`#run` 섹션의 `<pre><code>` 블록을 정규식으로 추출(분할 후에는 `NN-2-*-impl*.html` 과 `NN-3/4-*-verify.html` 두 곳에서 뽑아 순서대로 이어 붙인다) → 스크래치 `replay/auction-api/`에서 순서대로 실행. 실행 전 solution 쪽 컨테이너를 `docker compose down`(이름 충돌), 끝나면 `down -v` 후 solution 쪽 다시 `up -d`.
 
 ## 검증 코드 위치
 

@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4단계 · 경매 CRUD · 4-2 구현 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <div class="nav-week active"><span class="wk-no">4</span> 4단계 · 경매 CRUD</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="04-1-auction-crud-overview.html"><span class="sub-no">4-1</span> 개요와 설계</a>
+      <a class="nav-sub active" href="04-2-auction-crud-impl.html"><span class="sub-no">4-2</span> 구현</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#impl-1">① tests/factories.py</a>
+        <a class="nav-item" href="#impl-2">② tests/test_auctions.py</a>
+        <a class="nav-item" href="#impl-3">③ 실패 확인 (RED)</a>
+        <a class="nav-item" href="#impl-4">④ app/core/exceptions.py</a>
+        <a class="nav-item" href="#impl-5">⑤ app/schemas/auction.py</a>
+        <a class="nav-item" href="#impl-6">⑥ app/repositories/auctio…</a>
+        <a class="nav-item" href="#impl-7">⑦ app/services/auction.py</a>
+        <a class="nav-item" href="#impl-8">⑧ app/routers/auctions.py</a>
+        <a class="nav-item" href="#impl-9">⑨ app/main.py</a>
+        <a class="nav-item" href="#impl-10">⑩ 통과 확인 (GREEN)</a>
+      </div>
+      <a class="nav-sub" href="04-3-auction-crud-verify.html"><span class="sub-no">4-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>4단계 · 경매 CRUD</b></div>
+    <h1>4-2 구현</h1>
+    <p class="lesson-subtitle">앞에서 그린 설계를 실제 파일로 옮깁니다. 아래 <strong>10개</strong>를 위에서부터 순서대로 따라 하면 됩니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="04-1-auction-crud-overview.html"><b>4-1</b> 개요와 설계</a>
+    <a class="step-part current" href="04-2-auction-crud-impl.html"><b>4-2</b> 구현</a>
+    <a class="step-part" href="04-3-auction-crud-verify.html"><b>4-3</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>여기서부터 손을 움직입니다.</strong> 설계 그림이 흐릿하면 <a href="04-1-auction-crud-overview.html#design">4-1 설계 그림</a>으로 잠깐 돌아갔다 오세요. 이 문서를 끝내면 <a href="04-3-auction-crud-verify.html">4-3 실행·확인</a>에서 결과를 확인합니다.</div>
+  </div>
+
+  <!-- ───────────────────────── 구현 ───────────────────────── -->
+  <section class="section" id="impl">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔧</div>
+      <h2>구현 — 파일을 하나씩 만든다</h2>
+    </div>
+    <p>순서는 <strong>테스트(실패) → 예외 계층 → 스키마 → 리포지토리 → 서비스 → 라우터 → 등록 → 통과</strong>입니다. 블록은 붙여넣으면 도는 전체 파일이고, <code>(수정)</code>이 붙은 것은 기존 파일을 통째로 이 내용으로 바꾸라는 뜻입니다.</p>
+
+    <h3 id="impl-1">① tests/factories.py — 경매 공장 추가</h3>
+    <p>3단계의 <code>create_user</code> 옆에 <code>create_auction</code>을 둡니다. 기본값은 "1분 전에 시작해 하루 뒤 마감하는, 시작가 10,000원, 입찰 0건의 <code>active</code> 경매"입니다. 테스트가 "입찰이 이미 있는 경매"를 원하면 <code>bid_count=1</code>처럼 아무 컬럼이나 덮어씁니다. 서비스를 거치지 않고 모델을 직접 만드는 이유는, 테스트의 <em>준비</em> 단계는 규칙 검사 대상이 아니기 때문입니다 — 규칙은 <em>검증</em> 단계에서 API를 통해 확인합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) tests/factories.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""테스트 데이터 공장. '유저 하나', '입찰 받는 중인 경매 하나' 를 한 줄로 만든다."""
+
+import uuid
+from datetime import UTC, datetime, timedelta
+
+from httpx2 import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import hash_password
+from app.models import Auction, AuctionCategory, AuctionStatus, User
+
+DEFAULT_PASSWORD = "secret123"
+
+
+async def create_user(
+    db: AsyncSession,
+    *,
+    email: str | None = None,
+    password: str = DEFAULT_PASSWORD,
+    nickname: str = "테스터",
+) -&gt; User:
+    user = User(
+        email=email or f"user-{uuid.uuid4().hex[:8]}@example.com",
+        password_hash=hash_password(password),
+        nickname=nickname,
+    )
+    db.add(user)
+    await db.flush()  # id, created_at 이 채워진다 (커밋은 아니다)
+    return user
+
+
+async def login_headers(
+    client: AsyncClient, email: str, password: str = DEFAULT_PASSWORD
+) -&gt; dict[str, str]:
+    res = await client.post("/auth/login", json={"email": email, "password": password})
+    assert res.status_code == 200, res.text
+    return {"Authorization": f"Bearer {res.json()['access_token']}"}
+
+
+async def create_auction(db: AsyncSession, seller: User, **overrides: object) -&gt; Auction:
+    """기본값: 1분 전에 시작해 하루 뒤 마감하는 active 경매, 시작가 10,000원, 입찰 0건.
+
+    overrides 로 아무 컬럼이나 덮어쓸 수 있다 (예: bid_count=1, status=AuctionStatus.ENDED).
+    """
+    now = datetime.now(UTC)
+    values: dict[str, object] = {
+        "seller_id": seller.id,
+        "title": "빈티지 필름 카메라",
+        "description": "",
+        "category": AuctionCategory.HOBBY,
+        "starting_price": 10_000,
+        "current_price": 10_000,
+        "min_increment": 1_000,
+        "starts_at": now - timedelta(minutes=1),
+        "ends_at": now + timedelta(days=1),
+        "status": AuctionStatus.ACTIVE,
+    }
+    values.update(overrides)
+    auction = Auction(**values)
+    db.add(auction)
+    await db.flush()
+    return auction</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>무엇이 바뀌었나.</strong> <code>datetime</code> import 두 줄, <code>Auction</code>·enum import, 그리고 맨 아래 <code>create_auction</code> 함수가 추가됐습니다. <code>create_user</code>·<code>login_headers</code>는 그대로입니다.</div>
+    </div>
+
+    <h3 id="impl-2">② tests/test_auctions.py — 먼저 실패하는 테스트 15개</h3>
+    <p>스펙의 규칙을 그대로 옮겼습니다. 등록 5개(201·예약·마감이 시작보다 빠름 422·타임존 없음 422·토큰 없음 401), 조회 2개(공개 200·없음 404), 수정 4개(판매자 200 + version 증가·남 403·입찰 있음 409·마감을 시작 앞으로 422), 취소 3개(200·재취소 409·입찰 있음 409), 껍데기 1개(없는 라우트도 <code>{"code","message"}</code>). 위의 두 헬퍼가 시각 문자열과 요청 본문을 만들어 줘서 각 테스트는 세 줄 안팎입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_auctions.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import uuid
+from datetime import UTC, datetime, timedelta
+
+from httpx2 import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import AuctionStatus
+from tests.factories import create_auction, create_user, login_headers
+
+
+def _iso(delta: timedelta) -&gt; str:
+    """지금 기준 delta 만큼 떨어진 시각을 ISO 문자열(타임존 포함)로."""
+    return (datetime.now(UTC) + delta).isoformat()
+
+
+def _payload(**overrides: object) -&gt; dict[str, object]:
+    body: dict[str, object] = {
+        "title": "맥북 프로 14 (2023)",
+        "description": "박스 풀셋",
+        "category": "electronics",
+        "starting_price": 1_500_000,
+        "min_increment": 10_000,
+        "ends_at": _iso(timedelta(days=3)),
+    }
+    body.update(overrides)
+    return body
+
+
+# ── 등록 ──────────────────────────────────────────────────────────────
+
+
+async def test_create_auction_returns_201_and_is_active(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller = await create_user(db_session)
+    headers = await login_headers(client, seller.email)
+
+    res = await client.post("/auctions", json=_payload(), headers=headers)
+
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["seller_id"] == str(seller.id)
+    assert body["status"] == "active"  # starts_at 을 안 주면 지금 시작
+    assert body["current_price"] == body["starting_price"] == 1_500_000
+    assert body["bid_count"] == 0 and body["winner_id"] is None and body["version"] == 0
+    assert body["created_at"] and body["updated_at"]
+
+
+async def test_create_with_future_start_is_scheduled(client: AsyncClient, db_session: AsyncSession):
+    seller = await create_user(db_session)
+    headers = await login_headers(client, seller.email)
+    payload = _payload(starts_at=_iso(timedelta(hours=1)), ends_at=_iso(timedelta(days=1)))
+
+    res = await client.post("/auctions", json=payload, headers=headers)
+
+    assert res.status_code == 201
+    assert res.json()["status"] == "scheduled"
+
+
+async def test_create_with_ends_before_starts_returns_422_envelope(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller = await create_user(db_session)
+    headers = await login_headers(client, seller.email)
+    payload = _payload(starts_at=_iso(timedelta(hours=2)), ends_at=_iso(timedelta(hours=1)))
+
+    res = await client.post("/auctions", json=payload, headers=headers)
+
+    assert res.status_code == 422
+    body = res.json()
+    assert body["code"] == "VALIDATION_ERROR"
+    assert body["message"]
+    assert any("ends_at" in str(e["loc"]) or "마감" in e["msg"] for e in body["errors"])
+
+
+async def test_create_with_naive_datetime_returns_422(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller = await create_user(db_session)
+    headers = await login_headers(client, seller.email)
+    naive = (datetime.now() + timedelta(days=1)).isoformat()  # 타임존 없음 → 거부
+
+    res = await client.post("/auctions", json=_payload(ends_at=naive), headers=headers)
+
+    assert res.status_code == 422
+    assert res.json()["code"] == "VALIDATION_ERROR"
+
+
+async def test_create_without_token_returns_401(client: AsyncClient):
+    res = await client.post("/auctions", json=_payload())
+    assert res.status_code == 401
+    assert res.json()["code"] == "UNAUTHORIZED"
+
+
+# ── 조회 ──────────────────────────────────────────────────────────────
+
+
+async def test_get_auction_is_public(client: AsyncClient, db_session: AsyncSession):
+    seller = await create_user(db_session)
+    auction = await create_auction(db_session, seller, title="공개 조회 테스트")
+
+    res = await client.get(f"/auctions/{auction.id}")  # 토큰 없이
+
+    assert res.status_code == 200
+    assert res.json()["title"] == "공개 조회 테스트"
+
+
+async def test_get_unknown_auction_returns_404_envelope(client: AsyncClient):
+    res = await client.get(f"/auctions/{uuid.uuid4()}")
+    assert res.status_code == 404
+    assert res.json() == {"code": "AUCTION_NOT_FOUND", "message": "경매를 찾을 수 없습니다"}
+
+
+# ── 수정 ──────────────────────────────────────────────────────────────
+
+
+async def test_seller_can_patch_title_and_version_bumps(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller = await create_user(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, seller.email)
+
+    url = f"/auctions/{auction.id}"
+    res = await client.patch(url, json={"title": "제목만 수정"}, headers=headers)
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["title"] == "제목만 수정"
+    assert body["starting_price"] == 10_000  # 안 보낸 필드는 그대로
+    assert body["version"] == 1
+
+
+async def test_other_user_cannot_patch_returns_403(client: AsyncClient, db_session: AsyncSession):
+    seller = await create_user(db_session)
+    other = await create_user(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, other.email)
+
+    res = await client.patch(f"/auctions/{auction.id}", json={"title": "남의 것"}, headers=headers)
+
+    assert res.status_code == 403
+    assert res.json()["code"] == "NOT_AUCTION_SELLER"
+
+
+async def test_patch_with_bids_returns_409(client: AsyncClient, db_session: AsyncSession):
+    seller = await create_user(db_session)
+    auction = await create_auction(db_session, seller, bid_count=1, current_price=11_000)
+    headers = await login_headers(client, seller.email)
+
+    url = f"/auctions/{auction.id}"
+    res = await client.patch(url, json={"title": "이미 입찰됨"}, headers=headers)
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "AUCTION_HAS_BIDS"
+
+
+async def test_patch_ends_at_before_starts_at_returns_422(
+    client: AsyncClient, db_session: AsyncSession
+):
+    seller = await create_user(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, seller.email)
+    too_early = (auction.starts_at - timedelta(minutes=5)).isoformat()
+
+    url = f"/auctions/{auction.id}"
+    res = await client.patch(url, json={"ends_at": too_early}, headers=headers)
+
+    assert res.status_code == 422
+    assert res.json()["code"] == "INVALID_PERIOD"
+
+
+# ── 취소 ──────────────────────────────────────────────────────────────
+
+
+async def test_seller_can_cancel(client: AsyncClient, db_session: AsyncSession):
+    seller = await create_user(db_session)
+    auction = await create_auction(db_session, seller)
+    headers = await login_headers(client, seller.email)
+
+    res = await client.post(f"/auctions/{auction.id}/cancel", headers=headers)
+
+    assert res.status_code == 200
+    assert res.json()["status"] == "cancelled"
+    await db_session.refresh(auction)
+    assert auction.status == AuctionStatus.CANCELLED
+
+
+async def test_cancel_twice_returns_409(client: AsyncClient, db_session: AsyncSession):
+    seller = await create_user(db_session)
+    auction = await create_auction(db_session, seller, status=AuctionStatus.CANCELLED)
+    headers = await login_headers(client, seller.email)
+
+    res = await client.post(f"/auctions/{auction.id}/cancel", headers=headers)
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "AUCTION_CLOSED"
+
+
+async def test_cancel_with_bids_returns_409(client: AsyncClient, db_session: AsyncSession):
+    seller = await create_user(db_session)
+    auction = await create_auction(db_session, seller, bid_count=2, current_price=12_000)
+    headers = await login_headers(client, seller.email)
+
+    res = await client.post(f"/auctions/{auction.id}/cancel", headers=headers)
+
+    assert res.status_code == 409
+    assert res.json()["code"] == "AUCTION_HAS_BIDS"
+
+
+# ── 표준 에러 껍데기 ──────────────────────────────────────────────────
+
+
+async def test_unknown_route_uses_standard_envelope(client: AsyncClient):
+    res = await client.get("/no-such-route")
+    assert res.status_code == 404
+    assert res.json() == {"code": "NOT_FOUND", "message": "Not Found"}</code></pre>
+    </div>
+
+    <h3 id="impl-3">③ 실패 확인 (RED)</h3>
+    <p>3단계와 다르게 <code>ModuleNotFoundError</code>가 아닙니다. 테스트는 앱 모듈을 직접 import하지 않고 HTTP로만 두드리니, 라우트가 없어서 전부 <code>404 {"detail":"Not Found"}</code>를 받습니다. 13개는 3단계 테스트라 그대로 통과합니다. 마지막 줄이 이렇게 나오면 정상입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# FAILED tests/test_auctions.py::test_create_auction_returns_201_and_is_active - assert 404...
+# ... (15줄)
+# 15 failed, 13 passed in 10.87s</code></pre>
+    </div>
+
+    <h3 id="impl-4">④ app/core/exceptions.py — 예외 계층과 핸들러 셋</h3>
+    <p>3단계 파일을 <em>계층</em>으로 키웁니다. 위쪽은 상태 코드별 부모(401·403·404·409·422), 아래쪽은 도메인별 자식입니다. 자식은 <code>code</code>와 <code>message</code> 두 줄만 덮어쓰고 상태 코드는 부모에게서 물려받습니다. 파일 맨 위 docstring의 트리를 먼저 보고 코드를 읽으세요.</p>
+    <p>핸들러가 셋이 됐습니다. <code>validation_error_handler</code>는 Pydantic 실패를 우리 껍데기에 담되 <code>errors</code>에 <code>loc</code>(어느 필드)·<code>msg</code>·<code>type</code>만 남깁니다 — 기본 목록에 딸려 오는 <code>input</code>은 사용자 입력을 그대로 되돌려 주고 <code>ctx</code>는 파이썬 객체라 JSON이 안 되는 경우가 있어 뺐습니다. <code>http_exception_handler</code>는 <em>Starlette</em>의 <code>HTTPException</code>을 잡습니다. FastAPI의 <code>HTTPException</code>은 그 자식이라 같이 잡히지만, 없는 라우트 404는 Starlette 라우터가 부모 클래스로 던지기 때문에 부모를 등록해야 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/core/exceptions.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""도메인 예외와 표준 에러 응답.
+
+서비스 계층은 HTTP 를 모른다 — HTTPException 대신 여기 있는 AppError 계열만 던진다.
+라우터 바깥의 핸들러가 AppError 를 {"code", "message"} 형태의 JSON 으로 번역한다.
+
+계층
+    AppError (400)
+    ├── UnauthorizedError (401)
+    ├── ForbiddenError (403)      ── NotAuctionSellerError
+    ├── NotFoundError (404)       ── AuctionNotFoundError
+    ├── ConflictError (409)       ── EmailAlreadyExistsError, AuctionHasBidsError
+    │   └── InvalidStateError     ── AuctionClosedError
+    └── UnprocessableError (422)  ── InvalidPeriodError
+FastAPI 가 내는 422(RequestValidationError) 와 404/405(StarletteHTTPException) 도
+같은 껍데기로 감싼다 → 클라이언트는 모든 에러를 한 가지 모양으로만 다루면 된다.
+"""
+
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+class AppError(Exception):
+    code = "APP_ERROR"
+    status_code = status.HTTP_400_BAD_REQUEST
+    message = "요청을 처리할 수 없습니다"
+
+    def __init__(self, message: str | None = None) -&gt; None:
+        if message is not None:
+            self.message = message
+        super().__init__(self.message)
+
+
+# ── 범용 (status 별 부모) ─────────────────────────────────────────────
+
+
+class UnauthorizedError(AppError):
+    code = "UNAUTHORIZED"
+    status_code = status.HTTP_401_UNAUTHORIZED
+    message = "인증이 필요합니다"
+
+
+class ForbiddenError(AppError):
+    code = "FORBIDDEN"
+    status_code = status.HTTP_403_FORBIDDEN
+    message = "권한이 없습니다"
+
+
+class NotFoundError(AppError):
+    code = "NOT_FOUND"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "찾을 수 없습니다"
+
+
+class ConflictError(AppError):
+    code = "CONFLICT"
+    status_code = status.HTTP_409_CONFLICT
+    message = "현재 상태에서는 처리할 수 없습니다"
+
+
+class InvalidStateError(ConflictError):
+    """상태 머신이 허용하지 않는 전이 (예: 끝난 경매를 취소)."""
+
+    code = "INVALID_STATE"
+
+
+class UnprocessableError(AppError):
+    """형식은 맞지만 의미가 틀린 입력 (예: 마감이 시작보다 빠름). FastAPI 의 422 와 같은 급."""
+
+    code = "UNPROCESSABLE"
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    message = "요청 값이 올바르지 않습니다"
+
+
+# ── 인증 ─────────────────────────────────────────────────────────────
+
+
+class EmailAlreadyExistsError(ConflictError):
+    code = "EMAIL_ALREADY_EXISTS"
+    message = "이미 가입된 이메일입니다"
+
+
+# ── 경매 ─────────────────────────────────────────────────────────────
+
+
+class AuctionNotFoundError(NotFoundError):
+    code = "AUCTION_NOT_FOUND"
+    message = "경매를 찾을 수 없습니다"
+
+
+class NotAuctionSellerError(ForbiddenError):
+    code = "NOT_AUCTION_SELLER"
+    message = "경매 판매자만 할 수 있습니다"
+
+
+class AuctionHasBidsError(ConflictError):
+    code = "AUCTION_HAS_BIDS"
+    message = "이미 입찰이 있는 경매는 수정하거나 취소할 수 없습니다"
+
+
+class AuctionClosedError(InvalidStateError):
+    code = "AUCTION_CLOSED"
+    message = "이미 끝났거나 취소된 경매입니다"
+
+
+class InvalidPeriodError(UnprocessableError):
+    code = "INVALID_PERIOD"
+    message = "마감 시각은 시작 시각보다 뒤여야 합니다"
+
+
+# ── 핸들러 ────────────────────────────────────────────────────────────
+
+
+async def app_error_handler(request: Request, exc: AppError) -&gt; JSONResponse:
+    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": exc.code, "message": exc.message},
+        headers=headers,
+    )
+
+
+async def validation_error_handler(request: Request, exc: RequestValidationError) -&gt; JSONResponse:
+    """Pydantic 검증 실패(422). 기본 응답은 {"detail": [...]} 인데, 우리 껍데기로 감싸고
+    필드별 상세는 "errors" 에 넣는다 — 프론트가 입력칸 옆에 메시지를 보여줄 때 쓴다.
+    (loc / msg / type 만 남긴다. 기본 목록에 딸려 오는 input·ctx 는 사용자 입력을 되돌려 주거나
+    파이썬 객체라 JSON 으로 못 만드는 경우가 있어 뺀다.)"""
+    errors = [{"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()]
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content={
+            "code": "VALIDATION_ERROR",
+            "message": "요청 값이 올바르지 않습니다",
+            "errors": errors,
+        },
+    )
+
+
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -&gt; JSONResponse:
+    """라우트 없음(404)·허용되지 않은 메서드(405) 같은 프레임워크 기본 에러도 같은 껍데기로."""
+    codes = {404: "NOT_FOUND", 405: "METHOD_NOT_ALLOWED"}
+    code = codes.get(exc.status_code, f"HTTP_{exc.status_code}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": code, "message": exc.detail},
+        headers=exc.headers,
+    )
+
+
+def register_exception_handlers(app: FastAPI) -&gt; None:
+    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>무엇이 바뀌었나.</strong> import 3줄(<code>RequestValidationError</code>, <code>StarletteHTTPException</code>, docstring 트리), 범용 부모 5개(<code>ForbiddenError</code>·<code>NotFoundError</code>·<code>ConflictError</code>·<code>InvalidStateError</code>·<code>UnprocessableError</code>), 경매 예외 5개, 핸들러 2개 추가, <code>register_exception_handlers</code>에 등록 2줄. <code>EmailAlreadyExistsError</code>는 부모가 <code>AppError</code>에서 <code>ConflictError</code>로 바뀌었을 뿐 동작은 같습니다.</div>
+    </div>
+
+    <h3 id="impl-5">⑤ app/schemas/auction.py — 요청·응답 모양</h3>
+    <p>여기는 <strong>형식</strong>만 봅니다. 제목 길이, 양수 가격, 최소 단위 100원 이상, 그리고 시각 두 가지. <code>_require_timezone</code>은 <code>2026-09-01T10:00:00</code>처럼 타임존이 없는 값을 거부합니다 — 서울 10시인지 UTC 10시인지 서버는 알 수 없고, 잘못 추측하면 경매가 9시간 일찍 끝납니다. <code>ends_after_starts</code>는 필드 둘을 함께 보는 <code>model_validator</code>입니다(<code>starts_at</code>을 안 주면 지금 기준). 둘 다 실패하면 422로 나가고, 핸들러가 껍데기를 씌웁니다.</p>
+    <p><code>AuctionUpdate</code>는 모든 필드가 <code>None</code> 기본값인 <em>부분 수정</em> 모델입니다. 시작가는 일부러 뺐습니다 — 가격을 바꾸고 싶으면 취소하고 다시 올리는 게 입찰자에게 공정합니다. <code>AuctionRead</code>는 <code>from_attributes=True</code>로 SQLAlchemy 객체에서 바로 만들어집니다(Week 6·01).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/schemas/auction.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""경매 요청/응답 모양. '형식' 검증은 여기서(422), '규칙' 검증은 서비스에서."""
+
+import uuid
+from datetime import UTC, datetime
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.models.enums import AuctionCategory, AuctionStatus
+
+
+def _require_timezone(value: datetime | None) -&gt; datetime | None:
+    """'2026-08-26T10:00:00' 처럼 타임존이 없는 시각은 서울인지 UTC 인지 알 수 없다 → 거부."""
+    if value is not None and value.tzinfo is None:
+        raise ValueError("타임존 정보가 필요합니다 (예: 2026-08-26T10:00:00Z 또는 +09:00)")
+    return value
+
+
+class AuctionCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=100)
+    description: str = Field(default="", max_length=2000)
+    category: AuctionCategory
+    starting_price: int = Field(gt=0, description="시작가(원)")
+    min_increment: int = Field(default=1000, ge=100, description="최소 입찰 단위(원)")
+    starts_at: datetime | None = Field(default=None, description="비우면 지금 바로 시작")
+    ends_at: datetime
+
+    _tz = field_validator("starts_at", "ends_at")(_require_timezone)
+
+    @model_validator(mode="after")
+    def ends_after_starts(self) -&gt; "AuctionCreate":
+        start = self.starts_at or datetime.now(UTC)
+        if self.ends_at &lt;= start:
+            raise ValueError("마감(ends_at)은 시작(starts_at)보다 뒤여야 합니다")
+        return self
+
+
+class AuctionUpdate(BaseModel):
+    """부분 수정. 보낸 필드만 바뀐다 (서비스가 exclude_unset=True 로 꺼낸다).
+    가격(starting_price)은 입찰 전이라도 못 바꾸게 뺐다 — 바꾸고 싶으면 취소 후 새로 등록."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = Field(default=None, max_length=2000)
+    min_increment: int | None = Field(default=None, ge=100)
+    ends_at: datetime | None = None
+
+    _tz = field_validator("ends_at")(_require_timezone)
+
+
+class AuctionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    seller_id: uuid.UUID
+    title: str
+    description: str
+    category: AuctionCategory
+    starting_price: int
+    current_price: int
+    min_increment: int
+    starts_at: datetime
+    ends_at: datetime
+    status: AuctionStatus
+    bid_count: int
+    winner_id: uuid.UUID | None
+    version: int
+    created_at: datetime
+    updated_at: datetime</code></pre>
+    </div>
+
+    <h3 id="impl-6">⑥ app/repositories/auction.py — 쿼리만</h3>
+    <p>두 함수뿐입니다. 5단계에서 목록·필터·정렬 쿼리가, 6단계에서 <code>FOR UPDATE</code> 잠금 조회가 이 파일에 붙습니다. 지금 굳이 파일을 나누는 이유는 그때 서비스 코드를 건드리지 않고 쿼리만 바꾸기 위해서입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/repositories/auction.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""auctions 테이블 접근. 쿼리만 있고 규칙은 없다."""
+
+import uuid
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Auction
+
+
+async def get(db: AsyncSession, auction_id: uuid.UUID) -&gt; Auction | None:
+    return await db.get(Auction, auction_id)
+
+
+async def add(db: AsyncSession, auction: Auction) -&gt; Auction:
+    db.add(auction)
+    await db.flush()  # INSERT → id / created_at 확보. 커밋은 서비스가 결정한다
+    return auction</code></pre>
+    </div>
+
+    <h3 id="impl-7">⑦ app/services/auction.py — 규칙의 집</h3>
+    <p>파일 맨 위 docstring의 상태 머신이 설계 그림 그대로입니다. 네 함수와 두 헬퍼를 보세요. <code>_ensure_seller</code>는 소유권, <code>_ensure_open_and_unbid</code>는 "열려 있고 입찰 없음"이라는 수정·취소 공통 조건입니다. 조건이 함수 이름으로 드러나니 <code>update</code>와 <code>cancel</code>은 "누가 → 어떤 상태에서 → 무엇을"이라는 문장처럼 읽힙니다. <code>update</code>의 <code>exclude_unset=True</code>가 부분 수정의 핵심입니다 — 요청 JSON에 <em>실제로 들어 있던</em> 키만 꺼내므로, <code>description</code>을 안 보내면 그대로 두고 <code>"description": ""</code>을 보내면 비웁니다. <code>version</code>은 바뀔 때마다 1씩 올립니다. 지금은 표시용이지만 6단계에서 "내가 본 버전 그대로인가"를 확인하는 낙관적 락의 재료가 됩니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/services/auction.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""경매 규칙. HTTP 를 모른다 — 도메인 예외(AppError 계열) 만 던진다.
+
+상태 머신 (한 곳에서만 바꾼다)
+    scheduled ──(시작 시각 도달, 8단계 워커)──▶ active ──(마감, 8단계)──▶ ended
+        └────────────(판매자 취소, 입찰 0건)────────┴──▶ cancelled
+"""
+
+import uuid
+from datetime import UTC, datetime
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import (
+    AuctionClosedError,
+    AuctionHasBidsError,
+    AuctionNotFoundError,
+    InvalidPeriodError,
+    NotAuctionSellerError,
+)
+from app.models import Auction, AuctionStatus, User
+from app.repositories import auction as auction_repo
+from app.schemas.auction import AuctionCreate, AuctionUpdate
+
+OPEN_STATUSES = {AuctionStatus.SCHEDULED, AuctionStatus.ACTIVE}
+
+
+def _now() -&gt; datetime:
+    return datetime.now(UTC)
+
+
+async def create(db: AsyncSession, seller: User, data: AuctionCreate) -&gt; Auction:
+    now = _now()
+    starts_at = data.starts_at or now
+    auction = Auction(
+        seller_id=seller.id,
+        title=data.title,
+        description=data.description,
+        category=data.category,
+        starting_price=data.starting_price,
+        current_price=data.starting_price,  # 입찰 전 현재가 = 시작가
+        min_increment=data.min_increment,
+        starts_at=starts_at,
+        ends_at=data.ends_at,
+        status=AuctionStatus.ACTIVE if starts_at &lt;= now else AuctionStatus.SCHEDULED,
+    )
+    await auction_repo.add(db, auction)
+    await db.commit()
+    await db.refresh(auction)  # DB 가 채운 created_at / updated_at 을 읽어 온다
+    return auction
+
+
+async def get(db: AsyncSession, auction_id: uuid.UUID) -&gt; Auction:
+    auction = await auction_repo.get(db, auction_id)
+    if auction is None:
+        raise AuctionNotFoundError()
+    return auction
+
+
+def _ensure_seller(auction: Auction, user: User) -&gt; None:
+    if auction.seller_id != user.id:
+        raise NotAuctionSellerError()
+
+
+def _ensure_open_and_unbid(auction: Auction) -&gt; None:
+    """수정·취소 공통 규칙: 아직 열려 있고(scheduled/active), 입찰이 하나도 없어야 한다."""
+    if auction.status not in OPEN_STATUSES:
+        raise AuctionClosedError()
+    if auction.bid_count &gt; 0:
+        raise AuctionHasBidsError()
+
+
+async def update(
+    db: AsyncSession, user: User, auction_id: uuid.UUID, data: AuctionUpdate
+) -&gt; Auction:
+    auction = await get(db, auction_id)
+    _ensure_seller(auction, user)
+    _ensure_open_and_unbid(auction)
+
+    changes = data.model_dump(exclude_unset=True)  # 요청에 실제로 담긴 필드만
+    if "ends_at" in changes and changes["ends_at"] &lt;= auction.starts_at:
+        raise InvalidPeriodError()
+    for field, value in changes.items():
+        setattr(auction, field, value)
+    auction.version += 1  # 6단계 낙관적 락의 재료 — 바뀔 때마다 1 증가
+
+    await db.commit()
+    await db.refresh(auction)
+    return auction
+
+
+async def cancel(db: AsyncSession, user: User, auction_id: uuid.UUID) -&gt; Auction:
+    auction = await get(db, auction_id)
+    _ensure_seller(auction, user)
+    _ensure_open_and_unbid(auction)
+
+    auction.status = AuctionStatus.CANCELLED
+    auction.version += 1
+    await db.commit()
+    await db.refresh(auction)
+    return auction</code></pre>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>서비스에는 <code>fastapi</code>가 없습니다.</strong> import 목록을 확인하세요. <code>HTTPException</code>도, <code>status</code>도 없습니다. 이 파일은 FastAPI 없이 파이썬 REPL에서 세션만 주면 그대로 호출할 수 있고, 8단계 워커가 바로 그렇게 씁니다.</div>
+    </div>
+
+    <h3 id="impl-8">⑧ app/routers/auctions.py — HTTP만</h3>
+    <p>네 라우트가 각각 한 줄입니다. 요청을 스키마로 받고, 로그인 사용자를 <code>CurrentUser</code>로 받고, 서비스에 넘기고, 결과를 <code>response_model</code>로 돌려줍니다. <code>GET</code>에는 <code>CurrentUser</code>가 없습니다 — 그래서 공개입니다. 경로가 <code>""</code>인 이유는 <code>prefix="/auctions"</code>와 합쳐 <code>/auctions</code>가 되게 하려는 것입니다(<code>"/"</code>로 쓰면 <code>/auctions/</code>가 되어 슬래시 없는 요청이 307로 튕깁니다).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/routers/auctions.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import uuid
+
+from fastapi import APIRouter, status
+
+from app.core.deps import CurrentUser, DbSession
+from app.schemas.auction import AuctionCreate, AuctionRead, AuctionUpdate
+from app.services import auction as auction_service
+
+router = APIRouter(prefix="/auctions", tags=["auctions"])
+
+
+@router.post("", response_model=AuctionRead, status_code=status.HTTP_201_CREATED)
+async def create_auction(data: AuctionCreate, user: CurrentUser, db: DbSession) -&gt; AuctionRead:
+    return await auction_service.create(db, user, data)
+
+
+@router.get("/{auction_id}", response_model=AuctionRead)
+async def read_auction(auction_id: uuid.UUID, db: DbSession) -&gt; AuctionRead:
+    return await auction_service.get(db, auction_id)  # 로그인 없이 누구나
+
+
+@router.patch("/{auction_id}", response_model=AuctionRead)
+async def update_auction(
+    auction_id: uuid.UUID, data: AuctionUpdate, user: CurrentUser, db: DbSession
+) -&gt; AuctionRead:
+    return await auction_service.update(db, user, auction_id, data)
+
+
+@router.post("/{auction_id}/cancel", response_model=AuctionRead)
+async def cancel_auction(auction_id: uuid.UUID, user: CurrentUser, db: DbSession) -&gt; AuctionRead:
+    return await auction_service.cancel(db, user, auction_id)</code></pre>
+    </div>
+
+    <h3 id="impl-9">⑨ app/main.py — 라우터 등록</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(수정) app/main.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from app.core.config import get_settings
+from app.core.db import engine
+from app.core.exceptions import register_exception_handlers
+from app.core.redis import redis_client
+from app.routers import auctions, auth, health, users
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -&gt; AsyncIterator[None]:
+    yield
+    await redis_client.aclose()
+    await engine.dispose()
+
+
+def create_app() -&gt; FastAPI:
+    settings = get_settings()
+    app = FastAPI(title="Auction API", debug=settings.debug, lifespan=lifespan)
+    register_exception_handlers(app)
+    app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(users.router)
+    app.include_router(auctions.router)
+    return app
+
+
+app = create_app()</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>무엇이 바뀌었나.</strong> import에 <code>auctions</code>, 맨 아래 <code>app.include_router(auctions.router)</code> 한 줄. 핸들러 등록은 <code>register_exception_handlers</code> 안에서 늘어났으니 여기는 손댈 게 없습니다.</div>
+    </div>
+
+    <h3 id="impl-10">⑩ 통과 확인 (GREEN)</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# ............................                                             [100%]
+# 28 passed in 10.78s
+uv run ruff check . &amp;&amp; uv run ruff format --check .
+# All checks passed!
+# 41 files already formatted</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) 이 단계가 끝난 뒤의 구조</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">auction-api/
+├── app/
+│   ├── core/         config.py  db.py  redis.py  exceptions.py(확장)  security.py  deps.py
+│   ├── models/       (2단계 그대로)
+│   ├── schemas/      user.py  auth.py  auction.py
+│   ├── repositories/ user.py  auction.py
+│   ├── services/     auth.py  auction.py
+│   ├── routers/      health.py  auth.py  users.py  auctions.py
+│   └── main.py
+└── tests/
+    ├── conftest.py  factories.py(확장)
+    ├── test_health.py  test_models.py  test_auth.py  test_auctions.py</code></pre>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="04-1-auction-crud-overview.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">4-1 개요와 설계</span></a>
+    <a class="part-pager-link next" href="04-3-auction-crud-verify.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">4-3 실행·확인</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 4단계 · 경매 CRUD · 4-2 구현 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2단계 · 모델링 + Alembic · 2-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <div class="nav-week active"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="02-1-models-alembic-overview.html"><span class="sub-no">2-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">📐 비유 — 설계도와 공사 일지</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="02-2-models-alembic-impl.html"><span class="sub-no">2-2</span> 구현</a>
+      <a class="nav-sub" href="02-3-models-alembic-verify.html"><span class="sub-no">2-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>2단계 · 모델링 + Alembic</b></div>
+    <h1>2-1 개요와 설계</h1>
+    <p class="lesson-subtitle">경매 도메인의 네 테이블(<code>users</code>·<code>auctions</code>·<code>bids</code>·<code>payments</code>)을 SQLAlchemy 2.0 모델로 정의하고, <strong>첫날부터 Alembic 마이그레이션으로</strong> DB에 만든 뒤, 제약과 인덱스가 실제로 걸렸는지 테스트로 확인합니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="02-1-models-alembic-overview.html"><b>2-1</b> 개요와 설계</a>
+    <a class="step-part" href="02-2-models-alembic-impl.html"><b>2-2</b> 구현</a>
+    <a class="step-part" href="02-3-models-alembic-verify.html"><b>2-3</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run alembic upgrade head</code> 한 줄로 DB 스키마가 만들어지고, <code>psql</code>로 들여다보면 CHECK 제약·인덱스·외래키가 전부 걸려 있으며, <code>uv run pytest -q</code>가 <code>4 passed</code>를 찍습니다. 아직 API는 없지만 3단계부터 만드는 모든 기능이 이 테이블 위에서 돕니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>SQLAlchemy 2.0의 <code>Mapped</code>/<code>mapped_column</code> 스타일로 모델을 쓰고, 공통 컬럼은 믹스인으로 뺀다</li>
+    <li>금액·시각·enum을 "실무에서 후회하지 않는 타입"으로 고른다 (BigInteger, timezone-aware, VARCHAR enum)</li>
+    <li>CHECK 제약·복합 인덱스·외래키 삭제 규칙을 <strong>DB 수준</strong>에 건다</li>
+    <li>Alembic async 환경을 설정하고 autogenerate → upgrade → check 흐름을 몸에 익힌다</li>
+    <li>테스트 인프라가 없어도 "커밋 없이 rollback"으로 DB를 더럽히지 않는 테스트를 쓴다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>이 단계가 끝나면 <strong>Postgres 안에 경매 서비스의 뼈대가 되는 네 테이블</strong>이 생깁니다. 사용자(<code>users</code>), 경매(<code>auctions</code>), 입찰(<code>bids</code>), 결제(<code>payments</code>)입니다. 테이블을 손으로 <code>CREATE TABLE</code> 하지 않고, 파이썬 모델을 쓰면 Alembic이 그걸 읽어 마이그레이션 파일을 만들어 주고, 그 파일을 실행해서 DB에 반영합니다. 나중에 컬럼을 하나 추가할 때도 같은 흐름을 반복하면 됩니다.</p>
+
+    <p><strong>전제.</strong> 1단계가 끝나 있어야 합니다. 즉 <code>docker compose ps</code>에서 <code>auction-db</code>·<code>auction-redis</code>가 <code>(healthy)</code>이고, <code>uv run pytest -q</code>가 <code>1 passed</code>여야 합니다. 이번 단계도 같은 디렉터리(<code>til/backend/fastapi/auction-api/</code>)에서 진행합니다.</p>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> <code>app/models/</code> 아래 7개 파일, <code>alembic/</code> 폴더와 <code>alembic.ini</code>, 마이그레이션 파일 1개, <code>tests/test_models.py</code>. 그리고 <code>pyproject.toml</code>의 ruff 설정을 조금 손봅니다. 9단계에서 쓸 <code>webhook_events</code> 테이블은 그때 새 마이그레이션으로 추가합니다 — "필요할 때 마이그레이션 하나 더"가 실무 리듬입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 필요한가 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-concept">🏢</div>
+      <h2>왜 필요한가 — 스키마는 첫날부터 마이그레이션으로</h2>
+    </div>
+    <p>self-study Week 5에서는 <code>Base.metadata.create_all()</code>로 테이블을 만들었습니다. 배울 때는 편하지만 실무에서는 거의 쓰지 않습니다. <code>create_all</code>은 "없는 테이블을 만든다"만 할 줄 알고, <strong>이미 있는 테이블에 컬럼을 추가하거나 타입을 바꾸는 것은 못 합니다.</strong> 서비스가 한 번이라도 배포되고 나면 그 뒤의 모든 변경은 "지금 있는 데이터를 살리면서 구조만 바꾸기"인데, 그걸 해 주는 게 마이그레이션 도구(Alembic)입니다. Week 10·02에서 배웠던 걸 이번엔 프로젝트 시작 시점에 씁니다. 나중에 도입하려고 하면 "지금 DB 상태를 어떻게 첫 마이그레이션으로 잡지?"라는 골치 아픈 문제가 생기기 때문입니다.</p>
+
+    <p>두 번째로 중요한 건 <strong>제약을 DB에 거는 습관</strong>입니다. "금액은 0보다 커야 한다", "마감은 시작보다 뒤여야 한다" 같은 규칙은 3단계 이후 Pydantic으로도 검사하지만, DB의 CHECK 제약은 마지막 방어선입니다. 6단계에서 수십 개의 요청이 동시에 같은 경매를 두드릴 때, 애플리케이션 코드의 검사만으로는 막을 수 없는 틈이 생기는데, DB 제약은 어떤 경로로 들어오든 예외 없이 막습니다. 관리자가 <code>psql</code>로 직접 데이터를 고치다가 실수해도 막습니다.</p>
+
+    <p>세 번째는 <strong>인덱스를 지금 잡는 것</strong>입니다. 5단계 목록 조회는 "상태가 active이면서 마감이 가까운 순"으로 정렬하고, 6단계는 "이 경매의 최고 입찰"을 수시로 찾습니다. 이 두 쿼리에 맞는 복합 인덱스(<code>(status, ends_at)</code>, <code>(auction_id, amount DESC)</code>)를 설계 시점에 같이 만들어 둡니다. 데이터가 쌓인 뒤에 인덱스를 추가하는 것도 마이그레이션으로 가능하지만, "왜 느리지?"를 겪고 나서 찾는 것보다 설계할 때 쿼리를 상상하며 잡는 편이 훨씬 쌉니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">📐</div>
+      <h2>비유 — 설계도, 공사 일지, 그리고 안전 규정</h2>
+    </div>
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>모델은 설계도, 마이그레이션은 공사 일지입니다.</strong> 건물의 설계도(<code>app/models/</code>)를 바꾸면, 현장에서는 "3층에 벽 하나 추가, 2층 창문 제거"처럼 <em>변경 작업만</em> 적은 공사 일지가 하나 생깁니다(<code>alembic/versions/xxx.py</code>). 일지는 날짜순으로 쌓이고, 어떤 현장이든 일지를 처음부터 순서대로 따라가면 같은 건물이 됩니다. <code>alembic upgrade head</code>는 "아직 안 한 일지를 전부 실행하라", <code>downgrade</code>는 "마지막 작업을 되돌려라"입니다. 반면 <code>create_all</code>은 "빈 땅에 설계도대로 한 번에 짓기"라서 이미 사람이 사는 건물에는 쓸 수 없습니다.</div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>CHECK 제약은 건축 안전 규정입니다.</strong> 설계자가 "이 벽은 하중을 버텨야 한다"를 깜빡해도, 검사관(DB)이 규정에 어긋나는 시공을 승인하지 않습니다. 애플리케이션 코드는 설계자이고 실수할 수 있지만, <code>CHECK (amount &gt; 0)</code>은 어떤 경로로 데이터가 들어오든 예외 없이 적용됩니다. 그래서 규칙 중에서도 "절대 깨지면 안 되는 것"은 DB에 새깁니다.</div>
+    </div>
+
+    <div class="callout callout-analogy">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>인덱스는 책 뒤의 색인입니다.</strong> "active인 경매를 마감 순으로"를 자주 찾는다면 그 순서로 정리된 색인(<code>(status, ends_at)</code>)을 미리 만들어 두면 됩니다. 색인이 없으면 매번 책을 처음부터 끝까지 넘겨야 하고(전체 스캔), 데이터가 10만 건이 되는 순간 체감됩니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 그림 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-pattern">🗺️</div>
+      <h2>설계 그림 — 네 테이블의 관계</h2>
+    </div>
+    <p>사용자 한 명은 여러 경매를 열 수 있고(판매자), 여러 입찰을 할 수 있으며(입찰자), 경매 하나에는 여러 입찰이 붙고, 낙찰되면 결제가 <strong>정확히 하나</strong> 생깁니다. <code>auctions</code>에서 <code>users</code>로 가는 화살표가 둘(<code>seller_id</code>, <code>winner_id</code>)이라는 점을 눈여겨보세요 — 코드에서 이걸 따로 알려 줘야 하는 지점이 있습니다.</p>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 760 330" role="img" aria-label="users, auctions, bids, payments 테이블 관계도">
+        <defs>
+          <marker id="fk" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/></marker>
+        </defs>
+        <!-- users -->
+        <rect x="20" y="110" width="170" height="110" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="105" y="133" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">users</text>
+        <text x="32" y="156" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1d4ed8">id  uuid PK</text>
+        <text x="32" y="172" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">email  unique</text>
+        <text x="32" y="188" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">password_hash</text>
+        <text x="32" y="204" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">nickname · created_at</text>
+        <!-- auctions -->
+        <rect x="290" y="20" width="200" height="200" rx="10" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="390" y="43" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">auctions</text>
+        <text x="302" y="66" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">id  uuid PK</text>
+        <text x="302" y="82" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">seller_id  → users  CASCADE</text>
+        <text x="302" y="98" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">winner_id? → users  SET NULL</text>
+        <text x="302" y="114" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">title · description · category</text>
+        <text x="302" y="130" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">starting/current_price  bigint</text>
+        <text x="302" y="146" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">min_increment · bid_count · version</text>
+        <text x="302" y="162" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">starts_at · ends_at  timestamptz</text>
+        <text x="302" y="178" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">status  scheduled|active|ended|cancelled</text>
+        <text x="302" y="200" font-family="JetBrains Mono, monospace" font-size="10" fill="#b45309">CHECK ×4 · ix(status, ends_at)</text>
+        <!-- bids -->
+        <rect x="570" y="20" width="170" height="110" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="655" y="43" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">bids</text>
+        <text x="582" y="66" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#b45309">id  uuid PK</text>
+        <text x="582" y="82" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">auction_id → auctions</text>
+        <text x="582" y="98" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">bidder_id  → users</text>
+        <text x="582" y="114" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">amount  bigint &gt; 0</text>
+        <text x="655" y="145" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#b45309">ix(auction_id, amount DESC)</text>
+        <!-- payments -->
+        <rect x="570" y="180" width="170" height="125" rx="10" fill="#fef2f2" stroke="#ef4444" stroke-width="1.5"/>
+        <text x="655" y="203" text-anchor="middle" font-family="Inter, sans-serif" font-size="13" font-weight="700" fill="#1a1d23">payments</text>
+        <text x="582" y="226" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#b91c1c">id  uuid PK</text>
+        <text x="582" y="242" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">auction_id → auctions  UNIQUE</text>
+        <text x="582" y="258" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">payer_id   → users</text>
+        <text x="582" y="274" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">amount · status · external_id?</text>
+        <text x="582" y="290" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#374151">expires_at · paid_at?</text>
+        <!-- arrows -->
+        <line x1="288" y1="80" x2="195" y2="140" stroke="#6b7280" stroke-width="2" marker-end="url(#fk)"/>
+        <line x1="288" y1="96" x2="195" y2="165" stroke="#6b7280" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#fk)"/>
+        <line x1="568" y1="80" x2="494" y2="80" stroke="#6b7280" stroke-width="2" marker-end="url(#fk)"/>
+        <path d="M568,96 C450,96 250,110 195,175" fill="none" stroke="#6b7280" stroke-width="2" marker-end="url(#fk)"/>
+        <line x1="568" y1="240" x2="494" y2="190" stroke="#6b7280" stroke-width="2" marker-end="url(#fk)"/>
+        <path d="M568,256 C400,300 250,290 195,200" fill="none" stroke="#6b7280" stroke-width="2" marker-end="url(#fk)"/>
+        <text x="380" y="318" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#6b7280">실선: NOT NULL FK · 점선: NULL 허용 FK · 화살표 방향 = 참조하는 쪽 → 참조되는 쪽</text>
+      </svg>
+      <div class="diagram-caption">users를 세 테이블이 참조하고, auctions는 users를 두 번(판매자·낙찰자) 참조한다. payments.auction_id는 UNIQUE라 경매당 결제 한 건.</div>
+    </div>
+
+    <p>두 번째 그림은 Alembic이 일하는 흐름입니다. 핵심은 <strong>모델과 DB 사이에 "파일"이 하나 끼어 있다</strong>는 점입니다. 모델을 고쳐도 DB는 바로 안 바뀝니다. <code>revision --autogenerate</code>가 모델과 DB의 차이를 계산해 파일로 적고, 그 파일을 검토한 뒤 <code>upgrade head</code>로 실행해야 비로소 DB가 바뀝니다. DB 안의 <code>alembic_version</code> 테이블이 "어느 일지까지 실행했는지"를 기억합니다.</p>
+
+    <div class="diagram-card">
+      <svg viewBox="0 0 760 170" role="img" aria-label="Alembic 흐름: 모델 → autogenerate → 마이그레이션 파일 → upgrade → DB">
+        <defs>
+          <marker id="al" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#009688"/></marker>
+        </defs>
+        <rect x="20" y="45" width="150" height="70" rx="10" fill="#e0f2f1" stroke="#009688" stroke-width="1.5"/>
+        <text x="95" y="72" text-anchor="middle" font-family="Inter, sans-serif" font-size="12.5" font-weight="700" fill="#1a1d23">app/models/</text>
+        <text x="95" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#00695c">Base.metadata</text>
+        <rect x="290" y="45" width="180" height="70" rx="10" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.5"/>
+        <text x="380" y="72" text-anchor="middle" font-family="Inter, sans-serif" font-size="12.5" font-weight="700" fill="#1a1d23">alembic/versions/</text>
+        <text x="380" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#b45309">8d6a…_create_….py</text>
+        <rect x="590" y="45" width="150" height="70" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="1.5"/>
+        <text x="665" y="72" text-anchor="middle" font-family="Inter, sans-serif" font-size="12.5" font-weight="700" fill="#1a1d23">Postgres</text>
+        <text x="665" y="92" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1d4ed8">alembic_version</text>
+        <line x1="172" y1="80" x2="286" y2="80" stroke="#009688" stroke-width="2.5" marker-end="url(#al)"/>
+        <text x="229" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#00695c">revision --autogenerate</text>
+        <line x1="472" y1="80" x2="586" y2="80" stroke="#009688" stroke-width="2.5" marker-end="url(#al)"/>
+        <text x="529" y="68" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#00695c">upgrade head</text>
+        <path d="M665,118 C665,150 95,150 95,118" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#al)"/>
+        <text x="380" y="158" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10" fill="#6b7280">alembic check: "모델과 DB가 같은가?" — 다르면 새 일지가 필요하다는 뜻</text>
+      </svg>
+      <div class="diagram-caption">모델을 바꾸면 → 일지를 만들고 → 실행한다. 세 단계가 분리돼 있어서 실행 전에 사람이 검토할 수 있다.</div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-3-skeleton-verify.html"><span class="part-pager-dir">← 이전 단계</span><span class="part-pager-title">1단계 · 뼈대와 설정</span></a>
+    <a class="part-pager-link next" href="02-2-models-alembic-impl.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">2-2 구현</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 2단계 · 모델링 + Alembic · 2-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

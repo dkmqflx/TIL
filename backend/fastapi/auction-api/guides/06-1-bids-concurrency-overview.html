@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>6단계 · 입찰과 동시성 · 6-1 개요와 설계 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <div class="nav-week active"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</div>
+    <div class="nav-week-group">
+      <a class="nav-sub active" href="06-1-bids-concurrency-overview.html"><span class="sub-no">6-1</span> 개요와 설계</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#goal">🎯 이 단계의 목표</a>
+        <a class="nav-item" href="#why">🏢 왜 필요한가</a>
+        <a class="nav-item" href="#analogy">🏦 비유 — 은행 창구 번호표</a>
+        <a class="nav-item" href="#design">🗺️ 설계 그림</a>
+      </div>
+      <a class="nav-sub" href="06-2-bids-concurrency-impl.html"><span class="sub-no">6-2</span> 구현</a>
+      <a class="nav-sub" href="06-3-bids-concurrency-verify.html"><span class="sub-no">6-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>6단계 · 입찰과 동시성</b></div>
+    <h1>6-1 개요와 설계</h1>
+    <p class="lesson-subtitle">이 프로젝트의 심장입니다. <code>POST /auctions/{id}/bids</code>가 네 가지 규칙(본인 금지 · active만 · 최소 금액 · 마감 직전 연장)을 지키게 만들고, <strong>50명이 같은 순간에 입찰해도</strong> 현재가와 입찰 수가 한 치도 어긋나지 않는다는 것을 <em>테스트로 증명</em>합니다. 무기는 <code>SELECT … FOR UPDATE</code> 한 줄입니다. 그리고 그 한 줄을 지우면 무엇이 깨지는지도 직접 봅니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part current" href="06-1-bids-concurrency-overview.html"><b>6-1</b> 개요와 설계</a>
+    <a class="step-part" href="06-2-bids-concurrency-impl.html"><b>6-2</b> 구현</a>
+    <a class="step-part" href="06-3-bids-concurrency-verify.html"><b>6-3</b> 실행·확인</a>
+  </div>
+
+
+  <div class="tip-box"><strong>한 줄 요약.</strong> 이 문서를 끝내면 <code>uv run pytest -q</code>가 <code>59 passed</code>를 찍고(그중 동시 입찰 테스트 2개), <code>with_for_update()</code> 한 줄을 지우고 다시 돌리면 <code>current_price 50000 != 59000</code> 같은 <em>lost update</em>가 눈앞에서 재현되며, psql 두 창으로 한쪽이 잠근 행을 다른 쪽이 <code>Lock / transactionid</code> 상태로 기다리는 것을 <code>pg_stat_activity</code>에서 확인합니다.</div>
+
+  <h3>학습 목표</h3>
+  <ul class="checklist">
+    <li>"읽고 → 판단하고 → 쓰는" 사이에 다른 요청이 끼어들면 무엇이 깨지는지(lost update) 설명할 수 있다</li>
+    <li><code>SELECT … FOR UPDATE</code>(비관적 락)로 경매 행 하나를 잠가 입찰을 한 줄로 세운다</li>
+    <li>비관적 락과 낙관적 락(<code>version</code>)의 차이와 각각이 맞는 상황을 안다</li>
+    <li>Redis <code>INCR</code>로 사용자별 초당 입찰 횟수를 제한한다</li>
+    <li>롤백 fixture로는 동시성을 테스트할 수 없는 이유를 알고, 실제 커밋 세션 50개 + <code>asyncio.gather</code>로 증명한다</li>
+    <li>시간에 의존하는 규칙(스나이핑 연장·rate limit)을 테스트에서 시계를 멈춰 결정적으로 검증한다</li>
+  </ul>
+
+  <!-- ───────────────────────── 1. 목표 ───────────────────────── -->
+  <section class="section" id="goal">
+    <div class="section-header">
+      <div class="section-icon icon-teal">🎯</div>
+      <h2>이 단계의 목표</h2>
+    </div>
+    <p>4~5단계까지의 경매는 <em>구경만</em> 할 수 있었습니다. 이번에는 돈을 겁니다. 끝나면 <code>POST /auctions/{id}/bids</code>에 <code>{"amount": 11000}</code>을 보내면 규칙에 맞을 때만 201이 오고, 응답에는 내 입찰과 함께 경매의 바뀐 <code>current_price</code>·<code>bid_count</code>·<code>ends_at</code>·<code>version</code>이 실립니다. <code>GET /auctions/{id}/bids</code>로 누구나 입찰 내역을 볼 수 있습니다.</p>
+    <p>하지만 이 단계의 진짜 산출물은 API가 아니라 <strong>테스트 두 개</strong>입니다. 50개의 코루틴이 각자 DB 커넥션을 들고 같은 경매에 동시에 입찰했을 때, (1) <code>current_price</code>가 받아들여진 입찰 중 최댓값이고 (2) <code>bid_count</code>가 <code>bids</code> 테이블 행 수와 같고 (3) 같은 금액을 50명이 동시에 넣으면 정확히 한 명만 성공하는 것을 확인합니다. 락을 빼면 이 테스트가 깨집니다 — 그걸 <em>직접 깨뜨려 보는 것</em>까지가 이번 단계입니다.</p>
+    <p><strong>전제.</strong> 5단계가 끝나 있어야 합니다. <code>uv run pytest -q</code> → <code>42 passed</code>, 컨테이너 두 개 <code>(healthy)</code>. 새로 설치하는 패키지는 없습니다(Redis는 3단계부터 붙어 있습니다). 작업 위치는 <code>til/backend/fastapi/auction-api/</code>.</p>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>이번 단계에서 만드는 것.</strong> 새 파일 6개(<code>repositories/bid.py</code>, <code>schemas/bid.py</code>, <code>services/bid.py</code>, <code>routers/bids.py</code>, <code>tests/test_bids.py</code>, <code>tests/test_bids_concurrency.py</code>), 손보는 파일 5개(<code>pyproject.toml</code>에 마커, <code>core/config.py</code>에 설정 3개, <code>core/exceptions.py</code>에 429 부모와 입찰 예외 4개, <code>repositories/auction.py</code>에 <code>get_for_update</code>, <code>main.py</code>에 라우터 등록). 5단계까지의 함수는 하나도 바뀌지 않고 <em>더하기만</em> 합니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 2. 왜 ───────────────────────── -->
+  <section class="section" id="why">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏢</div>
+      <h2>왜 필요한가 — 실무 맥락</h2>
+    </div>
+    <p>경매 서비스가 망하는 방법은 하나입니다. "내가 더 높게 불렀는데 낙찰자가 딴 사람" — 이 문의가 한 번이라도 들어오면 신뢰는 끝입니다. 그런데 그 사고는 코드가 <em>틀려서</em>가 아니라 <em>동시에 실행돼서</em> 납니다.</p>
+    <p>입찰 처리는 세 동작입니다. 현재가를 <strong>읽고</strong>, 내 금액이 충분한지 <strong>판단하고</strong>, 현재가를 내 금액으로 <strong>씁니다</strong>. 혼자 있을 땐 완벽합니다. 문제는 bob과 carol이 0.01초 차이로 들어왔을 때입니다. 둘 다 현재가 10,000을 <em>읽고</em>, bob은 11,000·carol은 12,000이 충분하다고 <em>판단하고</em>, bob이 11,000을 <em>쓴</em> 직후 carol이 12,000을 씁니다 — 여기까진 운 좋게 맞습니다. 순서가 반대면? carol이 12,000을 쓴 뒤 bob이 11,000을 덮어씁니다. 현재가 11,000, 그런데 <code>bids</code> 테이블엔 12,000이 있습니다. <code>bid_count</code>는 둘 다 0을 읽어 1을 썼으니 1입니다. 행은 2개인데. 이것이 <strong>lost update</strong>이고, 부하 테스트 없이는 개발 PC에서 절대 안 보입니다.</p>
+    <p>4단계에서 4주차 내용을 떠올리면 "async라서 한 번에 하나씩 도는 거 아닌가?" 싶을 수 있습니다. 이벤트 루프는 파이썬 코드를 한 번에 하나만 돌리지만, <code>await db.execute(...)</code>에서 멈춰 있는 동안 다른 요청의 코드가 돌아갑니다. 읽기와 쓰기 사이에 <code>await</code>가 있으면 그 사이에 누가 끼어듭니다. 게다가 10단계에서 uvicorn 워커를 여러 개 띄우면 프로세스 자체가 여럿입니다. 파이썬 쪽에서 막을 방법은 없고, <strong>DB에 부탁</strong>해야 합니다.</p>
+    <p>Postgres에게 부탁하는 문장이 <code>SELECT … FOR UPDATE</code>입니다. "이 행은 내 트랜잭션이 끝날 때까지 나만 만진다" — 같은 행을 <code>FOR UPDATE</code>로 읽으려는 다른 트랜잭션은 <em>줄을 섭니다</em>. 내가 커밋하면 다음 사람이 들어오는데, 그 사람은 <em>내가 바꾼 현재가</em>를 봅니다. 읽기·판단·쓰기가 한 덩어리가 됩니다. 이 단계는 그 한 줄을 어디에 두는지, 왜 그 자리인지, 그리고 없으면 정말 깨지는지를 다룹니다.</p>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>실무에서 이 패턴이 나오는 곳.</strong> 재고 차감(마지막 1개를 두 명이 동시에 주문), 포인트 사용(잔액 1,000인데 900짜리 두 번), 좌석 예약, 쿠폰 발급 한도, 선착순 이벤트. 전부 "읽고 판단하고 쓰기"이고 전부 같은 답입니다. 면접에서 "동시성 처리 경험"을 물으면 이 단계 이야기를 하면 됩니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 3. 비유 ───────────────────────── -->
+  <section class="section" id="analogy">
+    <div class="section-header">
+      <div class="section-icon icon-setup">🏦</div>
+      <h2>비유 — 은행 창구 번호표</h2>
+    </div>
+    <p><strong>은행 창구의 번호표.</strong> 통장 하나에 두 사람이 동시에 입금하러 왔다고 해 봅시다. 창구 직원이 둘을 <em>동시에</em> 받으면, 둘 다 "잔액 10만 원"을 보고 각자 더한 값을 적어 넣다가 한쪽 입금이 사라집니다. 그래서 은행은 번호표를 뽑게 합니다. 1번이 창구에서 통장을 만지는 동안 2번은 의자에 앉아 기다리고, 1번이 끝나면(커밋) 2번이 <em>1번이 갱신한 잔액</em>을 보고 시작합니다. <code>SELECT … FOR UPDATE</code>가 번호표이고, 트랜잭션이 "창구에 앉아 있는 시간"이며, <code>commit</code>이 자리를 비워 주는 순간입니다. 이 방식을 <strong>비관적 락</strong>이라고 부릅니다 — "분명 누가 동시에 올 거야"라고 비관하고 미리 줄을 세우니까요.</p>
+    <p><strong>낙관적 락은 반대입니다.</strong> 번호표 없이 각자 통장을 복사해 가서 계산하고, 돌려놓을 때 "내가 복사해 간 뒤로 아무도 안 건드렸지?"를 확인합니다. 통장에 적힌 <em>판(version) 번호</em>가 그때 그대로면 덮어쓰고, 바뀌었으면 처음부터 다시 합니다. 우리 <code>auctions.version</code> 컬럼이 그 판 번호입니다. 동시에 오는 사람이 드물면 이게 더 빠르지만, 경매 마감 직전처럼 <em>다들 몰려오는</em> 곳에서는 "다시 하세요"가 폭주합니다. 그래서 입찰은 비관적 락으로 갑니다.</p>
+    <p><strong>스나이핑 연장은 경매사의 룰입니다.</strong> 실제 경매장에서 "마감!" 직전에 누가 손을 들면 경매사는 곧바로 망치를 내리치지 않고 "30초 더 받겠습니다"라고 합니다. 마지막 0.1초에 입찰해서 아무도 대응 못 하게 하는 <em>스나이핑</em>을 막기 위해서입니다. 규칙 4가 그것입니다: 마감 30초 이내의 입찰은 마감을 30초 뒤로 밉니다.</p>
+    <p><strong>rate limit은 창구 앞의 경비원입니다.</strong> 한 사람이 1초에 스무 번 번호표를 뽑으면 다른 손님이 영영 창구에 못 갑니다. 그래서 경비원이 번호표 기계 <em>앞에서</em> "초당 5장까지"를 셉니다. 락(번호표)을 잡기 <em>전에</em> 거르는 게 핵심입니다 — 스팸이 락을 쥔 채 줄을 세우면 안 되니까요.</p>
+  </section>
+
+  <!-- ───────────────────────── 4. 설계 ───────────────────────── -->
+  <section class="section" id="design">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🗺️</div>
+      <h2>설계 그림</h2>
+    </div>
+    <p>첫 그림은 <strong>두 입찰이 같은 경매 행을 두고 만나는 장면</strong>입니다. bob의 트랜잭션이 <code>FOR UPDATE</code>로 행을 잠근 순간부터 커밋까지, carol의 <code>FOR UPDATE</code>는 Postgres 안에서 멈춰 있습니다(<code>pg_stat_activity</code>에 <code>wait_event_type = Lock</code>으로 보입니다). bob이 커밋하면 carol이 깨어나는데, 이때 carol이 받는 행은 <em>bob이 갱신한 뒤의</em> 값입니다. carol의 12,000은 "현재가 11,000 + 단위 1,000 = 12,000 이상"이라 통과하고, 만약 carol이 11,500을 냈다면 <code>BID_TOO_LOW</code>로 거절됩니다. 락 없이는 둘 다 10,000을 기준으로 판단해 둘 다 통과했을 겁니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 300" role="img" aria-label="FOR UPDATE 타임라인: bob 트랜잭션이 행을 잠근 동안 carol 트랜잭션은 기다리고, 커밋 후 갱신된 값을 본다">
+        <defs><marker id="ah6" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="300" fill="#f8fafc" rx="12"/>
+        <text x="20" y="28" font-family="Inter, sans-serif" font-size="12" font-weight="700" fill="#1a1d23">같은 경매 행(현재가 10,000)에 bob 11,000 · carol 12,000 이 거의 동시에</text>
+        <line x1="20" y1="48" x2="740" y2="48" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+        <text x="20" y="78" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#1d4ed8">bob</text>
+        <rect x="70" y="62" width="110" height="26" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+        <text x="125" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1e3a8a">FOR UPDATE 🔒</text>
+        <rect x="186" y="62" width="150" height="26" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+        <text x="261" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1e3a8a">규칙 검사 → 11,000 씀</text>
+        <rect x="342" y="62" width="90" height="26" rx="6" fill="#bfdbfe" stroke="#3b82f6"/>
+        <text x="387" y="79" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#1e3a8a">COMMIT 🔓</text>
+        <text x="20" y="128" font-family="Inter, sans-serif" font-size="12" font-weight="600" fill="#b45309">carol</text>
+        <rect x="100" y="112" width="332" height="26" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-dasharray="5 3"/>
+        <text x="266" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">FOR UPDATE … 대기 (wait_event_type = Lock)</text>
+        <rect x="438" y="112" width="120" height="26" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="498" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">행 받음: 11,000</text>
+        <rect x="564" y="112" width="110" height="26" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="619" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">12,000 ≥ 12,000 ✓</text>
+        <rect x="680" y="112" width="60" height="26" rx="6" fill="#fde68a" stroke="#f59e0b"/>
+        <text x="710" y="129" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#92400e">COMMIT</text>
+        <line x1="432" y1="92" x2="432" y2="110" stroke="#64748b" marker-end="url(#ah6)"/>
+        <text x="440" y="104" font-family="Inter, sans-serif" font-size="10" fill="#475569">락 해제 → 줄 선 트랜잭션이 깨어난다</text>
+        <line x1="20" y1="160" x2="740" y2="160" stroke="#cbd5e1"/>
+        <text x="20" y="184" font-family="Inter, sans-serif" font-size="11.5" font-weight="700" fill="#b91c1c">락이 없으면 (실험에서 실제로 난 결과)</text>
+        <text x="20" y="206" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#7f1d1d">bob:   읽음 10,000 → 판단 ✓ → 씀 current=11,000, bid_count=0+1</text>
+        <text x="20" y="224" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#7f1d1d">carol: 읽음 10,000 → 판단 ✓ → 씀 current=12,000, bid_count=0+1   ← bob 의 +1 이 사라짐</text>
+        <text x="20" y="242" font-family="JetBrains Mono, monospace" font-size="10.5" fill="#7f1d1d">결과: bids 행 2개 · bid_count 1 · 순서가 반대였다면 current_price 11,000 (12,000 입찰이 있는데)</text>
+        <text x="20" y="272" font-family="Inter, sans-serif" font-size="10.5" fill="#475569">50명 실험: current_price 50,000 인데 받아들인 최고가는 59,000 · 같은 금액을 7명이 "성공"</text>
+      </svg>
+    </div>
+    <p>둘째 그림은 <strong>서비스 함수 안의 순서</strong>입니다. 순서가 곧 설계입니다. rate limit은 락 <em>앞</em>에(스팸이 락을 쥐지 않게), 존재·상태·본인·금액 검사는 락 <em>뒤</em>에(잠근 뒤의 값으로 판단해야 의미가 있으니), 갱신과 INSERT는 검사를 다 통과한 뒤에, 그리고 <code>commit</code>이 락을 푸는 유일한 순간입니다. 예외로 빠져나가면 세션이 닫히며 롤백되고 락도 풀립니다.</p>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 760 150" role="img" aria-label="place_bid 순서: rate limit → FOR UPDATE → 규칙 검사 → 갱신·INSERT → commit">
+        <defs><marker id="ah6b" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+        <rect x="0" y="0" width="760" height="150" fill="#f8fafc" rx="12"/>
+        <rect x="16" y="40" width="120" height="46" rx="8" fill="#fee2e2" stroke="#ef4444"/>
+        <text x="76" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#7f1d1d">① rate limit</text>
+        <text x="76" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#7f1d1d">Redis INCR · 429</text>
+        <rect x="166" y="40" width="120" height="46" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+        <text x="226" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#1e3a8a">② 행 잠금</text>
+        <text x="226" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1e3a8a">FOR UPDATE</text>
+        <rect x="316" y="40" width="130" height="46" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+        <text x="381" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#92400e">③ 규칙 1~3</text>
+        <text x="381" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#92400e">404·409·403·422</text>
+        <rect x="476" y="40" width="130" height="46" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+        <text x="541" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#14532d">④ 갱신 + INSERT</text>
+        <text x="541" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#14532d">규칙 4 연장 · version+1</text>
+        <rect x="636" y="40" width="108" height="46" rx="8" fill="#bfdbfe" stroke="#3b82f6"/>
+        <text x="690" y="59" text-anchor="middle" font-family="Inter, sans-serif" font-size="11" font-weight="600" fill="#1e3a8a">⑤ COMMIT</text>
+        <text x="690" y="75" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#1e3a8a">락 해제 🔓</text>
+        <line x1="136" y1="63" x2="164" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <line x1="286" y1="63" x2="314" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <line x1="446" y1="63" x2="474" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <line x1="606" y1="63" x2="634" y2="63" stroke="#64748b" marker-end="url(#ah6b)"/>
+        <path d="M166,96 L744,96" stroke="#3b82f6" stroke-width="2"/>
+        <text x="455" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#1e3a8a">②~⑤ 가 한 트랜잭션 — 이 구간 동안 같은 경매의 다른 입찰은 ② 에서 멈춰 기다린다</text>
+        <text x="76" y="114" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" fill="#7f1d1d">락 밖 — 거절도 센다</text>
+        <text x="380" y="136" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#64748b">예외로 빠지면 세션이 닫히며 롤백 → 락도 풀린다 (INSERT 전이라 지울 것도 없다)</text>
+      </svg>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>왜 <code>bids</code> 테이블이 아니라 <code>auctions</code> 행을 잠그나.</strong> 지켜야 할 것은 "경매 하나의 현재가·입찰 수"라는 <em>한 행의 일관성</em>입니다. 그 행을 잠그면 그 경매에 대한 입찰은 자연히 직렬화되고, <em>다른 경매</em>의 입찰은 전혀 방해받지 않습니다. 테이블 전체를 잠그면(<code>LOCK TABLE</code>) 모든 경매가 한 줄에 서게 됩니다.</div>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="05-3-list-pagination-verify.html"><span class="part-pager-dir">← 이전 단계</span><span class="part-pager-title">5단계 · 목록·페이지네이션</span></a>
+    <a class="part-pager-link next" href="06-2-bids-concurrency-impl.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">6-2 구현</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 6단계 · 입찰과 동시성 · 6-1 개요와 설계 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

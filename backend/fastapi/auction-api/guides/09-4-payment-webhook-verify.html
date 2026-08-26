@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>9단계 · 결제 웹훅 · 9-4 실행·확인 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <div class="nav-week active"><span class="wk-no">9</span> 9단계 · 결제 웹훅</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="09-1-payment-webhook-overview.html"><span class="sub-no">9-1</span> 개요와 설계</a>
+      <a class="nav-sub" href="09-2-payment-webhook-impl-1.html"><span class="sub-no">9-2</span> 구현 ① 테스트·기반</a>
+      <a class="nav-sub" href="09-3-payment-webhook-impl-2.html"><span class="sub-no">9-3</span> 구현 ② 서비스·라우터</a>
+      <a class="nav-sub active" href="09-4-payment-webhook-verify.html"><span class="sub-no">9-4</span> 실행·확인</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#run">▶️ 실행·확인</a>
+        <div class="nav-anchors">
+          <a class="nav-item" href="#run-1">1. API · 워커 · 모의 PG</a>
+          <a class="nav-item" href="#run-2">2. 낙찰까지</a>
+          <a class="nav-item" href="#run-3">3. checkout → 1초 뒤 …</a>
+          <a class="nav-item" href="#run-4">4. 같은 웹훅을 다시 · 본문을 …</a>
+          <a class="nav-item" href="#run-5">5. 정리</a>
+        </div>
+        <a class="nav-item" href="#done">✅ 완료 기준</a>
+        <a class="nav-item" href="#pitfalls">⚠️ 함정 &amp; 실무 팁</a>
+        <a class="nav-item" href="#refs">🔗 self-study 정본</a>
+        <a class="nav-item" href="#self-check">❓ 셀프 체크</a>
+      </div>
+    </div>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>9단계 · 결제 웹훅</b></div>
+    <h1>9-4 실행·확인</h1>
+    <p class="lesson-subtitle">만든 것이 <strong>진짜로 도는지</strong> 명령 하나하나로 확인하고, 완료 기준 체크리스트·함정·정본 링크·셀프 체크로 이 단계를 닫습니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="09-1-payment-webhook-overview.html"><b>9-1</b> 개요와 설계</a>
+    <a class="step-part" href="09-2-payment-webhook-impl-1.html"><b>9-2</b> 구현 ① 테스트·기반</a>
+    <a class="step-part" href="09-3-payment-webhook-impl-2.html"><b>9-3</b> 구현 ② 서비스·라우터</a>
+    <a class="step-part current" href="09-4-payment-webhook-verify.html"><b>9-4</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>코드를 다 만들었다는 전제입니다.</strong> 아직이라면 <a href="09-2-payment-webhook-impl-1.html">9-2 구현 ① 테스트·기반</a> · <a href="09-3-payment-webhook-impl-2.html">9-3 구현 ② 서비스·라우터</a>를 먼저 끝내고 오세요.</div>
+  </div>
+
+  <!-- ───────────────────────── 6. 실행 ───────────────────────── -->
+  <section class="section" id="run">
+    <div class="section-header">
+      <div class="section-icon icon-select">▶️</div>
+      <h2>실행·확인 — 이 출력이 나와야 한다</h2>
+    </div>
+    <p>터미널 세 개를 씁니다. 1번은 API, 2번에서 워커와 모의 PG 를 백그라운드로 띄우고, 3번에서 시나리오를 돌립니다. 흐름은 8단계 실행·확인의 뒤를 잇습니다 — 45초 경매가 마감되어 <code>Payment(pending)</code> 이 생기는 데까지가 8단계, 거기서 <code>checkout</code> → 웹훅 → <code>paid</code> 가 오늘입니다. 모의 PG 로그(<code>mockpg.log</code>)에 남은 서명과 본문으로 "같은 웹훅 재전송" 과 "본문 변조" 를 직접 해 봅니다.</p>
+    <h3 id="run-1">1. API · 워커 · 모의 PG</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run uvicorn app.main:app --port 8000
+# INFO:     Application startup complete.</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">nohup timeout 200 uv run python -m app.workers.closer &gt; worker.log 2&gt;&amp;1 &amp;
+nohup timeout 200 uv run uvicorn mock_pg.main:app --port 8001 &gt; mockpg.log 2&gt;&amp;1 &amp;
+sleep 3; curl -s -o /dev/null -w "mock_pg %{http_code}\n" localhost:8001/docs
+# mock_pg 200</code></pre>
+    </div>
+    <h3 id="run-2">2. 낙찰까지 — 45초 경매, 입찰 한 건, 소켓 리스너</h3>
+    <p>8단계와 같은 이유로 45초입니다(30초 스나이핑 창 밖). 리스너는 75초 동안 듣습니다 — 마감 뒤 결제까지 봐야 하니까요. 입찰 <em>뒤에</em> 리스너가 붙어서 snapshot 에 <code>bid_count 1</code> 로 보이고 <code>bid_placed</code> 는 없습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 3</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">J='Content-Type: application/json'
+for who in alice bob; do
+  curl -s -X POST localhost:8000/auth/signup -H "$J" \
+    -d "{\"email\":\"$who@example.com\",\"password\":\"secret123\",\"nickname\":\"$who\"}" &gt; /dev/null
+done
+tok() { curl -s -X POST localhost:8000/auth/login -H "$J" \
+  -d "{\"email\":\"$1@example.com\",\"password\":\"secret123\"}" \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["access_token"])'; }
+ALICE=$(tok alice); BOB=$(tok bob)
+ENDS=$(python3 -c "from datetime import datetime, timedelta, UTC; print((datetime.now(UTC)+timedelta(seconds=45)).isoformat())")
+A=$(curl -s -X POST localhost:8000/auctions -H "Authorization: Bearer $ALICE" -H "$J" \
+  -d "{\"title\":\"기계식 키보드\",\"category\":\"electronics\",\"starting_price\":10000,\"ends_at\":\"$ENDS\"}" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d["id"])')
+nohup uv run python scripts/ws_listen.py $A $BOB 75 &gt; listener.log 2&gt;&amp;1 &amp;
+curl -s -X POST localhost:8000/auctions/$A/bids -H "Authorization: Bearer $BOB" -H "$J" -d '{"amount":10000}' \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print("bid ok · current_price", d["current_price"], "· bid_count", d["bid_count"])'
+# bid ok · current_price 10000 · bid_count 1
+echo "45초 경매가 끝나길 기다린다…"; sleep 50
+grep "낙찰" worker.log | tail -1
+# 2026-08-26 00:36:19,439 [pid 72335] INFO app.services.closer: [notify] user=65dbc27d 낙찰! auction=ab184d77 10,000원 — 2026-08-26T15:36+00:00 까지 결제해 주세요</code></pre>
+    </div>
+    <h3 id="run-3">3. checkout → 1초 뒤 웹훅 → paid</h3>
+    <p>결제 id 는 <code>payments</code> 테이블에서 꺼냅니다(경매 응답엔 없습니다 — 소켓의 <code>auction_closed</code> 에는 있습니다; 진짜 서비스라면 낙찰자용 <code>GET /auctions/{id}/payment</code> 같은 길이 필요합니다). <code>checkout</code> 응답의 <code>external_id</code> 가 모의 PG 가 준 번호입니다. 3초 뒤 다시 보면 <code>paid</code> — 그 사이 모의 PG 가 웹훅을 보냈고(<code>mockpg.log</code> 의 <code>webhook paid → 200</code>), 우리 서버가 받아 상태를 바꾸고 <code>payment_completed</code> 를 방송했습니다(<code>listener.log</code>).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 3</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">P=$(docker compose exec -T db psql -U auction -d auction -tA -c "SELECT id FROM payments WHERE auction_id='$A'")
+echo "payment_id=$P"
+curl -s -X POST localhost:8000/payments/$P/checkout -H "Authorization: Bearer $BOB"; echo
+# {"payment_id":"a44eb25f-bebf-4979-925e-4d4bac7df99f","external_id":"pg_d7e13202c503","status":"pending"}
+sleep 3   # mock_pg 가 1초 뒤 웹훅을 보낸다 — 우리는 그걸 받아 paid 로 바꾼다
+curl -s localhost:8000/payments/$P -H "Authorization: Bearer $BOB" \
+  | python3 -c 'import sys,json; d=json.load(sys.stdin); print("status", d["status"], "· paid_at", d["paid_at"], "· external_id", d["external_id"])'
+# status paid · paid_at 2026-08-25T15:36:24.919077Z · external_id pg_d7e13202c503
+grep "webhook paid" mockpg.log | tail -1
+# 2026-08-26 00:36:24,925 mock_pg webhook paid → 200 {"received":true,"duplicate":false}
+grep -E "^\[" listener.log
+# [snapshot] {"status": "active", "current_price": 10000, "bid_count": 1, "ends_at": "…", "version": 1, …}
+# [auction_closed] {"winner_id": "…", "final_price": 10000, "bid_count": 1, "payment_id": "a44eb25f-…", …}
+# [payment_completed] {"payment_id": "a44eb25f-…", "amount": 10000, "paid_at": "2026-08-25T15:36:24.919077Z"}</code></pre>
+    </div>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>읽는 법.</strong> 리스너 세 줄이 이 프로젝트의 결제 흐름 전체입니다: <code>[auction_closed]</code>(8단계 워커가 발행, <code>payment_id</code> 포함) → <code>[payment_completed]</code>(오늘 웹훅 핸들러가 발행). 발행한 프로세스가 워커·API 로 다르지만 채널이 같아 7단계 bridge 가 둘 다 흘려보냈습니다. <code>paid_at</code> 은 UTC(<code>Z</code>), 워커 로그는 로컬 시각 — 같은 순간입니다.</div>
+    </div>
+    <h3 id="run-4">4. 같은 웹훅을 다시 · 본문을 바꿔서 · 서명 없이</h3>
+    <p>모의 PG 가 로그에 남긴 서명(<code>sig=</code>)과 본문(<code>body=</code>)을 그대로 꺼내 우리 서버에 다시 보냅니다. 서명이 맞으니 401 은 아니지만, 장부에 있는 <code>event_id</code> 라 <code>duplicate: true</code> — 결제는 이미 paid 이고 아무것도 안 바뀝니다. 그다음 본문의 <code>10000</code> 을 <code>1</code> 로 바꿔 같은 서명으로 보내면 401, 서명 헤더를 빼면 401. 마지막으로 장부를 보면 <code>event_id</code> 가 딱 한 줄입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 3</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">SIG=$(grep -o 'sig=[0-9a-f]*' mockpg.log | tail -1 | cut -d= -f2)
+BODY=$(grep -o 'body=.*' mockpg.log | tail -1 | cut -d= -f2-)
+echo "$BODY"
+# {"event_id": "evt_3f69e0856782", "external_id": "pg_d7e13202c503", "payment_id": "a44eb25f-…", "status": "paid", "amount": 10000}
+curl -s -X POST localhost:8000/webhooks/payments -H "$J" -H "X-PG-Signature: $SIG" -d "$BODY"; echo
+# {"received":true,"duplicate":true}          ← 같은 event_id: 받긴 했지만 아무것도 바꾸지 않았다
+curl -s -w " %{http_code}\n" -X POST localhost:8000/webhooks/payments -H "$J" -H "X-PG-Signature: $SIG" \
+  -d "${BODY/\"amount\": 10000/\"amount\": 1}"
+# {"code":"INVALID_SIGNATURE","message":"웹훅 서명이 올바르지 않습니다"} 401   ← 본문을 바꾸면 서명이 안 맞는다
+curl -s -w " %{http_code}\n" -X POST localhost:8000/webhooks/payments -H "$J" -d "$BODY"
+# {"code":"INVALID_SIGNATURE","message":"웹훅 서명이 올바르지 않습니다"} 401   ← 서명 없음
+docker compose exec db psql -U auction -d auction -c "SELECT event_id, received_at FROM webhook_events"
+#      event_id     |          received_at
+# ------------------+-------------------------------
+#  evt_3f69e0856782 | 2026-08-25 15:36:24.913606+00
+# (1 row)</code></pre>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>-d "$BODY"</code> 여야 하는 이유.</strong> curl 은 <code>-d</code> 문자열을 <em>그대로</em> 보냅니다. 만약 <code>python -c 'json.dumps(...)'</code> 로 본문을 새로 만들어 보내면 공백 하나 차이로 서명이 안 맞습니다 — 그게 3회차 401 의 원리이기도 합니다. 진짜 PG 대시보드의 "웹훅 재전송" 버튼도 바이트까지 같은 본문을 다시 보냅니다.</div>
+    </div>
+    <h3 id="run-5">5. 정리</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 3</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">pkill -f "app.workers.closer"; pkill -f "mock_pg.main"; pkill -f "ws_listen.py"; sleep 1
+docker compose exec db psql -U auction -d auction -c "DELETE FROM users WHERE email IN ('alice@example.com','bob@example.com')"
+# DELETE 2        (경매·입찰·결제는 FK CASCADE 로 함께. webhook_events 는 FK 가 없어 남는다)
+docker compose exec db psql -U auction -d auction -c "DELETE FROM webhook_events"
+# DELETE 1
+rm -f worker.log mockpg.log listener.log</code></pre>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 7. 완료 ───────────────────────── -->
+  <section class="section" id="done">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>완료 기준 체크리스트</h2>
+    </div>
+    <ul class="checklist">
+      <li><code>uv run pytest -q</code> → <code>87 passed</code>, 경고 0 (그중 <code>test_payments.py</code> 16개)</li>
+      <li><code>uv run ruff check .</code> → <code>All checks passed!</code>, <code>uv run ruff format --check .</code> 통과</li>
+      <li><code>uv run alembic check</code> → <code>No new upgrade operations detected.</code> (webhook_events 테이블 + <code>ix_payments_external_id</code>)</li>
+      <li><code>uv run uvicorn mock_pg.main:app --port 8001</code> 이 뜨고 <code>/docs</code> 가 200</li>
+      <li>낙찰자 <code>checkout</code> → <code>{"payment_id":…,"external_id":"pg_…","status":"pending"}</code>, 3초 뒤 <code>GET /payments/{id}</code> 가 <code>paid</code> + <code>paid_at</code></li>
+      <li>소켓 리스너에 <code>[auction_closed]</code> → <code>[payment_completed]</code>, <code>mockpg.log</code> 에 <code>webhook paid → 200 {"received":true,"duplicate":false}</code></li>
+      <li>같은 웹훅 재전송 → <code>{"received":true,"duplicate":true}</code>, 본문 변조 → <code>401 INVALID_SIGNATURE</code>, 서명 없음 → <code>401</code>, <code>webhook_events</code> 1행</li>
+      <li>정리 후 <code>DELETE 2</code> / <code>DELETE 1</code></li>
+    </ul>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기서 커밋하세요.</strong> 예: <code>git commit -m "add(be(fastapi)): auction-api 9단계 — 결제 checkout·모의 PG·HMAC 웹훅·멱등 처리"</code>. 마지막 10단계는 기능을 더하지 않습니다 — 지금까지 만든 API·워커·모의 PG 를 <em>운영 모양</em>으로 만듭니다: 목록 캐시, 부하 테스트로 병목 찾기, request-id 로깅, Dockerfile 과 compose 로 다섯 프로세스 한 번에 띄우기, GitHub Actions.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 8. 함정 ───────────────────────── -->
+  <section class="section" id="pitfalls">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>함정 &amp; 실무 팁</h2>
+    </div>
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>서명은 원문 바이트로, 파싱 전에.</strong> 가장 흔한 실패입니다: <code>data: PgWebhook</code> 로 받은 뒤 <code>json.dumps(data.model_dump())</code> 로 서명을 계산하면 공백·키 순서·숫자 표기가 달라져 <em>절대</em> 맞지 않습니다. <code>await request.body()</code> 가 먼저, 검증이 그다음, 파싱은 맨 나중입니다. 그리고 비교는 <code>hmac.compare_digest</code> — <code>==</code> 는 첫 불일치에서 멈춰 응답 시간이 새고, 공격자가 한 글자씩 맞춰 갈 수 있습니다. PG 마다 서명 규칙이 다릅니다(본문만 / timestamp + 본문 / 헤더 이름). 붙이기 전에 문서의 "서명 검증" 절부터 읽으세요.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>2xx 는 빨리, 무거운 일은 나중에.</strong> PG 는 우리가 2xx 를 몇 초 안에 주지 않으면 실패로 보고 재전송합니다(그러면 멱등 처리가 또 돕니다 — 정상이지만 낭비). 웹훅 핸들러 안에서 이메일을 보내거나 외부 API 를 부르면 그 시간만큼 위험합니다. 우리 핸들러는 DB 쓰기 한 번과 <code>PUBLISH</code> 하나뿐입니다. 더 무거운 후속 작업은 8단계 방식(테이블에 적고 워커가 처리)으로 넘깁니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>재시도는 '다시 해도 안전한' 실패에만.</strong> 타임아웃·연결 실패·5xx 는 PG 가 우리 요청을 <em>못 받았을 가능성</em>이 있어 재시도 가치가 있습니다. 4xx 는 받았고 거절한 것 — 재시도해도 같습니다. 그런데 타임아웃엔 함정이 있습니다: PG 가 요청을 <em>받아 처리했는데</em> 응답만 늦게 온 경우, 우리 재시도가 PG 결제를 <strong>두 개</strong> 만들 수 있습니다. 진짜 PG 는 그래서 <code>Idempotency-Key</code> 헤더(우리 <code>payment_id</code> 를 넣으면 됩니다)를 받아 같은 키면 같은 결제를 돌려줍니다. 모의 PG 엔 없습니다 — 셀프 체크 3번에서 이어집니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>바깥 호출엔 예외 없이 타임아웃.</strong> <code>httpx</code> 기본값도 5초가 있지만, 우리는 설정으로 명시합니다(<code>pg_timeout_seconds</code>). 타임아웃 없는 외부 호출 하나가 PG 장애 때 우리 서버의 워커·커넥션을 전부 붙잡아 "PG 가 죽었더니 우리도 죽었다" 가 됩니다. 4주차·02 의 블로킹 함정과 같은 결말이며, 원인만 다릅니다. 그리고 PG 호출 동안 결제 행 락을 쥐고 있는 우리 설계는 편하지만 락 시간이 최대 3초 × 3회입니다 — 트래픽이 크면 "PG 호출 전에 <code>external_id</code> 예약 표시 후 커밋, 호출 뒤 갱신" 두 단계로 바꿉니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>웹훅이 말하는 숫자를 믿지 마세요.</strong> 서명이 맞아도 본문의 <code>amount</code> 는 우리 기록과 대조합니다(<code>AMOUNT_MISMATCH</code>). PG 쪽 버그·설정 실수·테스트 데이터 섞임은 서명으로 못 막습니다. 마찬가지로 <code>payment_id</code> 도 <code>external_id</code> 로 찾은 결제와 같은지 봅니다. "권한은 서명이, 정합성은 대조가" — 둘은 다른 문제입니다.</div>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>순서를 믿지 마세요, 상태를 보세요.</strong> failed 뒤에 paid, paid 뒤에 뒤늦은 failed, checkout 커밋 전에 웹훅 — 전부 실제로 일어납니다. 우리 서비스는 "지금 pending 이면 바꾼다, 아니면 로그만" 으로 어느 순서든 같은 결과를 냅니다. 커밋 전 웹훅은 <code>FOR UPDATE</code> 락이 기다리게 해서 풀었습니다. 실행·확인에서 모의 PG 의 1초 지연을 0 으로 줄여(<code>PG_WEBHOOK_DELAY=0</code>) 이 경쟁을 직접 만들어 볼 수 있습니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>장부는 남기고, 실패는 롤백.</strong> <code>try_record</code> 뒤에 예외가 나면 장부 기록도 같이 사라져 PG 재전송 때 다시 검토됩니다 — 의도한 설계입니다. 반대로 "처리는 됐는데 방송(<code>PUBLISH</code>)만 실패" 는 커밋 뒤라 상태는 유지되고, 7단계의 snapshot 이 보정합니다. 장부는 자라기만 하니 운영에선 오래된 행을 주기적으로 지웁니다(PG 의 재전송 창은 보통 며칠) — 8단계 워커에 <code>DELETE FROM webhook_events WHERE received_at &lt; now() - interval '30 days'</code> 한 문장을 더하면 됩니다.</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>로컬에선 PG 가 <code>localhost</code> 를 못 부릅니다.</strong> 오늘은 모의 PG 도 내 컴퓨터라 <code>http://localhost:8000</code> 이 통했습니다. 진짜 PG 는 인터넷에서 우리 서버를 찾아야 하므로 로컬 개발엔 <code>ngrok http 8000</code> 같은 터널로 받은 공개 URL 을 <code>PUBLIC_BASE_URL</code> 에 넣습니다. 스테이징·운영은 당연히 HTTPS 도메인이고, 비밀키는 환경마다 다르게 발급해 <em>회전</em>할 수 있어야 합니다(옛 키·새 키를 잠깐 둘 다 허용하는 기간을 두는 게 정석입니다).</div>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>respx 는 httpx 만 가로챕니다.</strong> 앱이 <code>httpx</code> 를 쓰고 테스트 클라이언트가 <code>httpx2</code> 라서 둘이 섞이지 않습니다 — <code>client.post("/payments/…")</code>(httpx2, ASGI 직접 호출) 는 respx 를 지나가지 않고, 그 안에서 앱이 부르는 <code>http.post("http://localhost:8001/…")</code>(httpx) 만 가로채집니다. <code>respx.mock(base_url=…)</code> 안의 <code>route.calls[0].request.content</code> 로 "우리가 PG 에 뭘 보냈나" 까지 검사할 수 있습니다. 10주차·01 의 mocking 절이 배경입니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 9. 정본 ───────────────────────── -->
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>self-study 정본 링크 — 개념은 여기서 복습</h2>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이번 단계에서 쓴 것</th><th>정본</th></tr></thead>
+        <tbody>
+          <tr><td>백엔드가 <em>클라이언트</em>가 되는 순간 — httpx 기본, 타임아웃·클라이언트 재사용, 에러 처리</td><td><a href="../../self-study/week07-async-db-external/02-httpx-external-api.html#backend-as-client">Week 7·02 백엔드도 클라이언트</a> · <a href="../../self-study/week07-async-db-external/02-httpx-external-api.html#httpx-basics">httpx 기본</a> · <a href="../../self-study/week07-async-db-external/02-httpx-external-api.html#timeout-reuse">타임아웃·재사용</a> · <a href="../../self-study/week07-async-db-external/02-httpx-external-api.html#error-handling">에러 처리</a></td></tr>
+          <tr><td>BackgroundTasks — "응답 먼저, 일은 나중" (모의 PG 의 웹훅 발송)</td><td><a href="../../self-study/week08-auth/03-otp-background-tasks.html#background-tasks">Week 8·03 Background Tasks</a></td></tr>
+          <tr><td>해시와 HMAC 의 관계 — 비밀번호 해싱(단방향) 과 서명(비밀키 + 해시)</td><td><a href="../../self-study/week08-auth/01-jwt-oauth2-hashing.html#password-hashing">Week 8·01 패스워드 해싱</a> · <a href="../../self-study/week08-auth/01-jwt-oauth2-hashing.html#jwt">JWT 서명</a></td></tr>
+          <tr><td>모킹 — 바깥 의존성을 테스트에서 바꿔치기하는 이유와 방법</td><td><a href="../../self-study/week10-test-deploy/01-pytest-mocking-fixture.html#mocking">Week 10·01 Mocking</a> · <a href="../../self-study/week10-test-deploy/01-pytest-mocking-fixture.html#fixture">Fixture</a></td></tr>
+          <tr><td>도메인 예외 → HTTP 번역 (502 부모 추가)</td><td><a href="../../self-study/week06-json-api-structure/03-exception-handler-pytest.html#exception-handler">Week 6·03 Exception Handler</a></td></tr>
+          <tr><td>autogenerate 가 잡는 것·못 잡는 것, revision → upgrade</td><td><a href="../../self-study/week10-test-deploy/02-alembic-migration.html#revision-upgrade">Week 10·02 revision·upgrade</a> · <a href="../../self-study/week10-test-deploy/02-alembic-migration.html#autogenerate-limits">autogenerate 한계</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 10. 셀프 체크 ───────────────────────── -->
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-teal">❓</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 웹훅 라우터가 <code>data: PgWebhook</code> 으로 본문을 받지 않고 <code>request.body()</code> 를 먼저 읽는 이유는? 그리고 서명 비교에 <code>==</code> 대신 <code>compare_digest</code> 를 쓰는 이유는?</summary>
+        <div class="qa-answer"><p>서명은 PG 가 보낸 <em>바이트</em>에 대해 계산됐습니다. FastAPI 가 파싱한 객체를 다시 JSON 으로 만들면 공백·키 순서·숫자 표기가 달라져 같은 내용이어도 다른 바이트가 되고, 서명이 맞지 않습니다. 그래서 원문 바이트 → 서명 검증 → 그다음 파싱입니다(검증 전엔 파싱할 이유도 없습니다 — 누가 보낸지도 모르는 본문이니까요). <code>==</code> 는 첫 불일치에서 멈추기 때문에 앞 글자가 맞을수록 조금 더 오래 걸리고, 그 차이를 수천 번 재면 서명을 한 글자씩 맞춰 갈 수 있습니다(타이밍 공격). <code>compare_digest</code> 는 길이가 같으면 항상 같은 시간이 걸립니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 같은 웹훅이 <em>동시에</em> 두 요청으로 들어오면 어떻게 되나요? 그리고 <code>external_id</code> 가 우리 DB 에 없는 웹훅이 오면 장부(<code>webhook_events</code>)엔 무엇이 남나요?</summary>
+        <div class="qa-answer"><p>둘 다 <code>INSERT … ON CONFLICT DO NOTHING RETURNING</code> 을 실행합니다. Postgres 는 같은 PK 를 넣으려는 두 번째 트랜잭션을 첫 번째가 커밋/롤백할 때까지 기다리게 하고, 첫 번째가 커밋하면 두 번째의 INSERT 는 충돌로 아무 행도 돌려주지 않습니다 → <code>duplicate: true</code>. 정확히 하나만 결제를 바꿉니다 — 6단계 락과 같은 원리이지만 명시적 <code>FOR UPDATE</code> 없이 PK 제약 자체가 줄을 세웁니다. 모르는 <code>external_id</code> 면 장부에 적은 <em>직후</em> <code>PaymentNotFoundError</code> 를 던지고, 그 트랜잭션은 커밋되지 않으므로 장부 기록도 사라집니다 — 아무것도 남지 않습니다. PG 가 재전송하면 처음부터 다시 검토하고, 그때 결제가 생겨 있으면 정상 처리됩니다. "기록은 됐는데 처리는 안 된" 이벤트가 생기지 않도록 장부와 처리를 한 트랜잭션에 둔 결과입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>checkout</code> 중 PG 가 결제를 <em>만들긴 했는데</em> 응답이 3초를 넘겨 타임아웃이 났고, 우리는 재시도해서 두 번째 결제도 만들었습니다. 이제 PG 가 첫 번째 결제의 웹훅을 보내면 우리 코드는 어떻게 반응하고, 실무에선 어떻게 막나요?</summary>
+        <div class="qa-answer"><p>우리는 두 번째 <code>external_id</code> 만 저장했으니 첫 번째 웹훅은 <code>get_by_external_id_for_update</code> 에서 못 찾아 404 — PG 는 계속 재전송하고 운영자가 봐야 합니다. 첫 번째 결제로 실제 돈이 빠졌다면 고객은 이중 결제입니다. 그래서 진짜 PG 는 결제 생성에 <strong>멱등키</strong>(<code>Idempotency-Key</code> 헤더 — 우리 <code>payment_id</code> 를 넣으면 됩니다)를 받습니다: 같은 키로 다시 부르면 새로 만들지 않고 <em>같은</em> <code>external_id</code> 를 돌려줍니다. 그러면 타임아웃 뒤 재시도가 안전해집니다. 우리 쪽 보완은 웹훅에 실려 오는 <code>payment_id</code> 로도 결제를 찾아 <code>external_id</code> 를 맞춰 주는 것입니다(본문에 이미 있습니다). 오늘의 <code>pg_client</code> 에 헤더 한 줄과 <code>mock_pg</code> 에 "같은 payment_id 면 같은 external_id" 를 더하면 완성됩니다 — 좋은 연습 과제입니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="09-3-payment-webhook-impl-2.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">9-3 구현 ② 서비스·라우터</span></a>
+    <a class="part-pager-link next" href="10-1-deploy-overview.html"><span class="part-pager-dir">다음 단계 →</span><span class="part-pager-title">10단계 · 성능·관측성·배포</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 9단계 · 결제 웹훅 · 9-4 실행·확인 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

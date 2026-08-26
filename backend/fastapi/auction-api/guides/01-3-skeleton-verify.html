@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1단계 · 뼈대와 설정 · 1-3 실행·확인 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <div class="nav-week active"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="01-1-skeleton-overview.html"><span class="sub-no">1-1</span> 개요와 설계</a>
+      <a class="nav-sub" href="01-2-skeleton-impl.html"><span class="sub-no">1-2</span> 구현</a>
+      <a class="nav-sub active" href="01-3-skeleton-verify.html"><span class="sub-no">1-3</span> 실행·확인</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#run">▶️ 실행·확인</a>
+        <a class="nav-item" href="#done">✅ 완료 기준</a>
+        <a class="nav-item" href="#pitfalls">⚠️ 함정 &amp; 실무 팁</a>
+        <a class="nav-item" href="#refs">🔗 self-study 정본</a>
+        <a class="nav-item" href="#self-check">❓ 셀프 체크</a>
+      </div>
+    </div>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>1단계 · 뼈대와 설정</b></div>
+    <h1>1-3 실행·확인</h1>
+    <p class="lesson-subtitle">만든 것이 <strong>진짜로 도는지</strong> 명령 하나하나로 확인하고, 완료 기준 체크리스트·함정·정본 링크·셀프 체크로 이 단계를 닫습니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="01-1-skeleton-overview.html"><b>1-1</b> 개요와 설계</a>
+    <a class="step-part" href="01-2-skeleton-impl.html"><b>1-2</b> 구현</a>
+    <a class="step-part current" href="01-3-skeleton-verify.html"><b>1-3</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>코드를 다 만들었다는 전제입니다.</strong> 아직이라면 <a href="01-2-skeleton-impl.html">1-2 구현</a>를 먼저 끝내고 오세요.</div>
+  </div>
+
+  <!-- ───────────────────────── 6. 실행·확인 ───────────────────────── -->
+  <section class="section" id="run">
+    <div class="section-header">
+      <div class="section-icon icon-select">▶️</div>
+      <h2>실행·확인 — 이 출력이 나와야 한다</h2>
+    </div>
+    <p>이제 하나씩 돌려 봅니다. 각 명령 아래에 적힌 것은 검증 당시 실제로 나온 출력입니다. 시간이나 버전 숫자는 달라도 되지만, 내용이 다르면 어딘가 잘못된 겁니다.</p>
+
+    <h3>1. 코드 스타일 검사</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run ruff check .
+# All checks passed!</code></pre>
+    </div>
+
+    <h3>2. 인프라 띄우기</h3>
+    <p><code>-d</code>는 백그라운드로 띄우라는 뜻입니다. 처음엔 이미지를 내려받느라 시간이 좀 걸립니다. 몇 초 기다렸다가 <code>ps</code>로 확인했을 때 두 줄 모두 <code>(healthy)</code>여야 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose up -d
+docker compose ps
+# NAME            STATUS                    PORTS
+# auction-db      Up 13 seconds (healthy)   0.0.0.0:5435->5432/tcp
+# auction-redis   Up 13 seconds (healthy)   0.0.0.0:6380->6379/tcp</code></pre>
+    </div>
+
+    <h3>3. 설정이 제대로 읽히는지</h3>
+    <p>첫 줄은 <code>.env</code>의 값이 찍혀야 하고(<code>debug</code>가 <code>True</code>인 것에 주목), 두 번째 줄은 명령 앞에 붙인 환경변수가 <code>.env</code>의 <code>dev</code>를 이기는지 확인하는 것입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run python -c "from app.core.config import get_settings; print(get_settings().model_dump())"
+# {'app_env': 'dev', 'database_url': 'postgresql+asyncpg://auction:auction_pw@localhost:5435/auction', 'redis_url': 'redis://localhost:6380/0', 'debug': True}
+
+APP_ENV=prod uv run python -c "from app.core.config import get_settings; print(get_settings().app_env)"
+# prod</code></pre>
+    </div>
+
+    <h3>4. 테스트 통과</h3>
+    <p>⑥에서 실패했던 테스트가 이제 통과해야 합니다. 경고(warning)가 하나도 없어야 정상입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# .                                                                        [100%]
+# 1 passed in 4.51s</code></pre>
+    </div>
+
+    <h3>5. 서버 띄우고 직접 호출</h3>
+    <p>터미널 하나에서 서버를 띄우고, <strong>다른 터미널</strong>에서 curl을 칩니다. <code>--reload</code>는 파일을 저장할 때마다 서버를 자동으로 재시작해 주는 개발용 옵션입니다. 브라우저에서 <a href="http://localhost:8000/docs">http://localhost:8000/docs</a>를 열면 Swagger에 <code>/health</code>가 보입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 1</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run uvicorn app.main:app --reload
+# INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+# INFO:     Application startup complete.</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">curl -s localhost:8000/health
+# {"status":"ok","db":true,"redis":true}</code></pre>
+    </div>
+
+    <h3>6. 장애 상황도 확인 — Redis를 껐다 켜기</h3>
+    <p>헬스체크가 "정직한지" 보는 가장 쉬운 방법입니다. Redis 컨테이너만 멈추면 상태 코드가 503으로 바뀌고 <code>redis</code>가 <code>false</code>가 되어야 합니다. 다시 켜면 곧바로 200으로 돌아옵니다 — 서버를 재시작할 필요가 없다는 점에 주목하세요. 연결은 요청 때마다 새로 시도되기 때문입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><span class="code-filename">터미널 2</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">docker compose stop redis
+curl -i -s localhost:8000/health
+# HTTP/1.1 503 Service Unavailable
+# ...
+# {"status":"degraded","db":true,"redis":false}
+
+docker compose start redis
+curl -s localhost:8000/health
+# {"status":"ok","db":true,"redis":true}</code></pre>
+    </div>
+
+    <p>확인이 끝나면 터미널 1에서 <kbd>Ctrl+C</kbd>로 서버를 끕니다. 로그에 <code>Application shutdown complete.</code>가 찍히는데, 그 직전에 lifespan의 <code>yield</code> 아래쪽(<code>aclose</code>, <code>dispose</code>)이 실행된 것입니다.</p>
+  </section>
+
+  <!-- ───────────────────────── 7. 완료 기준 ───────────────────────── -->
+  <section class="section" id="done">
+    <div class="section-header">
+      <div class="section-icon icon-teal">✅</div>
+      <h2>완료 기준 체크리스트</h2>
+    </div>
+    <p>아래가 전부 체크되면 1단계는 끝입니다. 하나라도 안 되면 위 실행·확인 절로 돌아가서 어느 명령에서 어긋나는지 찾으세요.</p>
+    <ul class="checklist">
+      <li><code>cat .python-version</code>이 <code>3.13</code>, <code>uv run python --version</code>이 <code>Python 3.13.x</code></li>
+      <li><code>uv run ruff check .</code> → <code>All checks passed!</code></li>
+      <li><code>docker compose ps</code>에서 <code>auction-db</code>, <code>auction-redis</code> 둘 다 <code>(healthy)</code></li>
+      <li><code>uv run pytest -q</code> → <code>1 passed</code>, 경고 없음</li>
+      <li><code>curl -s localhost:8000/health</code> → <code>{"status":"ok","db":true,"redis":true}</code></li>
+      <li>Redis를 멈추면 <code>503</code> + <code>"redis":false</code>, 다시 켜면 <code>200</code></li>
+      <li><code>http://localhost:8000/docs</code>에 <code>/health</code>가 보임</li>
+      <li><code>.env</code>는 git 상태에 안 보이고, <code>.env.example</code>은 보임 (<code>git status</code>로 확인)</li>
+    </ul>
+    <div class="callout callout-good">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>여기서 커밋하세요.</strong> 1단계 결과물을 한 커밋으로 남깁니다. 예: <code>git commit -m "add(be(fastapi)): auction-api 1단계 — 프로젝트 뼈대·설정·헬스체크"</code>. 다음 단계에서 뭔가 꼬여도 이 지점으로 돌아올 수 있습니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 8. 함정 ───────────────────────── -->
+  <section class="section" id="pitfalls">
+    <div class="section-header">
+      <div class="section-icon icon-error">⚠️</div>
+      <h2>함정 &amp; 실무 팁</h2>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>uv init --bare</code>는 Python 버전을 고정하지 않는다.</strong> <code>.python-version</code> 파일을 만들지 않기 때문에 이 머신에서는 3.14로 가상환경이 잡혔습니다. 그래서 가이드는 <code>uv python pin 3.13</code>을 <em>먼저</em> 실행합니다. 이미 3.14로 만들어 버렸다면 <code>uv python pin 3.13</code> 후 <code>uv sync</code>를 다시 돌리면 3.13으로 바뀝니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Starlette 1.6부터 <code>TestClient</code>는 <code>httpx2</code>를 요구한다.</strong> self-study 자료에는 <code>httpx</code>라고 돼 있고 그걸 깔아도 테스트는 돌아가지만, <code>StarletteDeprecationWarning: Using httpx with starlette.testclient is deprecated; install httpx2 instead</code>라는 경고가 뜹니다. 경고 없는 상태를 기준으로 삼기 위해 <code>httpx2</code>를 씁니다. 3단계에서 비동기 클라이언트를 도입할 때 다시 다룹니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>포트 충돌.</strong> 이 머신은 5432와 5434를 다른 컨테이너가 쓰고 있어서 5435·6380을 골랐습니다. <code>docker compose up</code>에서 <code>port is already allocated</code>가 나오면 <code>docker ps --format '{{.Names}} {{.Ports}}'</code>로 누가 쓰는지 보고, compose와 <code>.env</code>의 포트를 <em>둘 다</em> 바꾸세요. 하나만 바꾸면 접속이 안 됩니다.</div>
+    </div>
+
+    <div class="callout callout-danger">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>.env</code>는 절대 커밋하지 않는다.</strong> 지금은 개발용 비밀번호라 괜찮아 보여도, 한 번 올라간 파일은 git 히스토리에 영원히 남습니다. 커밋 전 <code>git status</code>에 <code>.env</code>가 보이면 <code>.gitignore</code>가 잘못된 겁니다. 공유할 것은 <code>.env.example</code>뿐입니다.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>til 루트 <code>.gitignore</code>와의 관계.</strong> 루트 파일에는 <code>.venv</code>가 없어서 이 프로젝트의 <code>.gitignore</code>가 꼭 필요합니다. 그리고 루트가 <code>docs/</code>를 통째로 무시하고 있기 때문에, 이 프로젝트 안에서는 <code>docs/</code>라는 폴더명을 쓰지 마세요. 만들어도 커밋이 안 됩니다. 그래서 가이드는 <code>guides/</code>, 설계 문서는 <code>planning/</code>입니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>엔진과 Redis 클라이언트를 모듈 수준에서 만들어도 되는 이유.</strong> <code>create_async_engine</code>과 <code>Redis.from_url</code>은 둘 다 <em>lazy</em>입니다. 객체만 만들고 실제 소켓 연결은 첫 쿼리·첫 명령 때 맺습니다. 그래서 import만으로 DB에 부하를 주거나 실패하는 일이 없고, 정리(<code>dispose</code>, <code>aclose</code>)만 lifespan 종료 시점에 해 주면 됩니다. 만약 시작 시점에 "연결이 안 되면 아예 뜨지 말아라"가 필요하면 lifespan의 <code>yield</code> 위쪽에 <code>SELECT 1</code>을 한 번 날리면 됩니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>왜 부분 장애를 503으로 알리나.</strong> 헬스체크를 읽는 쪽은 사람이 아니라 <em>기계</em>입니다. 로드밸런서는 200이 아니면 그 서버로 트래픽을 보내지 않고, Docker healthcheck와 CI는 상태 코드로 "준비됐다/안 됐다"를 판단합니다. JSON 안에 <code>"redis": false</code>라고 아무리 적어 놔도 200이면 기계는 "정상"으로 봅니다. 그래서 하나라도 실패하면 503입니다. 본문의 <code>db</code>·<code>redis</code> 필드는 사람이 원인을 빨리 찾으라고 덧붙인 것입니다.</div>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong><code>extra="ignore"</code>와 <code>lru_cache</code>.</strong> <code>.env</code>에 <code>Settings</code>가 모르는 키(예: 나중에 추가할 <code>JWT_SECRET</code>)가 있어도 에러 내지 말고 무시하라는 게 <code>extra="ignore"</code>입니다. 기본값은 에러라서, 이걸 빼먹으면 3단계에서 키를 추가하는 순간 앱이 안 뜹니다. <code>lru_cache</code>는 "같은 인자로 부르면 이전 결과를 재사용"하는 캐시인데, 인자가 없는 <code>get_settings()</code>에 붙이면 사실상 싱글턴이 됩니다. 테스트에서 설정을 바꿔치기해야 할 때는 <code>get_settings.cache_clear()</code>로 비웁니다.</div>
+    </div>
+
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>지금은 넘어가도 되는 두 옵션.</strong> <code>pool_pre_ping=True</code>는 풀에서 꺼낸 커넥션이 죽어 있으면 조용히 새로 만들어 주는 옵션이고(<a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#connection-pool">Week 5·03 커넥션 풀</a>), <code>expire_on_commit=False</code>는 커밋 후에도 객체 속성을 다시 읽지 않게 하는 옵션으로 async 세션에서는 거의 필수입니다(<a href="../../self-study/week07-async-db-external/01-async-db-asyncpg.html#engine-session">Week 7·01 엔진·세션</a>). 2단계에서 모델을 만들 때 다시 만납니다.</div>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 9. 정본 링크 ───────────────────────── -->
+  <section class="section" id="refs">
+    <div class="section-header">
+      <div class="section-icon icon-compare">🔗</div>
+      <h2>self-study 정본 링크 — 개념은 여기서 복습</h2>
+    </div>
+    <p>이 가이드는 "어떻게 조립하나"에 집중했습니다. 각 부품의 원리가 궁금하면 self-study의 정본 페이지로 가세요. 같은 내용을 여기서 다시 설명하지 않습니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이번 단계에서 쓴 것</th><th>정본</th></tr></thead>
+        <tbody>
+          <tr><td>uv 프로젝트 만들기 · 첫 엔드포인트 · Swagger</td><td><a href="../../self-study/week01-overview-typehints/03-fastapi-flow-swagger-curl.html#uv-setup">Week 1·03 uv 설정</a> · <a href="../../self-study/week01-overview-typehints/03-fastapi-flow-swagger-curl.html#auto-docs">자동 문서</a></td></tr>
+          <tr><td>Docker compose로 Postgres 띄우기 · DATABASE_URL</td><td><a href="../../self-study/week05-postgres-sqlalchemy/01-docker-postgres-connection.html#compose-file">Week 5·01 compose 파일</a> · <a href="../../self-study/week05-postgres-sqlalchemy/01-docker-postgres-connection.html#database-url">DATABASE_URL</a></td></tr>
+          <tr><td>커넥션 풀 · 세션</td><td><a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#connection-pool">Week 5·03 커넥션 풀</a> · <a href="../../self-study/week05-postgres-sqlalchemy/03-connection-pool-session.html#session">세션</a></td></tr>
+          <tr><td><code>yield</code> 의존성 · <code>Annotated</code> 스타일</td><td><a href="../../self-study/week06-json-api-structure/02-dependency-injection-mvc.html#yield-dependency">Week 6·02 yield 의존성</a> · <a href="../../self-study/week06-json-api-structure/02-dependency-injection-mvc.html#annotated">Annotated</a></td></tr>
+          <tr><td>라우터·서비스·리포지토리 계층</td><td><a href="../../self-study/week06-json-api-structure/02-dependency-injection-mvc.html#layers">Week 6·02 계층 분리</a></td></tr>
+          <tr><td>pydantic-settings · <code>.env</code></td><td><a href="../../self-study/week06-json-api-structure/03-exception-handler-pytest.html#settings-env">Week 6·03 설정 관리</a></td></tr>
+          <tr><td>async 엔진 · async 세션 · lifespan</td><td><a href="../../self-study/week07-async-db-external/01-async-db-asyncpg.html#engine-session">Week 7·01 엔진·세션</a> · <a href="../../self-study/week07-async-db-external/01-async-db-asyncpg.html#lifespan">lifespan</a></td></tr>
+          <tr><td><code>TestClient</code> 기본</td><td><a href="../../self-study/week10-test-deploy/01-pytest-mocking-fixture.html#testclient">Week 10·01 TestClient</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ───────────────────────── 10. 셀프 체크 ───────────────────────── -->
+  <section class="section" id="self-check">
+    <div class="section-header">
+      <div class="section-icon icon-teal">❓</div>
+      <h2>셀프 체크</h2>
+    </div>
+    <div class="qa-list">
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> 엔진을 모듈 수준에서 만들었는데, 그럼 lifespan은 왜 필요한가요? 시작 시점에 만드는 것과 뭐가 다른가요?</summary>
+        <div class="qa-answer"><p><code>create_async_engine</code>은 lazy라서 만드는 시점에 연결하지 않습니다. 그래서 "언제 만드나"는 크게 중요하지 않고, 중요한 건 <strong>"언제 정리하나"</strong>입니다. 앱이 꺼질 때 풀에 남은 커넥션을 닫지 않으면 DB 쪽에 좀비 연결이 남을 수 있는데, 그 정리 시점을 잡아 주는 게 lifespan의 <code>yield</code> 아래쪽입니다. 시작 시점에 만들고 싶다면 <code>yield</code> 위에서 만들고 <code>app.state</code>에 넣는 방법도 있는데, 그러면 <code>get_db</code>가 <code>request.app.state</code>를 통해 꺼내야 해서 코드가 조금 길어집니다. 이 프로젝트는 단순한 쪽을 택했습니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> Redis만 죽었을 때 200에 <code>"redis": false</code>를 돌려주면 안 되나요? 왜 굳이 503인가요?</summary>
+        <div class="qa-answer"><p>헬스체크를 읽는 것은 로드밸런서·Docker·CI 같은 <strong>기계</strong>이고, 기계는 상태 코드만 봅니다. 200이면 "이 서버에 트래픽 보내도 됨"으로 해석하기 때문에, Redis가 죽어서 세션 조회·캐시·rate limit이 전부 실패하는 서버로 계속 요청이 흘러 들어갑니다. 503을 주면 로드밸런서가 그 서버를 잠시 빼고, 복구되면 다시 넣습니다. 본문의 <code>db</code>·<code>redis</code> 필드는 사람이 원인을 빨리 찾기 위한 부가 정보입니다.</p></div>
+      </details>
+      <details class="qa-item">
+        <summary><span class="qa-mark">Q</span> <code>.env</code>에 <code>APP_ENV=dev</code>가 있는데 <code>APP_ENV=prod uv run ...</code>이 <code>prod</code>를 찍은 이유는? 이 우선순위가 실무에서 왜 중요한가요?</summary>
+        <div class="qa-answer"><p>pydantic-settings의 우선순위는 <strong>진짜 환경변수 &gt; <code>.env</code> 파일 &gt; 코드 기본값</strong>입니다. 실무에서는 운영 서버나 CI에 <code>.env</code> 파일을 두지 않고 배포 시스템이 환경변수를 주입합니다. 이 우선순위 덕분에 같은 코드·같은 <code>.env.example</code>을 두고도 로컬은 파일로, 운영은 환경변수로 설정을 갈아 끼울 수 있고, 실수로 <code>.env</code>가 서버에 올라가도 환경변수가 이기므로 로컬 설정이 운영을 덮어쓰는 사고가 나지 않습니다.</p></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="01-2-skeleton-impl.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">1-2 구현</span></a>
+    <a class="part-pager-link next" href="02-1-models-alembic-overview.html"><span class="part-pager-dir">다음 단계 →</span><span class="part-pager-title">2단계 · 모델링 + Alembic</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 1단계 · 뼈대와 설정 · 1-3 실행·확인 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

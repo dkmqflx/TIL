@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2단계 · 모델링 + Alembic · 2-2 구현 — 실시간 경매 API 캡스톤</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/ini.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
+<link rel="stylesheet" href="../../self-study/assets/style.css" />
+<style>
+  .nav-week[aria-disabled="true"] { opacity: 0.55; }
+  .nav-week .nav-badge { margin-left: auto; }
+  /* 단계 안의 세부 문서(1-1, 1-2 …) 내비게이션 */
+  .nav-sub { display: flex; align-items: baseline; gap: 7px; padding: 6px 10px; border-radius: 6px;
+             font-size: 12.5px; color: var(--text-muted); text-decoration: none; }
+  .nav-sub:hover { background: var(--bg); color: var(--text); }
+  .nav-sub.active { background: var(--primary-soft); color: var(--primary-dark); font-weight: 600; }
+  .nav-sub .sub-no { font-family: var(--mono); font-size: 10.5px; opacity: 0.75; flex-shrink: 0; }
+  .nav-anchors { margin: 0 0 6px 12px; padding-left: 8px; border-left: 1px dashed var(--border); }
+  .nav-week-group .nav-anchors .nav-item { padding: 3px 8px; font-size: 11.5px; line-height: 1.5; }
+  .nav-anchors .nav-anchors { margin-left: 8px; }
+  /* 본문 상단 — 현재 위치와 형제 문서 탭 */
+  .step-crumb { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .step-crumb a { color: var(--text-muted); text-decoration: none; }
+  .step-crumb a:hover { color: var(--primary-dark); }
+  .step-crumb b { color: var(--text); font-weight: 600; }
+  .step-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+  .step-part { display: flex; align-items: baseline; gap: 6px; padding: 7px 12px; border: 1px solid var(--border);
+               border-radius: 999px; background: var(--surface); font-size: 12.5px; color: var(--text-muted);
+               text-decoration: none; }
+  .step-part:hover { border-color: var(--primary); color: var(--text); }
+  .step-part b { font-family: var(--mono); font-size: 11px; font-weight: 600; }
+  .step-part.current { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-dark); }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <a class="sidebar-logo" href="../../self-study/index.html">
+      <span class="logo-badge">FastAPI</span>
+      <span class="logo-text">실시간 경매 API</span>
+    </a>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
+  </div>
+  <div class="sidebar-nav">
+    <a class="nav-week" href="index.html"><span class="wk-no">◆</span> 로드맵</a>
+
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <div class="nav-week active"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</div>
+    <div class="nav-week-group">
+      <a class="nav-sub" href="02-1-models-alembic-overview.html"><span class="sub-no">2-1</span> 개요와 설계</a>
+      <a class="nav-sub active" href="02-2-models-alembic-impl.html"><span class="sub-no">2-2</span> 구현</a>
+      <div class="nav-anchors">
+        <a class="nav-item" href="#impl-1">① Alembic 설치와 ruff 설정</a>
+        <a class="nav-item" href="#impl-2">② app/models/base.py</a>
+        <a class="nav-item" href="#impl-3">③ app/models/enums.py</a>
+        <a class="nav-item" href="#impl-4">④ app/models/user.py</a>
+        <a class="nav-item" href="#impl-5">⑤ app/models/auction.py</a>
+        <a class="nav-item" href="#impl-6">⑥ app/models/bid.py</a>
+        <a class="nav-item" href="#impl-7">⑦ app/models/payment.py</a>
+        <a class="nav-item" href="#impl-8">⑧ app/models/__init__.py</a>
+        <a class="nav-item" href="#impl-9">⑨ 테스트부터</a>
+        <a class="nav-item" href="#impl-10">⑩ Alembic 초기화</a>
+        <a class="nav-item" href="#impl-11">⑪ alembic/env.py</a>
+        <a class="nav-item" href="#impl-12">⑫ 첫 마이그레이션 만들기</a>
+        <a class="nav-item" href="#impl-13">⑬ 마이그레이션 실행</a>
+      </div>
+      <a class="nav-sub" href="02-3-models-alembic-verify.html"><span class="sub-no">2-3</span> 실행·확인</a>
+    </div>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+  </div>
+</nav>
+
+<main class="main" id="top">
+
+  <div class="lesson-head">
+    <div class="step-crumb"><a href="index.html">10단계 캡스톤</a> › <b>2단계 · 모델링 + Alembic</b></div>
+    <h1>2-2 구현</h1>
+    <p class="lesson-subtitle">앞에서 그린 설계를 실제 파일로 옮깁니다. 아래 <strong>13개</strong>를 위에서부터 순서대로 따라 하면 됩니다.</p>
+  </div>
+
+  <div class="step-parts">
+    <a class="step-part" href="02-1-models-alembic-overview.html"><b>2-1</b> 개요와 설계</a>
+    <a class="step-part current" href="02-2-models-alembic-impl.html"><b>2-2</b> 구현</a>
+    <a class="step-part" href="02-3-models-alembic-verify.html"><b>2-3</b> 실행·확인</a>
+  </div>
+
+  <div class="callout callout-note">
+    <div class="callout-icon"></div>
+    <div class="callout-body"><strong>여기서부터 손을 움직입니다.</strong> 설계 그림이 흐릿하면 <a href="02-1-models-alembic-overview.html#design">2-1 설계 그림</a>으로 잠깐 돌아갔다 오세요. 이 문서를 끝내면 <a href="02-3-models-alembic-verify.html">2-3 실행·확인</a>에서 결과를 확인합니다.</div>
+  </div>
+
+  <!-- ───────────────────────── 구현 ───────────────────────── -->
+  <section class="section" id="impl">
+    <div class="section-header">
+      <div class="section-icon icon-insert">🔧</div>
+      <h2>구현 — 파일을 하나씩 만든다</h2>
+    </div>
+    <p>순서는 <strong>의존성 → 모델 → 테스트(실패 확인) → Alembic → 마이그레이션 생성·실행</strong>입니다. 각 코드 블록은 붙여넣으면 그대로 도는 전체 파일이고, "(수정)"이 붙은 블록만 기존 파일의 일부를 바꾸는 것입니다.</p>
+
+    <h3 id="impl-1">① Alembic 설치와 ruff 설정</h3>
+    <p>Alembic은 운영 서버에서도 마이그레이션을 실행해야 하므로 <code>--dev</code> 없이 일반 의존성으로 넣습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv add alembic
+# 검증 당시: alembic 1.19.1</code></pre>
+    </div>
+
+    <p>그리고 <code>pyproject.toml</code>의 ruff 설정 두 곳을 손봅니다. 이유가 둘 있습니다. 첫째, 잠시 뒤 프로젝트 안에 <code>alembic/</code>이라는 <em>폴더</em>가 생기는데, ruff는 그걸 보고 "<code>alembic</code>은 이 프로젝트의 자체 모듈이구나"라고 오해합니다. 그러면 <code>from alembic import context</code>를 외부 라이브러리가 아닌 내 코드 취급해서 import 정렬을 틀리게 잡습니다. <code>known-third-party</code>로 바로잡습니다. 둘째, Alembic이 자동 생성하는 마이그레이션 파일은 우리 스타일 규칙(줄 길이, 따옴표)을 안 지키는데, 자동 생성물을 매번 손으로 고치는 건 의미가 없으니 검사에서 뺍니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">toml</span><span class="code-filename">(수정) pyproject.toml — [tool.ruff] 부터 [tool.ruff.lint.isort] 까지를 이렇게 바꾼다</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-ini">[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["alembic/versions"]  # 자동 생성 파일은 검사 제외
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["alembic"]  # 프로젝트에 alembic/ 폴더가 있어 1st-party 로 오인하는 것 방지</code></pre>
+    </div>
+    <div class="callout callout-tip">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>무엇이 바뀌었나.</strong> 1단계의 <code>[tool.ruff]</code>에 <code>extend-exclude</code> 한 줄이 추가됐고, <code>[tool.ruff.lint.isort]</code> 섹션이 새로 생겼습니다. <code>[tool.pytest.ini_options]</code>는 그대로 둡니다.</div>
+    </div>
+
+    <h3 id="impl-2">② app/models/base.py — 모든 모델의 부모와 공통 컬럼</h3>
+    <p><code>Base</code>는 Week 5·02의 <code>DeclarativeBase</code> 그대로입니다. 여기에 <strong>믹스인</strong> 두 개를 추가합니다. 네 테이블 모두 <code>id</code>(UUID)와 <code>created_at</code>을 갖는데, 매번 같은 두 줄을 복사하지 않고 작은 클래스로 빼서 상속시키는 방식입니다. <code>sort_order</code>는 믹스인 컬럼이 테이블에서 몇 번째에 올지 정하는 옵션인데, 이게 없으면 믹스인의 컬럼은 자식 클래스 컬럼 <em>뒤에</em> 붙어서 <code>id</code>가 맨 마지막 컬럼이 되는 어색한 테이블이 됩니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/models/base.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    """모든 모델의 부모. Base.metadata 에 테이블 정의가 모인다 (Alembic 이 이걸 본다)."""
+
+
+class UUIDPrimaryKeyMixin:
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4, sort_order=-100)
+
+
+class CreatedAtMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, sort_order=100
+    )</code></pre>
+    </div>
+    <p>두 가지 선택을 설명하면, <strong>UUID를 기본키로</strong> 쓴 이유는 경매 ID가 URL에 노출되기 때문입니다. 정수 ID는 <code>/auctions/1</code>, <code>/auctions/2</code>처럼 다음 번호가 뻔해서 남의 경매를 순서대로 긁어갈 수 있습니다. <code>default=uuid.uuid4</code>는 파이썬 쪽에서 값을 만들어 INSERT하라는 뜻입니다. <strong><code>server_default=func.now()</code></strong>는 반대로 DB가 값을 채우게 하는 것인데, 여러 서버의 시계가 조금씩 달라도 DB 시계 하나를 기준으로 통일되는 장점이 있습니다.</p>
+
+    <h3 id="impl-3">③ app/models/enums.py — 상태와 분류</h3>
+    <p>경매 상태·카테고리·결제 상태처럼 "정해진 값 중 하나"는 파이썬 <code>StrEnum</code>으로 정의합니다. 문자열을 상속하기 때문에 <code>AuctionStatus.ACTIVE == "active"</code>가 참이고, JSON으로 내보낼 때도 그냥 문자열이 됩니다. 맨 아래 <code>enum_values</code>는 SQLAlchemy가 DB에 저장할 값 목록을 만들어 주는 작은 도우미입니다 — 이게 없으면 SQLAlchemy는 <em>이름</em>(<code>"ACTIVE"</code>)을 저장하는데, 우리는 <em>값</em>(<code>"active"</code>)을 저장하고 싶습니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/models/enums.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from enum import StrEnum
+
+
+class AuctionStatus(StrEnum):
+    SCHEDULED = "scheduled"  # 시작 전
+    ACTIVE = "active"  # 입찰 받는 중
+    ENDED = "ended"  # 마감 (낙찰 또는 유찰)
+    CANCELLED = "cancelled"  # 판매자가 취소 (입찰 0건일 때만)
+
+
+class AuctionCategory(StrEnum):
+    ELECTRONICS = "electronics"
+    FASHION = "fashion"
+    HOME = "home"
+    BOOKS = "books"
+    HOBBY = "hobby"
+    ETC = "etc"
+
+
+class PaymentStatus(StrEnum):
+    PENDING = "pending"  # 낙찰 직후, 결제 대기
+    PAID = "paid"
+    EXPIRED = "expired"  # 기한 내 미결제
+
+
+def enum_values(enum_cls: type[StrEnum]) -&gt; list[str]:
+    """Enum(values_callable=...) 용 — DB 에 이름("ACTIVE") 대신 값("active") 을 저장한다."""
+    return [m.value for m in enum_cls]</code></pre>
+    </div>
+
+    <h3 id="impl-4">④ app/models/user.py — 사용자</h3>
+    <p>가장 단순한 모델입니다. 믹스인 두 개와 <code>Base</code>를 상속하면 <code>id</code>와 <code>created_at</code>이 자동으로 따라옵니다. <code>Mapped[str]</code>처럼 <code>| None</code>이 없는 타입은 <code>NOT NULL</code>이 됩니다(Week 5·02의 nullable 규칙). 비밀번호는 절대 평문으로 저장하지 않으므로 컬럼 이름부터 <code>password_hash</code>입니다 — 해싱은 3단계에서 합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/models/user.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
+
+
+class User(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "users"
+
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    nickname: Mapped[str] = mapped_column(String(50))</code></pre>
+    </div>
+
+    <h3 id="impl-5">⑤ app/models/auction.py — 경매 (핵심 테이블)</h3>
+    <p>가장 긴 모델이니 위에서부터 읽어 내려가겠습니다. <code>__table_args__</code>에는 컬럼이 아닌 테이블 수준 정의(CHECK 제약, 복합 인덱스)를 넣습니다. 제약마다 <code>name=</code>을 꼭 붙이세요. 이름이 없으면 DB가 임의의 이름을 붙이는데, 나중에 마이그레이션으로 제약을 지우거나 바꿀 때 그 이름을 알아야 해서 곤란해집니다.</p>
+    <p><code>users</code>로 가는 외래키가 <strong>둘</strong>입니다. <code>seller_id</code>는 판매자라 필수이고 <code>ondelete="CASCADE"</code>(판매자가 탈퇴하면 경매도 삭제), <code>winner_id</code>는 낙찰 전엔 비어 있으니 <code>| None</code>이고 <code>SET NULL</code>(낙찰자가 탈퇴해도 경매 기록은 남기되 낙찰자만 비움)입니다. 이렇게 같은 테이블로 가는 관계가 둘이면 <code>relationship()</code>에 <code>foreign_keys=</code>로 "이 관계는 이 컬럼을 쓴다"를 명시해야 합니다. 안 하면 SQLAlchemy가 어느 컬럼으로 조인할지 몰라 에러를 냅니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/models/auction.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import (
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
+from app.models.enums import AuctionCategory, AuctionStatus, enum_values
+
+if TYPE_CHECKING:
+    from app.models.bid import Bid
+    from app.models.user import User
+
+
+class Auction(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "auctions"
+    __table_args__ = (
+        CheckConstraint("starting_price &gt; 0", name="ck_auctions_starting_price_positive"),
+        CheckConstraint("current_price &gt; 0", name="ck_auctions_current_price_positive"),
+        CheckConstraint("min_increment &gt; 0", name="ck_auctions_min_increment_positive"),
+        CheckConstraint("ends_at &gt; starts_at", name="ck_auctions_ends_after_starts"),
+        Index("ix_auctions_status_ends_at", "status", "ends_at"),
+    )
+
+    seller_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(Text, default="")
+    category: Mapped[AuctionCategory] = mapped_column(
+        Enum(AuctionCategory, native_enum=False, length=20, values_callable=enum_values)
+    )
+    starting_price: Mapped[int] = mapped_column(BigInteger)
+    current_price: Mapped[int] = mapped_column(BigInteger)
+    min_increment: Mapped[int] = mapped_column(BigInteger, default=1000)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    status: Mapped[AuctionStatus] = mapped_column(
+        Enum(AuctionStatus, native_enum=False, length=20, values_callable=enum_values),
+        default=AuctionStatus.SCHEDULED,
+    )
+    bid_count: Mapped[int] = mapped_column(default=0)
+    winner_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    version: Mapped[int] = mapped_column(default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), sort_order=101
+    )
+
+    seller: Mapped["User"] = relationship(foreign_keys=[seller_id])
+    winner: Mapped["User | None"] = relationship(foreign_keys=[winner_id])
+    bids: Mapped[list["Bid"]] = relationship(
+        back_populates="auction", cascade="all, delete-orphan", order_by="Bid.amount.desc()"
+    )</code></pre>
+    </div>
+    <p>몇 가지 더 짚습니다. <code>if TYPE_CHECKING:</code> 블록 안의 import는 <strong>타입 검사기만</strong> 보고 실행 시에는 무시됩니다. <code>auction.py</code>가 <code>bid.py</code>를 import하고 <code>bid.py</code>가 다시 <code>auction.py</code>를 import하면 순환 참조로 터지는데, 이 방법으로 피합니다. 그래서 <code>relationship</code>의 타입은 따옴표로 감싼 문자열(<code>"Bid"</code>)입니다. <code>version</code>은 6단계 낙관적 락에서, <code>bid_count</code>·<code>current_price</code>는 6단계 입찰에서 갱신합니다. 지금은 자리만 잡아 둡니다.</p>
+
+    <h3 id="impl-6">⑥ app/models/bid.py — 입찰</h3>
+    <p>"이 경매의 최고 입찰"을 찾는 쿼리는 <code>WHERE auction_id = ? ORDER BY amount DESC LIMIT 1</code>입니다. 이 쿼리에 딱 맞는 인덱스가 <code>(auction_id, amount DESC)</code>인데, 내림차순 인덱스는 <code>__table_args__</code> 안의 문자열 방식으로는 표현할 수 없어서 클래스 <em>밖</em>에서 컬럼 객체로 만듭니다. <code>Bid.amount.desc()</code>처럼요. 파일 어디에 쓰든 <code>Base.metadata</code>에 등록되므로 Alembic이 똑같이 인식합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/models/bid.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import uuid
+from typing import TYPE_CHECKING
+
+from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
+
+if TYPE_CHECKING:
+    from app.models.auction import Auction
+    from app.models.user import User
+
+
+class Bid(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "bids"
+    __table_args__ = (CheckConstraint("amount &gt; 0", name="ck_bids_amount_positive"),)
+
+    auction_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("auctions.id", ondelete="CASCADE"))
+    bidder_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    amount: Mapped[int] = mapped_column(BigInteger)
+
+    auction: Mapped["Auction"] = relationship(back_populates="bids")
+    bidder: Mapped["User"] = relationship()
+
+
+# "이 경매의 최고 입찰" 을 빨리 찾기 위한 복합 인덱스 (auction_id 오름차순, amount 내림차순)
+Index("ix_bids_auction_id_amount_desc", Bid.auction_id, Bid.amount.desc())</code></pre>
+    </div>
+
+    <h3 id="impl-7">⑦ app/models/payment.py — 결제</h3>
+    <p>경매 하나에 결제는 하나뿐이므로 <code>auction_id</code>에 <code>unique=True</code>를 겁니다. 이 한 줄이 "낙찰 처리가 실수로 두 번 돌아도 결제가 두 건 생기지 않는다"를 DB 수준에서 보장해 주고, 8단계 마감 워커의 멱등성을 뒷받침합니다. <code>external_id</code>·<code>paid_at</code>은 결제 전엔 비어 있으니 <code>| None</code>입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/models/payment.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, Enum, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
+from app.models.enums import PaymentStatus, enum_values
+
+if TYPE_CHECKING:
+    from app.models.auction import Auction
+    from app.models.user import User
+
+
+class Payment(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
+    __tablename__ = "payments"
+    __table_args__ = (CheckConstraint("amount &gt; 0", name="ck_payments_amount_positive"),)
+
+    auction_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("auctions.id", ondelete="CASCADE"), unique=True
+    )
+    payer_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    amount: Mapped[int] = mapped_column(BigInteger)
+    status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus, native_enum=False, length=20, values_callable=enum_values),
+        default=PaymentStatus.PENDING,
+    )
+    external_id: Mapped[str | None] = mapped_column(String(100))  # PG 가 발급한 결제 ID (9단계)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    auction: Mapped["Auction"] = relationship()
+    payer: Mapped["User"] = relationship()</code></pre>
+    </div>
+
+    <h3 id="impl-8">⑧ app/models/__init__.py — 한 곳에서 전부 import</h3>
+    <p>1단계에서 빈 파일로 만들었던 것을 채웁니다. SQLAlchemy는 <strong>import된 모델만</strong> <code>Base.metadata</code>에 등록하기 때문에, Alembic이나 테스트가 <code>from app.models import Base</code> 한 줄로 네 테이블을 전부 보게 하려면 여기서 모두 import해 둬야 합니다. 이걸 빠뜨리면 autogenerate가 "테이블이 없네요"라며 빈 마이그레이션을 만들거나, 심지어 있는 테이블을 지우는 마이그레이션을 만듭니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">app/models/__init__.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""모델을 한 곳에서 import 해 두면 Base.metadata 에 모든 테이블이 등록된다.
+
+Alembic env.py 와 테스트는 `from app.models import Base` 한 줄로 전체 스키마를 본다.
+"""
+
+from app.models.auction import Auction
+from app.models.base import Base
+from app.models.bid import Bid
+from app.models.enums import AuctionCategory, AuctionStatus, PaymentStatus
+from app.models.payment import Payment
+from app.models.user import User
+
+__all__ = [
+    "Auction",
+    "AuctionCategory",
+    "AuctionStatus",
+    "Base",
+    "Bid",
+    "Payment",
+    "PaymentStatus",
+    "User",
+]</code></pre>
+    </div>
+    <p>여기까지 하고 모델이 제대로 등록되는지 한 줄로 확인합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run python -c "from app.models import Base; print(sorted(Base.metadata.tables))"
+# ['auctions', 'bids', 'payments', 'users']
+uv run ruff check .
+# All checks passed!</code></pre>
+    </div>
+
+    <h3 id="impl-9">⑨ 테스트부터 — tests/test_models.py</h3>
+    <p>DB에 테이블을 만들기 <em>전에</em> 테스트를 씁니다. 세 가지를 확인합니다. 모델 메타데이터에 네 테이블이 선언돼 있는가, DB에 실제로 네 테이블이 있는가, 그리고 경매 한 건을 넣어 보면 기본값(<code>status</code>, <code>min_increment</code> 등)이 채워지고 <code>ends_at ≤ starts_at</code>인 데이터는 DB가 거부하는가.</p>
+    <p>아직 테스트 전용 DB와 자동 롤백 장치는 없습니다(3단계). 그래서 이 테스트는 <strong>개발 DB에 붙되 절대 커밋하지 않습니다.</strong> <code>flush()</code>는 INSERT를 DB에 보내되 트랜잭션은 열어 둔 상태라, 마지막에 <code>rollback()</code>하면 흔적이 남지 않습니다. 또 하나, pytest-asyncio가 아직 없어서 <code>asyncio.run()</code>으로 코루틴을 돌리는데, 이벤트 루프를 닫기 전에 <code>engine.dispose()</code>로 그 루프에서 만든 커넥션을 정리해야 합니다. 안 그러면 다음 테스트가 "닫힌 루프의 커넥션"을 꺼내 쓰다 에러가 납니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">tests/test_models.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">"""2단계 스모크 테스트 — 모델 정의와 실제 DB 스키마가 맞물리는지 확인한다.
+
+아직 테스트 전용 DB·롤백 fixture(3단계)가 없으므로, 개발 DB 에 연결하되
+커밋은 절대 하지 않고 rollback 으로 흔적을 남기지 않는다.
+"""
+
+import asyncio
+import uuid
+from collections.abc import Coroutine
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import pytest
+from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
+
+from app.core.db import SessionLocal, engine
+from app.models import Auction, AuctionCategory, AuctionStatus, Base, User
+
+EXPECTED_TABLES = {"users", "auctions", "bids", "payments"}
+
+
+def run(coro: Coroutine[Any, Any, Any]) -&gt; Any:
+    """코루틴을 실행하고, 이 이벤트 루프에서 만든 커넥션을 반드시 정리한다."""
+
+    async def wrapper() -&gt; Any:
+        try:
+            return await coro
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(wrapper())
+
+
+def test_metadata_declares_all_tables():
+    assert EXPECTED_TABLES &lt;= set(Base.metadata.tables)
+
+
+def test_tables_exist_after_migration():
+    async def table_names() -&gt; set[str]:
+        async with engine.connect() as conn:
+            return set(await conn.run_sync(lambda c: inspect(c).get_table_names()))
+
+    assert EXPECTED_TABLES &lt;= run(table_names())
+
+
+def test_auction_defaults_and_check_constraint():
+    async def scenario() -&gt; None:
+        async with SessionLocal() as session:
+            seller = User(
+                email=f"seller-{uuid.uuid4()}@example.com", password_hash="x", nickname="셀러"
+            )
+            session.add(seller)
+            await session.flush()  # INSERT 는 나가지만 커밋은 아니다 → seller.id 가 채워진다
+
+            now = datetime.now(UTC)
+            auction = Auction(
+                seller_id=seller.id,
+                title="중고 키보드",
+                category=AuctionCategory.ELECTRONICS,
+                starting_price=10_000,
+                current_price=10_000,
+                starts_at=now,
+                ends_at=now + timedelta(hours=1),
+            )
+            session.add(auction)
+            await session.flush()
+            await session.refresh(auction)  # server_default(created_at 등) 를 DB 에서 읽어 온다
+
+            assert auction.status == AuctionStatus.SCHEDULED
+            assert auction.min_increment == 1_000
+            assert auction.bid_count == 0
+            assert auction.version == 0
+            assert auction.created_at.tzinfo is not None
+
+            # ends_at &lt;= starts_at 은 DB 의 CHECK 제약이 막아야 한다
+            bad = Auction(
+                seller_id=seller.id,
+                title="잘못된 경매",
+                category=AuctionCategory.ETC,
+                starting_price=1_000,
+                current_price=1_000,
+                starts_at=now,
+                ends_at=now,
+            )
+            session.add(bad)
+            with pytest.raises(IntegrityError):
+                await session.flush()
+
+            await session.rollback()  # 지금까지의 INSERT 를 전부 되돌린다 → DB 는 깨끗
+
+    run(scenario())</code></pre>
+    </div>
+    <p>지금 돌리면 테이블이 없으니 두 개가 실패해야 정상입니다. 에러 메시지에 <code>relation "users" does not exist</code>가 보이면 됩니다 — "DB에 아직 테이블이 없다"는 뜻이고, 이걸 Alembic으로 해결하는 게 다음 순서입니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run pytest -q
+# E   AssertionError: assert {'auctions', ...nts', 'users'} &lt;= {'alembic_version'}   ← 또는 빈 집합
+# E   asyncpg.exceptions.UndefinedTableError: relation "users" does not exist
+# 2 failed, 2 passed</code></pre>
+    </div>
+
+    <h3 id="impl-10">⑩ Alembic 초기화</h3>
+    <p><code>-t async</code>는 "비동기 드라이버(asyncpg)용 템플릿으로"라는 뜻입니다. 마지막 인자 <code>alembic</code>은 만들어질 폴더 이름입니다. 실행하면 <code>alembic.ini</code>(설정)와 <code>alembic/</code> 폴더(<code>env.py</code>, <code>script.py.mako</code>, <code>versions/</code>)가 생깁니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run alembic init -t async alembic
+# Creating directory .../alembic ...  done
+# Generating .../alembic/env.py ...  done
+# Generating .../alembic.ini ...  done
+# Please edit configuration/connection/logging settings in .../alembic.ini before proceeding.</code></pre>
+    </div>
+
+    <p>생성된 <code>alembic.ini</code>에는 <code>sqlalchemy.url = driver://user:pass@localhost/dbname</code>이라는 자리표시 줄이 있습니다. 여기에 진짜 주소를 적으면 비밀번호가 git에 올라가고, <code>.env</code>와 이중 관리가 됩니다. 그래서 이 줄은 <strong>주석 처리</strong>하고, 잠시 뒤 <code>env.py</code>에서 1단계의 <code>Settings</code>로부터 주소를 주입합니다. 아래 명령이 그 줄을 찾아 주석으로 바꿉니다(직접 편집기로 열어 줄 앞에 <code>#</code>을 붙여도 됩니다).</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">sed -i '' 's|^sqlalchemy.url = driver://user:pass@localhost/dbname|# sqlalchemy.url 은 env.py 에서 Settings(.env) 로 주입한다\n# sqlalchemy.url =|' alembic.ini
+grep -n "sqlalchemy.url" alembic.ini
+# 89:# sqlalchemy.url 은 env.py 에서 Settings(.env) 로 주입한다
+# 90:# sqlalchemy.url =</code></pre>
+    </div>
+    <div class="callout callout-note">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>Linux라면</strong> <code>sed -i ''</code> 대신 <code>sed -i</code>(빈 따옴표 없이)입니다. macOS의 sed만 <code>-i</code> 뒤에 백업 확장자를 요구합니다. <code>grep</code> 결과의 줄 번호(89·90)는 Alembic 버전에 따라 조금 다를 수 있습니다.</div>
+    </div>
+
+    <h3 id="impl-11">⑪ alembic/env.py — 우리 프로젝트에 맞게 전면 교체</h3>
+    <p>템플릿이 만들어 준 <code>env.py</code>를 아래 내용으로 <strong>통째로 바꿉니다.</strong> 템플릿과 다른 곳은 세 군데뿐입니다. <code>config.set_main_option("sqlalchemy.url", ...)</code>으로 <code>.env</code>의 주소를 주입하는 것, <code>target_metadata = Base.metadata</code>로 "현재 모델"을 알려 주는 것, 그리고 <code>compare_type=True</code>로 컬럼 타입 변경도 감지하게 하는 것입니다. 나머지는 Week 10·02에서 본 async 템플릿 그대로입니다 — Alembic 자체는 동기 라이브러리라서 <code>run_sync</code>로 감싸 실행합니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">alembic/env.py</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-python">import asyncio
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import pool
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from app.core.config import get_settings
+from app.models import Base
+
+# Alembic Config 객체 — alembic.ini 의 값에 접근한다
+config = context.config
+
+# alembic.ini 의 sqlalchemy.url 대신 앱의 Settings(.env) 에서 접속 주소를 가져온다.
+# → 앱과 마이그레이션이 같은 DB 를 보게 되고, 비밀번호가 ini 에 박히지 않는다.
+config.set_main_option("sqlalchemy.url", get_settings().database_url)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
+
+# autogenerate 가 "현재 모델" 로 삼는 메타데이터
+target_metadata = Base.metadata
+
+
+def run_migrations_offline() -&gt; None:
+    """DB 연결 없이 SQL 만 출력하는 모드 (alembic upgrade head --sql)."""
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def do_run_migrations(connection: Connection) -&gt; None:
+    context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_async_migrations() -&gt; None:
+    """asyncpg 엔진으로 연결한 뒤, 동기 API 인 Alembic 을 run_sync 로 감싸 실행한다."""
+    connectable = async_engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
+
+
+def run_migrations_online() -&gt; None:
+    asyncio.run(run_async_migrations())
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()</code></pre>
+    </div>
+    <p><code>from app.core.config import get_settings</code>가 되는 이유는 <code>alembic.ini</code>의 <code>prepend_sys_path = .</code> 덕분입니다. 프로젝트 루트를 import 경로에 넣어 주기 때문에, <strong>alembic 명령은 항상 프로젝트 루트(<code>pyproject.toml</code>이 있는 곳)에서</strong> 실행해야 합니다. 다른 폴더에서 실행하면 <code>app</code>을 못 찾습니다.</p>
+
+    <h3 id="impl-12">⑫ 첫 마이그레이션 만들기 — autogenerate</h3>
+    <p>이제 Alembic에게 "모델과 DB를 비교해서 차이를 파일로 적어라"고 합니다. DB는 비어 있고 모델엔 테이블 넷이 있으니 "네 테이블을 만들어라"는 파일이 생깁니다. 로그에 <code>Detected added table</code>이 4번, <code>Detected added index</code>가 5번 찍히는지 확인하세요.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run alembic revision --autogenerate -m "create users auctions bids payments"
+# INFO  [alembic.autogenerate.compare.tables] Detected added table 'users'
+# INFO  [alembic.autogenerate.compare.tables] Detected added table 'auctions'
+# INFO  [alembic.autogenerate.compare.constraints] Detected added index 'ix_auctions_seller_id' on '('seller_id',)'
+# INFO  [alembic.autogenerate.compare.constraints] Detected added index 'ix_auctions_status_ends_at' on '('status', 'ends_at')'
+# INFO  [alembic.autogenerate.compare.tables] Detected added table 'bids'
+# INFO  [alembic.autogenerate.compare.constraints] Detected added index 'ix_bids_auction_id_amount_desc' on '('auction_id', 'amount')'
+# INFO  [alembic.autogenerate.compare.constraints] Detected added index 'ix_bids_bidder_id' on '('bidder_id',)'
+# INFO  [alembic.autogenerate.compare.tables] Detected added table 'payments'
+# INFO  [alembic.autogenerate.compare.constraints] Detected added index 'ix_payments_payer_id' on '('payer_id',)'
+# Generating .../alembic/versions/8d6a60ccfea0_create_users_auctions_bids_payments.py ...  done</code></pre>
+    </div>
+    <div class="callout callout-warn">
+      <div class="callout-icon"></div>
+      <div class="callout-body"><strong>파일 이름의 <code>8d6a60ccfea0</code>은 여러분 컴퓨터에서는 다른 값입니다.</strong> 마이그레이션마다 무작위 ID가 붙습니다. 그래서 아래 파일 내용은 <em>복사해서 만드는 게 아니라</em> 위 명령이 생성한 결과를 <strong>읽고 검토하는 용도</strong>입니다. 내용이 아래와 같은 모양이면 성공입니다. autogenerate는 편리하지만 완벽하지 않으니(함정 절 참고) 실무에서는 생성된 파일을 반드시 눈으로 확인한 뒤 실행합니다.</div>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">python</span><span class="code-filename">(참고) 자동 생성된 alembic/versions/&lt;rev&gt;_create_users_auctions_bids_payments.py</span></div>
+      <pre><code class="language-python">"""create users auctions bids payments
+
+Revision ID: 8d6a60ccfea0
+Revises:
+Create Date: 2026-08-25 15:28:28.170560
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision: str = '8d6a60ccfea0'
+down_revision: Union[str, Sequence[str], None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -&gt; None:
+    """Upgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table('users',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('email', sa.String(length=255), nullable=False),
+    sa.Column('password_hash', sa.String(length=255), nullable=False),
+    sa.Column('nickname', sa.String(length=50), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('email')
+    )
+    op.create_table('auctions',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('seller_id', sa.Uuid(), nullable=False),
+    sa.Column('title', sa.String(length=120), nullable=False),
+    sa.Column('description', sa.Text(), nullable=False),
+    sa.Column('category', sa.Enum('electronics', 'fashion', 'home', 'books', 'hobby', 'etc', name='auctioncategory', native_enum=False, length=20), nullable=False),
+    sa.Column('starting_price', sa.BigInteger(), nullable=False),
+    sa.Column('current_price', sa.BigInteger(), nullable=False),
+    sa.Column('min_increment', sa.BigInteger(), nullable=False),
+    sa.Column('starts_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('ends_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('status', sa.Enum('scheduled', 'active', 'ended', 'cancelled', name='auctionstatus', native_enum=False, length=20), nullable=False),
+    sa.Column('bid_count', sa.Integer(), nullable=False),
+    sa.Column('winner_id', sa.Uuid(), nullable=True),
+    sa.Column('version', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.CheckConstraint('current_price &gt; 0', name='ck_auctions_current_price_positive'),
+    sa.CheckConstraint('ends_at &gt; starts_at', name='ck_auctions_ends_after_starts'),
+    sa.CheckConstraint('min_increment &gt; 0', name='ck_auctions_min_increment_positive'),
+    sa.CheckConstraint('starting_price &gt; 0', name='ck_auctions_starting_price_positive'),
+    sa.ForeignKeyConstraint(['seller_id'], ['users.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['winner_id'], ['users.id'], ondelete='SET NULL'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_auctions_seller_id'), 'auctions', ['seller_id'], unique=False)
+    op.create_index('ix_auctions_status_ends_at', 'auctions', ['status', 'ends_at'], unique=False)
+    op.create_table('bids',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('auction_id', sa.Uuid(), nullable=False),
+    sa.Column('bidder_id', sa.Uuid(), nullable=False),
+    sa.Column('amount', sa.BigInteger(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.CheckConstraint('amount &gt; 0', name='ck_bids_amount_positive'),
+    sa.ForeignKeyConstraint(['auction_id'], ['auctions.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['bidder_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('ix_bids_auction_id_amount_desc', 'bids', ['auction_id', sa.literal_column('amount DESC')], unique=False)
+    op.create_index(op.f('ix_bids_bidder_id'), 'bids', ['bidder_id'], unique=False)
+    op.create_table('payments',
+    sa.Column('id', sa.Uuid(), nullable=False),
+    sa.Column('auction_id', sa.Uuid(), nullable=False),
+    sa.Column('payer_id', sa.Uuid(), nullable=False),
+    sa.Column('amount', sa.BigInteger(), nullable=False),
+    sa.Column('status', sa.Enum('pending', 'paid', 'expired', name='paymentstatus', native_enum=False, length=20), nullable=False),
+    sa.Column('external_id', sa.String(length=100), nullable=True),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('paid_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.CheckConstraint('amount &gt; 0', name='ck_payments_amount_positive'),
+    sa.ForeignKeyConstraint(['auction_id'], ['auctions.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['payer_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('auction_id')
+    )
+    op.create_index(op.f('ix_payments_payer_id'), 'payments', ['payer_id'], unique=False)
+    # ### end Alembic commands ###
+
+
+def downgrade() -&gt; None:
+    """Downgrade schema."""
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(op.f('ix_payments_payer_id'), table_name='payments')
+    op.drop_table('payments')
+    op.drop_index(op.f('ix_bids_bidder_id'), table_name='bids')
+    op.drop_index('ix_bids_auction_id_amount_desc', table_name='bids')
+    op.drop_table('bids')
+    op.drop_index('ix_auctions_status_ends_at', table_name='auctions')
+    op.drop_index(op.f('ix_auctions_seller_id'), table_name='auctions')
+    op.drop_table('auctions')
+    op.drop_table('users')
+    # ### end Alembic commands ###</code></pre>
+    </div>
+    <p>읽어 볼 포인트 세 개. <code>upgrade()</code>가 "적용", <code>downgrade()</code>가 "되돌리기"이고 순서가 정확히 반대입니다(payments부터 지워야 auctions를 지울 수 있으니까). CHECK 제약에 우리가 붙인 이름이 그대로 들어 있습니다. 그리고 <code>amount DESC</code> 인덱스가 <code>sa.literal_column('amount DESC')</code>로 잘 잡혔습니다.</p>
+
+    <h3 id="impl-13">⑬ 마이그레이션 실행</h3>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">bash</span><button class="code-copy" onclick="copyCode(this)">복사</button></div>
+      <pre><code class="language-bash">uv run alembic upgrade head
+# INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+# INFO  [alembic.runtime.migration] Will assume transactional DDL.
+# INFO  [alembic.runtime.migration] Running upgrade  -&gt; 8d6a60ccfea0, create users auctions bids payments</code></pre>
+    </div>
+    <p><code>head</code>는 "가장 최신 일지까지"라는 뜻입니다. <code>Will assume transactional DDL</code>은 Postgres의 장점으로, 테이블을 만드는 도중 하나라도 실패하면 전부 되돌아갑니다(MySQL은 안 됩니다). 여기까지 하면 파일 구조가 아래처럼 됩니다.</p>
+    <div class="code-block">
+      <div class="code-header"><span class="code-lang">text</span><span class="code-filename">(참고) 2단계 후 auction-api/ 구조</span></div>
+      <pre><code class="language-bash">auction-api/
+├── alembic.ini
+├── alembic/
+│   ├── env.py  script.py.mako  README
+│   └── versions/  &lt;rev&gt;_create_users_auctions_bids_payments.py
+├── app/
+│   ├── core/    config.py  db.py  redis.py
+│   ├── models/  __init__.py  base.py  enums.py  user.py  auction.py  bid.py  payment.py
+│   └── routers/ health.py
+├── tests/   test_health.py  test_models.py
+└── (1단계 파일들: pyproject.toml, docker-compose.yml, .env …)</code></pre>
+    </div>
+  </section>
+
+  <div class="part-pager">
+    <a class="part-pager-link prev" href="02-1-models-alembic-overview.html"><span class="part-pager-dir">← 이전</span><span class="part-pager-title">2-1 개요와 설계</span></a>
+    <a class="part-pager-link next" href="02-3-models-alembic-verify.html"><span class="part-pager-dir">다음 →</span><span class="part-pager-title">2-3 실행·확인</span></a>
+  </div>
+
+  <div class="doc-footer">
+    실시간 경매 API 캡스톤 · 2단계 · 모델링 + Alembic · 2-2 구현 · <a href="index.html">로드맵으로</a> · <a href="../../self-study/index.html">self-study로</a>
+  </div>
+
+</main>
+</div>
+
+<script src="../../self-study/assets/script.js"></script>
+</body>
+</html>

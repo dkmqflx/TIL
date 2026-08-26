@@ -24,6 +24,10 @@
   .rules li { counter-increment: rule; display: flex; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 14px; color: #374151; }
   .rules li::before { content: counter(rule); width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
   .rules li:last-child { border-bottom: none; }
+  .card-parts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .card-parts a { font-family: var(--mono); font-size: 10.5px; padding: 3px 8px; border: 1px solid var(--border);
+                  border-radius: 999px; color: var(--text-muted); text-decoration: none; }
+  .card-parts a:hover { border-color: var(--primary); color: var(--primary-dark); }
 </style>
 </head>
 <body>
@@ -35,7 +39,7 @@
       <span class="logo-badge">FastAPI</span>
       <span class="logo-text">실시간 경매 API</span>
     </a>
-    <div class="logo-sub">10단계 캡스톤 · self-study 10주의 실무 적용</div>
+    <div class="logo-sub">10단계 캡스톤 · 단계마다 개요 → 구현 → 확인</div>
   </div>
   <div class="sidebar-nav">
     <div class="nav-week active"><span class="wk-no">◆</span> 로드맵</div>
@@ -46,16 +50,16 @@
       <a class="nav-item" href="#domain">🏷️ 도메인 요약</a>
       <a class="nav-item" href="#progress">✅ 진행 체크</a>
     </div>
-    <a class="nav-week" href="01-skeleton.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
-    <a class="nav-week" href="02-models-alembic.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
-    <a class="nav-week" href="03-tests-auth.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
-    <a class="nav-week" href="04-auction-crud.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
-    <a class="nav-week" href="05-list-pagination.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
-    <a class="nav-week" href="06-bids-concurrency.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
-    <a class="nav-week" href="07-realtime-ws.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
-    <a class="nav-week" href="08-closer-worker.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
-    <a class="nav-week" href="09-payment-webhook.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
-    <a class="nav-week" href="10-deploy.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
+    <a class="nav-week" href="01-1-skeleton-overview.html"><span class="wk-no">1</span> 1단계 · 뼈대와 설정</a>
+    <a class="nav-week" href="02-1-models-alembic-overview.html"><span class="wk-no">2</span> 2단계 · 모델링 + Alembic</a>
+    <a class="nav-week" href="03-1-tests-auth-overview.html"><span class="wk-no">3</span> 3단계 · 테스트 인프라 + 인증</a>
+    <a class="nav-week" href="04-1-auction-crud-overview.html"><span class="wk-no">4</span> 4단계 · 경매 CRUD</a>
+    <a class="nav-week" href="05-1-list-pagination-overview.html"><span class="wk-no">5</span> 5단계 · 목록·페이지네이션</a>
+    <a class="nav-week" href="06-1-bids-concurrency-overview.html"><span class="wk-no">6</span> 6단계 · 입찰과 동시성</a>
+    <a class="nav-week" href="07-1-realtime-ws-overview.html"><span class="wk-no">7</span> 7단계 · 실시간 WebSocket</a>
+    <a class="nav-week" href="08-1-closer-worker-overview.html"><span class="wk-no">8</span> 8단계 · 마감 워커</a>
+    <a class="nav-week" href="09-1-payment-webhook-overview.html"><span class="wk-no">9</span> 9단계 · 결제 웹훅</a>
+    <a class="nav-week" href="10-1-deploy-overview.html"><span class="wk-no">10</span> 10단계 · 성능·관측성·배포</a>
   </div>
 </nav>
 
@@ -87,7 +91,7 @@
 
     <p>각 단계는 두 가지를 합니다. 하나는 self-study의 특정 주차 내용을 <strong>실무 코드 모양</strong>으로 옮기는 것이고, 다른 하나는 커리큘럼에 없었지만 실무에선 필수인 요소를 <strong>하나씩 보태는</strong> 것입니다. 예를 들어 2단계는 Week 5·7의 SQLAlchemy를 옮기면서 "처음부터 마이그레이션"을 보태고, 6단계는 Week 4·5의 락 개념을 옮기면서 "동시 50건 테스트"를 보탭니다.</p>
 
-    <div class="tip-box"><strong>진행 방법.</strong> 가이드는 왼쪽 사이드바 순서대로 읽습니다. 각 가이드에는 파일별 전체 코드, 실행 명령, 그리고 <strong>기대 출력</strong>이 적혀 있습니다. 마지막의 "완료 기준 체크리스트"가 전부 체크되면 커밋하고 다음 단계로 넘어가세요. 설계 전체가 궁금하면 <a href="../planning/2026-08-25-auction-api-design.md">설계 문서</a>를 보세요.</div>
+    <div class="tip-box"><strong>진행 방법.</strong> 한 단계는 <b>세 개의 문서</b>로 나뉩니다 — <b>N-1 개요와 설계</b>(왜 하는지·무엇을 만드는지), <b>N-2 구현</b>(파일을 하나씩 만드는 부분), <b>N-3 실행·확인</b>(진짜 도는지 확인하고 단계를 닫는 부분). 9·10단계는 구현이 커서 <b>N-2 / N-3</b> 둘로 갈라져 네 문서입니다. 왼쪽 사이드바와 문서 위쪽 탭으로 오갈 수 있고, 마지막의 "완료 기준 체크리스트"가 전부 체크되면 커밋하고 다음 단계로 넘어가세요. 설계 전체가 궁금하면 <a href="../planning/2026-08-25-auction-api-design.md">설계 문서</a>를 보세요.</div>
   </section>
 
   <!-- ───────────── 사전 준비 ───────────── -->
@@ -131,63 +135,73 @@ lsof -i :5435 -i :6380       # 아무것도 안 나와야 함 (포트 비어 있
     <div class="card-grid">
       <div class="card highlight">
         <div class="card-icon">🏗️</div>
-        <div class="card-title"><a href="01-skeleton.html">01 · 뼈대와 설정</a></div>
+        <div class="card-title"><a href="01-1-skeleton-overview.html">01 · 뼈대와 설정</a></div>
         <div class="card-body">uv·ruff·Settings·compose·lifespan·<code>/health</code></div>
         <div class="step-meta">W1, W3·03, W6·02/03<br><b>+ 환경별 설정 분리</b></div>
+        <div class="card-parts"><a href="01-1-skeleton-overview.html">1-1 개요</a><a href="01-2-skeleton-impl.html">1-2 구현</a><a href="01-3-skeleton-verify.html">1-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">🗃️</div>
-        <div class="card-title"><a href="02-models-alembic.html">02 · 모델링 + Alembic</a></div>
+        <div class="card-title"><a href="02-1-models-alembic-overview.html">02 · 모델링 + Alembic</a></div>
         <div class="card-body">User/Auction/Bid/Payment, 제약·인덱스, async Alembic</div>
         <div class="step-meta">W5, W7·01, W10·02<br><b>+ 처음부터 마이그레이션</b></div>
+        <div class="card-parts"><a href="02-1-models-alembic-overview.html">2-1 개요</a><a href="02-2-models-alembic-impl.html">2-2 구현</a><a href="02-3-models-alembic-verify.html">2-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">🔐</div>
-        <div class="card-title"><a href="03-tests-auth.html">03 · 테스트 인프라 + 인증</a></div>
+        <div class="card-title"><a href="03-1-tests-auth-overview.html">03 · 테스트 인프라 + 인증</a></div>
         <div class="card-body">롤백 세션·AsyncClient·팩토리, JWT access/refresh(Redis)</div>
         <div class="step-meta">W6·03, W8·01/02, W10·01<br><b>+ refresh 회전·폐기</b></div>
+        <div class="card-parts"><a href="03-1-tests-auth-overview.html">3-1 개요</a><a href="03-2-tests-auth-impl.html">3-2 구현</a><a href="03-3-tests-auth-verify.html">3-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">📦</div>
-        <div class="card-title"><a href="04-auction-crud.html">04 · 경매 CRUD</a></div>
+        <div class="card-title"><a href="04-1-auction-crud-overview.html">04 · 경매 CRUD</a></div>
         <div class="card-body">소유권·상태 머신·도메인 예외·표준 에러</div>
         <div class="step-meta">W2, W3, W6·01<br><b>+ TDD</b></div>
+        <div class="card-parts"><a href="04-1-auction-crud-overview.html">4-1 개요</a><a href="04-2-auction-crud-impl.html">4-2 구현</a><a href="04-3-auction-crud-verify.html">4-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">📄</div>
-        <div class="card-title"><a href="05-list-pagination.html">05 · 목록·페이지네이션</a></div>
+        <div class="card-title"><a href="05-1-list-pagination-overview.html">05 · 목록·페이지네이션</a></div>
         <div class="card-body">커서 keyset·필터·정렬·N+1</div>
         <div class="step-meta">W3·02, W5·03<br><b>+ 쿼리 카운트 테스트</b></div>
+        <div class="card-parts"><a href="05-1-list-pagination-overview.html">5-1 개요</a><a href="05-2-list-pagination-impl.html">5-2 구현</a><a href="05-3-list-pagination-verify.html">5-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">⚡</div>
-        <div class="card-title"><a href="06-bids-concurrency.html">06 · 입찰과 동시성</a></div>
+        <div class="card-title"><a href="06-1-bids-concurrency-overview.html">06 · 입찰과 동시성</a></div>
         <div class="card-body">SELECT FOR UPDATE·동시 50건·rate limit</div>
         <div class="step-meta">W4, W5·03<br><b>+ 비관적 vs 낙관적 락</b></div>
+        <div class="card-parts"><a href="06-1-bids-concurrency-overview.html">6-1 개요</a><a href="06-2-bids-concurrency-impl.html">6-2 구현</a><a href="06-3-bids-concurrency-verify.html">6-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">📡</div>
-        <div class="card-title"><a href="07-realtime-ws.html">07 · 실시간</a></div>
+        <div class="card-title"><a href="07-1-realtime-ws-overview.html">07 · 실시간</a></div>
         <div class="card-body">WebSocket + Redis Pub/Sub 멀티워커</div>
         <div class="step-meta">W9·01/02<br><b>+ 인증된 소켓</b></div>
+        <div class="card-parts"><a href="07-1-realtime-ws-overview.html">7-1 개요</a><a href="07-2-realtime-ws-impl.html">7-2 구현</a><a href="07-3-realtime-ws-verify.html">7-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">⏰</div>
-        <div class="card-title"><a href="08-closer-worker.html">08 · 마감 워커</a></div>
+        <div class="card-title"><a href="08-1-closer-worker-overview.html">08 · 마감 워커</a></div>
         <div class="card-body">활성화·마감·낙찰·Payment, SKIP LOCKED</div>
         <div class="step-meta">W4·01, W5·03<br><b>+ 멱등 배치</b></div>
+        <div class="card-parts"><a href="08-1-closer-worker-overview.html">8-1 개요</a><a href="08-2-closer-worker-impl.html">8-2 구현</a><a href="08-3-closer-worker-verify.html">8-3 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">💳</div>
-        <div class="card-title"><a href="09-payment-webhook.html">09 · 결제 웹훅</a></div>
+        <div class="card-title"><a href="09-1-payment-webhook-overview.html">09 · 결제 웹훅</a></div>
         <div class="card-body">모의 PG, httpx, HMAC 서명, 멱등키</div>
         <div class="step-meta">W7·02, W8·03<br><b>+ 웹훅 서명·멱등성</b></div>
+        <div class="card-parts"><a href="09-1-payment-webhook-overview.html">9-1 개요</a><a href="09-2-payment-webhook-impl-1.html">9-2 구현①</a><a href="09-3-payment-webhook-impl-2.html">9-3 구현②</a><a href="09-4-payment-webhook-verify.html">9-4 확인</a></div>
       </div>
       <div class="card">
         <div class="card-icon">🚀</div>
-        <div class="card-title"><a href="10-deploy.html">10 · 성능·관측성·배포</a></div>
+        <div class="card-title"><a href="10-1-deploy-overview.html">10 · 성능·관측성·배포</a></div>
         <div class="card-body">캐시·locust·JSON 로깅·Dockerfile·CI</div>
         <div class="step-meta">W4, W7·03, W9·03, W10·03<br><b>+ e2e 시나리오</b></div>
+        <div class="card-parts"><a href="10-1-deploy-overview.html">10-1 개요</a><a href="10-2-deploy-impl-1.html">10-2 구현①</a><a href="10-3-deploy-impl-2.html">10-3 구현②</a><a href="10-4-deploy-verify.html">10-4 확인</a></div>
       </div>
     </div>
   </section>
@@ -242,7 +256,7 @@ lsof -i :5435 -i :6380       # 아무것도 안 나와야 함 (포트 비어 있
 
   <div class="part-pager">
     <a class="part-pager-link prev" href="../../self-study/index.html"><span class="part-pager-dir">← self-study</span><span class="part-pager-title">10주 커리큘럼으로</span></a>
-    <a class="part-pager-link next" href="01-skeleton.html"><span class="part-pager-dir">시작 →</span><span class="part-pager-title">1단계 · 뼈대와 설정</span></a>
+    <a class="part-pager-link next" href="01-1-skeleton-overview.html"><span class="part-pager-dir">시작 →</span><span class="part-pager-title">1-1 개요와 설계</span></a>
   </div>
 
   <div class="doc-footer">
